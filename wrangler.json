@@ -1,6 +1,6 @@
 {
 	"name": "spot-kilmer-violin-website",
-	"compatibility_date": "2025-10-08",
+	"compatibility_date": "2026-04-20",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./dist/_worker.js/index.js",
 	"assets": {
