@@ -7,8 +7,19 @@
 		"directory": "./dist",
 		"binding": "ASSETS"
 	},
+	"d1_databases":
+		[
+			{
+				"binding": "DB_MAIN",
+				"database_name": "incessant-analogous-cryptid",
+				"database_id": "e05546aa-b643-4e4a-8fa1-b86a1a818f0f"
+ 			}
+		],
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"vars": {
+		"TEAM_DOMAIN": "test" // will replace later
+	}
 }
