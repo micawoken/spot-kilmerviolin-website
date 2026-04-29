@@ -1,0 +1,25 @@
+{
+	"name": "spot-kilmer-violin-website",
+	"compatibility_date": "2026-04-20",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "./dist/_worker.js/index.js",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	"d1_databases":
+		[
+			{
+				"binding": "DB_MAIN",
+				"database_name": "incessant-analogous-cryptid",
+				"database_id": "e05546aa-b643-4e4a-8fa1-b86a1a818f0f"
+ 			}
+		],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	"vars": {
+		"TEAM_DOMAIN": "test" // will replace later
+	}
+}
