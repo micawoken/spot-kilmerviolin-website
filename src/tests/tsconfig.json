@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": [
+      "@cloudflare/vitest-pool-workers", // provides `cloudflare:test` and `cloudflare:workers` types
+    ],
+  },
+  "include": [
+    "./**/*.ts",
+    "../src/worker-configuration.d.ts", // output of `wrangler types`
+  ],
+}
+
+// from https://developers.cloudflare.com/workers/testing/vitest-integration/write-your-first-test/
