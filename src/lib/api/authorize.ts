@@ -11,7 +11,7 @@
  * 
  */
 
-import { getRecordSpecificProp, CONTRIBUTOR } from "./d1";
+import { getRecordSpecificProp, CONTRIBUTOR } from "./d1.ts";
 
 
 export const roles: Record<string, RoleProfile> = {

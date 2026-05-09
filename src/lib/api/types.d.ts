@@ -12,6 +12,19 @@ interface ApiResponse {
     readonly comment: string;
 }
 
+interface CacheRecord {
+    payload: object;
+    comment: string;
+}
+
+interface KVMetadata {
+    v: number; // version
+    f: "text" | "json"; // type, or "f"orm
+    t: number; // timestamp, in milliseconds since epoch
+    e: number; // ttl in seconds
+    value: string | null;
+}
+
 // BaseIdentity is returned by the authentication library
 interface BaseIdentity { // stores data extracted from JWT
     readonly sub: string;
@@ -43,31 +56,17 @@ interface RoleProfile {
 
 // D1 TYPES
 
-enum SQLCompareOp {
-    EQ = "=",
-    NEQ = "<>",
-    GT = ">",
-    GTE = ">=",
-    LT = "<",
-    LTE = "<=",
-    IN = "IN",
-    NOT_IN = "NOT IN",
-    LIKE = "LIKE",
-    NOT_LIKE = "NOT LIKE",
-    BETWEEN = "BETWEEN",
-    NOT_BETWEEN = "NOT BETWEEN"
-}
-
 interface D1BaseSchema {
-    readonly db: D1Database
+    readonly db: D1Database // the D1 database object
 }
 
 interface D1Schema extends D1BaseSchema {
-    readonly name: string;
-    readonly columns: string[];
+    readonly name: string; // the table name
+    readonly columns: string[]; // the  column names in the table
     readonly repr_exclude: string[]; // colums omitted from the object representation but included in the database representation
-    readonly index: string[];
+    readonly index: string[]; // the primary key column, and other columns marked as unique or where there is an index created
     readonly primary_key: string;
+    readonly type_hint: Record<string, "string" | "number" | "null">; // provides info for VirtualSQLTable for type conversion
 }
 
 // DATA TYPES
@@ -82,20 +81,20 @@ interface ContributorPrimitive {
     image: string | null;
 }
 
-interface Contributor extends ContributorPrimitive {
+interface Contributor extends ContributorPrimitive { // API representation of a contributor
     phases: number[]; // list of phase numbers the contributor is involved in
     roles: string[]; // list of role names the contributor has
     active: boolean;
     admin: boolean;
 }
 
-interface ContributorRecord extends Contributor {
+interface ContributorRecord extends Contributor { // Contributor, but with fields indicating that it originates from D1
     id: number;
     entry_date: string; // ISO 8601 format
     
 }
 
-interface D1Contributor extends ContributorPrimitive {
+interface D1Contributor extends ContributorPrimitive { // database representation of Contributor
     contributor_id: number;
     entry_date: string; // ISO 8601 format
     active: number;
@@ -107,7 +106,7 @@ interface D1Contributor extends ContributorPrimitive {
 
 // only current role anticipated is "reviewer", which bypasses the contribution edit lockout for non-primary contributors
 
-interface Composer {
+interface Composer { // the API representation of a composer
     // an object representation of a composer
     name: string;
     role: string; // usually "composer", but can be defined as "arranger" or another type as declared
@@ -118,80 +117,18 @@ interface Composer {
     image: string | null; // refers to a file in assets, or an external URL
 }
 
-interface ComposerRecord extends Composer {
+interface ComposerRecord extends Composer { // Composer, but with fields indicating that it originates from D1
     // the default construct for a composer object that originates from D1
     id: number;
     entry_date: string; // ISO 8601 format
 }
 
-interface D1Composer extends Composer {
+interface D1Composer extends Composer { // database representation of Composer
     // the actual object representation stored in D1 before processing as a ComposerRecord
     // see D1Composition - record representation is different
     composer_id: number;
     entry_date: string; // ISO 8601 format
     [key: string]: string | number | null; // no additional fields expected; trying to clear compiler issue
-}
-
-enum WorkType {
-    OTHER = "Other",
-    CHAMBER = "Chamber",
-    ORCHESTRA_FULL = "Full Orchestra",
-    ORCHESTRA_STRING = "String Orchestra",
-    PROGRAMMATIC = "Programmatic",
-    SOLO_ACCOMPANIED = "Solo - Accompanied",
-    SOLO_UNACCOMPANIED = "Solo - Unaccompanied",
-    IRISH = "Traditional Irish" // additional entries should be added after the last entry
-}
-
-enum Key {
-    // key equivalency (enharmonics) are provided by a function in api/common.ts
-    C_MAJOR = "C Major",
-    C_MINOR = "C Minor",
-    Cs_MAJOR = "C# Major",
-    Cs_MINOR = "C# Minor",
-    Db_MAJOR = "Db Major",
-    Db_MINOR = "Db Minor",
-    D_MAJOR = "D Major",
-    D_MINOR = "D Minor",
-    Ds_MAJOR = "D# Major",
-    Ds_MINOR = "D# Minor",
-    Eb_MAJOR = "Eb Major",
-    Eb_MINOR = "Eb Minor",
-    E_MAJOR = "E Major",
-    E_MINOR = "E Minor",
-    Es_MAJOR = "E# Major",
-    Es_MINOR = "E# Minor",
-    Fb_MAJOR = "Fb Major",
-    Fb_MINOR = "Fb Minor",
-    F_MAJOR = "F Major",
-    F_MINOR = "F Minor",
-    Fs_MAJOR = "F# Major",
-    Fs_MINOR = "F# Minor",
-    Gb_MAJOR = "Gb Major",
-    Gb_MINOR = "Gb Minor",
-    G_MAJOR = "G Major",
-    G_MINOR = "G Minor",
-    Gs_MAJOR = "G# Major",
-    Gs_MINOR = "G# Minor",
-    Ab_MAJOR = "Ab Major",
-    Ab_MINOR = "Ab Minor",
-    A_MAJOR = "A Major",
-    A_MINOR = "A Minor",
-    As_MAJOR = "A# Major",
-    As_MINOR = "A# Minor",
-    Bb_MAJOR = "Bb Major",
-    Bb_MINOR = "Bb Minor",
-    B_MAJOR = "B Major",
-    B_MINOR = "B Minor",
-    Cb_MAJOR = "Cb Major",
-    Cb_MINOR = "Cb Minor"
-}
-
-enum AuthorRole {
-    COMPOSER = "composer",
-    ARRANGER = "arranger",
-    LYRICIST = "lyricist",
-    OTHER = "other"
 }
 
 interface CompositionRating {

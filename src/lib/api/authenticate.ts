@@ -17,7 +17,7 @@
 
 import { env } from "cloudflare:workers"
 import { jwtVerify, createRemoteJWKSet } from "jose"
-import { parseCookieHeader } from "./common"
+import { parseCookieHeader } from "./common.ts"
 
 type CredentialResult = ["cookie" | "Cf-Header" | "Auth-Header", string]
 // the credential source type is provided for convenience, but is not expected to be actually useful beyond logs

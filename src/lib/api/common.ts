@@ -7,6 +7,86 @@
  * 
  */
 
+// types
+
+export enum SQLCompareOp {
+    EQ = "=",
+    NEQ = "<>",
+    GT = ">",
+    GTE = ">=",
+    LT = "<",
+    LTE = "<=",
+    IN = "IN",
+    NOT_IN = "NOT IN",
+    LIKE = "LIKE",
+    NOT_LIKE = "NOT LIKE",
+    BETWEEN = "BETWEEN",
+    NOT_BETWEEN = "NOT BETWEEN"
+}
+
+export enum WorkType { // defines available work types
+    OTHER = "Other",
+    CHAMBER = "Chamber",
+    ORCHESTRA_FULL = "Full Orchestra",
+    ORCHESTRA_STRING = "String Orchestra",
+    PROGRAMMATIC = "Programmatic",
+    SOLO_ACCOMPANIED = "Solo - Accompanied",
+    SOLO_UNACCOMPANIED = "Solo - Unaccompanied",
+    IRISH = "Traditional Irish" // additional entries should be added after the last entry
+
+    // see lib/api/README.md for contact info on updating this enum
+}
+
+export enum Key {
+    // key equivalency (enharmonics) are provided by a function in api/common.ts
+    C_MAJOR = "C Major",
+    C_MINOR = "C Minor",
+    Cs_MAJOR = "C# Major",
+    Cs_MINOR = "C# Minor",
+    Db_MAJOR = "Db Major",
+    Db_MINOR = "Db Minor",
+    D_MAJOR = "D Major",
+    D_MINOR = "D Minor",
+    Ds_MAJOR = "D# Major",
+    Ds_MINOR = "D# Minor",
+    Eb_MAJOR = "Eb Major",
+    Eb_MINOR = "Eb Minor",
+    E_MAJOR = "E Major",
+    E_MINOR = "E Minor",
+    Es_MAJOR = "E# Major",
+    Es_MINOR = "E# Minor",
+    Fb_MAJOR = "Fb Major",
+    Fb_MINOR = "Fb Minor",
+    F_MAJOR = "F Major",
+    F_MINOR = "F Minor",
+    Fs_MAJOR = "F# Major",
+    Fs_MINOR = "F# Minor",
+    Gb_MAJOR = "Gb Major",
+    Gb_MINOR = "Gb Minor",
+    G_MAJOR = "G Major",
+    G_MINOR = "G Minor",
+    Gs_MAJOR = "G# Major",
+    Gs_MINOR = "G# Minor",
+    Ab_MAJOR = "Ab Major",
+    Ab_MINOR = "Ab Minor",
+    A_MAJOR = "A Major",
+    A_MINOR = "A Minor",
+    As_MAJOR = "A# Major",
+    As_MINOR = "A# Minor",
+    Bb_MAJOR = "Bb Major",
+    Bb_MINOR = "Bb Minor",
+    B_MAJOR = "B Major",
+    B_MINOR = "B Minor",
+    Cb_MAJOR = "Cb Major",
+    Cb_MINOR = "Cb Minor"
+}
+
+export enum AuthorRole {
+    COMPOSER = "composer",
+    ARRANGER = "arranger",
+    LYRICIST = "lyricist",
+    OTHER = "other"
+}
 
 // AUTHENTICATE/AUTHORIZE functions
 
@@ -31,23 +111,31 @@ export function parseCookieHeader(cookie_header: string): Record<string, string>
 export function sqlPrepOp(spec_line: [string, string | string[], SQLCompareOp]): [string, Array<string>] {
     const [param, value, op] = spec_line
     switch (op) {
-        case SQLCompareOp.EQ || SQLCompareOp.NEQ || SQLCompareOp.GT || SQLCompareOp.GTE || SQLCompareOp.LT || SQLCompareOp.LTE:
+        case SQLCompareOp.EQ:
+        case SQLCompareOp.NEQ:
+        case SQLCompareOp.GT:
+        case SQLCompareOp.GTE:
+        case SQLCompareOp.LT:
+        case SQLCompareOp.LTE:
             if (typeof value !== "string") {
                 throw new Error(`Invalid value type for operator ${op}: expected string, got ${typeof value}`)
             }
             return [`${param} ${op} ?`, [value]]
-        case SQLCompareOp.IN || SQLCompareOp.NOT_IN:
+        case SQLCompareOp.IN:
+        case SQLCompareOp.NOT_IN:
             if (!Array.isArray(value)) {
                 throw new Error(`Invalid value type for operator ${op}: expected array, got ${typeof value}`)
             }
             
             return [`${param} ${op} (${value.map(() => "?").join(", ")})`, value]
-        case SQLCompareOp.LIKE || SQLCompareOp.NOT_LIKE:
+        case SQLCompareOp.LIKE:
+        case SQLCompareOp.NOT_LIKE:
             if (typeof value !== "string") {
                 throw new Error(`Invalid value type for operator ${op}: expected string, got ${typeof value}`)
             }
             return [`${param} ${op} ?`, [value]]
-        case SQLCompareOp.BETWEEN || SQLCompareOp.NOT_BETWEEN:
+        case SQLCompareOp.BETWEEN:
+        case SQLCompareOp.NOT_BETWEEN:
             if (!Array.isArray(value) || value.length !== 2) {
                 throw new Error(`Invalid value type for operator ${op}: expected array of length 2, got ${typeof value} with length ${Array.isArray(value) ? value.length : "N/A"}`)
             }
@@ -159,15 +247,28 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
     }
 }
 
-export function formatWorkToD1(record: Composition): D1Composition {
+export function formatWorkToD1(record: Composition | CompositionRecord): D1Composition {
     // converts a Composition object to D1Composition
     // if the supplied object is a Composition, and not a CompositionRecord, the id and entry_date field are set to null equivalents
-    const { author_secondary, contrib_addl, rating, phases, publication_info, ...data } = record
+    let author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, data 
+    switch ("id" in record) {
+        case true:
+            // record is a CompositionRecord, so it has the id and entry_date fields, which are used in the output
+            ({ author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, ...data } = record as CompositionRecord)
+
+            break
+        case false:
+            // record is a Composition, so it does not have the id and entry_date fields; these are set to null equivalents in the output
+            ({ author_secondary, contrib_addl, rating, phases, publication_info, ...data } = record as Composition)
+            id = null
+            entry_date = null // it is assumed that Compositions retain their shape; also, entry_date is ignored for updates
+            break
+    }
+
     // the record could be a Composition or a CompositionRecord
-    const id: number | null = "id" in data ? (data as CompositionRecord).id : null
-    const entry_date: string = "entry_date" in data ? (data as CompositionRecord).entry_date : (new Date().toISOString())
     const rating_suzuki: number | null = rating ? rating.suzuki : null
     const rating_nyssma: number | null = rating ? rating.nyssma : null
+
     return {
         ...data,
         entry_date: entry_date,
@@ -257,17 +358,29 @@ export function formatCompFromD1(record: D1Composer): ComposerRecord {
     }
 }
 
-export function formatCompToD1(record: Composer): D1Composer {
+export function formatCompToD1(record: Composer | ComposerRecord): D1Composer {
     // converts a Composer object to D1Composer
     if ("composer_id" in record) {
         // D1Composer extends Composer, so it plausibly could be passed in
         // it is detected if it has the composer_id field, and if so, it is returned as-is (but with type assertion)
         return record as D1Composer
     }
-    const id = "id" in record ? (record as ComposerRecord).id : null
-    const entry_date = "entry_date" in record ? (record as ComposerRecord).entry_date : (new Date().toISOString())
+
+    let data, id, entry_date
+    switch ("id" in record) {
+        case true:
+            // record is a ComposerRecord, so it has the id and entry_date fields, which are used in the output
+            ({ id, entry_date, ...data } = record as ComposerRecord)
+            break
+        case false:
+            // record is just Composer
+            ({ ...data } = record as Composer)
+            id = null
+            entry_date = (new Date().toISOString()) // it is assumed that Composers retain their shape; also, entry_date is ignored for updates
+            break
+    }
     return {
-        ...record,
+        ...data,
         entry_date: entry_date,
         composer_id: id ? id : -1 // if id is set to -1, it cannot be used as a valid primary key for update
     }
@@ -305,12 +418,25 @@ export function formatContribFromD1(record: D1Contributor): ContributorRecord {
     }
 }
 
-export function formatContribToD1(record: Contributor): D1Contributor {
+export function formatContribToD1(record: Contributor | ContributorRecord): D1Contributor {
     // converts a Contributor object to D1Contributor
-    const id = "id" in record ? (record as ContributorRecord).id : null
-    const entry_date = "entry_date" in record ? (record as ContributorRecord).entry_date : (new Date().toISOString())
+
+    let data, id, entry_date
+    switch ("id" in record) {
+        case true:
+            // record is a ContributorRecord, so it has the id and entry_date fields, which are used in the output
+            ({ id, entry_date, ...data } = record as ContributorRecord)
+            break
+        case false:
+            // record is just Contributor
+            ({ ...data } = record as Contributor)
+            id = null
+            entry_date = (new Date().toISOString()) // it is assumed that Contributors retain their shape; also, entry_date is ignored for updates
+            break
+    }
+
     return {
-        ...record,
+        ...data,
         entry_date: entry_date,
         contributor_id: id ? id : -1, // if id is set to -1, it cannot be used as a valid primary key for update
         phases: record.phases ? record.phases.join(",") : "",
