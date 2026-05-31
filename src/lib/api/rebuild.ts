@@ -11,9 +11,16 @@
 import { env } from "cloudflare:workers"
 
 
+/**
+ * The path to the deploy hook, without the deploy hook ID secret
+ */
 const deploy_hook_url = "https://api.cloudflare.com/client/v4/workers/builds/deploy_hooks/"
 
-export async function rebuild() {
+/**
+ * Trigger an automated rebuild and deploy of the Astro site to Cloudflare Workers
+ * 
+ */
+export default async function rebuild() {
     const deploy_hook = deploy_hook_url + env.CF_DEPLOY_HOOK
     const response = await fetch(deploy_hook, {
         method: "POST"})

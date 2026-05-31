@@ -22,6 +22,12 @@ import { parseCookieHeader } from "./common.ts"
 type CredentialResult = ["cookie" | "Cf-Header" | "Auth-Header", string]
 // the credential source type is provided for convenience, but is not expected to be actually useful beyond logs
 
+/**
+ * Retrieves the Cloudflare Access JWT from a request, if it exists
+ * 
+ * @param {Request} request - the original Request object
+ * @returns {Promise<CredentialResult | null>} a Promise resolving to the credential or null if not found
+ */
 export async function retrieveCredential(request: Request): Promise<CredentialResult | null> {
     // borrowed from the mwm-go-shorturl project
 
@@ -65,7 +71,13 @@ export async function retrieveCredential(request: Request): Promise<CredentialRe
         
 }
 
-
+/**
+ * Parses and validates a Cloudflare Access JWT
+ * 
+ * @param {string | null} token - the JWT as a string, or null if no credential was found
+ * @param {string} aud - the expected audience claim for the JWT, which should match the CF Access application audience
+ * @returns {Promise<BaseIdentity | null | undefined>} a Promise resolving to a BaseIdentity object if the token is valid, null if the token is invalid, or undefined if the token is missing or the audience is not specified
+ */
 export async function parseJWT(token: string | null, aud: string): Promise<BaseIdentity | null | undefined> {
     // also borrowed from mwm-go-shorturl, but now returns a BaseIdentity object
 
@@ -79,6 +91,11 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
             nbf: nbf,
             exp: exp
         }
+    }
+
+    // during local development, the authentication process is skipped by env.AUTH_ENABLED on localhost
+    if (!env.AUTH_ENABLED && env.TEAM_DOMAIN === "localhost") {
+        return construct("Lovely Name", "example@example.com", 0, Infinity)
     }
 
     // a bypass during staging can be set, but it will not be implemented at the authentication level
@@ -135,4 +152,22 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
         // jwt validation failed - not cryptographically valid
         return null
     }
+}
+
+/**
+ * Validates the nbf and exp claims
+ * 
+ * @param {BaseIdentity} result - the result of JWT validation, which includes nbf and exp claims if they were provided in the JWT
+ * @returns {boolean} true if the current time is within the nbf and exp window, or if neither claim is provided;
+ */
+export function canUse(result: BaseIdentity): boolean {
+    // validates if the authentication result is usable in the current context
+    if ("nbf" in result && "exp" in result) {
+        const current_time: number = Math.floor(Date.now() / 1000) // in seconds since epoch
+        if (current_time < result.nbf || current_time > result.exp) {
+            return false
+        }
+    }
+    // as noted earlier, time may not advance during execution of a Cloudflare Worker isolate
+    return true
 }

@@ -1,7 +1,9 @@
 type Runtime = import("@astrojs/cloudflare").Runtime<Env>;
 
 declare namespace App {
-  interface Locals extends Runtime {}
+  interface Locals extends Runtime {
+    identity?: Identity
+  }
 }
 
 declare module "jose" { // jose from npmjs
@@ -80,9 +82,9 @@ declare module "jose" { // jose from npmjs
     jwksCacheInput
   }
 
-  function jwtVerify(jwt: string | Uint8Array, key: Uint8Array | CryptoKey | JWK | KeyObject, options?: JWTVerifyOptions): Promise<JWTVerifyResult>;
+  async function jwtVerify(jwt: string | Uint8Array, key: Uint8Array | CryptoKey | JWK | KeyObject, options?: JWTVerifyOptions): Promise<JWTVerifyResult>;
 
-  function createRemoteJWKSet(url: URL, options?: RemoteJWKSetOptions): Promise<CryptoKey>
+  async function createRemoteJWKSet(url: URL, options?: RemoteJWKSetOptions): Promise<CryptoKey>
 
   // don't need to define more functions than necessary
 
