@@ -1,36 +1,33 @@
 /**
- * pages/api/v1/composers.ts
+ * /pages/api/v1/works.ts
  * 
- * Returns a list of composer records
+ * List and create work entries
  * 
  */
 
 import type { APIRoute } from "astro"
-import { _stateTypeAssertCompleteComposer, getRecord } from "../../../lib/api/d1"
-import { addComposer, listComposers } from "../../../lib/api/database"
+import { _stateTypeAssertCompleteComposition } from "../../../lib/api/d1"
+import { addComposition, listCompositions } from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 
-
 /**
- * GET /api/v1/composers
- * Returns a list of composer IDs, or a list of composer records if the "full" query parameter is set to true
+ * GET /api/v1/works
+ * Returns a list of work IDs, or a list of work records if the "full" meta param is set to true
  * 
  * Permissions required: none
  * 
  * Meta: optional
  * Meta fields:
- * - full: {boolean} if true, returns full composer records; if false or not provided, returns only composer IDs
+ * - full: {boolean} if true, returns full work records; if false or not provided, returns only work IDs
  * 
  * Body: none
  * 
  * @param {APIContext} context - the Astro API context
- * @return {Response} either a list of IDs or the full records
- * 
+ * @returns {Response} either a list of IDs or the full records
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
-    console.log("Received request for GET /api/v1/composers")
     const { params, request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
@@ -38,47 +35,43 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["full"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    console.log("Parsed API request:", api_request)
     try {
-        const data = await listComposers(context.locals.cfContext)
+        const data = await listCompositions(context.locals.cfContext)
         if (data === null) {
-            return constructResponse(request, null, 500, "Unknown state: list composer operation returned null")
+            return constructResponse(request, null, 500, "Unknown state: list composition operation returned null")
         }
-        console.log("Retrieved composer data:", data)
         switch (api_request.meta?.full) {
             case true:
-                // return full composer records
+                // return full composition records
                 return constructResponse(request, data, 200)
             case false:
             case undefined:
-                // return composer IDs only
+                // return composition IDs only
                 const ids = data.map(record => record.id)
                 return constructResponse(request, ids, 200)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }
     } catch (error) {
-        console.log("Error in GET /api/v1/composers:", error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }
 
 /**
- * POST /api/v1/composers
- * Adds a new composer record, returning the location
+ * POST /api/v1/works
+ * Creates a new work record with the provided data
  * 
  * Permissions required: none
  * 
  * Meta: none
- * Body: required, Composer[] single item
+ * Body: required; shape of a Composition object
  * 
  * @param {APIContext} context - the Astro API context
- * @return {Response} a Response object with the ID of the new record, or an error
- * 
+ * @returns {Response} the created record, or an error message
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -96,17 +89,17 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
-    // validate the payload as a complete composer record
-    const record: Composer | string = _stateTypeAssertCompleteComposer(api_request.payload[0], false)
+    // validate body as complete composition record
+    const record = _stateTypeAssertCompleteComposition(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     try {
-        const new_id = await addComposer(context.locals.cfContext, record)
-        return constructResponse(request, null, 201, undefined, {
-            Location: `/api/v1/composers/${new_id}`
+        const add_response = await addComposition(context.locals.cfContext, record)
+        return constructResponse(request, add_response, 201, undefined, {
+            Location: `/api/v1/works/${add_response.toString()}`
         })
     } catch (error) {
-        return constructResponseErrorHook(request, error, 500, "Error adding composer record")
+        return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }

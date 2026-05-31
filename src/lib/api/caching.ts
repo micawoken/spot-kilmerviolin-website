@@ -48,13 +48,13 @@ import { env } from "cloudflare:workers";
  */
 
 
-const cache_host = "localhost"
+const cache_host = "https://cache.local" // virtual origin for Cache API keys
 
 function generateCacheKey(key: string): string {
     return `${cache_host}/cache/${key}`
 }
 
-function constructResponse(payload: object, comment: string, long: boolean): Response {
+function constructResponse(payload: any[] | null, comment: string, long: boolean): Response {
     const body = JSON.stringify({
         payload: payload,
         comment: comment
@@ -67,15 +67,26 @@ function constructResponse(payload: object, comment: string, long: boolean): Res
     })
 }
 
-export async function putCache(ctx: ExecutionContext, key: string, payload: object, comment: string, long: boolean): Promise<void> {
-    const db_cache = await caches.open("db_cache")
-    const response = constructResponse(payload, comment, long)
-    ctx.waitUntil(db_cache.put(generateCacheKey(key), response.clone()))
+export async function _putCache(store_name: string, cache_key: string, response: Response): Promise<void> {
+    console.log("Putting cache with key:", cache_key, "and response:", response)
+    const cache_store = await caches.open(store_name)
+    return cache_store.put(cache_key, response.clone())
 }
 
-export async function getCache(key: string): Promise<string | object | null> {
-    const db_cache = await caches.open("db_cache")
-    const cached_response = await db_cache.match(generateCacheKey(key))
+export async function putCache(store_name: string, key: string, payload: any[] | null, comment: string, long: boolean): Promise<void> {
+    console.log("Putting cache with key:", key, "payload:", payload, "comment:", comment, "long:", long)
+    const response = constructResponse(payload, comment, long)
+    console.log("Constructed cache response:", response)
+    await _putCache(store_name, generateCacheKey(key), response)
+}
+
+export async function _getCache(store_name: string, cache_key: string): Promise<Response | undefined> {
+    const cache_store = await caches.open(store_name)
+    return await cache_store.match(cache_key)
+}
+
+export async function getCache(store_name: string, key: string): Promise<any[] | null> {
+    const cached_response = await _getCache(store_name, generateCacheKey(key))
     if (!cached_response) {
         return null
     }
@@ -83,11 +94,11 @@ export async function getCache(key: string): Promise<string | object | null> {
     return cached_data.payload
 }
 
-export async function deleteCache(ctx: ExecutionContext, key: string): Promise<void> {
-    const db_cache = await caches.open("db_cache")
+export async function deleteCache(ctx: ExecutionContext, store_name: string, key: string): Promise<void> {
+    const db_cache = await caches.open(store_name)
     ctx.waitUntil(db_cache.delete(generateCacheKey(key)))
 }
 
-export async function purgeCache(): Promise<boolean> {
-    return await caches.delete("db_cache")
+export async function purgeCache(store_name: string): Promise<boolean> {
+    return await caches.delete(store_name)
 }

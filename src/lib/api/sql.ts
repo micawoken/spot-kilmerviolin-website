@@ -9,22 +9,66 @@
 import { SQLCompareOp, sqlListJoin } from "./common.ts"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1.ts"
 
+const textEncoder = new TextEncoder()
+const FNV_64_OFFSET_BASIS = 0xcbf29ce484222325n
+const FNV_64_PRIME = 0x100000001b3n
+const FNV_64_MASK = 0xffffffffffffffffn
+
+function hashIdentifier(value: string): string {
+    let hash = FNV_64_OFFSET_BASIS
+    const bytes = textEncoder.encode(value)
+    for (const byte of bytes) {
+        hash ^= BigInt(byte)
+        hash = (hash * FNV_64_PRIME) & FNV_64_MASK
+    }
+    return hash.toString(16).padStart(16, "0")
+}
+
 
 /**
  * An object representing an SQL statement
  */
 export class SQLStatement {
+    /**
+     * The D1Schema object containing the D1 binding API object and information about the table to be queried
+     */
     schema: D1Schema // used for enforcement of column names
     // schema validation executes on statement finalization, not during construction or composition
+    /**
+     * The SQL action to take, such as SELECT, INSERT, UPDATE, or DELETE
+     */
     verb: "SELECT" | "INSERT" | "UPDATE" | "DELETE" // used to specify statement, used by all
+    /**
+     * For SELECT statements, whether to return distinct rows
+     * For non-SELECT statements, this property is ignored
+     */
     distinct: boolean = false // used for SELECT
+    /**
+     * The columns on which to run the statement against or return
+     * If left empty, the finisher will automatically insert "*"
+     */
     columns: string[] = [] // used by all statements; specifies a paramName to query; used for order enforcement of UPDATE AND INSERT
+    /**
+     * The name of the database table
+     */
     from: string | null = null // used by SELECT, UPDATE, DELETE
-    values: Record<string, string>[] = [] // used by INSERT and UPDATE; stores paramName: value pairs in groups
+    /**
+     * Values to insert or update for the defined statement
+     */
+    values: Record<string, string | null>[] = [] // used by INSERT and UPDATE; stores paramName: value pairs in groups
+    /**
+     * WHERE clauses limiting row output or processing
+     */
     where: Array<[string, string | string[], SQLCompareOp]> = [] // used by SELECT, UPDATE, DELETE
     // where stores the following info: [paramName, value (or list of values, depending on operator), comparison operator]
+    /**
+     * ORDER BY clauses to order SELECT output
+     */
     order_by: Array<[string, string]> = [] // used by SELECT
     // stores [paramName, direction]
+    /**
+     * LIMIT clause to limit SELECT output
+     */
     limit: number = 0 // used by SELECT; 0 is no limit
 
     /**
@@ -50,7 +94,7 @@ export class SQLStatement {
     static constructObject(stmt: SQLStatement, output: Array<string | number | null>): (Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>) {
         // given the output of a SQL statement execution, it constructs the object representation
         const columns = stmt.columns.includes("*") ? stmt.schema.columns : stmt.columns
-        const construction = SQLStatement._constructObjectFromColumns(stmt.schema, columns, output)
+        const construction = SQLStatement.#_constructObjectFromColumns(stmt.schema, columns, output)
         // based on the columns, check if the object is possibly complete
         if (new Set(stmt.schema.columns).difference(new Set(columns)).size === 0) {
             // if all columns are present, then the object is complete and can be fully typed
@@ -60,23 +104,6 @@ export class SQLStatement {
         return construction
     }
 
-    /**
-     * Converts a complete row from a VirtualSQLTable execution into its full object representation with a type assertion into the API type
-     * 
-     * @param stmt An SQLStatement object representing the executed statement
-     * @param output The output row from statement execution
-     * @returns A complete object representation of the output row based on the executed statement's properties, with a type assertion into the API type
-     * 
-     */
-    static constructObjectComplete(stmt: SQLStatement, output: Array<string | number | null>): (D1Contributor | D1Composer | D1Composition) {
-        // constructObject, but with an assumption that the row is complete
-        // validate the assumption is correct
-        if (!stmt.columns.includes("*") || new Set(stmt.schema.columns).difference(new Set(stmt.columns)).size !== 0) {
-            throw new Error("Cannot construct complete object from incomplete columns")
-        }
-        // if the assumption is correct, construct the complete object
-        return SQLStatement._constructObject(stmt.schema, output)
-    }
 
     /**
      * Converts a full row from a VirtualSQLTable execution into its object representation using the schema instead of an SQLStatement
@@ -88,7 +115,7 @@ export class SQLStatement {
      */
     static _constructObject(schema: D1Schema, output: Array<string | number | null>): (D1Contributor | D1Composer | D1Composition) {
         // constructs an object assuming all columns are present
-        const data = SQLStatement._constructObjectFromColumns(schema, schema.columns, output)
+        const data = SQLStatement.#_constructObjectFromColumns(schema, schema.columns, output)
         // since all properties are used, the object is assumed to be complete
         switch (schema) {
             case CONTRIBUTOR:
@@ -110,7 +137,7 @@ export class SQLStatement {
      * @param output The data from VirtualSQLTable.execute
      * @returns The object representation
      */
-    private static _constructObjectFromColumns(schema: D1Schema, columns: string[], output: Array<string | number | null>): (Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>) {
+    static #_constructObjectFromColumns(schema: D1Schema, columns: string[], output: Array<string | number | null>): (Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>) {
         const record: Record<string, string | number | null> = {}
         for (let index = 0; index < columns.length; index++) {
             record[columns[index]] = output[index]
@@ -126,26 +153,7 @@ export class SQLStatement {
                 throw new Error(`Unsupported schema: ${schema.name}`)
         }
     }
-    /**
-     * Given a list of possibly partial rows, constructs their object representations and provides a type assertion
-     * 
-     * @param stmt An SQLStatement object representing the executed statement
-     * @param output The output rows from statement execution
-     * @return A list of object representations of the output rows based on the executed statement's properties, with a type assertion into the API type
-     */
-    static constructObjects(stmt: SQLStatement, output: (string | number | null)[][]): (Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>)[] {
-        return output.map(row => SQLStatement.constructObject(stmt, row))
-    }
-    /**
-     * Given a list of complete rows, constructs their object representations and provides a complete type assertion
-     * 
-     * @param stmt An SQLStatement object representing the executed statement
-     * @param output The output rows from statement execution
-     * @return A list of object representations of the output rows based on the executed statement's properties, with a type assertion into the API type
-     */
-    static constructObjectsComplete(stmt: SQLStatement, output: (string | number | null)[][]): (D1Contributor | D1Composer | D1Composition)[] {
-        return output.map(row => SQLStatement.constructObjectComplete(stmt, row))
-    }
+    
 
     /**
      * Set the SQL verb to use
@@ -177,15 +185,29 @@ export class SQLStatement {
         this.columns = this.columns.filter(col => col !== column)
     }
 
-    addValueGroup<T extends Record<string, string>>(group: T, exclude?: string[]): void {
-        const filtered: Record<string, string> = {}
+    setValue(index: number, param: string, value: string | number | null): void {
+        if (index >= this.values.length) {
+            throw new Error(`Value index ${index} out of bounds for statement values of length ${this.values.length}`)
+        }
+        this.values[index][param] = value === null ? null : value.toString()
+    }
+    
+    addValueGroup<T extends Record<string, string | number | null>>(group: T, exclude?: string[]): void {
+        const filtered: Record<string, string | null> = {}
         for (const key in group) {
             if (exclude && exclude.includes(key)) {
                 continue
             }
-            filtered[key] = group[key]
+            filtered[key] = group[key] === null ? null : group[key].toString()
         }
         this.values.push(filtered)
+    }
+
+    voidValue(index: number, param: string): void {
+        if (index >= this.values.length) {
+            throw new Error(`Value index ${index} out of bounds for statement values of length ${this.values.length}`)
+        }
+        this.values[index][param] = null
     }
 
     clearValues(): void {
@@ -247,9 +269,9 @@ export class SQLStatement {
     /**
      * Generates an identifier for caching using the statement's properties
      * 
-     * @returns An awaitable string hash representing the command, or an awaitable null if the statement is not cacheable
+     * @returns A string hash representing the command, or null if the statement is not cacheable
      */
-    async identifier(): Promise<string | null> {
+    identifier(): string | null {
         // generates a string representation of the statement described to use for caching
         // structure: [table_name]:(columns)?(where)|(order_by)!{distinct_char}{limvalue}
         // the structure is then passed through a hash function to generate a compact identifier for caching
@@ -268,12 +290,7 @@ export class SQLStatement {
         }
         output += `!${this.distinct ? "D" : "N"}${this.limit !== null ? this.limit : "0"}`
 
-        const hashed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(output)).then(hashBuffer => {
-            const hashArray = Array.from(new Uint8Array(hashBuffer))
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-            return hashHex
-        })
-        return hashed
+        return hashIdentifier(output)
     }
 
     /**
@@ -365,14 +382,11 @@ export class SQLStatement {
                 // if stars are specified, then no specified columns are put
 
                 // build values
+                const sort_columns = this.columns[0] === "*" ? this.schema.columns : this.columns
                 const value_groups: Array<string> = this.values.map(group => {
-                    const group_keys = Object.keys(group)
-                    // sort with this.columns order
-                    const group_values = Object.values(group).toSorted((a, b) => {
-                        const a_index = this.columns.indexOf(group_keys.find(key => group[key] === a) || "")
-                        const b_index = this.columns.indexOf(group_keys.find(key => group[key] === b) || "")
-                        return a_index - b_index
-                    })
+                    // Build values in the deterministic order of `sort_columns`.
+                    // If a column is missing from the group, use null so placeholder count matches columns.
+                    const group_values = sort_columns.map(col => (col in group ? group[col] : null))
                     params.push(...group_values)
                     const placeholders = group_values.map(_ => "?").join(", ")
                     return `(${placeholders})`
@@ -451,12 +465,12 @@ export class VirtualSQLTable {
      * 
      * It is assumed that all columns in the row are present and in the schema column order
      */
-    database: Array<string | number | null>[]
+    database: Record<string, string | number | null>[]
     /**
      * @param schema The D1 schema corresponding to the table
      * @param database The full database contents, represented as an array of rows, where row indices correspond with columns in order. It is assumed that all columns in the row are present and in the schema column order
      */
-    constructor(schema: D1Schema, database: Array<string | number | null>[]) {
+    constructor(schema: D1Schema, database: Record<string, string | number | null>[]) {
         this.schema = schema
         this.database = database
     }
@@ -469,20 +483,43 @@ export class VirtualSQLTable {
      * @param columns The columns to constrain to, which must be present in the schema. The order of columns determines the order of values in the output database
      * @returns A new database only including the columns specified in the columns parameter, with enforcement from schema
      */
-    static constrain(schema: D1Schema, database: Array<string | number | null>[], columns: string[]): Array<string | number | null>[] {
+    static constrain(schema: D1Schema, database: Record<string, string | number | null>[], columns: string[]): Record<string, string | number | null>[] {
         // returns a new database only including the columns specified in the columns parameter, with enforcement from schema
-        // it is assumed that the supplied database contains all columns since order is from schema
 
-        // methodology: convert the target columns to indices within the schema, then map each row to its subset using the indices as row keys
-        const column_indices = columns.map(col => {
-            const index = schema.columns.indexOf(col)
-            if (index === -1) {
-                throw new Error(`Column '${col}' is not in schema`)
+        // edge case - return if database is empty
+        if (database.length === 0) {
+            return []
+        }
+
+        // edge case - if columns includes * or all columns, return as-is
+        if (columns.includes("*") || new Set(schema.columns).difference(new Set(columns)).size === 0) {
+            return database
+        }
+
+        // validate that all specified columns exist in schema
+        if (new Set(columns).difference(new Set(schema.columns)).size !== 0) {
+            throw new Error(`Columns not defined in schema: ${columns.filter(col => !schema.columns.includes(col)).join(", ")}`)
+        }
+
+        // determine the shape of the first object, since there is at least one
+        const keys = Object.keys(database[0])
+
+        // columns are validated, go through each row and only extract the columns specified
+        // if a column specified does not exist, 
+        return database.map(row => {
+            // validate the shape matches the first object
+            if (new Set(Object.keys(row)).difference(new Set(keys)).size !== 0) {
+                throw new Error(`Inconsistent row shape in database: ${JSON.stringify(row)}`)
             }
-            return index
+            // shape is consistent, perform constrain by creating a new object with a subset of the keys based on columns
+            
+            return Object.keys(row).reduce((acc, key) => {
+                if (columns.includes(key)) {
+                    acc[key] = row[key]
+                }
+                return acc
+            }, Object()) as Record<string, string | number | null>
         })
-        console.log("Column indices for constraint:", column_indices)
-        return database.map(row => column_indices.map(index => row[index]))
     }
     /**
      * Given a schema, a database, and a where clause, it reduces the database vertically to rows matching the where clause
@@ -494,15 +531,14 @@ export class VirtualSQLTable {
      * @param op The comparison operator, a member of the SQLCompareOp enum
      * @returns A new database only including rows that match the where clause
      */
-    static where(schema: D1Schema, database: Array<string | number | null>[], param: string, value: string | string[] | number | number[] | null, op: SQLCompareOp): Array<string | number | null>[] {
+    static where(schema: D1Schema, database: Record<string, string | number | null>[], param: string, value: string | string[] | number | number[] | null, op: SQLCompareOp): Record<string, string | number | null>[] {
         // returns a new database where a given where clause has been executed
-        const param_index = schema.columns.indexOf(param)
-        if (param_index === -1) {
+        if (!schema.columns.includes(param)) {
             throw new Error(`Column '${param}' is not in schema`)
         }
-        let output: Array<string | number | null>[] = []
+        let output: Record<string, string | number | null>[] = []
         for (const row of database) {
-            const cell = row[param_index]
+            const cell = row[param]
             switch (op) {
                 case SQLCompareOp.EQ:
                     if (cell === value) {
@@ -570,9 +606,8 @@ export class VirtualSQLTable {
                         throw new Error(`LIKE operator requires string values`)
                     }
                     // Convert the SQL LIKE pattern to a regular expression
-                    const regexPattern = "^" + value.split("%").map(part => part.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join(".*") + "$"
-                    const regex = new RegExp(regexPattern)
-                    if (regex.test(cell)) {
+                    const regex_like = sqlLikeToRegex(value)
+                    if (regex_like.test(cell)) {
                         output.push(row)
                     }
                     continue
@@ -581,9 +616,8 @@ export class VirtualSQLTable {
                         throw new Error(`NOT_LIKE operator requires string values`)
                     }
                     // Convert the SQL NOT LIKE pattern to a regular expression
-                    const notLikeRegexPattern = "^" + value.split("%").map(part => part.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join(".*") + "$"
-                    const notLikeRegex = new RegExp(notLikeRegexPattern)
-                    if (!notLikeRegex.test(cell)) {
+                    const regex_not_like = sqlLikeToRegex(value)
+                    if (!regex_not_like.test(cell)) {
                         output.push(row)
                     }
                     continue
@@ -613,7 +647,6 @@ export class VirtualSQLTable {
                     throw new Error(`Unsupported comparison operator: ${op}`)
             }
         }
-
         return output
     }
 
@@ -627,16 +660,15 @@ export class VirtualSQLTable {
      * @return A number; if less than 0, A before B; if more than 0, B before A; if 0, order is equivalent
      * 
      */
-    static sortFunc(stmt: SQLStatement, row_a: any, row_b: any): number {
+    static sortFunc(stmt: SQLStatement, row_a: Record<string, string | number | null>, row_b: Record<string, string | number | null>): number {
         // executes the order by clauses sequentially until a non-equal comparison is found
         // supplied rows span the entire table, so we'll use the schema columns, which are ordered
         for (const [param, direction] of stmt.order_by) {
-            const index = stmt.schema.columns.indexOf(param)
-            if (index === -1) {
+            if (!stmt.schema.columns.includes(param)) {
                 throw new Error(`Column '${param}' is not in schema`)
             }
-            const cell_a = row_a[index]
-            const cell_b = row_b[index]
+            const cell_a = row_a[param]
+            const cell_b = row_b[param]
             if (typeof cell_a === "number" && typeof cell_b === "number") {
                 if (cell_a < cell_b) {
                     return direction === "ASC" ? -1 : 1
@@ -702,20 +734,19 @@ export class VirtualSQLTable {
      * 
      * @param param The column name to query, which must be declared as an index in the schema
      * @param value The value to search for in the indexed column
-     * @returns The matching row, or an empty array if no match is found
+     * @returns The matching row, or null if no match is found
      */
-    getRowByIndexed(param: string, value: string | number): Array<string | number | null> {
+    getRowByIndexed(param: string, value: string | number): Record<string, string | number | null> | null {
         // returns one row, or a null result, from a column marked as an index
         if (!this.schema.index.includes(param)) {
             throw new Error(`Column '${param}' is not indexed, so indexed queries are not supported on this column`)
         }
-        const param_index = this.schema.columns.indexOf(param)
         for (const row of this.database) {
-            if (row[param_index] === value) {
+            if (row[param] === value) {
                 return row
             }
         }
-        return []
+        return null
     }
 
     /**
@@ -726,7 +757,7 @@ export class VirtualSQLTable {
      * @param stmt The SQLStatement object representing the desired SQL query to execute against the database
      * @returns The resulting database after executing the SQLStatement, represented as an array of rows
      */
-    execute(stmt: SQLStatement): Array<string | number | null>[] {
+    execute(stmt: SQLStatement): Record<string, string | number | null>[] {
         // first, verify that the statement is supported by the schema
         if (stmt.from !== this.schema.name) {
             throw new Error(`Statement references table '${stmt.from}' but this VirtualSQLTable is for table '${this.schema.name}'`)

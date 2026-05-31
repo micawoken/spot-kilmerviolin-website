@@ -15,7 +15,8 @@ const d1_composer_record: D1Composer = {
     death_year: 1950,
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
-    image: null
+    image: null,
+    tags: ""
 }
 
 const composer_record: ComposerRecord = {
@@ -27,7 +28,8 @@ const composer_record: ComposerRecord = {
     death_year: 1950,
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
-    image: null
+    image: null,
+    tags: []
 }
 
 const composer: Composer = {
@@ -37,7 +39,8 @@ const composer: Composer = {
     death_year: 1950,
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
-    image: null
+    image: null,
+    tags: []
 }
 
 const d1_composer_if_new: D1Composer = {
@@ -49,7 +52,8 @@ const d1_composer_if_new: D1Composer = {
     death_year: 1950,
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
-    image: null
+    image: null,
+    tags: ""
 }
 
 const partial_composer_record: Partial<Composer> & { id: number } = {

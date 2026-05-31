@@ -1,6 +1,6 @@
 {
 	"name": "spot-kilmer-violin-website",
-	"description": "Build a personal website, blog, or portfolio with Astro.",
+	"description": "The website for the project, data here later",
 	"cloudflare": {
 		"label": "Astro Framework Starter",
 		"products": [
@@ -19,6 +19,7 @@
 		"@astrojs/sitemap": "^3.7.2",
 		"astro": "^6.1.9",
 		"cloudflare": "^6.1.0",
+		"jose": "^6.2.3",
 		"typescript": "^5.9.3"
 	},
 	"devDependencies": {
@@ -35,10 +36,11 @@
 		"build": "astro build",
 		"cf-typegen": "wrangler types",
 		"check": "astro build && tsc && wrangler deploy --dry-run",
-		"deploy": "wrangler deploy",
+		"deploy": "wrangler deploy --env production",
+		"deploy:staging": "wrangler deploy --env staging",
 		"dev": "astro dev",
 		"preview": "astro build && wrangler dev",
-		"test": "node --test"
+		"test": "vitest run"
 	},
 	"type": "module"
 }

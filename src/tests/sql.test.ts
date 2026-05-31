@@ -89,13 +89,13 @@ it('SQLStatement generates correct SQL for select with distinct and limit', () =
 // TESTING the VirtualSQLTable
 
 // columns: ["contributor_id", "name", "class_year", "major", "phases", "bio", "public_email", "identity_email", "active", "roles", "admin", "image"]
-const test_contributor_data: Array<string | number | null>[] = [
-    [1, "Niche Apples", 1999, "Cosmic Geology", "1,2,3", "Bio oh my", "test@example.com", "auth@example.com", 1, "", 0, null],
-    [2, "John Doe", 2000, "Computer Science", "2,3", "Bio here", "john@example.com", "auth2@example.com", 1, "", 0, null],
-    [3, "Chudchael Biwong", 2001, "Chudsic", "3", "Goodbye the chudgang", "test@mwmsc.net", "contact@michaelwongmusic.com", 1, "reviewer", 1, null],
-    [4, "Angry Thorn", 2002, "Shosty", "1,2", "Repeating motifs", "spinaam206@potsdam.edu", "test@examine.com", 0, "reviewer", 1, null],
-    [5, "Cool Girl", 2003, "Music", "1", "leaf", "woah@example.com", "coolgirl@yahoo.com", 0, "reviewer", 1, null],
-    [67, "Nobody InParticular", 2004, "Music", "4", "Wonder who i could be", "whoooo@example.com", "id@example.com", 0, "reviewer", 0, null]
+const test_contributor_data: Record<string, string | number | null>[] = [
+    {contributor_id: 1, name: "Niche Apples", class_year: 1999, major: "Cosmic Geology", phases: "1,2,3", bio: "Bio oh my", public_email: "test@example.com", identity_email: "auth@example.com", active: 1, roles: "", admin: 0, image: null},
+    {contributor_id: 2, name: "John Doe", class_year: 2000, major: "Computer Science", phases: "2,3", bio: "Bio here", public_email: "john@example.com", identity_email: "auth2@example.com", active: 1, roles: "", admin: 0, image: null},
+    {contributor_id: 3, name: "Chudchael Biwong", class_year: 2001, major: "Chudsic", phases: "3", bio: "Goodbye the chudgang", public_email: "test@mwmsc.net", identity_email: "contact@michaelwongmusic.com", active: 1, roles: "reviewer", admin: 1, image: null},
+    {contributor_id: 4, name: "Angry Thorn", class_year: 2002, major: "Shosty", phases: "1,2", bio: "Repeating motifs", public_email: "spinaam206@potsdam.edu", identity_email: "test@examine.com", active: 0, roles: "reviewer", admin: 1, image: null},
+    {contributor_id: 5, name: "Cool Girl", class_year: 2003, major: "Music", phases: "1", bio: "leaf", public_email: "woah@example.com", identity_email: "coolgirl@yahoo.com", active: 0, roles: "reviewer", admin: 1, image: null},
+    {contributor_id: 67, name: "Nobody InParticular", class_year: 2004, major: "Music", phases: "4", bio: "Wonder who i could be", public_email: "whoooo@example.com", identity_email: "id@example.com", active: 0, roles: "reviewer", admin: 0, image: null}
 ]
 
 const contributor_table = new VirtualSQLTable(CONTRIBUTOR, test_contributor_data)
@@ -140,7 +140,6 @@ it('VirtualSQLTable throws error for invalid table', () => {
 it('SQLStatement construct prototype returns correct form from VirtualSQLTable', () => {
     const stmt = new SQLStatement(CONTRIBUTOR, "SELECT", "contributors", ["name", "major", "contributor_id"])
     const output = contributor_table.execute(stmt)
-    const prepped = SQLStatement.constructObject(stmt, output[0])
-    expect(prepped).toEqual({name: "Niche Apples", major: "Cosmic Geology", contributor_id: 1})
+    expect(output[0]).toEqual({name: "Niche Apples", major: "Cosmic Geology", contributor_id: 1})
 })
 
