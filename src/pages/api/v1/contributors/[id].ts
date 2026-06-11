@@ -6,11 +6,12 @@
  */
 
 import type { APIRoute } from "astro"
-import { parseAPIRequest } from "../../../../lib/api/common"
+import { formatContribFromD1, parseAPIRequest } from "../../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import { addContributor, deleteContributor, listContributors, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
 import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
+import { env } from "cloudflare:workers"
 
 /**
  * GET /api/v1/contributors/[id]
@@ -49,16 +50,20 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (d1_result.results.length === 0) {
             return constructResponse(request, null, 404)
         }
-        const d1_record: object = d1_result.results[0] as object
+        const d1_record = d1_result.results[0] as D1Contributor
+        // convert the record type
+        const record = formatContribFromD1(d1_record)
+
+        const auth_enabled: boolean = env.AUTH_ENABLED || import.meta.env.PROD
         // validate self identity
-        if (locals.identity!.id !== state_id && !(api_request.meta?.escalate === true && locals.identity!.admin)) {
+        if (locals.identity?.id !== state_id && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
             // identity is not self, and either escalate is false or user is not admin
             // filter out protected properties from the record before returning
-            const filtered_record = Object.fromEntries(Object.entries(d1_record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
+            const filtered_record = Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
             return constructResponse(request, filtered_record, 200)
         }
         // return full record
-        return constructResponse(request, d1_record, 200)
+        return constructResponse(request, record, 200)
     } catch (error) {
         return constructResponseErrorHook(request, error, 404)
     }
@@ -90,8 +95,12 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
+    // check if the payload is not null and has a length of 1
+    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
+        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
+    }
     // validate request body as complete contributor record
-    const record = _stateTypeAssertCompleteContributor(api_request.payload)
+    const record = _stateTypeAssertCompleteContributor(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
@@ -125,7 +134,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
 export const PATCH: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
     // validate identity
-    const auth_response = auth_check(request, locals.identity, [], false) // fail open is set
+    const auth_response = auth_check(request, locals.identity, [], false, "selfmgmt") // fail open is set
     if (auth_response !== null) {
         return auth_response
     }
@@ -145,22 +154,26 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     }
     try {
         const d1_record = await getRecord(CONTRIBUTOR, state_id)
+        const auth_enabled: boolean = env.AUTH_ENABLED || import.meta.env.PROD
         if (d1_record.results.length === 0) {
             return constructResponse(request, null, 404)
         }
         // validate self identity
-        if (locals.identity!.id !== state_id && !(api_request.meta?.escalate === true && locals.identity!.admin)) {
+        console.log(locals.identity?.id !== state_id, !(api_request.meta?.escalate === true && locals.identity?.admin), auth_enabled)
+        if (locals.identity?.id !== state_id && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
             // identity is not self, and either escalate is false or user is not admin
             return constructResponse(request, null, 403)
         }
         
         // validate request body as partial contributor record
-        const record = _stateTypeAssertPartialContributor(api_request.payload[0])
+        console.log(api_request.payload[0])
+        const record = _stateTypeAssertPartialContributor(api_request.payload[0], false)
         if (typeof record === "string") {
             return constructResponse(request, null, 400, `Invalid request body: ${record}`)
         }
+        console.log("record: ", record)
         // validate that properties are safe
-        if (CONTRIBUTOR.protected!.some(prop => prop in record) && !(api_request.meta?.escalate === true && locals.identity!.admin)) {
+        if (CONTRIBUTOR.protected!.some(prop => prop in record) && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
             // record includes protected properties, and either escalate is false or user is not admin
             return constructResponse(request, null, 403, "Request includes protected properties that require escalate permission")
         }
@@ -197,7 +210,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid contributor ID: must be a number")
     }
     // check if self
-    if (locals.identity!.id === state_id) {
+    if (locals.identity?.id === state_id) {
         return constructResponse(request, null, 403, "Self-deletion is not implemented")
     }
     // the delete operation will succeed even if the record doesn't exist, so don't need to verify existence to ensure idempotency

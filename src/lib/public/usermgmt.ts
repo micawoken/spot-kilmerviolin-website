@@ -82,7 +82,8 @@ export async function createUser(ctx: ExecutionContext, acting_identity: Identit
         roles: new_roles,
         active: true,
         admin: false,
-        phases: []
+        phases: [],
+        tags: []
     }
     await addContributor(ctx, new_contributor)
 }
@@ -97,7 +98,7 @@ export async function createUser(ctx: ExecutionContext, acting_identity: Identit
  * @param {string} major The major of the user to be finished (required if the user is missing in the Contributor table)
  * @param {number} class_year The class year of the user to be finished (required if the user is missing in the Contributor table)
  */
-export async function finishUser(ctx: ExecutionContext, identity_email: string, name?: string, major?: string, class_year?: number): Promise<void> {
+export async function finishUser(ctx: ExecutionContext, identity_email: string, name?: string, major?: string, class_year?: number): Promise<number | null | undefined> {
     // if a user is missing an access authentication or an authorization, this function can be used to fix a user's login flow
     
     const access_list = await list_users()
@@ -110,12 +111,13 @@ export async function finishUser(ctx: ExecutionContext, identity_email: string, 
     
     if ((d1_record === null) && !access_list.includes(identity_email)) {
         // user does not exist
-        return
+        return undefined
     }
     if ((d1_record !== null) && access_list.includes(identity_email)) {
         // user is fully enrolled
-        return
+        return undefined
     }
+
     if (!access_list.includes(identity_email)) {
         // user is missing Access enrollment, so add them
         await add_user(identity_email)
@@ -136,10 +138,12 @@ export async function finishUser(ctx: ExecutionContext, identity_email: string, 
             roles: [],
             active: false,
             admin: false,
-            phases: []
+            phases: [],
+            tags: []
         }
-        await addContributor(ctx, new_contributor)
+        return await addContributor(ctx, new_contributor)
     }
+    return null
 }
 
 /**
@@ -239,6 +243,14 @@ export async function removeRole(ctx: ExecutionContext, id: number, role: string
     await updateContributorPartial(ctx, id, { roles: new_roles })
 }
 
+export async function _changeLoginEmail(ctx: ExecutionContext, id: number, old_email: string, new_email: string): Promise<void> {
+    // update contributor data
+    await updateContributorPartial(ctx, id, { identity_email: new_email })
+    // update access
+    await add_user(new_email)
+    await remove_user(old_email)
+}
+
 /**
  * Changes a user's identity email used to log into Access (and also updates the contributor record)
  * 
@@ -250,10 +262,7 @@ export async function changeLoginEmail(ctx: ExecutionContext, id: number, new_em
     const record = await fetcher(id)
     const old_email = record.identity_email
     // update contributor data
-    await updateContributorPartial(ctx, id, { identity_email: new_email })
-    // update access
-    await add_user(new_email)
-    await remove_user(old_email)
+    await _changeLoginEmail(ctx, id, old_email, new_email)
 }
 
 /**

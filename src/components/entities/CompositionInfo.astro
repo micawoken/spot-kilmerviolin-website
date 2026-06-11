@@ -1,0 +1,55 @@
+---
+/**
+ * src/components/entities/CompositionInfo.astro
+ *
+ * Result display for a composition (work) record
+ *
+ * Element ids follow the composition-{key} convention used by populateInfo in scripts/interface.ts;
+ * nested objects use composition-{key}-{subkey} (e.g. composition-rating-suzuki)
+ *
+ * Props:
+ * - composition (optional): a CompositionRecord provided by SSR, if any
+ * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
+ */
+const composition: CompositionRecord | null = Astro.props.composition || null;
+const hidden: boolean = Astro.props.hidden || false;
+---
+<div id="generic-result-composition" class=`entity-result-container${hidden ? " hidden" : ""}`>
+    <h2 id="composition-name" class="entity-result-name">{composition?.name}</h2>
+    <p id="composition-id">ID #{composition?.id}</p>
+
+    {
+        composition?.image ? (
+            <img id="composition-image" class="entity-result-image" src={`${composition.image}`} alt={`Image for composition ${composition.name}`} />
+        ) : (
+            <p>No image available.</p>
+        )
+    }
+    <ul id="composition-details" class="entity-result-details">
+        <li><strong>Composer ID:</strong> <span id="composition-composer_id">{composition?.composer_id}</span></li>
+        <li><strong>Primary Contributor ID:</strong> <span id="composition-contrib_primary_1">{composition?.contrib_primary_1}</span></li>
+        <li><strong>Additional Primary Contributor ID:</strong> <span id="composition-contrib_primary_2">{composition?.contrib_primary_2}</span></li>
+        <li><strong>Additional Contributor IDs:</strong> <span id="composition-contrib_addl">{composition?.contrib_addl?.join(", ")}</span></li>
+        <li><strong>Type:</strong> <span id="composition-type">{composition?.type}</span></li>
+        <li><strong>Part:</strong> <span id="composition-part">{composition?.part}</span></li>
+        <li><strong>Key:</strong> <span id="composition-key">{composition?.key}</span></li>
+        <li><strong>Range:</strong> <span id="composition-range">{composition?.range}</span></li>
+        <li><strong>Highest Position:</strong> <span id="composition-position_highest">{composition?.position_highest}</span></li>
+        <li><strong>Suzuki Rating:</strong> <span id="composition-rating-suzuki">{composition?.rating?.suzuki}</span></li>
+        <li><strong>NYSSMA Rating:</strong> <span id="composition-rating-nyssma">{composition?.rating?.nyssma}</span></li>
+        <li><strong>Publisher Name:</strong> <span id="composition-publication_info-name">{composition?.publication_info?.name}</span></li>
+        <li><strong>Publication Location:</strong> <span id="composition-publication_info-location">{composition?.publication_info?.location}</span></li>
+        <li><strong>Publication Year:</strong> <span id="composition-publication_info-year">{composition?.publication_info?.year}</span></li>
+        <li><strong>Publication URI Type:</strong> <span id="composition-publication_info-uri_type">{composition?.publication_info?.uri_type}</span></li>
+        <li><strong>Publication URI:</strong> <span id="composition-publication_info-uri">{composition?.publication_info?.uri}</span></li>
+        <li><strong>Secondary Author IDs:</strong> <span id="composition-author_secondary">{composition?.author_secondary?.join(", ")}</span></li>
+        <li><strong>Phases:</strong> <span id="composition-phases">{composition?.phases?.join(", ")}</span></li>
+        <li><strong>Tags:</strong> <span id="composition-tags">{composition?.tags?.join(", ")}</span></li>
+    </ul>
+    <h3>Pedagogical Notes</h3>
+    <p id="composition-notes_pedagogical" class="entity-result-notes">{composition?.notes_pedagogical}</p>
+    <h3>Historical Notes</h3>
+    <p id="composition-notes_historical" class="entity-result-notes">{composition?.notes_historical}</p>
+    <h3>Other Notes</h3>
+    <p id="composition-notes_other" class="entity-result-notes">{composition?.notes_other}</p>
+</div>

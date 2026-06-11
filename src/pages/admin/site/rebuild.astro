@@ -1,0 +1,47 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Rebuild Site`} description="Trigger a rebuild and redeploy of the site"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Rebuild the Site</h2>
+    <p class="general-infohelp">Rebuilding regenerates the site's static pages from the current database contents and redeploys the Worker. The build and deploy take several minutes to complete; check the <a href="/admin/site/verinfo">site info page</a> later to confirm the new build timestamp.</p>
+    <button type="button" id="site-rebuild-button">Rebuild site</button>
+    <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
+    <script>
+        import { rebuildSite } from "../../../scripts/connector"
+        import { getTransactionElem } from "../../../scripts/interface"
+
+        const button = document.getElementById("site-rebuild-button") as HTMLButtonElement
+        const message = getTransactionElem()
+
+        button.addEventListener("click", async () => {
+            if (!confirm("Are you sure you want to trigger a site rebuild and redeploy?")) {
+                return
+            }
+            message.textContent = "Processing request..."
+            button.disabled = true
+            try {
+                await rebuildSite()
+                message.textContent = "Request succeeded: rebuild triggered. The new build will be live in a few minutes."
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                button.disabled = false
+            }
+        })
+    </script>
+    <AdminFooter />
+</body>
+</html>

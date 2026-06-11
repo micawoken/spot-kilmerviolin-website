@@ -1,0 +1,43 @@
+---
+/**
+ * src/components/entities/ContributorInfo.astro
+ *
+ * Result display for a contributor record
+ *
+ * Element ids follow the contributor-{key} convention used by populateInfo in scripts/interface.ts
+ *
+ * Protected properties (identity_email, roles, phases, active, admin) are filtered by the API for
+ * non-self, non-escalated requests; their fields simply remain empty in that case
+ *
+ * Props:
+ * - contributor (optional): a (possibly partial) ContributorRecord provided by SSR, if any
+ * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
+ */
+const contributor: Partial<ContributorRecord> | null = Astro.props.contributor || null;
+const hidden: boolean = Astro.props.hidden || false;
+---
+<div id="generic-result-contributor" class=`entity-result-container${hidden ? " hidden" : ""}`>
+    <h2 id="contributor-name" class="entity-result-name">{contributor?.name}</h2>
+    <p id="contributor-id">ID #{contributor?.id}</p>
+
+    {
+        contributor?.image ? (
+            <img id="contributor-image" class="entity-result-image" src={`${contributor.image}`} alt={`Image of contributor ${contributor.name}`} />
+        ) : (
+            <p>No image available.</p>
+        )
+    }
+    <ul id="contributor-details" class="entity-result-details">
+        <li><strong>Class Year:</strong> <span id="contributor-class_year">{contributor?.class_year}</span></li>
+        <li><strong>Major:</strong> <span id="contributor-major">{contributor?.major}</span></li>
+        <li><strong>Public Email:</strong> <span id="contributor-public_email">{contributor?.public_email}</span></li>
+        <li><strong>Identity Email:</strong> <span id="contributor-identity_email">{contributor?.identity_email}</span></li>
+        <li><strong>Phases:</strong> <span id="contributor-phases">{contributor?.phases?.join(", ")}</span></li>
+        <li><strong>Roles:</strong> <span id="contributor-roles">{contributor?.roles?.join(", ")}</span></li>
+        <li><strong>Tags:</strong> <span id="contributor-tags">{contributor?.tags?.join(", ")}</span></li>
+        <li><strong>Active:</strong> <span id="contributor-active">{contributor?.active !== undefined ? String(contributor.active) : ""}</span></li>
+        <li><strong>Admin:</strong> <span id="contributor-admin">{contributor?.admin !== undefined ? String(contributor.admin) : ""}</span></li>
+    </ul>
+    <p id="contributor-bio" class="entity-result-bio">{contributor?.bio}</p>
+    <p class="general-infohelp">Authorization-related fields (identity email, roles, phases, active, admin) are only visible for your own record or with administrator escalation.</p>
+</div>

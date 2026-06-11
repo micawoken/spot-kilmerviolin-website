@@ -10,5 +10,6 @@
 import { sequence } from "astro/middleware"
 import { preflight } from "./preflight"
 import { identity } from "./identity"
+import { rateLimit } from "./ratelimit"
 
-export const onRequest = sequence(preflight, identity)
+export const onRequest = sequence(preflight, identity, rateLimit)

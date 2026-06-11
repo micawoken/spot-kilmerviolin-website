@@ -251,6 +251,18 @@ export function sqlListJoin(spec: Array<[string, (string | string[])?, SQLCompar
 
 // TYPE CONVERSION
 
+function splitAndFilterItems(value: string): string[] {
+    return value.split(",").map(item => item.trim()).filter(item => item !== "")
+}
+
+function splitAndFilterNumbers(value: string): number[] {
+    return splitAndFilterItems(value).map(item => parseInt(item))
+}
+
+function joinAndFilterItems(values: Array<string | number>): string {
+    return values.map(item => item.toString().trim()).filter(item => item !== "").join(",")
+}
+
 /**
  * Converts a D1Composition object representation in D1 to CompositionRecord
  * 
@@ -271,10 +283,10 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
         uri_type: uri_type,
         uri: uri
     }
-    const author_secondary_list = author_secondary ? author_secondary.split(",").map(s => parseInt(s.trim())) : []
-    const contrib_addl_list = contrib_addl ? contrib_addl.split(",").map(s => parseInt(s.trim())) : []
-    const phases_list = phases ? phases.split(",").map(s => parseInt(s.trim())) : []
-    const tag_list: string[] = tags ? tags.split(",").map(s => s.trim()) : []
+    const author_secondary_list = author_secondary ? splitAndFilterNumbers(author_secondary) : []
+    const contrib_addl_list = contrib_addl ? splitAndFilterNumbers(contrib_addl) : []
+    const phases_list = phases ? splitAndFilterNumbers(phases) : []
+    const tag_list: string[] = tags ? splitAndFilterItems(tags) : []
     return {
         ...data,
         id: composition_id,
@@ -326,10 +338,10 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
         publish_year: publication_info.year,
         uri_type: publication_info.uri_type,
         uri: publication_info.uri,
-        author_secondary: author_secondary.join(","),
-        contrib_addl: contrib_addl.join(","),
-        phases: phases.join(","),
-        tags: tags.join(",")
+        author_secondary: joinAndFilterItems(author_secondary),
+        contrib_addl: joinAndFilterItems(contrib_addl),
+        phases: joinAndFilterItems(phases),
+        tags: joinAndFilterItems(tags)
     }
 }
 
@@ -352,16 +364,16 @@ export function formatWorkToD1Partial(record: Partial<Composition> & { id: numbe
         if (value !== undefined) {
             switch (key) {
                 case "author_secondary":
-                    output.author_secondary = Array.isArray(value) ? value.join(",") : ""
+                    output.author_secondary = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 case "contrib_addl":
-                    output.contrib_addl = Array.isArray(value) ? value.join(",") : ""
+                    output.contrib_addl = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 case "phases":
-                    output.phases = Array.isArray(value) ? value.join(",") : ""
+                    output.phases = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 case "tags":
-                    output.tags = Array.isArray(value) ? value.join(",") : ""
+                    output.tags = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 case "rating":
                     if (
@@ -416,7 +428,7 @@ export function formatCompFromD1(record: D1Composer): ComposerRecord {
     return {
         ...data,
         id: composer_id,
-        tags: tags ? tags.split(",").map(s => s.trim()) : []
+        tags: tags ? splitAndFilterItems(tags) : []
     }
 }
 
@@ -443,7 +455,7 @@ export function formatCompToD1(record: Composer | ComposerRecord): D1Composer {
     }
     return {
         ...data,
-        tags: tags ? tags.join(",") : "",
+        tags: tags ? joinAndFilterItems(tags) : "",
         entry_date: entry_date,
         composer_id: id ? id : -1 // if id is set to -1, it cannot be used as a valid primary key for update
     }
@@ -468,7 +480,7 @@ export function formatCompToD1Partial(record: Partial<Composer> & { id: number }
             case "tags": {
                 const value = record[key as keyof Composer]
                 if (Array.isArray(value)) {
-                    output.tags = value.join(",")
+                    output.tags = joinAndFilterItems(value)
                 }
                 break
             }
@@ -497,11 +509,11 @@ export function formatContribFromD1(record: D1Contributor): ContributorRecord {
     return {
         ...data,
         id: contributor_id,
-        phases: phases ? phases.split(",").map(s => parseInt(s.trim())) : [],
-        roles: roles ? roles.split(",").map(s => s.trim()) : [],
+        phases: phases ? splitAndFilterNumbers(phases) : [],
+        roles: roles ? splitAndFilterItems(roles) : [],
         admin: admin === 1,
         active: active === 1,
-        tags: tags ? tags.split(",").map(s => s.trim()) : []
+        tags: tags ? splitAndFilterItems(tags) : []
     }
 }
 
@@ -532,11 +544,11 @@ export function formatContribToD1(record: Contributor | ContributorRecord): D1Co
         ...data,
         entry_date: entry_date,
         contributor_id: id ? id : -1, // if id is set to -1, it cannot be used as a valid primary key for update
-        phases: record.phases ? record.phases.join(",") : "",
-        roles: record.roles ? record.roles.join(",") : "",
+        phases: record.phases ? joinAndFilterItems(record.phases) : "",
+        roles: record.roles ? joinAndFilterItems(record.roles) : "",
         admin: record.admin ? 1 : 0,
         active: record.active ? 1 : 0,
-        tags: record.tags ? record.tags.join(",") : ""
+        tags: record.tags ? joinAndFilterItems(record.tags) : ""
     }
 }
 
@@ -560,10 +572,10 @@ export function formatContribToD1Partial(record: Partial<Contributor> & { id: nu
         if (value !== undefined) {
             switch (key) {
                 case "phases":
-                    output.phases = Array.isArray(value) ? value.map((v: string | number) => v.toString()).join(",") : ""
+                    output.phases = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 case "roles":
-                    output.roles = Array.isArray(value) ? value.map((v: string | number) => v.toString()).join(",") : ""
+                    output.roles = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 case "admin":
                     output.admin = value ? 1 : 0
@@ -572,7 +584,7 @@ export function formatContribToD1Partial(record: Partial<Contributor> & { id: nu
                     output.active = value ? 1 : 0
                     break
                 case "tags":
-                    output.tags = Array.isArray(value) ? value.map((v: string | number) => v.toString()).join(",") : ""
+                    output.tags = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
                 default:
                     (output as Record<string, unknown>)[key] = value
@@ -590,7 +602,7 @@ export function formatContribToD1Partial(record: Partial<Contributor> & { id: nu
  * @param {string} comment - a comment providing additional information about the API response
  * @return {APIResponse} the standardized API response object
  */
-export function createAPIPayload(success: boolean, payload: Array<any> | null, comment: string): APIResponse {
+export function createAPIPayload(success: boolean, payload: any | null, comment: string): APIResponse {
     return {
         success: success,
         payload: payload,
@@ -647,7 +659,8 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
     }
     // if meta_expect_keys is provided, validate the shape of the meta field
     let meta: Record<string, string | boolean | number | null> | undefined = undefined
-    const meta_header = request.headers.get("X-MWMSC-Request-Meta")
+    const meta_data = request.headers.get("X-MWMSC-Request-Meta")
+    const meta_header = meta_data ? (meta_data.length <= 512 ? meta_data : null) : null // arbitrary limit to prevent abuse; if the header is present but exceeds the limit, it is treated as missing
     /** by default, if meta_expect_keys is not supplied, meta is not checked (which is useful for requests that don't require it)
      *  however, some requests make meta optional, which requires the header to be checked and parsed but allows for keys to be missing
      *  if an empty array is supplied, header parsing executes, but if there is no data to parse, an empty meta is returned silently

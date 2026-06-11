@@ -203,6 +203,17 @@ export class SQLStatement {
         this.values.push(filtered)
     }
 
+    editValue(index: number, param: string, value: string | number | null): void {
+        if (index >= this.values.length) {
+            throw new Error(`Value index ${index} out of bounds for statement values of length ${this.values.length}`)
+        }
+        console.log(this.schema.columns)
+        if (!(this.schema.columns.includes(param))) {
+            throw new Error(`Invalid parameter '${param}' for table '${this.from}'`)
+        }
+        this.values[index][param] = value === null ? null : value.toString()
+    }
+
     voidValue(index: number, param: string): void {
         if (index >= this.values.length) {
             throw new Error(`Value index ${index} out of bounds for statement values of length ${this.values.length}`)
@@ -857,4 +868,69 @@ function sqlLikeToRegex(pattern: string, caseInsensitive = true, escapeChar = "\
  */
 function escapeRegexChar(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Converts a regex pattern to SQL LIKE for use in search
+ *
+ * @param {RegExp} regex The RegExp to convert to SQL LIKE
+ * @param {string} escapeChar The escape character to use for special SQL LIKE characters (default: '\')
+ *
+ * @returns {string} A SQL LIKE pattern string
+ * @throws if escapeChar is not a single character
+ */
+export function regexToSqlLike(regex: RegExp, escapeChar: string = "\\"): string {
+    if ([...escapeChar].length !== 1) {
+        throw new Error("escapeChar must be a single character");
+    }
+
+    let source = regex.source;
+
+    const leadingPercent  = source.startsWith("^") ? (source = source.slice(1),  false) : true;
+    const trailingPercent = source.endsWith("$")   ? (source = source.slice(0,-1), false) : true;
+
+    /**
+     * The tokenizer walks the regex body and identifies, in priority order:
+     * 1. `.*`       (full match ".*")       → SQL % wildcard
+     * 2. `.`        (full match ".")        → SQL _ wildcard
+     * 3. `\X`       (capture group 1 = X)  → literal char X, SQL-escaped if needed
+     * 4. Any char   (capture group 2)       → literal char,   SQL-escaped if needed
+     *
+     */
+    const tokenizer = /\.\*|\.|\\([\s\S])|([\s\S])/g;
+
+    let result = "";
+    for (const [full, escapedChar, literal] of source.matchAll(tokenizer)) {
+        if (full === ".*") {
+            result += "%";
+        } else if (full === ".") {
+            result += "_";
+        } else if (escapedChar !== undefined) {
+            // Regex-escaped literal — strip the backslash and SQL-escape if needed
+            result += escapeSqlLikeChar(escapedChar, escapeChar);
+        } else {
+            // Plain literal character
+            result += escapeSqlLikeChar(literal, escapeChar);
+        }
+    }
+
+    if (leadingPercent && !result.startsWith("%"))  result = "%" + result;
+    if (trailingPercent && !result.endsWith("%")) result = result + "%";
+
+    return result;
+}
+
+/**
+ * Escapes characters with special meaning in SQL LIKE
+ *
+ * @param {string} char The character to review
+ * @param {string} escapeChar The escape character
+ *
+ * @returns {string} the processed character
+ */
+function escapeSqlLikeChar(char: string, escapeChar: string): string {
+    if (char === "%" || char === "_" || char === escapeChar) {
+        return escapeChar + char;
+    }
+    return char;
 }

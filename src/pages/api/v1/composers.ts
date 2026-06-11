@@ -31,7 +31,7 @@ import { constructResponse, constructResponseErrorHook } from "../../../lib/api/
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     console.log("Received request for GET /api/v1/composers")
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
     if (auth_response !== null) {
@@ -81,7 +81,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * 
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
     if (auth_response !== null) {

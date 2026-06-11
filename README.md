@@ -10,29 +10,24 @@ Guides to modify the website are available in docs/guides. For a video version, 
 
 Instructions provided in the guides and videos referenced earlier provide instructions on how to modify the website's content. If you have experience programming in TypeScript and want to modify the back-end API and/or the DevOps system, notes from the sysadmin are available in docs/dev. If you don't have a background in programming and/or software development, you can contact the sysadmin at michaelwongmusic@gmail.com to request changes.
 
-## Version info
-Still working on it :p
+## Contributors
+This project benefits from the contributions from many different individuals. A complete list is in CONTRIBUTORS.md.
 
-## Directory structure
-/src - Folder containing the website
-    /components - stores React/Preact JSX/TSX website components (such as headers)
-    /content - stores pages of the website
-        /[...] Folders store website content
-        /admin Stores administrator pages
-    /docs - stores help guides and developer info
-    /layouts - does something
-    /lib - Stores database and business logic code
-        /api - Stores database level code and primitive authorization functions
-        /public - Stores higher-level and public-facing functions
-    /middleware - Stores Astro middleware for processing requests
-    /pages - outlines structure and composition of website
-        /api/v1/ - provides API endpoints to contributors
-        /admin
-        /composers - Stores structure of composers page
-            /[id] - Stores structure of each comopser page
-        /contributors - Stores structure of contributors page
-            /[id] - Stores structure of each contributor page
-        /works - Stores structure of works page
-            /[id] - Stores structure of each work page
-        /[...] other page configs 
-    
+## License
+This source code is &copy; 2026 Michael Wong, and later contributors.
+
+This project is licensed under the GNU General Public License, version 3 or later. For more information about the GNU GPLv3, visit <https://www.gnu.org/licenses/quick-guide-gplv3.html> or LICENSE.md.
+
+The following additional terms apply to the license:
+1. All conveyed copies must include the license and the additional terms verbatim;
+2. All conveyed copies must properly attribute licensors and authors;
+3. All conveyed modified copies must not pretend to be the original;
+4. All conveyed modified copies must clearly identify if changes were made, and if so, where, when, and in what manner;
+5. All conveyed modified copies must clearly identify that changes were made in its legal notices;
+6. All conveyed modified copies must not use the names of licensors and/or authors publicly to imply endorsement of the modification; and
+7. All conveyed modified copies must not use trademarks or servicemarks to imply endorsement of the modification.
+
+This license does not apply to any data not packaged with this source code distribution. This includes (but is not limited to) any project data, such as rankings, biographies, commentary, and other general information, which, if added interactively, is subject to the website Terms of Use and whose copyright is retained by their respective authors.
+
+### Dependencies
+This source code is dependent on several software packages, each licensed under open-source software licenses. To view a list of the dependencies and their respective licenses, view LICENSE.md.

@@ -1,0 +1,47 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ListResults from "../../../components/entities/ListResults.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+// list is rendered server-side
+import { listContributors } from "../../../lib/api/database"
+
+export const prerender = false
+
+const is_admin = Astro.locals.identity?.admin === true
+
+// pull the list
+const contributors = await listContributors(Astro.locals.cfContext)
+if (!contributors) {
+    throw new Error("Failed to fetch contributors list")
+}
+
+// mirror the API's security model: full records are admin-only, others get IDs only
+const formatted_contributors = is_admin
+    ? contributors.map(contributor => ({
+        id: contributor.id,
+        name: contributor.name,
+        name2: `${contributor.major} '${contributor.class_year}`,
+    }))
+    : contributors.map(contributor => contributor.id)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Contributors`} description="View the list of contributors in the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>List Contributors</h2>
+    {
+        is_admin ? null : (
+            <p class="general-infohelp">Contributor names are only listed for administrators; other users see record IDs only.</p>
+        )
+    }
+    <ListResults noun="contributor" enviro="admin" results={formatted_contributors} />
+    <AdminFooter />
+</body>
+</html>

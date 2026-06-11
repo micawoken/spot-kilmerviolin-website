@@ -1,0 +1,322 @@
+---
+/**
+ * src/components/entities/CompositionForm.astro
+ *
+ * Reusable data-entry form for composition (work) records
+ *
+ * Props:
+ * - required (optional): whether fields required by the API are required by the form (use for create)
+ * - hidden (optional): if true, the form starts hidden (used by the edit page until an ID is entered)
+ * - composition (optional): a CompositionRecord provided by SSR to prefill the form
+ * - patch (optional): whether to show the edit target checkboxes for PATCH (partial edit)
+ * - show_elevate (optional): whether to render the administrator elevation checkbox
+ *
+ * Input ids follow the form-composition-{param} convention, where param matches the input's
+ * name attribute exactly (required by prefillForm in scripts/interface.ts)
+ */
+import { WorkType, Key } from "../../lib/api/common"
+
+const required: boolean = Astro.props.required || false;
+const hidden: boolean = Astro.props.hidden || false;
+const composition: CompositionRecord | null = Astro.props.composition || null;
+const patch: boolean = Astro.props.patch || false;
+const show_elevate: boolean = Astro.props.show_elevate || false;
+
+const work_types = Object.values(WorkType)
+const key_options = Object.values(Key)
+
+// arrays prefill as comma-separated values
+const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
+---
+<div class="generic-form">
+    <form id="generic-form-composition" class=`generic-form${hidden ? " hidden" : ""}`>
+        <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
+        <input type="hidden" id="form-composition-id" name="id" value={composition?.id ?? ""} />
+
+        <fieldset>
+            <legend>Name</legend>
+            <input type="text" id="form-composition-name" name="name" required={required} value={composition?.name ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-name-edittarget" name="name-edittarget" />
+                    <label for="form-composition-name-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Composer</legend>
+            <label for="form-composition-composer_id">Composer ID:</label>
+            <input type="text" id="form-composition-composer_id" name="composer_id" required={required} value={composition?.composer_id ?? ""} />
+            <div class="searchhelper">
+                <p>Lookup Composer ID by name</p>
+                <label for="form-composition-searchhelper-composer_id-input">Search for Composer:</label>
+                <input type="text" id="form-composition-searchhelper-composer_id-input" />
+                <button type="button" id="form-composition-searchhelper-composer_id-button">Search</button>
+                <div id="form-composition-searchhelper-composer_id-results">
+                    <p>Results will display here when searched.</p>
+                </div>
+            </div>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-composer_id-edittarget" name="composer_id-edittarget" />
+                    <label for="form-composition-composer_id-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Primary Contributor</legend>
+            <label for="form-composition-contrib_primary_1">ID for Primary Contributor:</label>
+            <input type="text" id="form-composition-contrib_primary_1" name="contrib_primary_1" required={required} value={composition?.contrib_primary_1 ?? ""} />
+            <div class="searchhelper">
+                <p>Lookup Contributor ID by name</p>
+                <label for="form-composition-searchhelper-contrib_primary_1-input">Search for Contributor:</label>
+                <input type="text" id="form-composition-searchhelper-contrib_primary_1-input" />
+                <button type="button" id="form-composition-searchhelper-contrib_primary_1-button">Search</button>
+                <div id="form-composition-searchhelper-contrib_primary_1-results">
+                    <p>Results will display here when searched.</p>
+                </div>
+            </div>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-contrib_primary_1-edittarget" name="contrib_primary_1-edittarget" />
+                    <label for="form-composition-contrib_primary_1-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Additional Primary Contributor</legend>
+            <label for="form-composition-contrib_primary_2">ID for Additional Primary Contributor:</label>
+            <input type="text" id="form-composition-contrib_primary_2" name="contrib_primary_2" value={composition?.contrib_primary_2 ?? ""} />
+            <div class="searchhelper">
+                <p>Lookup Contributor ID by name</p>
+                <label for="form-composition-searchhelper-contrib_primary_2-input">Search for Contributor:</label>
+                <input type="text" id="form-composition-searchhelper-contrib_primary_2-input" />
+                <button type="button" id="form-composition-searchhelper-contrib_primary_2-button">Search</button>
+                <div id="form-composition-searchhelper-contrib_primary_2-results">
+                    <p>Results will display here when searched.</p>
+                </div>
+            </div>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-contrib_primary_2-edittarget" name="contrib_primary_2-edittarget" />
+                    <label for="form-composition-contrib_primary_2-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Additional Contributors</legend>
+            <label for="form-composition-contrib_addl">Additional Contributors (comma-separated IDs):</label>
+            <input type="text" id="form-composition-contrib_addl" name="contrib_addl" value={joined(composition?.contrib_addl)} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-contrib_addl-edittarget" name="contrib_addl-edittarget" />
+                    <label for="form-composition-contrib_addl-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Composition Type</legend>
+            <select id="form-composition-type" name="type" class="form-config-horizflow" required={required}>
+                {work_types.map((type) => (
+                    <option value={type} selected={composition?.type === type}>{type}</option>
+                ))}
+            </select>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-type-edittarget" name="type-edittarget" />
+                    <label for="form-composition-type-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Part</legend>
+            <input type="text" id="form-composition-part" name="part" value={composition?.part ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-part-edittarget" name="part-edittarget" />
+                    <label for="form-composition-part-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Key</legend>
+            <select id="form-composition-key" name="key" class="form-config-horizflow">
+                <option value="" selected={!composition?.key}>None</option>
+                {key_options.map((key) => (
+                    <option value={key} selected={composition?.key === key}>{key}</option>
+                ))}
+            </select>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-key-edittarget" name="key-edittarget" />
+                    <label for="form-composition-key-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Range</legend>
+            <input type="text" id="form-composition-range" name="range" value={composition?.range ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-range-edittarget" name="range-edittarget" />
+                    <label for="form-composition-range-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Highest Position</legend>
+            <input type="text" id="form-composition-position_highest" name="position_highest" value={composition?.position_highest ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-position_highest-edittarget" name="position_highest-edittarget" />
+                    <label for="form-composition-position_highest-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Pedagogical Notes</legend>
+            <textarea id="form-composition-notes_pedagogical" name="notes_pedagogical">{composition?.notes_pedagogical ?? ""}</textarea>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-notes_pedagogical-edittarget" name="notes_pedagogical-edittarget" />
+                    <label for="form-composition-notes_pedagogical-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Historical Notes</legend>
+            <textarea id="form-composition-notes_historical" name="notes_historical">{composition?.notes_historical ?? ""}</textarea>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-notes_historical-edittarget" name="notes_historical-edittarget" />
+                    <label for="form-composition-notes_historical-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Other Notes</legend>
+            <textarea id="form-composition-notes_other" name="notes_other">{composition?.notes_other ?? ""}</textarea>
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-notes_other-edittarget" name="notes_other-edittarget" />
+                    <label for="form-composition-notes_other-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Image URL</legend>
+            <input type="url" id="form-composition-image" name="image" value={composition?.image ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-image-edittarget" name="image-edittarget" />
+                    <label for="form-composition-image-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Rating</legend>
+            <label for="form-composition-rating_suzuki">Suzuki Level:</label>
+            <input type="number" id="form-composition-rating_suzuki" name="rating_suzuki" min="1" max="10" value={composition?.rating?.suzuki ?? ""} />
+
+            <label for="form-composition-rating_nyssma">NYSSMA Level:</label>
+            <input type="number" id="form-composition-rating_nyssma" name="rating_nyssma" min="1" max="6" value={composition?.rating?.nyssma ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-rating-edittarget" name="rating-edittarget" />
+                    <label for="form-composition-rating-edittarget">Edit the rating</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Publication Information</legend>
+            <label for="form-composition-publish_name">Publisher Name:</label>
+            <input type="text" id="form-composition-publish_name" name="publish_name" value={composition?.publication_info?.name ?? ""} />
+
+            <label for="form-composition-publish_location">Publication Location:</label>
+            <input type="text" id="form-composition-publish_location" name="publish_location" value={composition?.publication_info?.location ?? ""} />
+
+            <label for="form-composition-publish_year">Publication Year:</label>
+            <input type="number" id="form-composition-publish_year" name="publish_year" value={composition?.publication_info?.year ?? ""} />
+
+            <label for="form-composition-uri_type">URI Type:</label>
+            <select id="form-composition-uri_type" name="uri_type" class="form-config-horizflow">
+                <option value="https" selected={!composition?.publication_info || composition?.publication_info?.uri_type === "https"}>HTTPS</option>
+                <option value="isbn" selected={composition?.publication_info?.uri_type === "isbn"}>ISBN</option>
+                <option value="doi" selected={composition?.publication_info?.uri_type === "doi"}>DOI</option>
+            </select>
+
+            <label for="form-composition-uri">URI:</label>
+            <input type="text" id="form-composition-uri" name="uri" value={composition?.publication_info?.uri ?? ""} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-publication_info-edittarget" name="publication_info-edittarget" />
+                    <label for="form-composition-publication_info-edittarget">Edit the publication information</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Secondary Authors</legend>
+            <label for="form-composition-author_secondary">Secondary Authors (comma-separated IDs):</label>
+            <input type="text" id="form-composition-author_secondary" name="author_secondary" value={joined(composition?.author_secondary)} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-author_secondary-edittarget" name="author_secondary-edittarget" />
+                    <label for="form-composition-author_secondary-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Phases</legend>
+            <label for="form-composition-phases">Phases (comma-separated numbers):</label>
+            <input type="text" id="form-composition-phases" name="phases" value={joined(composition?.phases)} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-phases-edittarget" name="phases-edittarget" />
+                    <label for="form-composition-phases-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Tags</legend>
+            <label for="form-composition-tags">Tags (comma-separated):</label>
+            <input type="text" id="form-composition-tags" name="tags" value={joined(composition?.tags)} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-tags-edittarget" name="tags-edittarget" />
+                    <label for="form-composition-tags-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        {
+            show_elevate ? (
+                <fieldset>
+                    <legend>Administrator Elevation</legend>
+                    <input type="checkbox" id="form-composition-elevate" name="elevate" />
+                    <label for="form-composition-elevate">Use administrator elevation for this operation</label>
+                    <p class="general-warning">Elevation bypasses the contribution edit lockout for compositions you are not a primary contributor of. Proceed with caution.</p>
+                </fieldset>
+            ) : null
+        }
+
+        <button type="submit">Submit</button>
+    </form>
+</div>

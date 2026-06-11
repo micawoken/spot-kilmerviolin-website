@@ -100,5 +100,8 @@ export async function deleteCache(ctx: ExecutionContext, store_name: string, key
 }
 
 export async function purgeCache(store_name: string): Promise<boolean> {
-    return await caches.delete(store_name)
+    // re-implement later
+    
+    return true
+    //return await caches.delete(store_name)
 }

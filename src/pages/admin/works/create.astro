@@ -1,0 +1,34 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import CompositionForm from "../../../components/entities/CompositionForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Composition`} description="Add a new composition to the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Add a New Composition</h2>
+    <CompositionForm required={true} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem, attachSearchHelper } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const create_form = getForm("composition", APIOpCode.CREATE)
+        console.log("Form element obtained for compositions create operation:", create_form)
+        create_form.addEventListener("submit", genHandler(create_form, getTransactionElem(), APIOpCode.CREATE, "composition"))
+        // wire the ID lookup helpers
+        attachSearchHelper("composer", "form-composition-searchhelper-composer_id-input", "form-composition-searchhelper-composer_id-button", "form-composition-searchhelper-composer_id-results", "form-composition-composer_id")
+        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_1-input", "form-composition-searchhelper-contrib_primary_1-button", "form-composition-searchhelper-contrib_primary_1-results", "form-composition-contrib_primary_1")
+        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_2-input", "form-composition-searchhelper-contrib_primary_2-button", "form-composition-searchhelper-contrib_primary_2-results", "form-composition-contrib_primary_2")
+    </script>
+    <AdminFooter />
+</body>
+</html>

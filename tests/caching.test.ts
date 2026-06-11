@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { putCache, _putCache, getCache, _getCache } from '../lib/api/caching'
+import { putCache, _putCache, getCache, _getCache } from '../src/lib/api/caching'
 
 const generic_data = {
     status: 200,

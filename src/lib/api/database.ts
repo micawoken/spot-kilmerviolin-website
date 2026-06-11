@@ -18,7 +18,7 @@
 import { formatContribToD1, formatContribToD1Partial, formatCompToD1, formatWorkToD1, formatWorkToD1Partial, formatCompToD1Partial, formatContribFromD1, formatCompFromD1, formatWorkFromD1, SQLCompareOp } from "./common.ts"
 import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpecificProp, deleteRecord, exec_string, recordTypeAssertComplete } from "./d1.ts"
 import { SQLStatement, VirtualSQLTable } from "./sql.ts"
-import { getKey, setKey } from "./kv.ts"
+import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
 import { getCache, purgeCache, putCache } from "./caching.ts"
 
 // in general, authorization is managed by the API endpoint, so no identity checks are made in this module
@@ -89,6 +89,37 @@ import { getCache, purgeCache, putCache } from "./caching.ts"
 
 
 /**
+ * Purges the KV caching layer
+ * 
+ * @param fixed Whether to purge only known keys, or purge all enrolled keys
+ */
+async function purgeKV(fixed: boolean = true): Promise<void> {
+    // purges KV entries
+    if (fixed) {
+        // purge only known keys
+        const known_keys = ["composers", "contributors", "compositions"]
+        await Promise.all(known_keys.map(key => deleteKey(key)))
+        return;
+    } else {
+        const keys = await listKeys(false) as string[]
+        await Promise.all(keys.map(key => deleteKey(key)))
+        return;
+    }
+}
+
+/**
+ * Purges the Cache API and KV cache
+ * 
+ * @param kv_fixed Whether to purge only known keys from KV, or purge all enrolled keys in KV
+ * @returns {boolean} Whether the Cache API purge succeeded
+ */
+export async function purgeCacheAll(kv_fixed: boolean = true): Promise<boolean> {
+    const outcome = await purgeCache("db_cache")
+    await purgeKV(kv_fixed) // KV deletion succeeds whether the key exists or not
+    return outcome
+}
+
+/**
  * Execute the provided SQLStatement with the caching system context in runtime
  * 
  * @param stmt the SQLStatement to execute
@@ -101,11 +132,15 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
     // see lib/api/caching.ts for caching policy overview
     console.log("Finished statement: ", stmt.finish())
     const identifier = stmt.identifier()
-    if (!identifier) {
+    if (identifier === null) {
         const output = await exec_stmt(stmt)
         // SQLStatement.identifier() returns null if the verb is not "SELECT"
         // the class's other supported verbs modify the database state, so cache needs to be purged
         ctx.waitUntil(purgeCache("db_cache"))
+        // invalidate KV backing store for this table so Cache API is not repopulated with stale KV data
+        if (stmt.from) {
+            ctx.waitUntil(deleteKey(stmt.from))
+        }
         return {
             data: output.results as Record<string, string | number | null>[],
             cached: false,
@@ -115,6 +150,7 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
     }
     // check the Cache API
     if (stmt.isSimple()) {
+        /*
         // check if the serialized command has been executed and cached
         console.log("Fetching query ", identifier, " from cache")
         const id_cache = await _cacheFetch(identifier, false)
@@ -125,6 +161,8 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
                 cached: true
             }
         }
+        */ // disabling serial-based caching since large-scale cache invalidation is not possible at this time
+
         // identifier cache miss; pull the entire database
         // for full database queries, the name of the table is used
         // for cached queries, the identifier is used
@@ -143,10 +181,11 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
             ctx.waitUntil(putCache("db_cache", stmt.from!, data.results, new Date().toISOString(), true))
             ctx.waitUntil(setKey(stmt.from!, data.results, "json"))
         }
+        console.log("Executing statement")
         const output = db.execute(stmt)
         // load the data into cache
-        ctx.waitUntil(putCache("db_cache", identifier, output, new Date().toISOString(), true))
-        ctx.waitUntil(setKey(identifier, output, "json"))
+        //ctx.waitUntil(putCache("db_cache", identifier, output, new Date().toISOString(), true)) // see earlier on disabling id-based caching
+
         return {
             data: output as Record<string, string | number | null>[],
             cached: false,
@@ -177,6 +216,20 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
 }
 
 /**
+ * Exported interface to execute a SQLStatement with the caching context
+ * 
+ * @see _exec_wrap for full details
+ * 
+ * @param {SQLStatement} stmt the SQLStatement to execute
+ * @param {ExecutionContext} ctx the Cloudflare Worker ExecutionContext
+ * @return {Promise<ExecResult>} the output
+ * 
+ */
+export async function run_stmt(stmt: SQLStatement, ctx: ExecutionContext): Promise<ExecResult> {
+    return await _exec_wrap(stmt, ctx)
+}
+
+/**
  * Retrieve an item from the database cache
  * If found in KV but not in Cache API, it is loaded into Cache API for faster future retrieval
  * 
@@ -191,6 +244,7 @@ async function _cacheFetch(key: string, long: boolean): Promise<unknown> {
     console.log(`Attempting to fetch from cache with key ${key}`)
     const cache_result = await getCache("db_cache", key)
     if (cache_result) {
+        console.log(`Cache hit for key ${key}`)
         if (Array.isArray(cache_result)) {
             return cache_result
         }
@@ -202,13 +256,18 @@ async function _cacheFetch(key: string, long: boolean): Promise<unknown> {
         }
         return cache_result
     }
+    console.log(`Cache miss for key ${key}`)
+    console.log(`Attempting to fetch from KV with key ${key}`)
     // check KV
     const kv_result = await getKey(key)
+    console.log(`KV fetch result for key ${key}:`, kv_result)
     if (kv_result) {
+        console.log(`KV hit for key ${key}, loading into cache`)
         // update Cache API with the KV result for faster future retrieval
         await putCache("db_cache", key, kv_result, new Date().toISOString(), long)
         return kv_result
     }
+    console.log(`KV miss for key ${key}`)
     return null
     
 }
@@ -244,6 +303,7 @@ async function _addPrimitive(ctx: ExecutionContext, schema: D1Schema, record: Co
     }
     stmt.addValueGroup(entry)
     stmt.voidValue(0, schema.primary_key)
+    stmt.editValue(0, "entry_date", new Date().toISOString())
     console.log("Statement info: ", stmt)
     const output = await _exec_wrap(stmt, ctx)
     return output.meta!.last_row_id
@@ -548,9 +608,9 @@ export async function listContributors(ctx: ExecutionContext): Promise<Contribut
  * @returns the composer record matching the query, or null if not found
  * @throws an error if the param is not a unique column
  */
-export async function getComposer(ctx: ExecutionContext, param: string, value: string): Promise<D1Composer | null> {
+export async function getComposer(ctx: ExecutionContext, param: string, value: string): Promise<ComposerRecord | null> {
     // retrieves a composer record based on the unique param
-    return _getWrapper(COMPOSER, await _getPrimitive(ctx, COMPOSER, param, value)) as Promise<D1Composer | null>
+    return _getWrapper(COMPOSER, await _getPrimitive(ctx, COMPOSER, param, value)) as Promise<ComposerRecord | null>
 }
 
 /**
@@ -610,8 +670,8 @@ export async function deleteComposer(ctx: ExecutionContext, id: number): Promise
  * @returns an array of all composer records, or null if no records are found
  * @throws an error if the database query fails
  */
-export async function listComposers(ctx: ExecutionContext): Promise<D1Composer[] | null> {
-    return _listWrapper(COMPOSER, await _listPrimitive(ctx, COMPOSER)) as Promise<D1Composer[] | null>
+export async function listComposers(ctx: ExecutionContext): Promise<ComposerRecord[] | null> {
+    return _listWrapper(COMPOSER, await _listPrimitive(ctx, COMPOSER)) as Promise<ComposerRecord[] | null>
 }
 
 /**
@@ -623,8 +683,8 @@ export async function listComposers(ctx: ExecutionContext): Promise<D1Composer[]
  * @returns the composition record matching the query, or null if not found
  * @throws an error if the param is not a unique column
  */
-export async function getComposition(ctx: ExecutionContext, param: string, value: string): Promise<D1Composition | null> {
-    return _getWrapper(COMPOSITION, await _getPrimitive(ctx, COMPOSITION, param, value)) as Promise<D1Composition | null>
+export async function getComposition(ctx: ExecutionContext, param: string, value: string): Promise<CompositionRecord | null> {
+    return _getWrapper(COMPOSITION, await _getPrimitive(ctx, COMPOSITION, param, value)) as Promise<CompositionRecord | null>
 }
 
 /**
@@ -684,6 +744,6 @@ export async function deleteComposition(ctx: ExecutionContext, id: number): Prom
  * @returns an array of all composition records, or null if no records are found
  * @throws an error if the database query fails
  */
-export async function listCompositions(ctx: ExecutionContext): Promise<D1Composition[] | null> {
-    return _listWrapper(COMPOSITION, await _listPrimitive(ctx, COMPOSITION)) as Promise<D1Composition[] | null>
+export async function listCompositions(ctx: ExecutionContext): Promise<CompositionRecord[] | null> {
+    return _listWrapper(COMPOSITION, await _listPrimitive(ctx, COMPOSITION)) as Promise<CompositionRecord[] | null>
 }

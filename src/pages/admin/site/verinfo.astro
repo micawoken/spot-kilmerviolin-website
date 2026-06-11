@@ -1,0 +1,44 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+// version info is rendered server-side (the GET /api/v1/site endpoint serves API consumers)
+import verinfo from "../../../lib/api/verinfo"
+
+export const prerender = false
+
+const info = verinfo()
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Info`} description="View site build and environment information"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Site Information</h2>
+    <h3>Build</h3>
+    <ul class="entity-result-details">
+        <li><strong>Build timestamp:</strong> {info.timestamp}</li>
+        <li><strong>Build ID:</strong> {info.build_id}</li>
+        <li><strong>Tag:</strong> {info.tag ? info.tag : "(none)"}</li>
+    </ul>
+    <h3>Settings</h3>
+    <ul class="entity-result-details">
+        <li><strong>Self-enrollment enabled:</strong> {String(info.settings.selfenroll)}</li>
+        <li><strong>Rich error descriptions:</strong> {String(info.settings.errordesc)}</li>
+    </ul>
+    <h3>Environment</h3>
+    <ul class="entity-result-details">
+        <li><strong>Authentication service enabled:</strong> {String(info.environment.authservice)}</li>
+        <li><strong>Database writable:</strong> {String(info.environment.db_writable)}</li>
+        <li><strong>Cache API TTL (default):</strong> {info.environment.ttls.cacheApi.default} seconds</li>
+        <li><strong>Cache API TTL (long):</strong> {info.environment.ttls.cacheApi.long} seconds</li>
+        <li><strong>KV cache TTL (default):</strong> {info.environment.ttls.kv.default} seconds</li>
+    </ul>
+    <AdminFooter />
+</body>
+</html>

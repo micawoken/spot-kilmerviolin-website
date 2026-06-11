@@ -39,11 +39,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     }
     try {
         const d1_record = await getComposer(context.locals.cfContext, "composer_id", state_id.toString())
+        console.log("D1 fetch result for composer ID", state_id, ":", d1_record)
         if (d1_record === null) {
             return constructResponse(request, null, 404)
         }
+        console.log("Returning composer ID ", state_id)
         return constructResponse(request, d1_record, 200)
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }
@@ -77,7 +80,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
     // validate body as complete composer record
-    const record: Composer | string = _stateTypeAssertCompleteComposer(api_request.payload[0])
+    const record: Composer | string = _stateTypeAssertCompleteComposer(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
@@ -91,6 +94,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         await updateComposer(context.locals.cfContext, state_id, record)
         return constructResponse(request, null, 204)
     } catch (error) {
+        console.log(error instanceof Error ? error.message : error)
         return constructResponseErrorHook(request, error, 500, "Failed to update composer")
     }
 }
@@ -124,7 +128,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
     // validate body as partial composer record
-    const record: Partial<Composer> | string = _stateTypeAssertPartialComposer(api_request.payload[0])
+    const record: Partial<Composer> | string = _stateTypeAssertPartialComposer(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
@@ -137,6 +141,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         await updateComposerPartial(context.locals.cfContext, state_id, record)
         return constructResponse(request, null, 204)
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 500, "Failed to update composer")
     }
 }

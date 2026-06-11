@@ -24,6 +24,7 @@ const database = env.KV_DB_CACHE
  *  - f: data type - text or json
  *  - t: creation timestamp, in milliseconds since epoch
  *  - e: expiration time in seconds, set in env.KV_CACHE_TTL
+ *  - h: whether the key has a value, i.e. is not null or ""
  *  - value: the value to cache; truncated if greater than 750 characters to stay under 1024 character limit
  * 
  * @param value The string value to cache
@@ -33,11 +34,12 @@ const database = env.KV_DB_CACHE
  */
 function constructMetadata(value: string, type: "text" | "json", ttl: number): KVMetadata {
     return {
-        v: 1,
+        v: 2,
         f: type,
         t: Date.now(),
         e: ttl,
-        value: value.length < 750 ? value : null
+        h: value.length !== 0,
+        value: value.length < 750 ? value : (type === "json" ? null : "")
     }
 }
 
@@ -47,14 +49,38 @@ function constructMetadata(value: string, type: "text" | "json", ttl: number): K
  * @param key The key to retrieve
  * @param properties Optional KV get properties
  * @return The value stored at the key, parsed as JSON if the metadata indicates it is JSON; null if the key does not exist
+ * @throws Error if the metadata version is unrecognized
  */
 export async function getKey(key: string, properties?: Partial<KVNamespaceGetOptions<undefined>>): Promise<any> {
     const value = await database.getWithMetadata(key, properties)
     if (!value) {
         return null
     }
-    const output = (value.metadata as KVMetadata)?.f === "json" ? JSON.parse(value.value as string) : value.value
-    return output
+    console.log(key)
+    console.log(value)
+    if (value.value === null) {
+        // key does not exist
+        return null
+    }
+    if (value.metadata === null || value.metadata === undefined) {
+        // no metadata - assume text
+        return value.value
+    }
+    if ((value.metadata as KVMetadata).v === 1) {
+        const output = (value.metadata as KVMetadata)?.f === "json" ? JSON.parse(value.value as string) : value.value
+        return output
+    } else if ((value.metadata as KVMetadata).v === 2) {
+        if ((value.metadata as KVMetadata).h) {
+            // has data
+            const output = (value.metadata as KVMetadata)?.f === "json" ? JSON.parse(value.value as string) : value.value
+            return output
+        } else {
+            // no data
+            return undefined
+        }
+    } else {
+        throw new Error(`Unrecognized KV metadata version ${(value.metadata as KVMetadata).v} for key ${key}`)
+    }
 }
 
 /**
@@ -72,4 +98,72 @@ export async function setKey(key: string, value: string | object, mode: 'text' |
         metadata: metadata,
         expirationTtl: env.KV_CACHE_TTL
     })
+}
+
+/**
+ * Delete a key from KV
+ *
+ * @param key The key to delete
+ */
+export async function deleteKey(key: string): Promise<void> {
+    await database.delete(key)
+}
+
+/**
+ * Perform a list operation with automatic pagination, and return a list of keys
+ * 
+ * @returns A promise that resolves to a list of keys with their metadata and expiration times
+ */
+async function _listKeys(): Promise<{name: string, expiration: number | null, metadata: KVMetadata}[]> {
+    let cursor: string | undefined = undefined
+    let keys: {name: string, expiration: number | null, metadata: KVMetadata}[] = []
+    do {
+        if (!cursor) {
+            const result = await database.list({ limit: 1000 })
+            keys = keys.concat(result.keys as {name: string, expiration: number | null, metadata: KVMetadata}[])
+            cursor = "cursor" in result ? result.cursor : undefined
+            if (result.list_complete) {
+                break
+            }
+        } else {
+            const result = await database.list({ limit: 1000, cursor: cursor })
+            keys = keys.concat(result.keys as {name: string, expiration: number | null, metadata: KVMetadata}[])
+            cursor = "cursor" in result ? result.cursor : undefined
+            if (result.list_complete) {
+                break
+            }
+        }
+    } while (cursor !== undefined)
+    return keys
+}
+
+
+/**
+ * List keys in KV, with optional data
+ * 
+ * @param {boolean} records - Whether to return response data, if available
+ * @returns {Promise<string[] | Record<string, any>>} A promise that resolves to either a list of keys, or an object mapping keys to their values if records is true
+ * @throws {Error} If an unrecognized metadata version is encountered
+ */
+export async function listKeys(records: boolean = false): Promise<string[] | Record<string, any>> {
+    const key_data = await _listKeys()
+    if (!records) {
+        return key_data.map(k => k.name)
+    } else {
+        return key_data.reduce((acc, k) => {
+            if (k.metadata.v === 1) {
+                acc[k.name] = (k.metadata as KVMetadata)?.f === "json" ? JSON.parse(k.metadata.value as string) : k.metadata.value
+                return acc
+            } else if (k.metadata.v === 2) {
+                if (k.metadata.h) {
+                    acc[k.name] = (k.metadata as KVMetadata)?.f === "json" ? JSON.parse(k.metadata.value as string) : k.metadata.value
+                } else {
+                    acc[k.name] = undefined
+                }
+                return acc
+            } else {
+                throw new Error(`Unrecognized KV metadata version ${k.metadata.v} for key ${k.name}`)
+            }
+        }, {} as Record<string, any>)
+    }
 }

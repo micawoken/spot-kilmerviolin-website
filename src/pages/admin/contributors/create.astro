@@ -1,0 +1,31 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ContributorForm from "../../../components/entities/ContributorForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Contributor`} description="Add a new contributor to the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Add a New Contributor</h2>
+    <p class="general-infohelp">Creating contributor records requires administrator permissions. To add a user who can log in and contribute, also add them in <a href="/admin/iam/add">Identity & Access Management &gt; Add new user</a> (which can create this record automatically).</p>
+    <ContributorForm required={true} show_auth={true} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const create_form = getForm("contributor_full", APIOpCode.CREATE)
+        console.log("Form element obtained for contributors create operation:", create_form)
+        create_form.addEventListener("submit", genHandler(create_form, getTransactionElem(), APIOpCode.CREATE, "contributor_full"))
+    </script>
+    <AdminFooter />
+</body>
+</html>

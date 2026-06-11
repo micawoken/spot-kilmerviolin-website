@@ -1,0 +1,26 @@
+---
+const { composer, hidden } = Astro.props;
+// composer is either null/undefined or matches the ComposerRecord type
+// hidden specifies whether to keep the result container hidden (used if the ID form is enabled and not yet submitted)
+---
+<div id="generic-result-composer" class=`entity-result-container${hidden ? " hidden" : ""}`>
+    <h2 id="composer-name" class="entity-result-name">{composer?.name}</h2>
+    <p id="composer-id">ID #{composer?.id}</p>
+
+    {
+        // only render the image element if an image URL is provided, to avoid broken image icons
+        composer?.image ? (
+            <img id="composer-image" class="entity-result-image" src={`${composer.image}`} alt={`Image of composer ${composer.name}`} />
+        ) : (
+            <p>No image available.</p>
+        )
+    }
+    <ul id="composer-details" class="entity-result-details">
+        <li><strong>Role:</strong> <span id="composer-role">{composer?.role}</span></li>
+        <li><strong>Birth Year:</strong> <span id="composer-birth_year">{composer?.birth_year}</span></li>
+        <li><strong>Death Year:</strong> <span id="composer-death_year">{composer?.death_year}</span></li>
+        <li><strong>Country:</strong> <span id="composer-country">{composer?.country}</span></li>
+        <li><strong>Tags:</strong> <span id="composer-tags">{composer?.tags?.join(", ")}</span></li>
+    </ul>
+    <p id="composer-bio" class="entity-result-bio">{composer?.bio}</p>
+</div>

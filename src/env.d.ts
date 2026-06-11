@@ -79,7 +79,7 @@ declare module "jose" { // jose from npmjs
     headers?: Record<string, string>;
     timeoutDuration?: number;
     customFetch?: typeof fetch;
-    jwksCacheInput
+    jwksCache?: JWKSCacheInput
   }
 
   async function jwtVerify(jwt: string | Uint8Array, key: Uint8Array | CryptoKey | JWK | KeyObject, options?: JWTVerifyOptions): Promise<JWTVerifyResult>;
@@ -89,3 +89,37 @@ declare module "jose" { // jose from npmjs
   // don't need to define more functions than necessary
 
 }
+
+interface ResponseInfo {
+  code: number,
+  message: string,
+  documentation_url?: string,
+  source?: {
+    pointer?: string
+  }
+}
+
+interface GatewayItem {
+  created_at?: string,
+  description?: string,
+  value?: string
+}
+
+interface GatewayList {
+  id?: string,
+  count?: number,
+  created_at?: string,
+  description?: string,
+  items: GatewayItem[],
+  name?: string,
+  type?: "SERIAL" | "URL" | "DOMAIN" | "EMAIL" | "IP" | "CATEGORY" | "LOCATION" | "DEVICE" | "AAGUID",
+  updated_at?: string
+}
+
+interface CfResponseInfoGatewayList {
+  errors: ResponseInfo[],
+  messages: ResponseInfo[],
+  success: boolean,
+  result?: GatewayList
+}
+

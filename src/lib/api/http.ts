@@ -7,6 +7,7 @@
 
 import { env } from "cloudflare:workers"
 import { createAPIPayload } from "./common"
+import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
 
 interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {
     code: keyof typeof http_codes
@@ -20,6 +21,14 @@ interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {
 export const static_headers = {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "public, maxage=86400, s-maxage=604800, stale-while-revalidate=604800, must-understand",
+    "Allow": "GET, OPTIONS",
+    "Vary": "Origin",
+    "Origin": undefined
+}
+
+export const error_headers = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store, must-understand",
     "Allow": "GET, OPTIONS",
     "Vary": "Origin",
     "Origin": undefined
@@ -72,6 +81,7 @@ export const preflight_headers = {
      */
 }
 
+
 /**
  * A fallback origin to use for CORS headers when a request does not include "Origin"
  */
@@ -93,63 +103,116 @@ export const API_headers = {
 }
 
 /**
+ * Generic HTTP error page template used in middleware
+ */
+export const error_http = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/style.css">
+    <title>{errorCode} {errorName}</title>
+</head>
+<body>
+    <div class="global">
+        <h1 class="title">{errorCode} {errorName}</h1>
+    </div>
+    <div class="global body">
+        <p>{errorDescription}</p>
+        <p>Please do not repeat this request.</p>
+    </div>
+    <div class="global body">
+        <p><a href="javascript:history.back()">Back</a> | <a href="/">Home</a></p>
+    </div>
+    <div class="global body">
+        <p>Need to report a security concern? Contact the webmaster at <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.</p>
+    </div>
+</body>
+</html>`
+
+/**
  * HTTP status codes used in constructResponse()
  */
 const http_codes = {
     200: {
         success: true,
         statusText: "OK",
-        comment: ""
+        comment: "",
+        body: true
     },
     201: {
         success: true,
         statusText: "Created",
-        comment: ""
+        comment: "",
+        body: true
     },
     204: {
         success: true,
         statusText: "No Content",
-        comment: ""
+        comment: "",
+        body: false
     },
     400: {
         success: false,
         statusText: "Bad Request",
-        comment: "The request was malformed or invalid"
+        comment: "The request was malformed or invalid",
+        body: true
     },
     401: {
         success: false,
         statusText: "Unauthorized",
-        comment: "The request did not include valid authentication credentials"
+        comment: "The request did not include valid authentication credentials",
+        body: true
     },
     403: {
         success: false,
         statusText: "Forbidden",
-        comment: "The authenticated user does not have permission to access this resource"
+        comment: "The authenticated user does not have permission to access this resource",
+        body: true
     },
     404: {
         success: false,
         statusText: "Not Found",
-        comment: "The requested resource does not exist"
+        comment: "The requested resource does not exist",
+        body: true
+    },
+    405: {
+        success: false,
+        statusText: "Method Not Allowed",
+        comment: "The requested HTTP method is not supported by this endpoint",
+        body: true
     },
     409: {
         success: false,
         statusText: "Conflict",
-        comment: "The request could not be completed due to a conflict with the current state of the resource"
+        comment: "The request could not be completed due to a conflict with the current state of the resource",
+        body: true
+    },
+    429: {
+        success: false,
+        statusText: "Too Many Requests",
+        comment: "Too many requests have been sent to the server. Please try again in a minute.",
+        body: true
     },
     500: {
         success: false,
         statusText: "Internal Server Error",
-        comment: "An unexpected error occurred on the server"
+        comment: "An unexpected error occurred on the server",
+        body: true
     },
     501: {
         success: false,
         statusText: "Not Implemented",
-        comment: "The requested HTTP method is not supported by this endpoint"
+        comment: "The requested HTTP method is not supported by this endpoint",
+        body: true
     }, 
     503: {
         success: false,
         statusText: "Service Unavailable",
-        comment: "The service is temporarily unavailable, please try again later."
+        comment: "The service is temporarily unavailable, please try again later.",
+        body: true
     }
 }
 
@@ -191,13 +254,13 @@ export function constructResponse(request: Request, payload: any, code: (keyof t
         },
         headers_addl ? headers_addl : {}
     )
-    let response_body: string
+    let response_body: string | null
     try {
-        response_body = JSON.stringify(createAPIPayload(success, payload, force_comment !== undefined ? force_comment : comment))
+        response_body = http_codes[code].body ? JSON.stringify(createAPIPayload(success, payload, force_comment !== undefined ? force_comment : comment)) : null
     } catch (e) {
         throw new Error(`Failed to serialize response payload: ${e}`)
     }
-
+    console.log("Response body constructed: ", response_body)
     return new Response(
         response_body,
         {
@@ -208,6 +271,15 @@ export function constructResponse(request: Request, payload: any, code: (keyof t
     )
 }
 
+/**
+ * End-to-end response constructor with the error hook
+ * 
+ * @param {Request} request - the original Request object, used to generate CORS headers and for error processing
+ * @param {any} error - the error to process
+ * @param {keyof typeof http_codes} code - the default HTTP status code
+ * @param {string} [force_comment] - if provided, this string will be used as the comment in the response body instead of the default comment for the status code
+ * @returns {Response} a Response object
+ */
 export function constructResponseErrorHook(request: Request, error: any, code: keyof typeof http_codes, force_comment?: string | undefined): Response {
     if (checkSQLiteErrorHook(error)) {
         return hookSQLiteError(request, error)
@@ -215,10 +287,34 @@ export function constructResponseErrorHook(request: Request, error: any, code: k
     return constructResponse(request, null, code, env.RICH_ERRORS && !force_comment ? `Error: ${error.message}` : force_comment)
 }
 
+/**
+ * Check if an error can be processed by the SQLite error hook
+ * 
+ * @param {any} error - the error to check
+ * @returns {boolean} if the error can be processed by the SQLite error hook
+ */
 export function checkSQLiteErrorHook(error: any): boolean {
     return (error instanceof Error && error.message.match(/SQLITE_/) !== null)
 }
 
+export function middlewareErrorResponder(request: Request, code: keyof typeof http_codes, force_comment?: string): Response {
+    const { statusText, comment } = http_codes[code]
+    const data = error_http.replaceAll("{errorCode}", code.toString())
+        .replaceAll("{errorName}", statusText)
+        .replaceAll("{errorDescription}", force_comment ? force_comment : comment)
+    return new Response(data, {
+        status: code,
+        statusText: statusText,
+        headers: _constructHeaders(error_headers, {
+            "Origin": request.headers.get("Origin") || cors_fallback_origin
+        })
+    })
+}
+
+/**
+ * List of SQLite extended error codes and their HTTP status codes for the error hook
+ * Some errors may include a processor function to refine the error determination
+ */
 const sqlite_errors_extended: Record<string, SQLiteErrorMsg> = {
     "SQLITE_ABORT_ROLLBACK": { code: 500 },
     "SQLITE_AUTH_USER": { code: 403 },
@@ -295,7 +391,14 @@ const sqlite_errors_extended: Record<string, SQLiteErrorMsg> = {
     "SQLITE_READONLY_ROLLBACK": { code: 403 }
 }
 
-function processConstraintUnique(schema: D1Schema, error_message: string): [boolean, number, string] {
+
+/**
+ * Parser function for SQLITE_CONSTRAINT_UNIQUE errors
+ * 
+ * @param {string} error_message - the error message, from Error.message
+ * @return {[boolean, number, string]} [whether the error was processed, the HTTP status code to return, the message to return]
+ */
+function processConstraintUnique(error_message: string): [boolean, number, string] {
     // pulls out the column name and compares it with the schema
     const regex = /UNIQUE constraint failed: (\w+)\.(\w+)/
     const match = error_message.match(regex)
@@ -304,16 +407,28 @@ function processConstraintUnique(schema: D1Schema, error_message: string): [bool
     }
     const table = match[1]
     const column = match[2]
-    if (table !== schema.name) {
-        // schema mismatch, stop exec
-        return [false, 400, ""]
+    
+    let schema
+    switch (table) {
+        case "contributors":
+            schema = CONTRIBUTOR
+            break
+        case "composers": 
+            schema = COMPOSER
+            break
+        case "compositions":
+            schema = COMPOSITION
+            break
+        default:
+            return [false, 400, ""] // unrecognized table, use default
     }
+
     if (column === schema.primary_key) {
         // primary key already exists
         return [true, 409, `Invalid request: this primary key already exists`]
     } else if (schema.index.includes(column)) {
         // indexed column must be unique
-        return [true, 409, `Invalid request body: property ${column} must be unique, and such a value already exists`]
+        return [true, 409, `Invalid request body: property "${column}" must be unique, and such a value already exists`]
     } else {
         return [false, 400, ""]
     }
@@ -321,6 +436,9 @@ function processConstraintUnique(schema: D1Schema, error_message: string): [bool
 
 /**
  * Converts an error thrown by D1 into the appropriate HTTP status code
+ * 
+ * @param {Error} error - the error thrown by D1
+ * @returns {[keyof typeof http_codes, string | null]} [the HTTP status code, the message; if null, ignore code and use default]
  */
 function convertSQLiteError(error: Error): [keyof typeof http_codes, string | null] {
     // search the error message for a known SQLite error code
@@ -335,7 +453,7 @@ function convertSQLiteError(error: Error): [keyof typeof http_codes, string | nu
         }
         const error_info = sqlite_errors_extended[match]
         if (error_info.processor) {
-            const [processed, code, message] = error_info.processor(undefined as unknown as D1Schema, error.message)
+            const [processed, code, message] = error_info.processor(error.message)
             if (processed) {
                 return [code as keyof typeof http_codes, message]
             }
