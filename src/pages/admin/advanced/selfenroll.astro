@@ -1,0 +1,83 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+
+// the middleware has already resolved the caller's identity, so enrollability is known server-side
+const identity = Astro.locals.identity ?? null
+const enrollable = identity?.enrollable === true
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Self-Enrollment`} description="Complete self-enrollment to create your contributor record"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={identity} welcome="false"/>
+    <h2>Self-Enrollment</h2>
+    {
+        enrollable ? (
+            <>
+                <p class="general-infohelp">Your login is not yet linked to a contributor record. Complete the form below to create one. Your new account will have no permissions until an administrator (or a user with the user-enrollment role) activates it.</p>
+                <div class="generic-form">
+                    <form id="advanced-form-selfenroll" class="generic-form">
+                        <fieldset>
+                            <legend>Name</legend>
+                            <input type="text" id="advanced-form-selfenroll-name" name="name" required />
+                        </fieldset>
+                        <fieldset>
+                            <legend>Major</legend>
+                            <input type="text" id="advanced-form-selfenroll-major" name="major" required />
+                        </fieldset>
+                        <fieldset>
+                            <legend>Class Year</legend>
+                            <input type="number" id="advanced-form-selfenroll-class_year" name="class_year" required />
+                            <p class="general-infohelp">To omit the class year, enter <code>-1</code>.</p>
+                        </fieldset>
+                        <button type="submit">Submit</button>
+                    </form>
+                </div>
+                <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+                <script>
+                    import { enrollSelf } from "../../../scripts/connector"
+                    import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+                    const form = document.getElementById("advanced-form-selfenroll") as HTMLFormElement
+                    const message = getTransactionElem()
+
+                    form.addEventListener("submit", async (evt: Event) => {
+                        evt.preventDefault()
+                        message.textContent = "Processing request..."
+                        const form_data = new FormData(form)
+                        disableInput(form)
+                        try {
+                            const name = String(form_data.get("name") ?? "")
+                            const major = String(form_data.get("major") ?? "")
+                            const class_year = parseInt(String(form_data.get("class_year")))
+                            if (!name || !major || isNaN(class_year)) {
+                                throw new Error("Self-enrollment requires a name, major, and class year")
+                            }
+                            await enrollSelf({ name: name, major: major, class_year: class_year })
+                            message.textContent = "Request succeeded: contributor record created. An administrator must activate your account before you can make changes."
+                        } catch (error) {
+                            message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                            console.error(error)
+                            enableInput(form)
+                        }
+                    })
+                </script>
+            </>
+        ) : (
+            <>
+                <p>Your login is not eligible for self-enrollment. Self-enrollment is only available when your login has no existing contributor record and self-enrollment is enabled for the site.</p>
+                <p class="general-infohelp">You can review your current authorization status on the <a href="/admin/iam/whoami">My Authorization Info</a> page. If you believe you should be enrollable, contact an administrator.</p>
+            </>
+        )
+    }
+    <AdminFooter />
+</body>
+</html>

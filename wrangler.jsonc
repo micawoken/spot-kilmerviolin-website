@@ -2,7 +2,7 @@
 	"name": "spot-kilmer-violin-website",
 	"compatibility_date": "2026-04-20",
 	"compatibility_flags": ["nodejs_compat"],
-	"main": "./dist/_worker.js/index.js",
+	"main": "@astrojs/cloudflare/entrypoints/server",
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS"
@@ -11,15 +11,236 @@
 		[
 			{
 				"binding": "DB_MAIN",
-				"database_name": "incessant-analogous-cryptid",
-				"database_id": "e05546aa-b643-4e4a-8fa1-b86a1a818f0f"
+				"database_name": "spot-kilmerviolin-db-prod",
+				"database_id": "48855f12-5d4d-4837-9af1-b9346a153065"
  			}
 		],
+	"kv_namespaces": [
+		// per https://developers.cloudflare.com/workers/wrangler/environments/#non-inheritable-keys-and-environments, KV namespaces must be redefined in each environment
+		{
+			"binding": "KV_DB_CACHE",
+			"id": "2bf25987699b46ebbe56e997c845b0a9"
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "RL_FREQ", // applied based on IP address, intended to stop high-frequency requests
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 20,
+				"period": 10
+			}
+		},
+		{
+			"name": "RL_API_PUBLIC", // applied to the public API, intended to backstop against overwhelming request volumes
+			"namespace_id": "1002", // applies globally to all users
+			"simple": {
+				"limit": 1000, // hits to ths rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (since those are SSR)
+				"period": 60
+			}
+		},
+		{
+			"name": "RL_API_ADMIN_GLOBAL", // applies to admin endpoints if authenticated (unauthenticated users receive 403)
+			"namespace_id": "1003", // applies globally
+			"simple": {
+				"limit": 250, // population of admin users is extremely small, so a lower limit is acceptable
+				"period": 60
+			}
+		},
+		{"name": "RL_API_ADMIN_USER", // applies to admin endpoints if authenticated (unauthenticated users receive 403)
+			"namespace_id": "1004", // applies based on user ID, so each admin user has their own rate limit
+			"simple": {
+				"limit": 50,
+				"period": 60
+			}
+		},
+		{
+			"name": "RL_ADMIN_RENDER", // applied to admin rendering pages by IP, intended to prevent unusual request volumnes
+			"namespace_id": "1005",
+			"simple": {
+				"limit": 30,
+				"period": 60
+			}
+		}
+	],
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA"
+	},
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 1.0
+		}
 	},
 	"upload_source_maps": true,
+
+	// vars defined here are non-inheritable by environments and are overwritten if selected
 	"vars": {
-		"TEAM_DOMAIN": "test" // will replace later
+		"CACHE_API_TTL": 7200, // 2 hours
+		"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
+		"KV_CACHE_TTL": 57600, // 16 hours
+		"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf", // points to the list reusable component used by the access policy, which is used by the access application
+		"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283", // the account ID for michaelwongmusic@gmail.com
+		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // will replace later
+		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
+		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com",
+		"DB_ENABLE_WRITE": true, // whether to allow the database primitives to perform write operations, enforced by exec_stmt
+		"AUTH_ENABLED": false, // if false, suspends identity middleware and directs authentication primitive to return true
+		"RICH_ERRORS": true
+	},
+
+	"env": {
+		"staging": {
+			"routes": [],
+			"workers_dev": true,
+			"d1_databases":
+				[
+					{
+						"binding": "DB_MAIN",
+						"database_name": "spot-kilmerviolin-db-prod",
+						"database_id": "48855f12-5d4d-4837-9af1-b9346a153065"
+					}
+				],
+			"ratelimits": [
+				{
+					"name": "RL_FREQ", // applied based on IP address, intended to stop high-frequency requests
+					"namespace_id": "1001",
+					"simple": {
+						"limit": 20,
+						"period": 10
+					}
+				},
+				{
+					"name": "RL_API_PUBLIC", // applied to the public API, intended to backstop against overwhelming request volumes
+					"namespace_id": "1002", // applies globally to all users
+					"simple": {
+						"limit": 1000, // hits to ths rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (since those are SSR)
+						"period": 60
+					}
+				},
+				{
+					"name": "RL_API_ADMIN_GLOBAL", // applies to admin endpoints if authenticated (unauthenticated users receive 403)
+					"namespace_id": "1003", // applies globally
+					"simple": {
+						"limit": 250, // population of admin users is extremely small, so a lower limit is acceptable
+						"period": 60
+					}
+				},
+				{"name": "RL_API_ADMIN_USER", // applies to admin endpoints if authenticated (unauthenticated users receive 403)
+					"namespace_id": "1004", // applies based on user ID, so each admin user has their own rate limit
+					"simple": {
+						"limit": 50,
+						"period": 60
+					}
+				},
+				{
+					"name": "RL_ADMIN_RENDER", // applied to admin rendering pages by IP, intended to prevent unusual request volumnes
+					"namespace_id": "1005",
+					"simple": {
+						"limit": 30,
+						"period": 60
+					}
+				}
+			],
+			"version_metadata": {
+				"binding": "CF_VERSION_METADATA"
+			},
+			"vars": {
+				"CACHE_API_TTL": 7200, // 2 hours
+				"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
+				"KV_CACHE_TTL": 57600, // 16 hours
+				"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf",
+				"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283",
+				"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11",
+				"API_USER_SELFENROLL": true,
+				"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // will replace later
+				"DB_ENABLE_WRITE": true, // temp enabling
+				"AUTH_ENABLED": true,
+				"RICH_ERRORS": false
+			},
+			"kv_namespaces": [
+				{
+					"binding": "KV_DB_CACHE",
+					"id": "2bf25987699b46ebbe56e997c845b0a9"
+				}
+			]
+		},
+
+		"production": {
+			"routes": [], // define routes later
+			"workers_dev": false,
+			"d1_databases":
+				[
+					{
+						"binding": "DB_MAIN",
+						"database_name": "spot-kilmerviolin-db-prod",
+						"database_id": "48855f12-5d4d-4837-9af1-b9346a153065"
+					}
+				],
+			"ratelimits": [
+				{
+					"name": "RL_FREQ", // applied based on IP address, intended to stop high-frequency requests
+					"namespace_id": "1001",
+					"simple": {
+						"limit": 20,
+						"period": 10
+					}
+				},
+				{
+					"name": "RL_API_PUBLIC", // applied to the public API, intended to backstop against overwhelming request volumes
+					"namespace_id": "1002", // applies globally to all users
+					"simple": {
+						"limit": 1000, // hits to ths rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (since those are SSR)
+						"period": 60
+					}
+				},
+				{
+					"name": "RL_API_ADMIN_GLOBAL", // applies to admin endpoints if authenticated (unauthenticated users receive 403)
+					"namespace_id": "1003", // applies globally
+					"simple": {
+						"limit": 250, // population of admin users is extremely small, so a lower limit is acceptable
+						"period": 60
+					}
+				},
+				{"name": "RL_API_ADMIN_USER", // applies to admin endpoints if authenticated (unauthenticated users receive 403)
+					"namespace_id": "1004", // applies based on user ID, so each admin user has their own rate limit
+					"simple": {
+						"limit": 50,
+						"period": 60
+					}
+				},
+				{
+					"name": "RL_ADMIN_RENDER", // applied to admin rendering pages by IP, intended to prevent unusual request volumnes
+					"namespace_id": "1005",
+					"simple": {
+						"limit": 30,
+						"period": 60
+					}
+				}
+			],
+			"version_metadata": {
+				"binding": "CF_VERSION_METADATA"
+			},
+			"vars": {
+				"CACHE_API_TTL": 7200, // 2 hours
+				"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
+				"KV_CACHE_TTL": 57600, // 16 hours
+				"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf",
+				"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283",
+				"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11",
+				"API_USER_SELFENROLL": true,
+				"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // will replace later
+				"DB_ENABLE_WRITE": true,
+				"AUTH_ENABLED": true,
+				"RICH_ERRORS": false
+			},
+			"kv_namespaces": [
+				{
+					"binding": "KV_DB_CACHE",
+					"id": "2bf25987699b46ebbe56e997c845b0a9"
+				}
+			]
+		}
 	}
 }

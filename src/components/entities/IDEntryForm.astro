@@ -1,0 +1,69 @@
+---
+/**
+ * src/components/entities/IDEntryForm.astro
+ * 
+ * Reusable component to enter an ID, with client-side processing
+ * 
+ * Used for info pages when an ID is not specified in the URL param
+ * 
+ * Props: 
+ * - output_div (optional): if specified, the ID entry form will render a div with this ID to emit the output
+ * - hidden (optional): if true, the form will be hidden (such as if the data is already supplied by the URL param)
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+
+
+const output_div: string | undefined = Astro.props.output_div;
+const hidden = Astro.props.hidden || false;
+/**
+ * Whether to render an elevation/escalation checkbox (admin operations on works/contributors)
+ */
+const show_elevate: boolean = Astro.props.show_elevate || false;
+console.log("Hidden status for id entry: ", hidden)
+
+---
+<div class=`generic-form id-entry${hidden ? ' hidden' : ''}` id="generic-form-id-entry-container">
+    <form id="generic-form-id-entry" class="generic-form">
+        <fieldset>
+            <legend>Enter ID</legend>
+            <input type="text" id="form-id-entry-id" name="id" required />
+        </fieldset>
+        {
+            show_elevate ? (
+                <fieldset>
+                    <legend>Administrator Elevation</legend>
+                    <input type="checkbox" id="form-id-entry-elevate" name="elevate" />
+                    <label for="form-id-entry-elevate">Use administrator elevation for this operation</label>
+                    <p class="general-warning">Elevation bypasses ownership and property protections. Proceed with caution.</p>
+                </fieldset>
+            ) : null
+        }
+        <button type="submit">Submit</button>
+    </form>
+    {
+        output_div ? (
+            <>
+            <div id={`transaction-output-${output_div}`}></div>
+            </>
+        ) : (
+            <></>
+        )
+    }
+</div>

@@ -1,0 +1,80 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import CompositionForm from "../../../components/entities/CompositionForm.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { COMPOSITION } from "../../../lib/api/d1"
+import { getComposition } from "../../../lib/api/database"
+
+export const prerender = false
+
+const is_admin = Astro.locals.identity?.admin === true
+
+const id = Astro.url.searchParams.get("id")
+let use_id: boolean = false
+let composition_data: CompositionRecord | null = null
+if (id) {
+    console.log("ID query param found:", id)
+    composition_data = await getComposition(Astro.locals.cfContext, COMPOSITION.primary_key, id)
+    if (!composition_data) {
+        console.warn(`No composition found with ID ${id}, falling back to ID entry form`)
+    } else {
+        use_id = true
+    }
+} else {
+    console.log("No ID query param found, showing ID entry form")
+}
+
+const hidden_form = use_id && composition_data ? true : false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Composition`} description="Edit an existing composition in the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Edit a Composition</h2>
+    <p class="general-infohelp">Only the primary contributors of a composition (or users with the reviewer role) may edit it. Administrators may use elevation to bypass this lockout.</p>
+    <IDEntryForm output_div={"generic-form-composition"} hidden={hidden_form} />
+    <CompositionForm required={false} hidden={!hidden_form} composition={use_id ? composition_data : null} patch={true} show_elevate={is_admin} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError, attachSearchHelper } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        // patch in editing/updating form (partial edits via PATCH)
+        const edit_form = getForm("composition", APIOpCode.UPDATE_PARTIAL)
+        console.log("Form element obtained for compositions update operation:", edit_form)
+        edit_form.addEventListener("submit", genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "composition"))
+        // patch in id entry form
+        const id_entry_form = getForm("composition", APIOpCode.READ)
+        console.log("Form element obtained for compositions read operation (ID entry):", id_entry_form)
+        id_entry_form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            try {
+                const record = await retrieveObjectFromIDEntry(id_entry_form, "composition") as CompositionRecord | null
+                if (!record) {
+                    throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
+                }
+                console.log("Record retrieved from ID entry form:", record)
+                // populate the fields, and hide the input form
+                prefillForm("composition", record)
+                document.getElementById("generic-form-composition")?.classList.remove("hidden")
+                document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+            } catch (error) {
+                console.error(error)
+                emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+            }
+        })
+        // wire the ID lookup helpers
+        attachSearchHelper("composer", "form-composition-searchhelper-composer_id-input", "form-composition-searchhelper-composer_id-button", "form-composition-searchhelper-composer_id-results", "form-composition-composer_id")
+        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_1-input", "form-composition-searchhelper-contrib_primary_1-button", "form-composition-searchhelper-contrib_primary_1-results", "form-composition-contrib_primary_1")
+        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_2-input", "form-composition-searchhelper-contrib_primary_2-button", "form-composition-searchhelper-contrib_primary_2-results", "form-composition-contrib_primary_2")
+    </script>
+    <AdminFooter />
+</body>
+</html>

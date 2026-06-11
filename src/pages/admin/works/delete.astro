@@ -1,0 +1,40 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+
+const is_admin = Astro.locals.identity?.admin === true
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete Composition`} description="Delete a composition from the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Delete a Composition</h2>
+    <p class="general-warning">Deletion is permanent. Only the primary contributors of a composition (or users with the reviewer role) may delete it. Administrators may use elevation to bypass this lockout.</p>
+    <IDEntryForm output_div={undefined} hidden={false} show_elevate={is_admin} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const delete_form = getForm("composition", APIOpCode.DELETE)
+        console.log("Form element obtained for compositions delete operation:", delete_form)
+        const handler = genHandler(delete_form, getTransactionElem(), APIOpCode.DELETE, "composition")
+        delete_form.addEventListener("submit", (evt: Event) => {
+            evt.preventDefault()
+            if (!confirm("Are you sure you want to permanently delete this composition?")) {
+                return
+            }
+            handler(evt)
+        })
+    </script>
+    <AdminFooter />
+</body>
+</html>

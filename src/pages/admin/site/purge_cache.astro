@@ -1,0 +1,47 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Purge Cache`} description="Purge the site's database cache"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Purge the Database Cache</h2>
+    <p class="general-infohelp">Purging removes all cached database records, so visitors see database changes immediately. Until the cache repopulates, requests are served directly from the database, which is slower and consumes daily read limits.</p>
+    <button type="button" id="site-purge-button">Purge cache</button>
+    <p id="transaction-status">Your request status will show here after you press "Purge cache".</p>
+    <script>
+        import { purgeSite } from "../../../scripts/connector"
+        import { getTransactionElem } from "../../../scripts/interface"
+
+        const button = document.getElementById("site-purge-button") as HTMLButtonElement
+        const message = getTransactionElem()
+
+        button.addEventListener("click", async () => {
+            if (!confirm("Are you sure you want to purge the database cache?")) {
+                return
+            }
+            message.textContent = "Processing request..."
+            button.disabled = true
+            try {
+                const result = await purgeSite()
+                message.textContent = `Request succeeded: ${result?.message ?? "cache purged"}`
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                button.disabled = false
+            }
+        })
+    </script>
+    <AdminFooter />
+</body>
+</html>

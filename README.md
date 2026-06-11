@@ -1,64 +1,33 @@
-# Astro Starter Kit: Blog
+# Diversifying the Violin Curriculum for Violin Teaching
+Vanessa Cruz, Kenny Hoang, Emma Kuegel, Cam Schwind, Alyssa Spina, Michael Wong
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/astro-blog-starter-template)
+Last updated (date tbd)
 
-![Astro Template Preview](https://github.com/withastro/astro/assets/2244813/ff10799f-a816-4703-b967-c78997e8323d)
+## Summary
+This repository contains an Astro framework website deployable to Cloudflare Workers representing the research products of this project. The project is deployed to Michael Wong's business Cloudflare account (michaelwongmusic@gmail.com), and it uses bindings and tokens from his account to access the website's databases and authentication/authorization system for administrator pages.
 
-<!-- dash-content-start -->
+Guides to modify the website are available in docs/guides. For a video version, visit URL. To modify database information, such as information on a composer or composition, use the administrator page at URL and follow the instructions in docs/guides/admin.md or in this video.
 
-Create a blog with Astro and deploy it on Cloudflare Workers as a [static website](https://developers.cloudflare.com/workers/static-assets/).
+Instructions provided in the guides and videos referenced earlier provide instructions on how to modify the website's content. If you have experience programming in TypeScript and want to modify the back-end API and/or the DevOps system, notes from the sysadmin are available in docs/dev. If you don't have a background in programming and/or software development, you can contact the sysadmin at michaelwongmusic@gmail.com to request changes.
 
-Features:
+## Contributors
+This project benefits from the contributions from many different individuals. A complete list is in CONTRIBUTORS.md.
 
-- ✅ Minimal styling (make it your own!)
-- ✅ 100/100 Lighthouse performance
-- ✅ SEO-friendly with canonical URLs and OpenGraph data
-- ✅ Sitemap support
-- ✅ RSS Feed support
-- ✅ Markdown & MDX support
-- ✅ Built-in Observability logging
+## License
+This source code is &copy; 2026 Michael Wong, and later contributors.
 
-<!-- dash-content-end -->
+This project is licensed under the GNU General Public License, version 3 or later. For more information about the GNU GPLv3, visit <https://www.gnu.org/licenses/quick-guide-gplv3.html> or LICENSE.md.
 
-## Getting Started
+The following additional terms apply to the license:
+1. All conveyed copies must include the license and the additional terms verbatim;
+2. All conveyed copies must properly attribute licensors and authors;
+3. All conveyed modified copies must not pretend to be the original;
+4. All conveyed modified copies must clearly identify if changes were made, and if so, where, when, and in what manner;
+5. All conveyed modified copies must clearly identify that changes were made in its legal notices;
+6. All conveyed modified copies must not use the names of licensors and/or authors publicly to imply endorsement of the modification; and
+7. All conveyed modified copies must not use trademarks or servicemarks to imply endorsement of the modification.
 
-Outside of this repo, you can start a new project with this template using [C3](https://developers.cloudflare.com/pages/get-started/c3/) (the `create-cloudflare` CLI):
+This license does not apply to any data not packaged with this source code distribution. This includes (but is not limited to) any project data, such as rankings, biographies, commentary, and other general information, which, if added interactively, is subject to the website Terms of Use and whose copyright is retained by their respective authors.
 
-```bash
-npm create cloudflare@latest -- --template=cloudflare/templates/astro-blog-starter-template
-```
-
-A live public deployment of this template is available at [https://astro-blog-starter-template.templates.workers.dev](https://astro-blog-starter-template.templates.workers.dev)
-
-## 🚀 Project Structure
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-The `src/content/` directory contains "collections" of related Markdown and MDX documents. Use `getCollection()` to retrieve posts from `src/content/blog/`, and type-check your frontmatter using an optional schema. See [Astro's Content Collections docs](https://docs.astro.build/en/guides/content-collections/) to learn more.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                           | Action                                           |
-| :-------------------------------- | :----------------------------------------------- |
-| `npm install`                     | Installs dependencies                            |
-| `npm run dev`                     | Starts local dev server at `localhost:4321`      |
-| `npm run build`                   | Build your production site to `./dist/`          |
-| `npm run preview`                 | Preview your build locally, before deploying     |
-| `npm run astro ...`               | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help`         | Get help using the Astro CLI                     |
-| `npm run build && npm run deploy` | Deploy your production site to Cloudflare        |
-| `npm wrangler tail`               | View real-time logs for all Workers              |
-
-## 👀 Want to learn more?
-
-Check out [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
-
-## Credit
-
-This theme is based off of the lovely [Bear Blog](https://github.com/HermanMartinus/bearblog/).
+### Dependencies
+This source code is dependent on several software packages, each licensed under open-source software licenses. To view a list of the dependencies and their respective licenses, view LICENSE.md.

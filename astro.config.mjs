@@ -7,11 +7,25 @@ import cloudflare from "@astrojs/cloudflare";
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://example.com",
+	site: "https://example.com", // will set later
 	integrations: [mdx(), sitemap()],
-	adapter: cloudflare({
-		platformProxy: {
-			enabled: true,
-		},
-	}),
+	adapter: cloudflare(),
+	trailingSlash: "never",
+	output: "server", // prerender needs to be enabled on the relevant pages
+	redirects: {
+		"/admin/logout": "/cdn-cgi/access/logout" // Cloudflare Access logout
+	},
+	security: {
+		allowedDomains: [
+			{
+				hostname: "example.com", // will set later
+				protocol: "https"
+			},
+			{
+				hostname: "www.example.com", // will set later
+				protocol: "https"
+			}
+		],
+		checkOrigin: import.meta.env.PROD
+	}
 });

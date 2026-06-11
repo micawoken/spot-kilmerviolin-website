@@ -1,0 +1,13 @@
+---
+console.log("rendering component")
+const identity: Identity | null = Astro.props.identity;
+const welcome: boolean = Astro.props.welcome ? Astro.props.welcome : false;
+const date = new Date();
+console.log("data ready, rendering component", identity, welcome, date)
+
+---
+
+<div>
+    <h1>Administrative Services</h1>
+    <p>Welcome, {identity?.userinfo?.ok ? identity.userinfo.name : identity?.email || "user"}!</p>
+</div>

@@ -1,0 +1,49 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import CompositionInfo from "../../../components/entities/CompositionInfo.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { COMPOSITION } from "../../../lib/api/d1"
+import { getComposition } from "../../../lib/api/database"
+
+export const prerender = false
+
+// SSR is used if an ID is specified as a query param; otherwise, we'll load the client-side JS and ID entry
+const id = Astro.url.searchParams.get("id")
+let use_id: boolean = false
+let composition_data: CompositionRecord | null = null
+if (id) {
+    console.log("ID query param found:", id)
+    composition_data = await getComposition(Astro.locals.cfContext, COMPOSITION.primary_key, id)
+    if (!composition_data) {
+        console.warn(`No composition found with ID ${id}, falling back to client-side ID entry`)
+    } else {
+        use_id = true
+    }
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composition`} description="View a composition"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>View a Composition</h2>
+    <IDEntryForm output_div={undefined} hidden={use_id} />
+    <CompositionInfo composition={use_id ? composition_data as CompositionRecord : null} hidden={!use_id} />
+    <p id="transaction-status">{use_id ? "Composition data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const read_form = getForm("composition", APIOpCode.READ)
+        console.log("Form element obtained for compositions read operation:", read_form)
+        read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "composition"))
+    </script>
+    <AdminFooter />
+</body>
+</html>
