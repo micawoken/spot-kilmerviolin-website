@@ -27,6 +27,7 @@ const hidden: boolean = Astro.props.hidden || false;
     }
     <ul id="composition-details" class="entity-result-details">
         <li><strong>Composer ID:</strong> <span id="composition-composer_id">{composition?.composer_id}</span></li>
+        <li><strong>Secondary Author IDs:</strong> <span id="composition-author_secondary">{composition?.author_secondary?.join(", ")}</span></li>
         <li><strong>Primary Contributor ID:</strong> <span id="composition-contrib_primary_1">{composition?.contrib_primary_1}</span></li>
         <li><strong>Additional Primary Contributor ID:</strong> <span id="composition-contrib_primary_2">{composition?.contrib_primary_2}</span></li>
         <li><strong>Additional Contributor IDs:</strong> <span id="composition-contrib_addl">{composition?.contrib_addl?.join(", ")}</span></li>
@@ -42,7 +43,6 @@ const hidden: boolean = Astro.props.hidden || false;
         <li><strong>Publication Year:</strong> <span id="composition-publication_info-year">{composition?.publication_info?.year}</span></li>
         <li><strong>Publication URI Type:</strong> <span id="composition-publication_info-uri_type">{composition?.publication_info?.uri_type}</span></li>
         <li><strong>Publication URI:</strong> <span id="composition-publication_info-uri">{composition?.publication_info?.uri}</span></li>
-        <li><strong>Secondary Author IDs:</strong> <span id="composition-author_secondary">{composition?.author_secondary?.join(", ")}</span></li>
         <li><strong>Phases:</strong> <span id="composition-phases">{composition?.phases?.join(", ")}</span></li>
         <li><strong>Tags:</strong> <span id="composition-tags">{composition?.tags?.join(", ")}</span></li>
     </ul>

@@ -155,7 +155,7 @@
 				"CF_ACCESS_AUD": "test",
 				"API_USER_SELFENROLL": true,
 				"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // will replace later
-				"DB_ENABLE_WRITE": false, // db write is disabled since remote staging accesses production databases
+				"DB_ENABLE_WRITE": true, // temp enabling
 				"AUTH_ENABLED": true,
 				"RICH_ERRORS": false
 			},

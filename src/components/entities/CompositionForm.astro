@@ -66,6 +66,18 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </fieldset>
 
         <fieldset>
+            <legend>Secondary Authors</legend>
+            <label for="form-composition-author_secondary">Secondary Authors (comma-separated IDs):</label>
+            <input type="text" id="form-composition-author_secondary" name="author_secondary" value={joined(composition?.author_secondary)} />
+            {
+                patch ? (
+                    <input type="checkbox" id="form-composition-author_secondary-edittarget" name="author_secondary-edittarget" />
+                    <label for="form-composition-author_secondary-edittarget">Edit this field</label>
+                ) : null
+            }
+        </fieldset>
+
+        <fieldset>
             <legend>Primary Contributor</legend>
             <label for="form-composition-contrib_primary_1">ID for Primary Contributor:</label>
             <input type="text" id="form-composition-contrib_primary_1" name="contrib_primary_1" required={required} value={composition?.contrib_primary_1 ?? ""} />
@@ -266,18 +278,6 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 patch ? (
                     <input type="checkbox" id="form-composition-publication_info-edittarget" name="publication_info-edittarget" />
                     <label for="form-composition-publication_info-edittarget">Edit the publication information</label>
-                ) : null
-            }
-        </fieldset>
-
-        <fieldset>
-            <legend>Secondary Authors</legend>
-            <label for="form-composition-author_secondary">Secondary Authors (comma-separated IDs):</label>
-            <input type="text" id="form-composition-author_secondary" name="author_secondary" value={joined(composition?.author_secondary)} />
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composition-author_secondary-edittarget" name="author_secondary-edittarget" />
-                    <label for="form-composition-author_secondary-edittarget">Edit this field</label>
                 ) : null
             }
         </fieldset>
