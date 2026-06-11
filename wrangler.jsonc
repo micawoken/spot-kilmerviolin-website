@@ -82,7 +82,7 @@
 		"KV_CACHE_TTL": 57600, // 16 hours
 		"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf", // points to the list reusable component used by the access policy, which is used by the access application
 		"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283", // the account ID for michaelwongmusic@gmail.com
-		"CF_ACCESS_AUD": "test", // will replace later
+		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // will replace later
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com",
 		"DB_ENABLE_WRITE": true, // whether to allow the database primitives to perform write operations, enforced by exec_stmt
@@ -152,7 +152,7 @@
 				"KV_CACHE_TTL": 57600, // 16 hours
 				"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf",
 				"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283",
-				"CF_ACCESS_AUD": "test",
+				"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11",
 				"API_USER_SELFENROLL": true,
 				"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // will replace later
 				"DB_ENABLE_WRITE": true, // temp enabling
@@ -228,7 +228,7 @@
 				"KV_CACHE_TTL": 57600, // 16 hours
 				"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf",
 				"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283",
-				"CF_ACCESS_AUD": "test",
+				"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11",
 				"API_USER_SELFENROLL": true,
 				"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // will replace later
 				"DB_ENABLE_WRITE": true,
