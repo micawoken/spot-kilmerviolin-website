@@ -20,7 +20,7 @@ import { _constructHeaders, constructResponse, constructResponseErrorHook } from
 import { auth_check } from "../../../lib/public/authservice"
 import { addContributor, listContributors } from "../../../lib/api/database"
 import { _stateTypeAssertCompleteContributor } from "../../../lib/api/d1"
-import { env } from "cloudflare:workers"
+import { authEnabled } from "../../../lib/api/environment"
 
 /**
  * GET /api/v1/contributors
@@ -56,7 +56,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (data === null) {
             return constructResponse(request, null, 500, "Unknown state: list contributor operation returned null")
         }
-        const auth_enabled: boolean = env.AUTH_ENABLED || import.meta.env.PROD
+        const auth_enabled: boolean = authEnabled(request)
         switch (api_request.meta?.full) {
             case true:
                 if (!auth_enabled) {

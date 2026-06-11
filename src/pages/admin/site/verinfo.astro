@@ -9,7 +9,7 @@ import verinfo from "../../../lib/api/verinfo"
 
 export const prerender = false
 
-const info = verinfo()
+const info = verinfo(Astro.request)
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -33,6 +33,7 @@ const info = verinfo()
     </ul>
     <h3>Environment</h3>
     <ul class="entity-result-details">
+        <li><strong>Environment:</strong> {info.environment.name}</li>
         <li><strong>Authentication service enabled:</strong> {String(info.environment.authservice)}</li>
         <li><strong>Database writable:</strong> {String(info.environment.db_writable)}</li>
         <li><strong>Cache API TTL (default):</strong> {info.environment.ttls.cacheApi.default} seconds</li>

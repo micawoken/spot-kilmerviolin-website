@@ -11,7 +11,7 @@ import { _constructHeaders, constructResponse, constructResponseErrorHook } from
 import { auth_check } from "../../../../lib/public/authservice"
 import { addContributor, deleteContributor, listContributors, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
 import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
-import { env } from "cloudflare:workers"
+import { authEnabled } from "../../../../lib/api/environment"
 
 /**
  * GET /api/v1/contributors/[id]
@@ -54,7 +54,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         // convert the record type
         const record = formatContribFromD1(d1_record)
 
-        const auth_enabled: boolean = env.AUTH_ENABLED || import.meta.env.PROD
+        const auth_enabled: boolean = authEnabled(request)
         // validate self identity
         if (locals.identity?.id !== state_id && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
             // identity is not self, and either escalate is false or user is not admin
@@ -154,7 +154,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     }
     try {
         const d1_record = await getRecord(CONTRIBUTOR, state_id)
-        const auth_enabled: boolean = env.AUTH_ENABLED || import.meta.env.PROD
+        const auth_enabled: boolean = authEnabled(request)
         if (d1_record.results.length === 0) {
             return constructResponse(request, null, 404)
         }
