@@ -12,6 +12,7 @@ import { auth_check } from "../../../../lib/public/authservice"
 import { addComposition, deleteComposition, getComposition, listCompositions, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
 import { getRecord, _stateTypeAssertCompleteComposition, COMPOSITION, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
 import { canAct, canModify, requires } from "../../../../lib/api/authorize"
+import { env } from "cloudflare:workers"
 
 /**
  * GET /api/v1/works/[id]
@@ -82,28 +83,32 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
     // validate body as complete composition record
-    const record: Composition | string = _stateTypeAssertCompleteComposition(api_request.payload[0])
+    const record: Composition | string = _stateTypeAssertCompleteComposition(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     // validate authorization
+    const auth_enabled = env.AUTH_ENABLED || import.meta.env.PROD
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
             return constructResponse(request, null, 500, "Unknown state: get composition operation returned null")
         }
         // verify acting identity is authorized to modify
-        if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
-            return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
-        }
-        // verify acting identity is authorized to apply proposed update
-        if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
-            return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+        if (auth_enabled) {
+            if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
+                return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+            }
+            // verify acting identity is authorized to apply proposed update
+            if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
+                return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+            }
         }
         // perform update
         await updateComposition(context.locals.cfContext, Number(params.id), record)
         return constructResponse(request, null, 204)
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }
@@ -141,26 +146,30 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
     // validate body as partial composition record
-    const record: Partial<Composition> | string = _stateTypeAssertPartialComposition(api_request.payload[0])
+    const record: Partial<Composition> | string = _stateTypeAssertPartialComposition(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     // validate authorization
+    const auth_enabled = env.AUTH_ENABLED || import.meta.env.PROD
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
             return constructResponse(request, null, 500, "Unknown state: get composition operation returned null")
         }
-        if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
-            return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
-        }
-        if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
-            return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+        if (auth_enabled) {
+            if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
+                return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+            }
+            if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
+                return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+            }
         }
         // perform update
         await updateCompositionPartial(context.locals.cfContext, Number(params.id), record)
         return constructResponse(request, null, 204)
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }
@@ -193,18 +202,22 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, api_request.message)
     }
     // validate authorization
+    const auth_enabled = env.AUTH_ENABLED || import.meta.env.PROD
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
             return constructResponse(request, null, 500, "Unknown state: get composition operation returned null")
         }
-        if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
-            return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+        if (auth_enabled) {
+            if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
+                return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+            }
         }
         // perform delete
         await deleteComposition(context.locals.cfContext, Number(params.id))
         return constructResponse(request, null, 204)
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }

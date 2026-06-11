@@ -1,0 +1,40 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ListResults from "../../../components/entities/ListResults.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+// list is rendered server-side
+import { listCompositions } from "../../../lib/api/database"
+
+export const prerender = false
+
+// pull the list
+const compositions = await listCompositions(Astro.locals.cfContext)
+if (!compositions) {
+    throw new Error("Failed to fetch compositions list")
+}
+console.log("Fetched compositions list:", compositions)
+
+// NOTE: ListResults builds /admin/{noun}s/... links, so the URL noun is "work";
+// the client-side interface noun for compositions remains "composition"
+const formatted_compositions = compositions.map(composition => ({
+    id: composition.id,
+    name: composition.name,
+    name2: composition.type,
+}))
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Compositions`} description="View the list of compositions in the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>List Compositions</h2>
+    <ListResults noun="work" enviro="admin" results={formatted_compositions} />
+    <AdminFooter />
+</body>
+</html>

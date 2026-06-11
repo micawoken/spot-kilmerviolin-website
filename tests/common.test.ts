@@ -1,8 +1,8 @@
-/// <reference path="../lib/api/types.d.ts" />
+/// <reference path="../src/lib/api/types.d.ts" />
 
 import { describe, it, expect, test } from "vitest"
 
-import { formatCompFromD1, formatCompToD1, formatCompToD1Partial, SQLCompareOp, sqlListJoin, sqlPrepOp } from '../lib/api/common.ts'
+import { formatCompFromD1, formatCompToD1, formatCompToD1Partial, SQLCompareOp, sqlListJoin, sqlPrepOp } from '../src/lib/api/common.ts'
 
 // check type conversion functions
 

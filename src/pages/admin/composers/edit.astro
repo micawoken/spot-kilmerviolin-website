@@ -1,0 +1,73 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ComposerForm from "../../../components/entities/ComposerForm.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { getComposer } from "../../../lib/api/database"
+import { COMPOSER } from "../../../lib/api/d1"
+
+export const prerender = false
+
+const id = Astro.url.searchParams.get("id")
+let use_id: boolean = false
+let composer_data: ComposerRecord | null = null
+if (id) {
+    console.log("ID query param found:", id)
+    composer_data = await getComposer(Astro.locals.cfContext, COMPOSER.primary_key, id)
+    if (!composer_data) {
+        console.warn(`No composer found with ID ${id}, falling back to ID entry form`)
+    } else {
+        use_id = true
+    }
+} else {
+    console.log("No ID query param found, showing ID entry form")
+}
+
+const hidden_form = use_id && composer_data ? true : false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Composer`} description="Edit an existing composer in the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Edit a Composer</h2>
+    <IDEntryForm output_div={"generic-form-composers"} hidden={hidden_form} />
+    <ComposerForm required={true} hidden={!hidden_form} composer={use_id ? composer_data : null} patch={true} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        // patch in editing/updating form (partial edits via PATCH)
+        const edit_form = getForm("composer", APIOpCode.UPDATE_PARTIAL)
+        console.log("Form element obtained for composers update operation:", edit_form)
+        edit_form.addEventListener("submit", genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "composer"))
+        // patch in id entry form
+        const id_entry_form = getForm("composer", APIOpCode.READ)
+        console.log("Form element obtained for composers read operation (ID entry):", id_entry_form)
+        id_entry_form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            try {
+                const record = await retrieveObjectFromIDEntry(id_entry_form, "composer") as ComposerRecord | null
+                if (!record) {
+                    throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
+                }
+                console.log("Record retrieved from ID entry form:", record)
+                // populate the fields, and hide the input form
+                prefillForm("composer", record)
+                document.getElementById("generic-form-composers")?.classList.remove("hidden")
+                document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+            } catch (error) {
+                console.error(error)
+                emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+            }
+        })
+    </script>
+    <AdminFooter />
+</body>
+</html>

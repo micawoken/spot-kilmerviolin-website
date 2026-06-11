@@ -10,7 +10,7 @@ import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { auth_check } from "../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
-import { exec_string } from "../../../lib/api/d1.ts"
+import { exec_string } from "../../../lib/api/d1"
 
 
 /**
@@ -26,7 +26,7 @@ import { exec_string } from "../../../lib/api/d1.ts"
  * @returns {Response} a Response object with payload of the result of the SQL command, or an error message if execution fails
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], true)
     if (auth_response !== null) {

@@ -1,0 +1,18 @@
+---
+const today = new Date();
+const locals = Astro.locals;
+const identity = locals.identity ?? null;
+---
+<footer>
+    <p><a href="#" onclick="history.back()">Back</a> | <a href="/admin">Admin Home</a> | <a href="/admin/logout">Logout</a></p>
+    <p>
+        You are accessing this service
+        {identity?.email ? (
+            <> under email <a href={`mailto:${identity.email}`}>{identity.email}</a>.</>
+        ) : (
+            <> as an unauthenticated user.</>
+        )}
+        The time is {today.toLocaleString()}.
+    </p>
+    <p>Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()} <a href="https://michaelwongmusic.com">Michael Wong</a>. All rights reserved, provided under <a href="/admin/license">license</a>.</p>
+</footer>

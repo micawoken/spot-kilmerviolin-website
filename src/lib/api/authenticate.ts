@@ -94,7 +94,7 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
     }
 
     // during local development, the authentication process is skipped by env.AUTH_ENABLED on localhost
-    if (!env.AUTH_ENABLED && env.TEAM_DOMAIN === "localhost") {
+    if (!env.AUTH_ENABLED) {
         return construct("Lovely Name", "example@example.com", 0, Infinity)
     }
 

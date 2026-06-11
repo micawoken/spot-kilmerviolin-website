@@ -1,0 +1,58 @@
+---
+import ListResult from "./ListResult.astro"
+const noun: string = Astro.props.noun
+const results: (number | Record<string, any>)[] = Astro.props.results
+const enviro: string = Astro.props.enviro
+
+// determine if the results are a list of IDs or a list of objects (whose types can be inferred from the noun)
+
+interface ResultObject {
+    id: number
+    name: string
+    name2?: string
+}
+
+
+console.log("Rendering ListResults with props:", { noun, results, enviro })
+
+const no_body = results.length > 0 && typeof results[0] === "number"
+
+
+console.log("length: ", results.length, "no_body: ", no_body)
+
+---
+<div id={`list-results-${noun}`} class="list-results-container">
+    {
+        results.length > 0 ? (
+            no_body ? (
+                (results as number[]).map((id: number) => (
+                    <ListResult noun={noun} id={id} enviro={enviro} />
+                ))
+            ) : (
+                (results as ResultObject[]).map((result) => (
+                    <ListResult noun={noun} id={result.id} enviro={enviro} name={result.name} name2={result.name2} />
+                ))
+            )
+        ) : (
+            <p>No results found.</p>
+        )
+    }
+</div>
+{
+    enviro === "admin" ? (
+        <script>
+            // attach event listeners
+            document.querySelectorAll(".list-result-edit-link").forEach(link => {
+                link.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    const url = link.getAttribute("href");
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+            });
+        </script>
+    ) : (
+        <></>
+    )
+}

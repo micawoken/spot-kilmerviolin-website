@@ -1,8 +1,8 @@
 import { it, expect } from "vitest"
 
-import { SQLStatement, VirtualSQLTable } from '../lib/api/sql.ts'
-import { CONTRIBUTOR, COMPOSER, COMPOSITION } from '../lib/api/d1.ts'
-import { SQLCompareOp } from '../lib/api/common.ts'
+import { SQLStatement, VirtualSQLTable } from '../src/lib/api/sql.ts'
+import { CONTRIBUTOR, COMPOSER, COMPOSITION } from '../src/lib/api/d1.ts'
+import { SQLCompareOp } from '../src/lib/api/common.ts'
 
 
 // TESTING the SQLStatement object to make sure it generates the SQL commands correctly

@@ -1,0 +1,39 @@
+---
+import BaseHead from "../../components/BaseHead.astro"
+import AdminHeader from "../../components/AdminHeader.astro"
+import AdminFooter from "../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
+
+export const prerender = false
+
+const locals = Astro.locals
+const date = new Date()
+
+const identity = locals.identity
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Management`} description="Manage site information and configuration"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <!-- Header -->
+    <h1>Administrative Services</h1>
+    <AdminHeader identity={identity} />
+    <br>
+    <!-- Pages for IAM, site info/mgmt, and advanced -->
+    <div class="flex-container">
+        <div class="column">
+            <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
+            <ul>
+                <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
+                <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
+                <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
+            </ul>
+        </div>
+    </div>
+    <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/site" class="general-helppointer-link">Site Management</a>documentation and video.</p>
+    <AdminFooter />
+</body>
+</html>

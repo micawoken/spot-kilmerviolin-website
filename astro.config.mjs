@@ -12,6 +12,9 @@ export default defineConfig({
 	adapter: cloudflare(),
 	trailingSlash: "never",
 	output: "server", // prerender needs to be enabled on the relevant pages
+	redirects: {
+		"/admin/logout": "/cdn-cgi/access/logout" // Cloudflare Access logout
+	},
 	security: {
 		allowedDomains: [
 			{

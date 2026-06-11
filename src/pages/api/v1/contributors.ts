@@ -15,11 +15,12 @@
  */
 
 import type { APIRoute } from "astro"
-import { parseAPIRequest } from "../../../lib/api/common"
+import { formatContribFromD1, parseAPIRequest } from "../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
 import { addContributor, listContributors } from "../../../lib/api/database"
 import { _stateTypeAssertCompleteContributor } from "../../../lib/api/d1"
+import { env } from "cloudflare:workers"
 
 /**
  * GET /api/v1/contributors
@@ -38,7 +39,7 @@ import { _stateTypeAssertCompleteContributor } from "../../../lib/api/d1"
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     // returns JSON as an API response
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
     // admin status will be re-checked once meta is processed
@@ -46,7 +47,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request)
+    const api_request = await parseAPIRequest(request, [])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -55,8 +56,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (data === null) {
             return constructResponse(request, null, 500, "Unknown state: list contributor operation returned null")
         }
+        const auth_enabled: boolean = env.AUTH_ENABLED || import.meta.env.PROD
         switch (api_request.meta?.full) {
             case true:
+                if (!auth_enabled) {
+                    return constructResponse(request, data, 200)
+                }
                 if (!locals.identity!.admin) {
                     return constructResponse(request, null, 403)
                 }
@@ -71,6 +76,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be boolean")
         }
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }
@@ -89,7 +95,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * 
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], true)
     if (auth_response !== null) {
@@ -100,15 +106,19 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
+    // check if the payload is not null and has a length of 1
+    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
+        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
+    }
     // validate the payload as a complete contributor record
-    const record: Contributor | string = _stateTypeAssertCompleteContributor(api_request.payload, false)
+    const record: Contributor | string = _stateTypeAssertCompleteContributor(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     // create the contributor record and return the new ID
     try {
         const id = await addContributor(context.locals.cfContext, record)
-        return constructResponse(request, { id }, 201, undefined, {
+        return constructResponse(request, null, 201, undefined, {
                 "Location": `/api/v1/contributors/${id}`
             }
         )

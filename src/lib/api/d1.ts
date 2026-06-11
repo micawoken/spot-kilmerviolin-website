@@ -107,7 +107,7 @@ export const CONTRIBUTOR: D1Schema = {
         tags: "string",
         entry_date: "string"
     },
-    protected: ["roles", "admin", "image", "identity_email"]
+    protected: ["roles", "admin", "identity_email"]
 }
 
 /**
@@ -387,6 +387,8 @@ export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: 
     }
     const r = record as { [key: string]: any }
 
+    console.log(record)
+
     console.log("Asserting contributor record:",
         ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)), 
         typeof r.name !== "string", 
@@ -559,6 +561,26 @@ export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: 
         return "Record is not an object"
     }
     const r = record as { [key: string]: any }
+
+
+    console.log(((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)),
+        typeof r.name !== "string",
+        typeof r.composer_id !== "number",
+        typeof r.contrib_primary_1 !== "number",
+        (r.contrib_primary_2 !== null && typeof r.contrib_primary_2 !== "number"),
+        (!(r.contrib_addl instanceof Array)),
+        (!(r.author_secondary instanceof Array)),
+        (!(r.phases instanceof Array)),
+        (typeof r.type !== "string" && !(r.type in WorkType)),
+        (typeof r.part !== "string" && r.part !== null),
+        ((typeof r.key !== "string" && !(r.key in Key)) && r.key !== null),
+        (typeof r.range !== "string" && r.range !== null),
+        (typeof r.position_highest !== "string" && r.position_highest !== null),
+        (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null),
+        (typeof r.notes_historical !== "string" && r.notes_historical !== null),
+        (typeof r.notes_other !== "string" && r.notes_other !== null),
+        !validateCompRating(r.rating, false),
+        !validatePubInfo(r.publication_info, false))
     if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
         typeof r.name !== "string" ||
         typeof r.composer_id !== "number" ||
@@ -567,7 +589,7 @@ export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: 
         (!(r.contrib_addl instanceof Array)) ||
         (!(r.author_secondary instanceof Array)) ||
         (!(r.phases instanceof Array)) ||
-        (typeof r.type !== "string" && (r.type in WorkType)) ||
+        (typeof r.type !== "string" && !(r.type in WorkType)) ||
         (typeof r.part !== "string" && r.part !== null) ||
         ((typeof r.key !== "string" && !(r.key in Key)) && r.key !== null) ||
         (typeof r.range !== "string" && r.range !== null) ||
@@ -575,7 +597,7 @@ export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: 
         (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null) ||
         (typeof r.notes_historical !== "string" && r.notes_historical !== null) ||
         (typeof r.notes_other !== "string" && r.notes_other !== null) ||
-        !validateCompRating(r.comp_rating, false) ||
+        !validateCompRating(r.rating, false) ||
         !validatePubInfo(r.publication_info, false)) 
     {
         return "Record has invalid types for one or more parameters"
@@ -611,7 +633,7 @@ export function _stateTypeAssertPartialComposition(record: unknown, expect_id: b
         (r.notes_pedagogical !== undefined && (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null)) ||
         (r.notes_historical !== undefined && (typeof r.notes_historical !== "string" && r.notes_historical !== null)) ||
         (r.notes_other !== undefined && (typeof r.notes_other !== "string" && r.notes_other !== null)) ||
-        (r.comp_rating !== undefined && !validateCompRating(r.comp_rating, true)) ||
+        (r.rating !== undefined && !validateCompRating(r.rating, true)) ||
         (r.publication_info !== undefined && !validatePubInfo(r.publication_info, true))) 
     {
         return "Record has invalid types for one or more parameters"

@@ -73,6 +73,13 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
     const roles = record ? record.roles.split(",").map((r: string) => r.trim()) : []
     const id = record ? record.contributor_id : -1
     const admin = record ? record.admin === 1 : false
+    const user_info: UserInfo = {
+        name: record ? record.name : "",
+        tags: record ? record.tags.split(",").map((t: string) => t.trim()) : [],
+        phases: record ? record.phases.split(",").map((p: string) => parseInt(p.trim())) : [],
+        entry_date: record ? record.entry_date : "",
+        ok: record !== null
+    }
     return {
         ...identity,
         "allowed": allowed,
@@ -80,7 +87,8 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
         "active": active,
         "roles": roles,
         "id": id,
-        "admin": admin
+        "admin": admin,
+        "userinfo": user_info,
     }
 }
 
@@ -96,7 +104,14 @@ function _permissionlessPrototype() {
         "active": false,
         "roles": [],
         "id": -1,
-        "admin": false
+        "admin": false,
+        "userinfo": {
+            "name": "",
+            "tags": [],
+            "phases": [],
+            "entry_date": "",
+            "ok": false
+        }
     }
 }
 
@@ -187,7 +202,7 @@ export function conferFrom(identity: Identity): string[] {
  * @param {boolean} use_admin - whether to allow review of admin status
  * @returns {boolean} - whether the user is allowed to modify the record
  */
-export function canModify(record: D1Composition, acting_identity: Identity, use_admin: boolean = true): boolean {
+export function canModify(record: CompositionRecord, acting_identity: Identity, use_admin: boolean = true): boolean {
     if (acting_identity?.id === null || acting_identity.id === undefined) {
         // no identity asserted
         return false
@@ -210,14 +225,14 @@ export function canModify(record: D1Composition, acting_identity: Identity, use_
 /**
  * Protects the contribution edit lockout mechanism by enforcing readonly on its implementing columns
  * 
- * @param {D1Composition} record - the current database record to compare against
+ * @param {CompositionRecord} record - the current database record to compare against
  * @param {Partial<Composition>} new_record - the new proposed record in API format, which may be partial
  * @param {Identity} acting_identity - the identity of the acting user
  * @param {boolean} use_admin - whether to allow review of admin status
  * @returns {boolean} - whether the user is allowed to perform the modification as-is
  * 
  */
-export function canAct(record: D1Composition, new_record: Partial<Composition>, acting_identity: Identity, use_admin: boolean = true) {
+export function canAct(record: CompositionRecord, new_record: Partial<Composition>, acting_identity: Identity, use_admin: boolean = true) {
     if (acting_identity?.id === null || acting_identity.id === undefined) {
         // no identity asserted
         return false

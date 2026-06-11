@@ -1,0 +1,39 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ListResults from "../../../components/entities/ListResults.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+// list is rendered server-side
+import { listComposers } from "../../../lib/api/database"
+
+// pull the list
+const composers = await listComposers(Astro.locals.cfContext)
+if (!composers) {
+    throw new Error("Failed to fetch composers list")
+}
+console.log("Fetched composers list:", composers)
+
+const formatted_composers = composers.map(composer => ({
+    id: composer.id,
+    name: composer.name,
+    name2: `${composer.birth_year || "?"} - ${composer.death_year ? (composer.death_year === -1 ? "Present" : composer.death_year) : "?"}`,
+}))
+
+console.log("Formatted composers list for ListResults component:", formatted_composers)
+
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Composers`} description="View the list of composers in the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>List Composers</h2>
+    <ListResults noun="composer" enviro="admin" results={formatted_composers} />
+    <AdminFooter />
+</body>
+</html>

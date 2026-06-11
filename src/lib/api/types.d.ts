@@ -16,7 +16,7 @@
  */
 interface APIResponse {
     readonly success: boolean;
-    readonly payload: Array<any> | null;
+    readonly payload: any | null;
     readonly comment: string;
 }
 
@@ -34,22 +34,43 @@ interface APIRequestPrimitive {
     payload: any[] | null;
 }
 
+/**
+ * A record stored in the Cache API
+ * 
+ * @namespace CacheRecord
+ * @property {Array<any> | null} payload - the data stored in the cache
+ * @property {string} comment - comment
+ */
 interface CacheRecord {
     payload: Array<any> | null;
     comment: string;
 }
 
+/**
+ * The metadata associated with a KV entry
+ * 
+ * @property {number} v - the metadata version
+ * @property {"text" | "json" | "form"} f - the value type
+ * @property {number} t - the timestamp, in milliseconds since epoch
+ * @property {number} e - the TTL, in seconds
+ * @property {string | null} value - the value, if storable
+ */
 interface KVMetadata {
     v: number; // version
     f: "text" | "json"; // type, or "f"orm
     t: number; // timestamp, in milliseconds since epoch
     e: number; // ttl in seconds
+    h: boolean; // whether the value is non-empty
     value: string | null;
 }
 
 /**
  * The output of _exec_wrap, the function providing access to D1 in database.ts
  * 
+ * @property {Array<Record<string, string | number | null>>} data - rows from a query
+ * @property {boolean} cached - whether the result was returned from cache
+ * @property {"global" | "local"} [query_scope] - whether the query scope was global or local
+ * @property {D1Meta & Record<string, unknown>} [meta] - the D1Result.meta property
  * 
  */
 interface ExecResult {
@@ -59,13 +80,36 @@ interface ExecResult {
     meta?: D1Meta & Record<string, unknown>
 }
 
+/**
+ * A SQLite error message
+ * 
+ * @namespace SQLiteErrorMsgPrimitive
+ * @property {number} code - the HTTP code
+ * @property {string} [message] - if supplied, overrides the default message for the code
+ * @property {(D1Schema, string) => [boolean, number, string]} [processor] - if set, a function that parses the error message and returns a new error code and message
+ */
 interface SQLiteErrorMsgPrimitive {
     code: number; // keyof http_codes in http.ts
-    message?: string; // if supplied, oevrides the default message for the code
-    processor?: (D1Schema, string) => [boolean, number, string] // if set, a function that parses the error message and returns a new error code and message
+    message?: string; // if supplied, overrides the default message for the code
+    processor?: (string) => [boolean, number, string] // if set, a function that parses the error message and returns a new error code and message
 }
 
-
+/**
+ * Displays general user information
+ * 
+ * @property {boolean} ok - whether the user information can be used
+ * @property {string} name - the user's name
+ * @property {string[]} tags - tags associated with the user
+ * @property {number[]} phases - the phases the user is involved in
+ * @property {string} entry_date - the date the user was registered, as ISO 8601
+ */
+interface UserInfo {
+    ok: boolean;
+    name: string;
+    tags: string[];
+    phases: number[];
+    entry_date: string;
+}
 
 // BaseIdentity is returned by the authentication library
 /**
@@ -112,13 +156,36 @@ interface BaseIdentity { // stores data extracted from JWT
  */
 interface Identity extends BaseIdentity {
     // connects a base identity generated from an Access JWT claim to an identity record, providing authorization data
+    /**
+     * Whether the identity can be used for authorization in the API [a Contributor record exists]
+     */
     readonly allowed: boolean; // if the identity record is not found, the identity cannot be used
+    /**
+     * Whether the contributor profile is active [the Contributor record is active]
+     */
     readonly active: boolean; // if the record indicates the contributor profile is active
-    readonly enrollable: boolean; // if the identity record is not found, and the identity is inactive, the user is allowed to enroll their identity by (1) connecting their identity record to an existing contributor, or (2) creating a new contributor
+    /**
+     * Whether the identity can be used for self-enrollment by (1) connecting to an existing profile or (2) creating a new profile
+     * [no Contributor record exists, and self-enroll is enabled]
+     */
+    readonly enrollable: boolean
     // enrollment via method (1) requires the Access email to match the existing contributor email, and enrollment via method (2) requires the Access email to not match any existing contributor email
+    /**
+     * The roles conferred to the identity, which confer additional authorizations
+     */
     readonly roles: string[]; // system-defined roles
+    /**
+     * The contributor ID, used to grant row-level edit permissions in the contributor database
+     */
     readonly id: number; // the contributor ID stored in the identity record, used to provide authorization for contribution edits
+    /**
+     * Whether the user is an admin
+     */
     readonly admin: boolean; // if set, bypasses the id check for editing and enables full access to the identity endpoint
+    /**
+     * General information about the user
+     */
+    readonly userinfo: UserInfo;
 }
 
 // the Identity object is constructed by authorization and is not stored as a record since it contains token-specific data

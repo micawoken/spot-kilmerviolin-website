@@ -1,0 +1,92 @@
+---
+console.log("starting")
+import BaseHead from "../components/BaseHead.astro"
+import AdminHeader from "../components/AdminHeader.astro"
+import AdminFooter from "../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../consts"
+
+export const prerender = false
+
+console.log("pulling locals")
+const locals = Astro.locals
+const date = new Date()
+
+console.log("pulling identity: ", locals.identity)
+const identity = locals.identity !== undefined ? locals.identity : null
+console.log("pulled", identity)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Home`} description="Project administrative services"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <!-- Header -->
+    <AdminHeader identity={identity} welcome="true"/>
+    <!-- links to database management pages -->
+    <div class="flex-container">
+        <div class="column">
+            <h2><a href="/admin/works" class="col-header-link">Compositions</a></h2>
+            <ul>
+                <li><a href="/admin/works/create" class="col-item-link">Add new composition</a></li>
+                <li><a href="/admin/works/info" class="col-item-link">View composition info</a></li>
+                <li><a href="/admin/works/edit" class="col-item-link">Edit existing composition</a></li>
+                <li><a href="/admin/works/delete" class="col-item-link">Delete composition</a></li>
+                <li><a href="/admin/works/list" class="col-item-link">List compositions</a></li>
+            </ul>
+        </div>
+        <div class="column">
+            <h2><a href="/admin/composers" class="col-header-link">Composers</a></h2>
+            <ul>
+                <li><a href="/admin/composers/create" class="col-item-link">Add new composer</a></li>
+                <li><a href="/admin/composers/info" class="col-item-link">View composer info</a></li>
+                <li><a href="/admin/composers/edit" class="col-item-link">Edit existing composer</a></li>
+                <li><a href="/admin/composers/delete" class="col-item-link">Delete composer</a></li>
+                <li><a href="/admin/composers/list" class="col-item-link">List composers</a></li>
+            </ul>
+        </div>
+        <div class="column">
+            <h2><a href="/admin/contributors" class="col-header-link">Contributors</a></h2>
+            <ul>
+                <li><a href="/admin/contributors/create" class="col-item-link">Add new contributor</a></li>
+                <li><a href="/admin/contributors/info" class="col-item-link">View contributor info</a></li>
+                <li><a href="/admin/contributors/edit" class="col-item-link">Edit existing contributor</a></li>
+                <li><a href="/admin/contributors/delete" class="col-item-link">Delete contributor</a></li>
+                <li><a href="/admin/contributors/list" class="col-item-link">List contributors</a></li>
+            </ul>
+        </div>
+    </div>
+    <!-- Pages for IAM, site info/mgmt, and advanced -->
+    <div class="flex-container">
+        <div class="column">
+            <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>
+            <ul>
+                <li><a href="/admin/iam/whoami" class="col-item-link">View my user authorization info</a></li>
+                <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
+                <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
+                <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
+                <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
+            </ul>
+        </div>
+        <div class="column">
+            <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
+            <ul>
+                <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
+                <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
+                <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
+            </ul>
+        </div>
+        <div class="column">
+            <h2><a href="/admin/advanced" class="col-header-link">Advanced Options</a></h2>
+            <ul>
+                <li><a href="/admin/advanced/elevate" class="col-item-link">Promote user to administrator</a></li>
+                <li><a href="/admin/advanced/demote" class="col-item-link">Demote user from administrator</a></li>
+                <li><a href="/admin/advanced/command" class="col-item-link">Access database terminal</a></li>
+                <li><a href="/admin/advanced/selfenroll" class="col-item-link">View self-enrollment flow</a></li>
+            </ul>
+        </div>
+    </div>
+    <AdminFooter />
+</body>
+</html>

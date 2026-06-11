@@ -1,0 +1,57 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import ComposerResult from "../../../components/entities/ComposerResult.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { COMPOSER } from "../../../lib/api/d1"
+import { getComposer } from "../../../lib/api/database"
+import { formatCompFromD1 } from "../../../lib/api/common"
+
+export const prerender = false
+
+// SSR is used if an ID is specified as a query param; otherwise, we'll load the client-side JS and ID entry
+// check if an id query param exists
+const id = Astro.url.searchParams.get("id")
+let use_id: boolean = false
+let composer_data: ComposerRecord | null = null
+if (id) {
+    console.log("ID query param found:", id)
+    // id param exists and is valid
+    composer_data = await getComposer(Astro.locals.cfContext, COMPOSER.primary_key, id)
+    if (!composer_data) {
+        console.warn(`No composer found with ID ${id}, falling back to client-side ID entry`)
+    } else {
+        use_id = true
+    }
+}
+
+if (use_id && composer_data) {
+    console.log("Composer data fetched for ID from query param:", composer_data)
+}
+
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composer`} description="View a composer"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>View a Composer</h2>
+    <IDEntryForm output_div={undefined} hidden={use_id} />
+    <ComposerResult composer={use_id ? composer_data as ComposerRecord : null} hidden={!use_id} />
+    <p id="transaction-status">{use_id ? "Composer data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const form_or_button = getForm("composer", APIOpCode.READ)
+        console.log("Form or button element obtained for composers read operation:", form_or_button)
+        form_or_button.addEventListener((form_or_button instanceof HTMLFormElement) ? "submit" : "click", genHandler(form_or_button, getTransactionElem(), APIOpCode.READ, "composer"))
+    </script>
+    <AdminFooter />
+</body>
+</html>

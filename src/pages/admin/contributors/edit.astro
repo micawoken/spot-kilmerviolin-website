@@ -1,0 +1,78 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ContributorForm from "../../../components/entities/ContributorForm.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { CONTRIBUTOR } from "../../../lib/api/d1"
+import { getContributor } from "../../../lib/api/database"
+
+export const prerender = false
+
+const is_admin = Astro.locals.identity?.admin === true
+
+// SSR prefill via the id query param is admin-only:
+// the direct database read is unfiltered and would leak protected properties to non-admins
+const id = Astro.url.searchParams.get("id")
+let use_id: boolean = false
+let contributor_data: ContributorRecord | null = null
+if (id && is_admin) {
+    console.log("ID query param found:", id)
+    contributor_data = await getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, id)
+    if (!contributor_data) {
+        console.warn(`No contributor found with ID ${id}, falling back to ID entry form`)
+    } else {
+        use_id = true
+    }
+} else {
+    console.log("No usable ID query param, showing ID entry form")
+}
+
+const hidden_form = use_id && contributor_data ? true : false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Contributor`} description="Edit an existing contributor in the database"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>Edit a Contributor</h2>
+    <p class="general-infohelp">You may edit your own contributor record. Editing other records, or protected properties (identity email, active status, phases), requires administrator escalation. Roles and administrator status are managed in <a href="/admin/iam">Identity & Access Management</a>.</p>
+    <IDEntryForm output_div={"generic-form-contributors"} hidden={hidden_form} show_elevate={is_admin} />
+    <ContributorForm required={false} hidden={!hidden_form} contributor={use_id ? contributor_data : null} patch={true} show_auth={true} show_elevate={is_admin} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        // patch in editing/updating form (partial edits via PATCH)
+        const edit_form = getForm("contributor_partial", APIOpCode.UPDATE_PARTIAL)
+        console.log("Form element obtained for contributors update operation:", edit_form)
+        edit_form.addEventListener("submit", genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "contributor_partial"))
+        // patch in id entry form
+        const id_entry_form = getForm("contributor_partial", APIOpCode.READ)
+        console.log("Form element obtained for contributors read operation (ID entry):", id_entry_form)
+        id_entry_form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            try {
+                const record = await retrieveObjectFromIDEntry(id_entry_form, "contributor_partial") as Partial<ContributorRecord> | null
+                if (!record) {
+                    throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
+                }
+                console.log("Record retrieved from ID entry form:", record)
+                // populate the fields, and hide the input form
+                prefillForm("contributor_partial", record)
+                document.getElementById("generic-form-contributors")?.classList.remove("hidden")
+                document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+            } catch (error) {
+                console.error(error)
+                emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+            }
+        })
+    </script>
+    <AdminFooter />
+</body>
+</html>

@@ -28,14 +28,14 @@ import { constructResponse, constructResponseErrorHook } from "../../../lib/api/
  * @returns {Response} either a list of IDs or the full records
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
     if (auth_response !== null) {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, ["full"])
+    const api_request = await parseAPIRequest(request)
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -74,7 +74,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * @returns {Response} the created record, or an error message
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
-    const { params, request, locals } = context
+    const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
     if (auth_response !== null) {
@@ -100,6 +100,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             Location: `/api/v1/works/${add_response.toString()}`
         })
     } catch (error) {
+        console.log(error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }

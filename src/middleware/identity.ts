@@ -7,35 +7,13 @@
 
 import { env } from "cloudflare:workers"
 import type { MiddlewareHandler } from "astro"
+import { middlewareErrorResponder } from "../lib/api/http"
 import { parseJWT, retrieveCredential } from "../lib/api/authenticate"
 import authorize from "../lib/api/authorize"
 
-const error_http = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/style.css">
-    <title>{errorCode} {errorName}</title>
-</head>
-<body>
-    <div class="global">
-        <h1 class="title">{errorCode} {errorName}</h1>
-    </div>
-    <div class="global body">
-        <p>{errorDescription}</p>
-        <p>Please do not repeat this request.</p>
-    </div>
-    <div class="global body">
-        <p><a href="javascript:history.back()">Back</a> | <a href="/">Home</a></p>
-    </div>
-    <div class="global body">
-        <p>Need to report a security concern? Contact the webmaster at <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.</p>
-    </div>
-</body>
-</html>`
+
+const comment_401 = "You have not provided valid credentials to access this resource. Please log in and try again."
+const comment_403 = "Your user account is not authorized to access this resource."
 
 
 export const identity: MiddlewareHandler = async (context, next) => {
@@ -69,97 +47,46 @@ export const identity: MiddlewareHandler = async (context, next) => {
         const credential_data = await retrieveCredential(context.request)
         if (credential_data === null) {
             // no credential, unauthorized
-            return new Response(error_http.replaceAll("{errorCode}", "401")
-                    .replaceAll("{errorName}", "Unauthorized")
-                    .replaceAll("{errorDescription}", "You have not provided valid authentication credentials."),
-                {
-                    status: 401,
-                    statusText: "Unauthorized",
-                    headers: {
-                        "Content-Type": "text/html"
-                    }
-                }
-            )
+            return middlewareErrorResponder(context.request, 401, comment_401)
         }
+
+        // check if auth is enabled
+        if (!env.AUTH_ENABLED && import.meta.env.PROD) {
+            // authentication is disabled in vars, but the environment is production
+            return middlewareErrorResponder(context.request, 503, "Authentication is currently unavailable. Please try again later.")
+        }
+
         const validation: BaseIdentity | null | undefined = await parseJWT(credential_data[1], env.CF_ACCESS_AUD)
         if (validation === undefined) {
             // no credential provided, unauthorized
-            return new Response(error_http.replaceAll("{errorCode}", "401")
-                    .replaceAll("{errorName}", "Unauthorized")
-                    .replaceAll("{errorDescription}", "You have not provided valid authentication credentials."),
-                {
-                    status: 401,
-                    statusText: "Unauthorized",
-                    headers: {
-                        "Content-Type": "text/html"
-                    }
-                }
-            )
+            return middlewareErrorResponder(context.request, 401, comment_401)
         }
         if (validation === null) {
             // credential invalid, unauthorized
-            return new Response(error_http.replaceAll("{errorCode}", "401")
-                    .replaceAll("{errorName}", "Unauthorized")
-                    .replaceAll("{errorDescription}", "You have not provided valid authentication credentials."),
-                {
-                    status: 401,
-                    statusText: "Unauthorized",
-                    headers: {
-                        "Content-Type": "text/html"
-                    }
-                }
-            )
+            return middlewareErrorResponder(context.request, 401, comment_401)
         }
         // credential is authenticated, construct the identity information
         const constructed_identity: Identity = await authorize(validation)
         // verify the credential can be used, or is unusable but enrollable
         if (!constructed_identity.allowed) {
+            // no Contributor record exists conveying authorization information
             if (!constructed_identity.enrollable) {
                 // credential is inactive and not enrollable, so reject
-                return new Response(error_http.replaceAll("{errorCode}", "403")
-                        .replaceAll("{errorName}", "Forbidden")
-                        .replaceAll("{errorDescription}", "Your user account is not authorized to access this resource."),
-                    {
-                        status: 403,
-                        statusText: "Forbidden",
-                        headers: {
-                            "Content-Type": "text/html"
-                        }
-                    }
-                )
+                return middlewareErrorResponder(context.request, 403, comment_403)
             }
             // enrollable credentials must be permissionless; verify it is
             if (constructed_identity.roles.length != 0 || constructed_identity.admin || constructed_identity.active) {
                 // enrollable credential has permissions, which should be impossible, so reject
-                return new Response(error_http.replaceAll("{errorCode}", "403")
-                        .replaceAll("{errorName}", "Forbidden")
-                        .replaceAll("{errorDescription}", "Your user account is not authorized to access this resource."),
-                    {
-                        status: 403,
-                        statusText: "Forbidden",
-                        headers: {
-                            "Content-Type": "text/html"
-                        }
-                    }
-                )
+                return middlewareErrorResponder(context.request, 403, comment_403)
             }
             // credential is enrollable and permissionless, so can be set
         } else if (constructed_identity.allowed && constructed_identity.enrollable) {
             // also impossible - a credential cannot be both allowed and enrollable
-            return new Response(error_http.replaceAll("{errorCode}", "403")
-                    .replaceAll("{errorName}", "Forbidden")
-                    .replaceAll("{errorDescription}", "Your user account is not authorized to access this resource."),
-                {
-                    status: 403,
-                    statusText: "Forbidden",
-                    headers: {
-                        "Content-Type": "text/html"
-                    }
-                }
-            )
+            return middlewareErrorResponder(context.request, 403, comment_403)
         }
         // credential is useable, so set to locals
         context.locals.identity = constructed_identity
+        // NO CHECK HAS BEEN MADE ON WHETHER THE CREDENTIAL IS ACTIVE
         return next()
     }
     // path does not require authentication and authorization

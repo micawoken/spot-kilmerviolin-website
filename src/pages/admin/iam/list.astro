@@ -1,0 +1,60 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Users`} description="List users in the access policy"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>List Users</h2>
+    <p class="general-infohelp">Lists the email addresses of all users in the access policy. Requires administrator or user-addition permissions.</p>
+    <button type="button" id="iam-list-load">Load user list</button>
+    <div id="iam-list-results">
+        <p>Press "Load user list" to fetch the list.</p>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Load user list".</p>
+    <script>
+        import { listIdentity } from "../../../scripts/connector"
+        import { getTransactionElem } from "../../../scripts/interface"
+
+        const button = document.getElementById("iam-list-load") as HTMLButtonElement
+        const results = document.getElementById("iam-list-results")!
+        const message = getTransactionElem()
+
+        button.addEventListener("click", async () => {
+            message.textContent = "Processing request..."
+            results.textContent = ""
+            try {
+                const emails = await listIdentity()
+                if (!Array.isArray(emails)) {
+                    throw new Error("No user list returned")
+                }
+                if (emails.length === 0) {
+                    results.textContent = "No users found."
+                } else {
+                    const list = document.createElement("ul")
+                    for (const email of emails) {
+                        const item = document.createElement("li")
+                        item.textContent = String(email)
+                        list.appendChild(item)
+                    }
+                    results.appendChild(list)
+                }
+                message.textContent = `Request succeeded: ${emails.length} user(s) listed`
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            }
+        })
+    </script>
+    <AdminFooter />
+</body>
+</html>

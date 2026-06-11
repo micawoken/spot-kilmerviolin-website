@@ -203,3 +203,6 @@ dist
 
 #  hard-coded SQL files in root
 *.sql
+
+#  agent configs
+.claude/

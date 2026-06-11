@@ -1,0 +1,32 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseHead from '../components/BaseHead.astro';
+import AdminHeader from '../components/AdminHeader.astro';
+import AdminFooter from '../components/AdminFooter.astro';
+import { ADMIN_PAGE_TITLE_PRFX } from '../consts';
+
+type Props = CollectionEntry<'docs'>['data'];
+
+const { title, description, author } = Astro.props;
+
+
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Documentation: ${title}`} description={description} />
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <!-- Header -->
+    <h1>Administrative Services - Documentation</h1>
+    <AdminHeader />
+    <p></p>
+    <br>
+    <main>
+        <article>
+            <slot />
+        </article>
+    </main>
+    <AdminFooter />
+</html>

@@ -1,0 +1,16 @@
+---
+// props import here
+const { name, role, birth_year, death_year, country, bio, tags, image } = Astro.props;
+---
+<div id="generic-info-composer" class="entity-info-container">
+    <h2 id="composer-name" class="entity-info-name">${name}</h2>
+    <img id="composer-image" class="entity-info-image" src=`${image}` alt="Composer Image" style="display: none;" />
+    <p id="composer-bio" class="entity-info-bio">${bio}</p>
+    <ul id="composer-details" class="entity-info-details">
+        <li><strong>Role:</strong> <span id="composer-role">${role}</span></li>
+        <li><strong>Birth Year:</strong> <span id="composer-birth-year">${birth_year}</span></li>
+        <li><strong>Death Year:</strong> <span id="composer-death-year">${death_year}</span></li>
+        <li><strong>Country:</strong> <span id="composer-country">${country}</span></li>
+        <li><strong>Tags:</strong> <span id="composer-tags">${tags.join(", ")}</span></li>
+    </ul>
+</div>

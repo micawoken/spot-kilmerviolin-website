@@ -1,0 +1,54 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import ContributorInfo from "../../../components/entities/ContributorInfo.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { CONTRIBUTOR } from "../../../lib/api/d1"
+import { getContributor } from "../../../lib/api/database"
+
+export const prerender = false
+
+const is_admin = Astro.locals.identity?.admin === true
+
+console.log("Admin status of current user:", is_admin)
+
+// SSR is used if an ID is specified as a query param, but only for admins:
+// the direct database read is unfiltered and would leak protected properties to non-admins
+const id = Astro.url.searchParams.get("id")
+let use_id: boolean = false
+let contributor_data: ContributorRecord | null = null
+if (id && is_admin) {
+    console.log("ID query param found:", id)
+    contributor_data = await getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, id)
+    if (!contributor_data) {
+        console.warn(`No contributor found with ID ${id}, falling back to client-side ID entry`)
+    } else {
+        use_id = true
+    }
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Contributor`} description="View a contributor"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <h2>View a Contributor</h2>
+    <IDEntryForm output_div={undefined} hidden={use_id} show_elevate={is_admin} />
+    <ContributorInfo contributor={use_id ? contributor_data as ContributorRecord : null} hidden={!use_id} />
+    <p id="transaction-status">{use_id ? "Contributor data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const read_form = getForm("contributor_partial", APIOpCode.READ)
+        console.log("Form element obtained for contributors read operation:", read_form)
+        read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "contributor_partial"))
+    </script>
+    <AdminFooter />
+</body>
+</html>

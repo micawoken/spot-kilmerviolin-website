@@ -1,0 +1,40 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+
+// the middleware has already resolved the caller's identity, so no API round-trip is needed
+const identity = Astro.locals.identity ?? null
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}My Authorization Info`} description="View your user authorization information"/>
+    <meta name="robots" content="noindex" />
+</head>
+<body>
+    <AdminHeader identity={identity} welcome="false"/>
+    <h2>My User Authorization Info</h2>
+    {
+        identity ? (
+            <ul class="entity-result-details">
+                <li><strong>Email:</strong> <span id="identity-email">{identity.email}</span></li>
+                <li><strong>Name:</strong> <span id="identity-name">{identity.userinfo?.name ?? "(not available)"}</span></li>
+                <li><strong>Contributor ID:</strong> <span id="identity-id">{identity.id ?? "(none)"}</span></li>
+                <li><strong>Allowed:</strong> <span id="identity-allowed">{String(identity.allowed)}</span></li>
+                <li><strong>Active:</strong> <span id="identity-active">{String(identity.active)}</span></li>
+                <li><strong>Admin:</strong> <span id="identity-admin">{String(identity.admin)}</span></li>
+                <li><strong>Enrollable:</strong> <span id="identity-enrollable">{String(identity.enrollable)}</span></li>
+                <li><strong>Roles:</strong> <span id="identity-roles">{identity.roles?.length ? identity.roles.join(", ") : "(none)"}</span></li>
+            </ul>
+        ) : (
+            <p>No identity information is available. You may be browsing without authentication (such as in local development).</p>
+        )
+    }
+    <p class="general-infohelp">If you are enrollable but not yet allowed, you can create your contributor record via <a href="/admin/advanced/selfenroll">Advanced Options &gt; View self-enrollment flow</a>.</p>
+    <AdminFooter />
+</body>
+</html>
