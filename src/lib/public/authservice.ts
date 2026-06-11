@@ -7,6 +7,7 @@
 import { env } from "cloudflare:workers"
 import { requiresAllOf } from "../api/authorize"
 import { errorAPIPayload } from "../api/common"
+import { authEnabled } from "../api/environment"
 import { _constructHeaders, API_headers, cors_fallback_origin } from "../api/http"
 
 
@@ -26,7 +27,7 @@ import { _constructHeaders, API_headers, cors_fallback_origin } from "../api/htt
  * 
  */
 export function auth_check(request: Request, identity: Identity | undefined, required_perms: (keyof RoleProfile)[], fail_closed: boolean = true, mode: "default" | "selfmgmt" | "enroll" = "default"): Response | null {
-    if (env.AUTH_ENABLED === false) {
+    if (!authEnabled(request)) {
         return null
     }
     // verify authentication

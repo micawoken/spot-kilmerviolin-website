@@ -5,9 +5,9 @@
  * 
  */
 
-import { env } from "cloudflare:workers"
 import { createAPIPayload } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
+import { richErrors } from "./environment"
 
 interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {
     code: keyof typeof http_codes
@@ -284,7 +284,7 @@ export function constructResponseErrorHook(request: Request, error: any, code: k
     if (checkSQLiteErrorHook(error)) {
         return hookSQLiteError(request, error)
     }
-    return constructResponse(request, null, code, env.RICH_ERRORS && !force_comment ? `Error: ${error.message}` : force_comment)
+    return constructResponse(request, null, code, richErrors(request) && !force_comment ? `Error: ${error.message}` : force_comment)
 }
 
 /**
@@ -466,7 +466,7 @@ function convertSQLiteError(error: Error): [keyof typeof http_codes, string | nu
 
 export function hookSQLiteError(request: Request, error: Error): Response {
     const [code, message] = convertSQLiteError(error)
-    const forward_message = env.RICH_ERRORS ? `Database error: ${error.message}` : undefined
+    const forward_message = richErrors(request) ? `Database error: ${error.message}` : undefined
     if (message === null) {
         return constructResponse(request, null, code, forward_message)
     } else {

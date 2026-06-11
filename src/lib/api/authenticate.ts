@@ -93,10 +93,8 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
         }
     }
 
-    // during local development, the authentication process is skipped by env.AUTH_ENABLED on localhost
-    if (!env.AUTH_ENABLED) {
-        return construct("Lovely Name", "example@example.com", 0, Infinity)
-    }
+    // during local development, the identity middleware bypasses authentication entirely
+    // (see src/middleware/identity.ts), so no development bypass is needed here
 
     // a bypass during staging can be set, but it will not be implemented at the authentication level
 

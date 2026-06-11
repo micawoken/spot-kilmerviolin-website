@@ -12,7 +12,7 @@ import { auth_check } from "../../../../lib/public/authservice"
 import { addComposition, deleteComposition, getComposition, listCompositions, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
 import { getRecord, _stateTypeAssertCompleteComposition, COMPOSITION, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
 import { canAct, canModify, requires } from "../../../../lib/api/authorize"
-import { env } from "cloudflare:workers"
+import { authEnabled } from "../../../../lib/api/environment"
 
 /**
  * GET /api/v1/works/[id]
@@ -88,7 +88,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     // validate authorization
-    const auth_enabled = env.AUTH_ENABLED || import.meta.env.PROD
+    const auth_enabled = authEnabled(request)
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
@@ -151,7 +151,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     // validate authorization
-    const auth_enabled = env.AUTH_ENABLED || import.meta.env.PROD
+    const auth_enabled = authEnabled(request)
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
@@ -202,7 +202,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, api_request.message)
     }
     // validate authorization
-    const auth_enabled = env.AUTH_ENABLED || import.meta.env.PROD
+    const auth_enabled = authEnabled(request)
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {

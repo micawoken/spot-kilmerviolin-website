@@ -32,7 +32,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const data = verinfo()
+    const data = verinfo(request)
     return constructResponse(request, data, 200)
 }
 

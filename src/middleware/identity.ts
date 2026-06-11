@@ -9,6 +9,7 @@ import { env } from "cloudflare:workers"
 import type { MiddlewareHandler } from "astro"
 import { middlewareErrorResponder } from "../lib/api/http"
 import { parseJWT, retrieveCredential } from "../lib/api/authenticate"
+import { authEnabled } from "../lib/api/environment"
 import authorize from "../lib/api/authorize"
 
 
@@ -34,12 +35,10 @@ export const identity: MiddlewareHandler = async (context, next) => {
     if (path_components.length > 0 && (path_components[0] === "api" || path_components[0] === "admin")) {
         // the request path requires authentication and authorization
 
-        // on local development, authentication and authorization are bypassed if:
-        // 1. authentication is manually disabled,
-        // 2. the request origin is localhost, and
-        // 3. Astro indicates that the environment is not production
-        // if any are false, the identity authentication and authorization process proceeds as normal
-        if (!env.AUTH_ENABLED && url.hostname === "localhost" && !import.meta.env.PROD) {
+        // on local development (development build served from localhost/127.0.0.1),
+        // authentication and authorization are bypassed entirely; in all other
+        // environments, the identity authentication and authorization process proceeds as normal
+        if (!authEnabled(context.request)) {
             return next()
         }
 
@@ -48,12 +47,6 @@ export const identity: MiddlewareHandler = async (context, next) => {
         if (credential_data === null) {
             // no credential, unauthorized
             return middlewareErrorResponder(context.request, 401, comment_401)
-        }
-
-        // check if auth is enabled
-        if (!env.AUTH_ENABLED && import.meta.env.PROD) {
-            // authentication is disabled in vars, but the environment is production
-            return middlewareErrorResponder(context.request, 503, "Authentication is currently unavailable. Please try again later.")
         }
 
         const validation: BaseIdentity | null | undefined = await parseJWT(credential_data[1], env.CF_ACCESS_AUD)

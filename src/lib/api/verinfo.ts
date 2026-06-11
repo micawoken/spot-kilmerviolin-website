@@ -6,8 +6,9 @@
  */
 
 import { env } from 'cloudflare:workers';
+import { authEnabled, detectEnvironment, richErrors } from './environment';
 
-export default function verinfo() {
+export default function verinfo(request: Request) {
     const data = env.CF_VERSION_METADATA
     return {
         timestamp: data.timestamp,
@@ -15,10 +16,11 @@ export default function verinfo() {
         tag: data.tag,
         settings: {
             selfenroll: env.API_USER_SELFENROLL,
-            errordesc: env.RICH_ERRORS
+            errordesc: richErrors(request)
         },
         environment: {
-            authservice: env.AUTH_ENABLED,
+            name: detectEnvironment(request),
+            authservice: authEnabled(request),
             db_writable: env.DB_ENABLE_WRITE,
             ttls: {
                 cacheApi: {
