@@ -113,10 +113,22 @@ function stripAPILocation(location: string): number | null {
  */
 async function parser(response: Response, null_request_header?: string): Promise<APIResponse | string | undefined> {
     console.log("Received response: ", response)
-    if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status} and empty response body`)
-    }
     const text = await response.text()
+    if (!response.ok) {
+        // attempt to surface the server's error comment instead of a generic failure message
+        try {
+            const error_data = JSON.parse(text)
+            if (error_data && typeof error_data === "object" && typeof error_data.comment === "string" && error_data.comment !== "") {
+                throw new Error(`API request failed with status ${response.status}: ${error_data.comment}`)
+            }
+        } catch (e) {
+            if (e instanceof Error && e.message.startsWith("API request failed")) {
+                throw e
+            }
+            // fall through to the generic error for unparseable bodies
+        }
+        throw new Error(`API request failed with status ${response.status}`)
+    }
     if (text === "") {
         if (null_request_header) {
             const header_value = response.headers.get(null_request_header)
@@ -133,8 +145,25 @@ async function parser(response: Response, null_request_header?: string): Promise
     }
     console.log("Raw response text: ", text)
     try {
-        return await JSON.parse(text)
+        const data = JSON.parse(text)
+        // successful responses (e.g. 201 Created) carry a JSON body whose payload may be null while the
+        // requested value travels in a header (e.g. Location); substitute it so callers see the header value
+        if (null_request_header && data && typeof data === "object" && data.success === true && (data.payload === null || data.payload === undefined)) {
+            const header_value = response.headers.get(null_request_header)
+            if (header_value) {
+                return {
+                    success: true,
+                    payload: header_value,
+                    comment: `API request succeeded with empty payload. Retrieved value from header ${null_request_header}.`
+                }
+            }
+            throw new Error(`API response payload is empty and header ${null_request_header} not found`)
+        }
+        return data
     } catch (e) {
+        if (e instanceof Error && e.message.startsWith("API response payload is empty")) {
+            throw e
+        }
         console.error("Error parsing JSON response: ", e)
         return text
     }
@@ -807,7 +836,7 @@ export async function getSelf(): Promise<Identity | null> {
 export async function enrollSelf(record: Partial<Contributor>): Promise<void> {
     const response = await fetch(composeUrl("identity/self"), {
         method: "POST",
-        body: JSON.stringify(record),
+        body: JSON.stringify([record]),
         headers: {
             "Content-Type": "application/json"
         }

@@ -171,7 +171,8 @@ export function generateObjectForm(form_data: FormData, type_data: Record<string
             if (!allow_omit && !is_optional) {
                 throw new Error(`Form data is missing required parameter ${param}`)
             }
-            result[param] = null
+            // array-typed fields must be sent as empty arrays; the API requires Array values for them
+            result[param] = type.endsWith("[]") ? [] : null
             console.log(`Form data is missing parameter ${param}, which is ${is_optional ? "optional" : "required"}.`, `allow_omit is ${allow_omit}.`)
             continue
         }
@@ -197,7 +198,8 @@ export function generateObjectForm(form_data: FormData, type_data: Record<string
             if (!patch && !allow_omit && !is_optional) {
                 throw new Error(`Form data is missing required parameter ${param}`)
             }
-            result[param] = null
+            // array-typed fields must be sent as empty arrays; the API requires Array values for them
+            result[param] = type.endsWith("[]") ? [] : null
             continue
         }
         const parsed_value = argParse(param, type, raw_value)

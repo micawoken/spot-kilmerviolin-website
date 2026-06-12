@@ -625,14 +625,13 @@ export function errorAPIPayload(comment: string): APIResponse {
  * 
  * @param {Request} request - the API request to parse
  * @param {string[]} [meta_expect_keys] - an optional list of expected keys in the meta field; if provided, the function will validate that the meta field contains these keys
- * @return {Promise<APIRequest>} a promise that resolves to the parsed APIRequest object
- * @throws {Error} if the request body is not valid JSON, does not have the required shape, or if the meta field does not contain the expected keys (if meta_expect_keys is provided)
+ * @return {Promise<APIRequest | Error>} a promise that resolves to the parsed APIRequest object, or an Error if the request body is not valid JSON, does not have the required shape, or if the meta field does not contain the expected keys (if meta_expect_keys is provided)
  */
-export async function parseAPIRequest(request: Request, meta_expect_keys?: string[]): Promise<APIRequest> {
+export async function parseAPIRequest(request: Request, meta_expect_keys?: string[]): Promise<APIRequest | Error> {
     // parses the body of an API request into an APIRequest object
     const content_type = request.headers.get("Content-Type")
     if (content_type !== null && !content_type.toLowerCase().includes("application/json")) {
-        throw new Error("Invalid content type: expected application/json")
+        return new Error("Invalid content type: expected application/json")
     }
     let data: { payload: unknown, meta?: Record<string, string | boolean | number | null> }
     try {
@@ -648,14 +647,14 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
             }
         }
     } catch (e) {
-        throw new Error(`Failed to parse request body as JSON: ${e}`)
+        return new Error(`Failed to parse request body as JSON: ${e}`)
     }
     // validate the shape of the response
     if (typeof data !== "object" || data === null) {
-        throw new Error("Invalid request body: expected an object")
+        return new Error("Invalid request body: expected an object")
     }
     if (!(data.payload instanceof Array) && data.payload !== null) {
-        throw new Error("Invalid request body: must be an array or null")
+        return new Error("Invalid request body: must be an array or null")
     }
     // if meta_expect_keys is provided, validate the shape of the meta field
     let meta: Record<string, string | boolean | number | null> | undefined = undefined
@@ -673,25 +672,25 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
         meta = {}
     } else if (meta_expect_keys && !meta_header && enforce_meta_presence) {
         // meta is required but missing
-        throw new Error("Missing required meta header: X-MWMSC-Request-Meta")
+        return new Error("Missing required meta header: X-MWMSC-Request-Meta")
     } else if (meta_expect_keys && !meta_header) {
         // should be impossible
-        throw new Error("Invalid state: meta_expect_keys is supplied but meta header is missing, and meta header is not optional")
+        return new Error("Invalid state: meta_expect_keys is supplied but meta header is missing, and meta header is not optional")
     } else if (meta_expect_keys && meta_header) {
         // attempt to parse JSON string
         try {
             console.log("Meta header: ", meta_header)
             data.meta = JSON.parse(meta_header)
         } catch (e) {
-            throw new Error(`Failed to parse meta header as JSON: ${e}`)
-        }  
+            return new Error(`Failed to parse meta header as JSON: ${e}`)
+        }
         if (typeof data.meta !== "object" || data.meta === null || Array.isArray(data.meta) || Object.values(data.meta).some(key => typeof key !== "string" && typeof key !== "boolean" && typeof key !== "number" && key !== null)) {
-            throw new Error("Invalid request body: 'meta' field must be an object of type Record<string, string | boolean | number | null>")
+            return new Error("Invalid request body: 'meta' field must be an object of type Record<string, string | boolean | number | null>")
         }
         const missing_keys = meta_expect_keys.filter(key => !(key in (data.meta as object)))
         // not checking for extra keys since they won't be checked
         if (missing_keys.length > 0) {
-            throw new Error(`Invalid request body: 'meta' field is missing required keys: ${missing_keys.join(", ")}`)
+            return new Error(`Invalid request body: 'meta' field is missing required keys: ${missing_keys.join(", ")}`)
         }
         meta = data.meta as Record<string, string | boolean | number | null>
     }

@@ -22,7 +22,7 @@ import { authEnabled } from "../../../../lib/api/environment"
  * 
  * Meta: optional
  * Meta fields:
- *  - escalate: {boolean} if true, and the user is an admin, disable the safe property check for non-self contributors; defaults to false
+ *  - elevate: {boolean} if true, and the user is an admin, disable the safe property check for non-self contributors; defaults to false
  * 
  * Body: none
  * @param {APIContext} context - the Astro API context
@@ -36,7 +36,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request 
-    const api_request = await parseAPIRequest(request, []) // escalate is optional, defaults to false
+    const api_request = await parseAPIRequest(request, []) // elevate is optional, defaults to false
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -56,8 +56,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
         const auth_enabled: boolean = authEnabled(request)
         // validate self identity
-        if (locals.identity?.id !== state_id && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
-            // identity is not self, and either escalate is false or user is not admin
+        if (locals.identity?.id !== state_id && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
+            // identity is not self, and either elevate is false or user is not admin
             // filter out protected properties from the record before returning
             const filtered_record = Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
             return constructResponse(request, filtered_record, 200)
@@ -125,7 +125,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  * 
  * Meta: optional
  * Meta fields:
- *  - escalate: {boolean} if true, and the user is an admin, disable the safe property check and disable row-level security for this request
+ *  - elevate: {boolean} if true, and the user is an admin, disable the safe property check and disable row-level security for this request
  * 
  * Body: required, JSON object of partial contributor record with fields to update; must include the id field and value must match the ID in the URL
  * @param {APIContext} context - the Astro API context
@@ -139,7 +139,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, []) // escalate is optional, defaults to false
+    const api_request = await parseAPIRequest(request, []) // elevate is optional, defaults to false
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -159,9 +159,9 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 404)
         }
         // validate self identity
-        console.log(locals.identity?.id !== state_id, !(api_request.meta?.escalate === true && locals.identity?.admin), auth_enabled)
-        if (locals.identity?.id !== state_id && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
-            // identity is not self, and either escalate is false or user is not admin
+        console.log(locals.identity?.id !== state_id, !(api_request.meta?.elevate === true && locals.identity?.admin), auth_enabled)
+        if (locals.identity?.id !== state_id && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
+            // identity is not self, and either elevate is false or user is not admin
             return constructResponse(request, null, 403)
         }
         
@@ -173,9 +173,9 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         }
         console.log("record: ", record)
         // validate that properties are safe
-        if (CONTRIBUTOR.protected!.some(prop => prop in record) && !(api_request.meta?.escalate === true && locals.identity?.admin) && auth_enabled) {
-            // record includes protected properties, and either escalate is false or user is not admin
-            return constructResponse(request, null, 403, "Request includes protected properties that require escalate permission")
+        if (CONTRIBUTOR.protected!.some(prop => prop in record) && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
+            // record includes protected properties, and either elevate is false or user is not admin
+            return constructResponse(request, null, 403, "Request includes protected properties that require elevate permission")
         }
         // perform update
         await updateContributorPartial(context.locals.cfContext, state_id, record)

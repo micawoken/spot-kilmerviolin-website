@@ -35,7 +35,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request)
+    const api_request = await parseAPIRequest(request, []) // meta is optional; parse it so the "full" field is honored
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
