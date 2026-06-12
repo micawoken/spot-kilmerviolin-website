@@ -42,7 +42,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: none
  * 
  * Meta: none
- * Body: required, JSON object of partial Contributor record with properties: name, major, class_year
+ * Body: required, JSON array containing one partial Contributor record with properties: name, major, class_year
  * 
  * @param {APIContext} context - the Astro API context
  * @returns {Response} a Response object containing the contributor ID if enrollment is successful, or an error message if enrollment fails
@@ -59,8 +59,12 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, { error: api_request.message }, 400)
     }
+    // check if the payload is not null and has a length of 1
+    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
+        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
+    }
     // validate request body
-    const record = _stateTypeAssertPartialContributor(api_request.payload)
+    const record = _stateTypeAssertPartialContributor(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
@@ -82,7 +86,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 500, "Failed to finish user enrollment: user is either fully enrolled or does not exist in the database")
         } else {
             return constructResponse(request, null, 201, undefined, {
-                "Location": "/api/v1/contributors/${contributor_id}"
+                "Location": `/api/v1/contributors/${contributor_id}`
             })
         }
     } catch (error) {

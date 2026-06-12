@@ -257,13 +257,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         <fieldset>
             <legend>Publication Information</legend>
             <label for="form-composition-publish_name">Publisher Name:</label>
-            <input type="text" id="form-composition-publish_name" name="publish_name" value={composition?.publication_info?.name ?? ""} />
+            <input type="text" id="form-composition-publish_name" name="publish_name" required={required} value={composition?.publication_info?.name ?? ""} />
 
             <label for="form-composition-publish_location">Publication Location:</label>
-            <input type="text" id="form-composition-publish_location" name="publish_location" value={composition?.publication_info?.location ?? ""} />
+            <input type="text" id="form-composition-publish_location" name="publish_location" required={required} value={composition?.publication_info?.location ?? ""} />
 
             <label for="form-composition-publish_year">Publication Year:</label>
-            <input type="number" id="form-composition-publish_year" name="publish_year" value={composition?.publication_info?.year ?? ""} />
+            <input type="number" id="form-composition-publish_year" name="publish_year" required={required} value={composition?.publication_info?.year ?? ""} />
 
             <label for="form-composition-uri_type">URI Type:</label>
             <select id="form-composition-uri_type" name="uri_type" class="form-config-horizflow">
@@ -273,7 +273,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             </select>
 
             <label for="form-composition-uri">URI:</label>
-            <input type="text" id="form-composition-uri" name="uri" value={composition?.publication_info?.uri ?? ""} />
+            <input type="text" id="form-composition-uri" name="uri" required={required} value={composition?.publication_info?.uri ?? ""} />
             {
                 patch ? (
                     <input type="checkbox" id="form-composition-publication_info-edittarget" name="publication_info-edittarget" />

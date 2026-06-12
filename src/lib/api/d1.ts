@@ -390,26 +390,26 @@ export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: 
     console.log(record)
 
     console.log("Asserting contributor record:",
-        ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)), 
-        typeof r.name !== "string", 
-        typeof r.class_year !== "number", 
+        ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)),
+        typeof r.name !== "string",
+        typeof r.class_year !== "number",
         typeof r.major !== "string",
         !(r.phases instanceof Array),
-        typeof r.bio !== "string",
-        typeof r.public_email !== "string",
+        (typeof r.bio !== "string" && r.bio !== null),
+        (typeof r.public_email !== "string" && r.public_email !== null),
         typeof r.identity_email !== "string",
         typeof r.active !== "number",
         !(r.roles instanceof Array),
         typeof r.admin !== "number",
         (typeof r.image !== "string" && r.image !== null))
-    
+
     if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
         typeof r.name !== "string" ||
         typeof r.class_year !== "number" ||
         typeof r.major !== "string" ||
         !(r.phases instanceof Array) ||
-        typeof r.bio !== "string" ||
-        typeof r.public_email !== "string" ||
+        (typeof r.bio !== "string" && r.bio !== null) ||
+        (typeof r.public_email !== "string" && r.public_email !== null) ||
         typeof r.identity_email !== "string" ||
         typeof r.active !== "number" ||
         !(r.roles instanceof Array) ||
@@ -444,8 +444,8 @@ export function _stateTypeAssertPartialContributor(record: unknown, expect_id: b
         (r.class_year !== undefined && typeof r.class_year !== "number") ||
         (r.major !== undefined && typeof r.major !== "string") ||
         (r.phases !== undefined && !(r.phases instanceof Array)) ||
-        (r.bio !== undefined && typeof r.bio !== "string") ||
-        (r.public_email !== undefined && typeof r.public_email !== "string") ||
+        (r.bio !== undefined && typeof r.bio !== "string" && r.bio !== null) ||
+        (r.public_email !== undefined && typeof r.public_email !== "string" && r.public_email !== null) ||
         (r.identity_email !== undefined && typeof r.identity_email !== "string") ||
         (r.active !== undefined && typeof r.active !== "number") ||
         (r.roles !== undefined && !(r.roles instanceof Array)) ||
@@ -481,8 +481,8 @@ export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boo
         typeof r.birth_year !== "number" ||
         typeof r.death_year !== "number" ||
         (typeof r.image !== "string" && r.image !== null) ||
-        typeof r.bio !== "string") {
-        return "Record has invalid types for one or more parameters" 
+        (typeof r.bio !== "string" && r.bio !== null)) {
+        return "Record has invalid types for one or more parameters"
     }
     return r as Composer
 }
@@ -505,8 +505,8 @@ export function _stateTypeAssertPartialComposer(record: unknown, expect_id: bool
         (r.birth_year !== undefined && typeof r.birth_year !== "number") ||
         (r.death_year !== undefined && typeof r.death_year !== "number") ||
         (r.image !== undefined && typeof r.image !== "string" && r.image !== null) ||
-        (r.bio !== undefined && typeof r.bio !== "string")) {
-        return "Record has invalid types for one or more parameters" 
+        (r.bio !== undefined && typeof r.bio !== "string" && r.bio !== null)) {
+        return "Record has invalid types for one or more parameters"
     }
     return r as Partial<Composer>
 }
@@ -518,7 +518,7 @@ export function _stateTypeAssertPartialComposer(record: unknown, expect_id: bool
  * @returns the record as a CompRating type if valid, or a string error message if invalid
  */
 function validateCompRating(record: unknown, partial: boolean = false): boolean {
-    if (typeof record !== "object") {
+    if (typeof record !== "object" || record === null) {
         return false
     }
     const r = record as { [key: string]: any }
@@ -536,7 +536,7 @@ function validateCompRating(record: unknown, partial: boolean = false): boolean 
  * @returns the record as a PublicationInfo type if valid, or a string error message if invalid
  */
 function validatePubInfo(record: unknown, partial: boolean = false): boolean {
-    if (typeof record !== "object") {
+    if (typeof record !== "object" || record === null) {
         return false
     }
     const r = record as { [key: string]: any }
@@ -579,7 +579,7 @@ export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: 
         (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null),
         (typeof r.notes_historical !== "string" && r.notes_historical !== null),
         (typeof r.notes_other !== "string" && r.notes_other !== null),
-        !validateCompRating(r.rating, false),
+        (r.rating !== null && !validateCompRating(r.rating, false)),
         !validatePubInfo(r.publication_info, false))
     if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
         typeof r.name !== "string" ||
@@ -597,8 +597,8 @@ export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: 
         (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null) ||
         (typeof r.notes_historical !== "string" && r.notes_historical !== null) ||
         (typeof r.notes_other !== "string" && r.notes_other !== null) ||
-        !validateCompRating(r.rating, false) ||
-        !validatePubInfo(r.publication_info, false)) 
+        (r.rating !== null && !validateCompRating(r.rating, false)) ||
+        !validatePubInfo(r.publication_info, false))
     {
         return "Record has invalid types for one or more parameters"
     }
