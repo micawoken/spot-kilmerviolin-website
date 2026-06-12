@@ -80,10 +80,12 @@ function argParse(param: string, type: string, raw_value: string): string | stri
         case "boolean":
             return raw_value.toLowerCase() === "true"
         case "string[]":
-            return raw_value.split(",").map(s => s.trim())
+            // empty segments (e.g. from a trailing comma) are dropped rather than sent as empty strings
+            return raw_value.split(",").map(s => s.trim()).filter(s => s !== "")
         case "number[]":
-            const value_num_a = raw_value.split(",").map(s => {
-                const num = parseFloat(s.trim())
+        case "number[]?": // nullable array: parses like number[]; empty inputs become null instead of [] (handled in generateObjectForm)
+            const value_num_a = raw_value.split(",").map(s => s.trim()).filter(s => s !== "").map(s => {
+                const num = parseFloat(s)
                 if (isNaN(num)) {
                     throw new Error(`Invalid number input in array for parameter ${param}`)
                 }
@@ -107,19 +109,24 @@ function customObjectParse(custom_object_type: keyof typeof custom_object_parser
     const type_name = data[0]
     const constructor = data[1]
     const params = data[2]
-    if (!params.every(param => form_data.has(param))) {
-        if (!allow_omit && !nullable) {
-            throw new Error(`Form data is missing required parameters for custom object ${custom_object_type}: ${params.filter(param => !form_data.has(param)).join(", ")}`)
-        }
-        return;
-    }
-    const output = constructor(...params.map(param => form_data.get(param)))
+    // missing entries and empty inputs are both passed to the constructor as null,
+    // letting constructors map blank inputs onto nullable columns
+    const values = params.map(param => {
+        const raw = form_data.get(param)
+        return (raw === null || raw === "") ? null : raw
+    })
+    const output = constructor(...values)
     if (!output) {
-        if (!allow_omit && !nullable) {
-            throw new Error(`Constructor for custom object ${custom_object_type} returned null or undefined, likely due to invalid input parameters. Constructor parameters: ${params.map(param => `${param}=${form_data.get(param)}`).join(", ")}`)
+        if (values.every(value => value === null)) {
+            // the whole group was left blank or is not rendered by this form
+            if (!allow_omit && !nullable) {
+                throw new Error(`Form data is missing required parameters for custom object ${custom_object_type}: ${params.join(", ")}`)
+            }
+            console.log(`Custom object ${custom_object_type} left blank, emitting as omitted.`)
+            return;
         }
-        console.log("Constructor failed, ignoring inputs: ", params.map(param => `${param}=${form_data.get(param)}`).join(", "))
-        return;
+        // inputs were provided but rejected; surface the problem instead of silently dropping them
+        throw new Error(`Invalid input for custom object ${custom_object_type}. Inputs: ${params.map((param, i) => `${param}=${values[i] ?? ""}`).join(", ")}`)
     }
     return {
         output: output,
@@ -149,8 +156,9 @@ export function generateObjectForm(form_data: FormData, type_data: Record<string
             }
         }
         const parsed = customObjectParse(custom_object, form_data, allow_omit, type_data[field_name][1])
+        // invalid (non-blank) input throws inside customObjectParse; a falsy return means the group was left blank
         if (!parsed) {
-            // a parsing error is not caught and will follow up the call stack if the arg is not required
+            // blank nullable groups are sent as null in full mode and skipped in patch mode
             if (!patch) {
                 result[field_name] = null
             }
@@ -206,7 +214,8 @@ export function generateObjectForm(form_data: FormData, type_data: Record<string
         if (parsed_value === undefined) {
             throw new Error(`Failed to parse form data for parameter ${param} with value ${raw_value} and type ${type}`)
         }
-        result[param] = parsed_value
+        // nullable arrays that parse to no elements (e.g. an input of only commas) are sent as null, not []
+        result[param] = (type === "number[]?" && Array.isArray(parsed_value) && parsed_value.length === 0) ? null : parsed_value
     }
     return result
 }

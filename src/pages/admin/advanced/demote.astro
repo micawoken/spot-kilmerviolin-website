@@ -19,6 +19,7 @@ const self_email = Astro.locals.identity?.email ?? ""
     <AdminHeader identity={Astro.locals.identity} welcome="false"/>
     <h2>Demote a User from Administrator</h2>
     <p class="general-warning">Demotion removes the user's administrator permissions, but does not deactivate their account or remove their roles. Requires administrator permissions.</p>
+    <p class="general-infohelp">Note: the reverse also holds — marking an administrator's account inactive does <strong>not</strong> strip their administrator permissions. An inactive administrator retains full authorization across the API and admin pages. To revoke administrator access you must demote the user here (or remove them from Cloudflare Access); deactivation alone is not sufficient.</p>
     <div class="generic-form">
         <form id="advanced-form-demote" class="generic-form" data-self-email={self_email}>
             <fieldset>

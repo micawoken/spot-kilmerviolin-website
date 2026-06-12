@@ -19,7 +19,7 @@ import { formatContribToD1, formatContribToD1Partial, formatCompToD1, formatWork
 import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpecificProp, deleteRecord, exec_string, recordTypeAssertComplete } from "./d1.ts"
 import { SQLStatement, VirtualSQLTable } from "./sql.ts"
 import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
-import { getCache, purgeCache, putCache } from "./caching.ts"
+import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
 
 // in general, authorization is managed by the API endpoint, so no identity checks are made in this module
 
@@ -29,9 +29,9 @@ import { getCache, purgeCache, putCache } from "./caching.ts"
  * CONTRIBUTORS:
  * contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
  * name TEXT UNIQUE NOT NULL,
- * class_year INTEGER NOT NULL,
- * major TEXT NOT NULL,
- * phases TEXT NOT NULL // comma-separated list of phase numbers
+ * class_year INTEGER, // nullable
+ * major TEXT, // nullable
+ * phases TEXT // comma-separated list of phase numbers; nullable
  * bio TEXT,
  * public_email TEXT,
  * identity_email TEXT UNIQUE NOT NULL,
@@ -115,6 +115,9 @@ async function purgeKV(fixed: boolean = true): Promise<void> {
  */
 export async function purgeCacheAll(kv_fixed: boolean = true): Promise<boolean> {
     const outcome = await purgeCache("db_cache")
+    // purgeCache cannot enumerate or drop the whole store on Workers, so evict the known per-table entries directly
+    const known_keys = ["composers", "contributors", "compositions"]
+    await Promise.all(known_keys.map(key => deleteCacheKey("db_cache", key)))
     await purgeKV(kv_fixed) // KV deletion succeeds whether the key exists or not
     return outcome
 }
@@ -140,6 +143,9 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
         // invalidate KV backing store for this table so Cache API is not repopulated with stale KV data
         if (stmt.from) {
             ctx.waitUntil(deleteKey(stmt.from))
+            // purgeCache cannot drop the whole store on Workers, so the per-table Cache API entry
+            // must be evicted directly or simple SELECTs will keep serving stale data until TTL expiry
+            ctx.waitUntil(deleteCacheKey("db_cache", stmt.from))
         }
         return {
             data: output.results as Record<string, string | number | null>[],
@@ -170,9 +176,11 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
         const db_cache = await _cacheFetch(stmt.from!, true)
         console.log("DB CACHE FETCH RESULT:", db_cache)
         let db
+        let from_cache = false
         if (db_cache) {
             // execute the command on the virtualized database
             db = new VirtualSQLTable(stmt.schema, db_cache as Record<string, string | number | null>[])
+            from_cache = true
         } else {
             // the table has not been cached, so pull the whole table, cache it, and run on the virtual table
             const data = await exec_string(`SELECT * FROM ${stmt.from!}`)
@@ -188,7 +196,7 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
 
         return {
             data: output as Record<string, string | number | null>[],
-            cached: false,
+            cached: from_cache,
             query_scope: "global"
         }
     } else {
@@ -420,7 +428,12 @@ async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, 
             throw new Error("Invalid schema")
     }
     const cleanEntry = Object.fromEntries(Object.entries(entry).filter(([_, value]) => value !== undefined)) as Record<string, string | number | null>
-    stmt.addColumns(Object.keys(cleanEntry).filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))) // exclude primary key and entry date from update
+    const update_columns = Object.keys(cleanEntry).filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))
+    if (update_columns.length === 0) {
+        // nothing to update; running a SET-less UPDATE would be invalid SQL, so treat as a no-op
+        return null
+    }
+    stmt.addColumns(update_columns) // exclude primary key and entry date from update
     stmt.addValueGroup(cleanEntry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and entry date from update
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
     const output = await _exec_wrap(stmt, ctx)

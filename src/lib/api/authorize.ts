@@ -70,13 +70,15 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
     const allowed = record !== null
     const enrollable = (record === null && env.API_USER_SELFENROLL) // provides method 2 enrollment directly; method 1 is accomplished in the enrollment flow
     const active = record ? record.active === 1 : false
-    const roles = record ? record.roles.split(",").map((r: string) => r.trim()) : []
+    // an empty roles column ("") splits to [""], which is not a valid role and breaks role lookups; filter blanks so a roleless user is [] not [""]
+    const roles = record ? record.roles.split(",").map((r: string) => r.trim()).filter((r: string) => r.length > 0) : []
     const id = record ? record.contributor_id : -1
     const admin = record ? record.admin === 1 : false
     const user_info: UserInfo = {
         name: record ? record.name : "",
-        tags: record ? record.tags.split(",").map((t: string) => t.trim()) : [],
-        phases: record ? record.phases.split(",").map((p: string) => parseInt(p.trim())) : [],
+        // the tags and phases columns are nullable; a null column yields an empty list in the identity summary
+        tags: record && record.tags ? record.tags.split(",").map((t: string) => t.trim()) : [],
+        phases: record && record.phases ? record.phases.split(",").map((p: string) => parseInt(p.trim())).filter((p: number) => !isNaN(p)) : [],
         entry_date: record ? record.entry_date : "",
         ok: record !== null
     }
@@ -93,43 +95,16 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
 }
 
 /**
- * Internal function to return a partial Identity object with no permissions
- */
-function _permissionlessPrototype() {
-    // returns a permissionless Identity object useable for enrollment
-    // this function may not be needed since buildIdentity accepts null
-    return {
-        "allowed": false,
-        "enrollable": true,
-        "active": false,
-        "roles": [],
-        "id": -1,
-        "admin": false,
-        "userinfo": {
-            "name": "",
-            "tags": [],
-            "phases": [],
-            "entry_date": "",
-            "ok": false
-        }
-    }
-}
-
-/**
  * Constructs an Identity object with authorization info from a BaseIdentity
- * 
+ *
  * @param {BaseIdentity} identity - the BaseIdentity object to construct from
  * @returns {Promise<Identity>} - a promise that resolves to the constructed Identity object
- * 
+ *
  */
 export default async function authorize(identity: BaseIdentity): Promise<Identity> {
     const record = await _getIdentityRecord(identity)
-    if (record === null) {
-        return {
-            ...identity,
-            ..._permissionlessPrototype()
-        }
-    }
+    // buildIdentity handles the no-record case, deriving enrollable from env.API_USER_SELFENROLL;
+    // it must be used for both branches so that disabling self-enrollment is actually honored
     return buildIdentity(identity, record)
 }
 
@@ -141,8 +116,8 @@ export default async function authorize(identity: BaseIdentity): Promise<Identit
  * 
  */
 export function requires(permission: keyof RoleProfile, identity: Identity): boolean {
-    const user_roles = identity.roles
-    return user_roles.some(role => {roles[role][permission]})
+    // delegates to requiresOneOf so all role lookups share one (unknown-role-safe) implementation
+    return requiresOneOf([permission], identity, false)
 }
 
 /**
@@ -158,7 +133,10 @@ export function requiresOneOf(permissions: (keyof RoleProfile)[], identity: Iden
     }
     const user_roles = identity.roles
     return user_roles.some(role => {
-        return permissions.some(permission => roles[role][permission])
+        const profile = roles[role]
+        // an unknown role string (stale/typo data) has no profile; treat it as granting nothing rather than throwing
+        if (!profile) return false
+        return permissions.some(permission => profile[permission] === true)
     })
 }
 
@@ -175,7 +153,10 @@ export function requiresAllOf(permissions: (keyof RoleProfile)[], identity: Iden
     }
     const user_roles = identity.roles
     return user_roles.some(role => {
-        return permissions.every(permission => roles[role][permission])
+        const profile = roles[role]
+        // an unknown role string (stale/typo data) has no profile; treat it as granting nothing rather than throwing
+        if (!profile) return false
+        return permissions.every(permission => profile[permission] === true)
     })
 }
 

@@ -24,6 +24,26 @@ console.log("pulled", identity)
 <body>
     <!-- Header -->
     <AdminHeader identity={identity} welcome="true"/>
+    <!-- if enrollable, show enroll button -->
+     { identity !== null ? (
+        identity.enrollable ? (
+            <div id="enroll-container" class="general-warning">
+                <p class="general-warning">Your profile is not associated with a contributor record. You cannot perform any operation until you complete self-enrollment.</p>
+                <p>To complete self-enrollment, navigate to the <a href="/enroll" class="col-item-link">self-enrollment flow</a>.</p>
+            </div>
+        ) : (
+            null
+        )
+     ) : (
+        null
+     )}
+    <!-- if inactive, show warning -->
+    { identity !== null && !identity.active ? (
+        <div id="inactive-container" class="general-warning">
+            <p class="general-warning">Your profile is marked as inactive. Your user permissions are limited.</p>
+            <p class="general-warning">To update compositions and contributors, an administrator must activate your profile.</p>
+        </div>
+    ) : null }
     <!-- links to database management pages -->
     <div class="flex-container">
         <div class="column">

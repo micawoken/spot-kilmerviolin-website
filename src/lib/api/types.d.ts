@@ -257,10 +257,10 @@ interface D1Schema extends D1BaseSchema {
  */
 interface ContributorPrimitive {
     name: string;
-    class_year: number;
-    major: string;
-    bio: string;
-    public_email: string;
+    class_year: number | null;
+    major: string | null;
+    bio: string | null;
+    public_email: string | null;
     identity_email: string;
     image: string | null;
 }
@@ -268,16 +268,16 @@ interface ContributorPrimitive {
 /**
  * The API representation of a contributor
  * Includes properties as arrays/boolean
- * 
+ *
  * @namespace Contributor
- * @property {number[]} phases - list of phase numbers the contributor is involved in
+ * @property {number[] | null} phases - list of phase numbers the contributor is involved in, or null if omitted
  * @property {string[]} roles - list of role names the contributor has
  * @property {string[]} tags - list of tags associated with the contributor
  * @property {boolean} active - whether the contributor is active
  * @property {boolean} admin - whether the contributor is an admin
  */
 interface Contributor extends ContributorPrimitive { // API representation of a contributor
-    phases: number[]; // list of phase numbers the contributor is involved in
+    phases: number[] | null; // list of phase numbers the contributor is involved in, or null if omitted
     roles: string[]; // list of role names the contributor has
     tags: string[];
     active: boolean;
@@ -302,19 +302,19 @@ interface ContributorRecord extends Contributor { // Contributor, but with field
  * @property {string} entry_date - the date the record was entered into the database, in ISO 8601 format
  * @property {number} active - whether the contributor is active; a boolean stored as a number
  * @property {number} admin - whether the contributor is an admin; a boolean stored as a number
- * @property {string} phases - the phases the contributor is involved in; comma-separated
+ * @property {string | null} phases - the phases the contributor is involved in; comma-separated, or null if omitted
  * @property {string} roles - the roles the contributor has; comma-separated
- * @property {string} tags - the tags associated with the contributor; comma-separated
- * 
+ * @property {string | null} tags - the tags associated with the contributor; comma-separated
+ *
  */
 interface D1Contributor extends ContributorPrimitive { // database representation of Contributor
     contributor_id: number;
     entry_date: string; // ISO 8601 format
     active: number;
     admin: number;
-    phases: string; // comma-separated phase numbers
+    phases: string | null; // comma-separated phase numbers, or null if omitted
     roles: string; // comma-separated role names
-    tags: string; // comma-separated tags
+    tags: string | null; // comma-separated tags
     [key: string]: string | number | null; // no additional fields expected; trying to clear compiler issue
 }
 

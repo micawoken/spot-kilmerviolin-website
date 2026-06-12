@@ -24,21 +24,26 @@ function _fetch(endpoint: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DE
 }
 
 async function _parse(response: Response): Promise<GatewayItem[]> {
+    // read as text first: error responses (e.g. from the Cloudflare edge) are not always JSON
+    const response_text = await response.text();
     if (!response.ok) {
-        return response.json().then((data) => {
-            throw new Error(`Cloudflare API error: ${response.status} ${response.statusText} - ${JSON.stringify(data)}`);
-        });
+        throw new Error(`Cloudflare API error: ${response.status} ${response.statusText} - ${response_text}`);
     }
-    const response_json: CfResponseInfoGatewayList = await response.json();
+    const response_json: CfResponseInfoGatewayList = JSON.parse(response_text);
     if (response_json.success) {
         return response_json.result?.items || [];
     } else {
-        throw new Error(`Cloudflare API error: ${response.status} ${response.statusText} - ${JSON.stringify(response_json)}`);
+        throw new Error(`Cloudflare API error: ${JSON.stringify(response_json.errors)}`);
     }
 }
 
-async function test(): Promise<boolean> {
-    const test_endpoint = "/tokens/verify"
+/**
+ * Verifies that the configured Cloudflare API token is valid; useful for diagnosing auth failures
+ *
+ * @returns {Promise<boolean>} - whether the token passed verification
+ */
+export async function test(): Promise<boolean> {
+    const test_endpoint = "/user/tokens/verify"
     try {
         const response = await _fetch(test_endpoint, "GET")
         if (!response.ok) {
@@ -56,8 +61,7 @@ async function test(): Promise<boolean> {
     }
 }
 
-async function cf_gateway_list(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", body?: any): Promise<GatewayItem[]> {
-    if (method !== "GET" && method !== "PATCH") throw new Error("Method not implemented for Cloudflare API call")
+async function cf_gateway_list(method: "GET" | "PATCH", body?: any): Promise<GatewayItem[]> {
     if (method === "PATCH" && !body) {
         throw new Error("Body is required for PATCH method")
     } else if (method === "GET" && body) {
@@ -67,32 +71,39 @@ async function cf_gateway_list(method: "GET" | "POST" | "PUT" | "PATCH" | "DELET
     return _parse(response)
 }
 
-/**
- * List Cloudflare Access policy users
- * 
- * @returns {Promise<string[]>} - a list of user emails that are currently allowed by the Access policy
- * 
- */
-export async function list_users(): Promise<string[]> {
+// returns list values exactly as stored, for operations (e.g. remove) that must match literally
+async function _list_raw(): Promise<string[]> {
     const users = await cf_gateway_list("GET")
     return users.map((item) => (item.value ? item.value : "")).filter((item) => item !== "")
 }
 
 /**
+ * List Cloudflare Access policy users
+ *
+ * @returns {Promise<string[]>} - a list of user emails (lowercased) that are currently allowed by the Access policy
+ *
+ */
+export async function list_users(): Promise<string[]> {
+    const users = await _list_raw()
+    return users.map((value) => value.toLowerCase())
+}
+
+/**
  * Add a user to the Cloudflare Access policy list, if they are not already present
- * 
+ *
  * @param {string} email - the email address of the user to add
  * @returns {Promise<void>}
  */
 export async function add_user(email: string): Promise<void> {
+    const normalized = email.trim().toLowerCase()
     const existing = await list_users();
-    if (existing.includes(email)) {
+    if (existing.includes(normalized)) {
         return;
     }
     await cf_gateway_list("PATCH", {
         append: [
             {
-                value: email
+                value: normalized
             }
         ]
     })
@@ -101,17 +112,19 @@ export async function add_user(email: string): Promise<void> {
 
 /**
  * Remove a user from the Cloudflare Access policy list, if they are present
- * 
+ *
  * @param {string} email - the email address of the user to remove
  * @returns {Promise<void>}
  */
 export async function remove_user(email: string): Promise<void> {
-    const existing = await list_users();
-    if (!existing.includes(email)) {
+    const normalized = email.trim().toLowerCase()
+    // removal matches stored values literally, so collect the exact entries that match case-insensitively
+    const matches = (await _list_raw()).filter((value) => value.toLowerCase() === normalized)
+    if (matches.length === 0) {
         return;
     }
     await cf_gateway_list("PATCH", {
-        remove: [email]
+        remove: matches
     })
     return;
 }

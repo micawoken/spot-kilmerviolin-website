@@ -42,7 +42,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: none
  * 
  * Meta: none
- * Body: required, JSON array containing one partial Contributor record with properties: name, major, class_year
+ * Body: required, JSON array containing one partial Contributor record with properties: name (required), major, class_year (optional; omitted or null values are stored as null)
  * 
  * @param {APIContext} context - the Astro API context
  * @returns {Response} a Response object containing the contributor ID if enrollment is successful, or an error message if enrollment fails
@@ -69,7 +69,8 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
     // validate keys
-    const required_keys = ["name", "major", "class_year"]
+    // major and class_year are nullable columns and may be omitted or null; only the name is required
+    const required_keys = ["name"]
     for (const key of required_keys) {
         if (!(key in record)) {
             return constructResponse(request, null, 400, `Invalid request body: missing required property ${key}`)
@@ -77,7 +78,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     }
     // perform self-enrollment
     try {
-        const contributor_id = await finishUser(locals.cfContext, locals.identity!.email, record.name, record.major, record.class_year)
+        const contributor_id = await finishUser(locals.cfContext, locals.identity!.email, record.name, record.major ?? null, record.class_year ?? null)
         if (contributor_id === null) {
             // should be imposible
             return constructResponse(request, null, 500, "Failed to finish user enrollment: user is missing from access list but has a contributor record")
@@ -90,6 +91,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             })
         }
     } catch (error) {
+        console.log("Error during self-enrollment:", error)
         return constructResponse(request, null, 500, "Failed to finish user enrollment")
     }
 }
