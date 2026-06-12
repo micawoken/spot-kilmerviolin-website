@@ -21,7 +21,7 @@ export async function getUserInfo(identity_email: string): Promise<[ContributorR
     try {
         const contrib_primitive = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)
         if (contrib_primitive === null) {
-            if (access_info.includes(identity_email)) {
+            if (access_info.includes(identity_email.toLowerCase())) {
                 return [null, true]
             }
             return [null, false]
@@ -29,7 +29,7 @@ export async function getUserInfo(identity_email: string): Promise<[ContributorR
         const contributor = formatContribFromD1(recordTypeAssertComplete(CONTRIBUTOR, contrib_primitive, false) as D1Contributor)
         return [contributor, true]
     } catch (error) {
-        if (access_info.includes(identity_email)) {
+        if (access_info.includes(identity_email.toLowerCase())) {
             return [null, true]
         }
         return [null, false]
@@ -44,11 +44,11 @@ export async function getUserInfo(identity_email: string): Promise<[ContributorR
  * @param {boolean} confer Whether to confer the acting identity's conferrable roles to the new user
  * @param {string} identity_email The email of the user to be created (which is used to authenticate with Access)
  * @param {string} name The name of the user to be created
- * @param {string} major The major of the user to be created
- * @param {number} class_year The class year of the user to be created
- * 
+ * @param {string | null} major The major of the user to be created, or null to omit
+ * @param {number | null} class_year The class year of the user to be created, or null to omit
+ *
  */
-export async function createUser(ctx: ExecutionContext, acting_identity: Identity, confer: boolean, identity_email: string, name: string, major: string, class_year: number): Promise<void> {
+export async function createUser(ctx: ExecutionContext, acting_identity: Identity, confer: boolean, identity_email: string, name: string, major: string | null, class_year: number | null): Promise<void> {
     // verify the acting identity has permission to create users
     if (!acting_identity.admin && !requires("user_addition", acting_identity)) {
         throw new Error("Unauthorized: insufficient permissions to create user")
@@ -56,10 +56,10 @@ export async function createUser(ctx: ExecutionContext, acting_identity: Identit
     
     // verify that the user doesn't already exist in Access or the Contributor table
     const access_info = await list_users()
-    if (access_info.includes(identity_email)) {
+    if (access_info.includes(identity_email.toLowerCase())) {
         throw new Error("User already exists in Access; use finishUser()")
     }
-    if (await _getPrimitiveCacheless(CONTRIBUTOR, "email", identity_email) !== null) {
+    if (await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email) !== null) {
         throw new Error("User already exists in Contributor table; use finishUser()")
     }
     // enable authentication
@@ -82,7 +82,7 @@ export async function createUser(ctx: ExecutionContext, acting_identity: Identit
         roles: new_roles,
         active: true,
         admin: false,
-        phases: [],
+        phases: null,
         tags: []
     }
     await addContributor(ctx, new_contributor)
@@ -95,13 +95,14 @@ export async function createUser(ctx: ExecutionContext, acting_identity: Identit
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {string} identity_email The email of the user to be finished (which is used to authenticate with Access)
  * @param {string} name The name of the user to be finished (required if the user is missing in the Contributor table)
- * @param {string} major The major of the user to be finished (required if the user is missing in the Contributor table)
- * @param {number} class_year The class year of the user to be finished (required if the user is missing in the Contributor table)
+ * @param {string | null} major The major of the user to be finished (optional; omitted values are stored as null)
+ * @param {number | null} class_year The class year of the user to be finished (optional; omitted values are stored as null)
  */
-export async function finishUser(ctx: ExecutionContext, identity_email: string, name?: string, major?: string, class_year?: number): Promise<number | null | undefined> {
+export async function finishUser(ctx: ExecutionContext, identity_email: string, name?: string, major?: string | null, class_year?: number | null): Promise<number | null | undefined> {
     // if a user is missing an access authentication or an authorization, this function can be used to fix a user's login flow
-    
+    console.log(`Finishing user enrollment for ${identity_email} with name ${name}, major ${major}, and class year ${class_year}`)
     const access_list = await list_users()
+    console.log(`Current Access list: ${access_list}`)
     let d1_record: Record<string, string | number | null> | null = null
     try {
         d1_record = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)
@@ -109,36 +110,37 @@ export async function finishUser(ctx: ExecutionContext, identity_email: string, 
         // User not in D1, that's okay
     }
     
-    if ((d1_record === null) && !access_list.includes(identity_email)) {
+    if ((d1_record === null) && !access_list.includes(identity_email.toLowerCase())) {
         // user does not exist
         return undefined
     }
-    if ((d1_record !== null) && access_list.includes(identity_email)) {
+    if ((d1_record !== null) && access_list.includes(identity_email.toLowerCase())) {
         // user is fully enrolled
         return undefined
     }
 
-    if (!access_list.includes(identity_email)) {
+    if (!access_list.includes(identity_email.toLowerCase())) {
         // user is missing Access enrollment, so add them
         await add_user(identity_email)
     }
     if (d1_record === null) {
         // user is missing Contributor enrollment, so add them
-        if (name === undefined || major === undefined || class_year === undefined) {
+        // major and class_year are nullable columns; only the name is required to create the record
+        if (name === undefined) {
             throw new Error("Missing required information to finish user enrollment in Contributor table")
         }
         const new_contributor: Contributor = {
             name: name,
             identity_email: identity_email,
             public_email: identity_email,
-            class_year: class_year,
-            major: major,
+            class_year: class_year ?? null,
+            major: major ?? null,
             bio: "",
             image: null,
             roles: [],
             active: false,
             admin: false,
-            phases: [],
+            phases: null,
             tags: []
         }
         return await addContributor(ctx, new_contributor)

@@ -72,10 +72,13 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Bad request: payload must be a list containing exactly one email string")
     }
     if (api_request.meta?.autoenrollment === true) {
-        if (typeof api_request.meta?.confer !== "boolean" || typeof api_request.meta?.name !== "string" || typeof api_request.meta?.major !== "string" || typeof api_request.meta?.class_year !== "number") {
+        // major and class_year map to nullable columns: null (or an omitted key) is accepted and stored as null
+        const meta_major = api_request.meta?.major ?? null
+        const meta_class_year = api_request.meta?.class_year ?? null
+        if (typeof api_request.meta?.confer !== "boolean" || typeof api_request.meta?.name !== "string" || (meta_major !== null && typeof meta_major !== "string") || (meta_class_year !== null && typeof meta_class_year !== "number")) {
             return constructResponse(request, null, 400, "Bad request: missing or invalid meta fields for autoenrollment")
         }
-        await createUser(context.locals.cfContext, locals.identity!, api_request.meta?.confer, api_request.payload[0], api_request.meta?.name, api_request.meta?.major, api_request.meta?.class_year)
+        await createUser(context.locals.cfContext, locals.identity!, api_request.meta?.confer, api_request.payload[0], api_request.meta?.name, meta_major, meta_class_year)
         return constructResponse(request, null, 201)
     } else {
         const email = api_request.payload[0]

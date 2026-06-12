@@ -125,7 +125,8 @@ it('VirtualSQLTable executes select with where clause', () => {
 })
 
 it('VirtualSQLTable executes select with distinct, limit, and column constraint', () => {
-    const expected = [["Cosmic Geology"], ["Computer Science"]]
+    // execute() returns object rows (the shape consumed by database.ts), not positional arrays
+    const expected = [{major: "Cosmic Geology"}, {major: "Computer Science"}]
     expect(contributor_table.execute(stmt_select_distinct_limit)).toEqual(expected)
 })
 

@@ -35,20 +35,18 @@ export async function retrieveCredential(request: Request): Promise<CredentialRe
     
     // credential priority: cookie, cf-access header, authorization header
     
+    // only inspect the cookie when a Cookie header is present; its absence must not short-circuit
+    // the header-based checks below (Cf-Access-Jwt-Assertion / Authorization), which API and
+    // service-token clients rely on
     const cookie_header = request.headers.get("Cookie")
-        if (cookie_header == null) {
-
-            // fix later - possible issue since the absence of the cookie header will prevent checks for the other steps
-            // however, unlikely to cause issue, so not urgent
-
-            return null // no cookies, so no credential
+    if (cookie_header !== null) {
+        const parsed_cookies = parseCookieHeader(cookie_header)
+        // search for the cookie
+        if ("CF_Authorization" in parsed_cookies) {
+            // cookie found, return it
+            return ["cookie", parsed_cookies["CF_Authorization"]]
         }
-    const parsed_cookies = parseCookieHeader(cookie_header)
-    // search for the cookie
-    if ("CF_Authorization" in parsed_cookies) {
-        // cookie found, return it
-        return ["cookie", parsed_cookies["CF_Authorization"]]
-    } 
+    }
 
     const cf_jwt_header = request.headers.get("Cf-Access-Jwt-Assertion")
 

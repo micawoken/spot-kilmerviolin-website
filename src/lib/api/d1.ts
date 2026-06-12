@@ -17,9 +17,9 @@ const d1_contrib_sql_init: string = `
 CREATE TABLE contributors ( 
 contributor_id INTEGER PRIMARY KEY AUTOINCREMENT, 
 name TEXT UNIQUE NOT NULL,
-class_year INTEGER NOT NULL, 
-major TEXT NOT NULL, 
-phases TEXT NOT NULL,
+class_year INTEGER,
+major TEXT,
+phases TEXT,
 bio TEXT, 
 public_email TEXT, 
 identity_email TEXT UNIQUE NOT NULL, 
@@ -216,6 +216,10 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
  * @throws an error if preparation or execution fails, or if execution does not succeed
  */
 export async function exec_stmt(stmt: SQLStatement): Promise<D1Result> {
+    // DB_ENABLE_WRITE gates all writes issued through the statement abstraction (see wrangler.jsonc)
+    if (stmt.verb !== "SELECT" && !env.DB_ENABLE_WRITE) {
+        throw new Error("Database writes are disabled by DB_ENABLE_WRITE")
+    }
     let finished
     try {
         finished = stmt.finish()
@@ -391,34 +395,37 @@ export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: 
 
     console.log("Asserting contributor record:",
         ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)),
+        (typeof r.class_year !== "number" && r.class_year !== null),
         typeof r.name !== "string",
-        typeof r.class_year !== "number",
-        typeof r.major !== "string",
-        !(r.phases instanceof Array),
+        (typeof r.major !== "string" && r.major !== null),
+        (!(r.phases instanceof Array) && r.phases !== null),
         (typeof r.bio !== "string" && r.bio !== null),
         (typeof r.public_email !== "string" && r.public_email !== null),
         typeof r.identity_email !== "string",
-        typeof r.active !== "number",
+        typeof r.active !== "boolean",
         !(r.roles instanceof Array),
-        typeof r.admin !== "number",
+        typeof r.admin !== "boolean",
         (typeof r.image !== "string" && r.image !== null))
 
+    console.log(r)
+
+    // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
     if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
         typeof r.name !== "string" ||
-        typeof r.class_year !== "number" ||
-        typeof r.major !== "string" ||
-        !(r.phases instanceof Array) ||
+        (typeof r.class_year !== "number" && r.class_year !== null) ||
+        (typeof r.major !== "string" && r.major !== null) ||
+        (!(r.phases instanceof Array) && r.phases !== null) ||
         (typeof r.bio !== "string" && r.bio !== null) ||
         (typeof r.public_email !== "string" && r.public_email !== null) ||
         typeof r.identity_email !== "string" ||
-        typeof r.active !== "number" ||
+        typeof r.active !== "boolean" ||
         !(r.roles instanceof Array) ||
-        typeof r.admin !== "number" ||
+        typeof r.admin !== "boolean" ||
         (typeof r.image !== "string" && r.image !== null)) {
-        return "Record has invalid types for one or more parameters" 
+        return "Record has invalid types for one or more parameters"
     }
     // validate arrays are of correct type
-    if (!r.phases.every((phase: any) => typeof phase === "number") && r.phases.length > 0) {
+    if (r.phases !== null && r.phases.length > 0 && !r.phases.every((phase: any) => typeof phase === "number")) {
         return "Record has invalid type for phases parameter"
     }
     if (!r.roles.every((role: any) => typeof role === "string") && r.roles.length > 0) {
@@ -439,22 +446,23 @@ export function _stateTypeAssertPartialContributor(record: unknown, expect_id: b
         return "Record is not an object"
     }
     const r = record as { [key: string]: any }
+    // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
     if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
         (r.name !== undefined && typeof r.name !== "string") ||
-        (r.class_year !== undefined && typeof r.class_year !== "number") ||
-        (r.major !== undefined && typeof r.major !== "string") ||
-        (r.phases !== undefined && !(r.phases instanceof Array)) ||
+        (r.class_year !== undefined && typeof r.class_year !== "number" && r.class_year !== null) ||
+        (r.major !== undefined && typeof r.major !== "string" && r.major !== null) ||
+        (r.phases !== undefined && !(r.phases instanceof Array) && r.phases !== null) ||
         (r.bio !== undefined && typeof r.bio !== "string" && r.bio !== null) ||
         (r.public_email !== undefined && typeof r.public_email !== "string" && r.public_email !== null) ||
         (r.identity_email !== undefined && typeof r.identity_email !== "string") ||
-        (r.active !== undefined && typeof r.active !== "number") ||
+        (r.active !== undefined && typeof r.active !== "boolean") ||
         (r.roles !== undefined && !(r.roles instanceof Array)) ||
-        (r.admin !== undefined && typeof r.admin !== "number") ||
+        (r.admin !== undefined && typeof r.admin !== "boolean") ||
         (r.image !== undefined && typeof r.image !== "string" && r.image !== null)) {
-        return "Record has invalid types for one or more parameters" 
+        return "Record has invalid types for one or more parameters"
     }
     // validate arrays are of correct type, if they exist
-    if (r.phases !== undefined && (!r.phases.every((phase: any) => typeof phase === "number") && r.phases.length > 0)) {
+    if (r.phases !== undefined && r.phases !== null && (r.phases.length > 0 && !r.phases.every((phase: any) => typeof phase === "number"))) {
         return "Record has invalid type for phases parameter"
     }
     if (r.roles !== undefined && (!r.roles.every((role: any) => typeof role === "string") && r.roles.length > 0)) {

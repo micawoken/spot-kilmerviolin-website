@@ -25,6 +25,9 @@ jobs:
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          secrets: |
+            CF_ACCESS_TOKEN
+            CF_DEPLOY_HOOK
           preCommands: echo "Deploying to Cloudflare Workers production..."
           postCommands: echo "Deployment complete."
         env: 

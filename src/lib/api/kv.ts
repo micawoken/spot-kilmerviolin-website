@@ -151,6 +151,11 @@ export async function listKeys(records: boolean = false): Promise<string[] | Rec
         return key_data.map(k => k.name)
     } else {
         return key_data.reduce((acc, k) => {
+            if (k.metadata === null || k.metadata === undefined) {
+                // keys written without metadata (e.g., externally) have no recoverable value from a list operation
+                acc[k.name] = undefined
+                return acc
+            }
             if (k.metadata.v === 1) {
                 acc[k.name] = (k.metadata as KVMetadata)?.f === "json" ? JSON.parse(k.metadata.value as string) : k.metadata.value
                 return acc

@@ -42,8 +42,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
 		<fieldset>
 			<legend>Class Year</legend>
-			<input type="number" id="form-contributors-class_year" name="class_year" required={required} value={contributor?.class_year ?? ""} />
-			<p class="general-infohelp">To omit this field (such as if you do not have a class year), enter <code>-1</code>.</p>
+			<!-- class_year is a nullable column: a blank input is submitted as null -->
+			<input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
+			<p class="general-infohelp">To omit this field (such as if you do not have a class year), leave it blank.</p>
 			{
 				patch ? (
 					<input type="checkbox" id="form-contributors-class_year-edittarget" name="class_year-edittarget" />
@@ -54,7 +55,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
 		<fieldset>
 			<legend>Major</legend>
-			<input type="text" id="form-contributors-major" name="major" required={required} value={contributor?.major ?? ""} />
+			<!-- major is a nullable column: a blank input is submitted as null -->
+			<input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
 			{
 				patch ? (
 					<input type="checkbox" id="form-contributors-major-edittarget" name="major-edittarget" />
@@ -116,7 +118,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 		<fieldset>
 			<legend>Phases</legend>
 			<label for="form-contributors-phases">Phases (comma-separated numbers):</label>
-			<input type="text" id="form-contributors-phases" name="phases" required={required} value={joined(contributor?.phases)} />
+			<!-- phases is a nullable column: a blank input is submitted as null -->
+			<input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
 			{
 				patch ? (
 					<input type="checkbox" id="form-contributors-phases-edittarget" name="phases-edittarget" />
@@ -131,7 +134,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 				<fieldset>
 					<legend>Roles</legend>
 					<label for="form-contributors-roles">Roles (comma-separated, no spaces):</label>
-					<input type="text" id="form-contributors-roles" name="roles" required={required} value={joined(contributor?.roles)} />
+					<input type="text" id="form-contributors-roles" name="roles" value={joined(contributor?.roles)} />
 					<p class="general-infohelp">Example: <code>"role1,role2,role3"</code></p>
 					<p class="general-infohelp">Roles can also be modified in <a href="/admin/iam/edit">Identity & Access Management &gt; Add or remove roles</a>.</p>
 				</fieldset>

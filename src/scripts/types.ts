@@ -51,16 +51,18 @@ export const composer_interface: Record<string, FieldPair> = {
     "tags": ["string[]", true]
 }
 
+// class_year, major, and phases map to nullable database columns: they are optional, and
+// phases uses the nullable-array type ("number[]?") so an empty input is sent as null, not []
 export const contributor_interface_full: Record<string, FieldPair> = {
     "name": ["string", false],
-    "class_year": ["number", false],
-    "major": ["string", false],
+    "class_year": ["number", true],
+    "major": ["string", true],
     "bio": ["string", true],
     "public_email": ["string", true],
     "identity_email": ["string", false],
     "image": ["string", true],
-    "phases": ["number[]", false],
-    "roles": ["string[]", false],
+    "phases": ["number[]?", true],
+    "roles": ["string[]", true],
     "tags": ["string[]", true],
     "active": ["boolean", false],
     "admin": ["boolean", false]
@@ -68,13 +70,13 @@ export const contributor_interface_full: Record<string, FieldPair> = {
 
 export const contributor_interface_partial: Record<string, FieldPair> = {
     "name": ["string", false],
-    "class_year": ["number", false],
-    "major": ["string", false],
+    "class_year": ["number", true],
+    "major": ["string", true],
     "bio": ["string", true],
     "public_email": ["string", true],
     "identity_email": ["string", false],
     "image": ["string", true],
-    "phases": ["number[]", false],
+    "phases": ["number[]?", true],
     "tags": ["string[]", true],
     "active": ["boolean", false]
 }
@@ -139,32 +141,48 @@ export const pubinfo_constructor: Record<string, FieldPair> = {
     "uri": ["string", false]
 }
 
-export function constructRating(suzuki: string, nyssma: string): CompositionRating | null {
-    const suzuki_num = parseInt(suzuki)
-    const nyssma_num = parseInt(nyssma)
-    if (isNaN(suzuki_num) || isNaN(nyssma_num)) {
+/**
+ * Parses a rating member that maps to a nullable column
+ *
+ * Returns null for blank input (stored as NULL), the parsed number when valid,
+ * and undefined when the input is non-blank but invalid (rejecting the construction)
+ */
+function parseNullableRating(raw: string | null, min: number, max: number): number | null | undefined {
+    if (raw === null || raw.trim() === "") {
         return null
     }
-    if (suzuki_num >= 1 && suzuki_num <= 10 && nyssma_num >= 1 && nyssma_num <= 6) {
-        return {
-            suzuki: suzuki_num,
-            nyssma: nyssma_num
-        }
-    } 
-    return null
+    const num = parseInt(raw)
+    if (isNaN(num) || num < min || num > max) {
+        return undefined
+    }
+    return num
 }
 
-export function constructPubInfo(name: string, location: string, year: string, uri_type: string, uri: string): PublicationInfo | null {
-    const year_num = parseInt(year)
-    if (isNaN(year_num) || !supported_uri.includes(uri_type)) {
+export function constructRating(suzuki: string | null, nyssma: string | null): CompositionRating | null {
+    // rating_suzuki and rating_nyssma are independently nullable columns: blank inputs become null members
+    const suzuki_num = parseNullableRating(suzuki, 1, 10)
+    const nyssma_num = parseNullableRating(nyssma, 1, 6)
+    if (suzuki_num === undefined || nyssma_num === undefined) {
         return null
     }
     return {
-        name: name,
-        location: location,
+        suzuki: suzuki_num,
+        nyssma: nyssma_num
+    }
+}
+
+export function constructPubInfo(name: string | null, location: string | null, year: string | null, uri_type: string | null, uri: string | null): PublicationInfo | null {
+    // publish_name, publish_location, publish_year, and uri_type are NOT NULL columns; year must parse and uri_type must be supported
+    const year_num = parseInt(year ?? "")
+    if (isNaN(year_num) || uri_type === null || !supported_uri.includes(uri_type)) {
+        return null
+    }
+    return {
+        name: name ?? "",
+        location: location ?? "",
         year: year_num,
         uri_type: uri_type,
-        uri: uri
+        uri: uri ?? ""
     }
 }
 

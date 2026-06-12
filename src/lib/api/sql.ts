@@ -198,7 +198,8 @@ export class SQLStatement {
             if (exclude && exclude.includes(key)) {
                 continue
             }
-            filtered[key] = group[key] === null ? null : group[key].toString()
+            // undefined can leak in at runtime despite the type; store it as null instead of crashing on .toString()
+            filtered[key] = group[key] === null || group[key] === undefined ? null : group[key].toString()
         }
         this.values.push(filtered)
     }
@@ -393,6 +394,9 @@ export class SQLStatement {
                 // if stars are specified, then no specified columns are put
 
                 // build values
+                if (this.values.length === 0) {
+                    throw new Error("INSERT statement requires at least one value group")
+                }
                 const sort_columns = this.columns[0] === "*" ? this.schema.columns : this.columns
                 const value_groups: Array<string> = this.values.map(group => {
                     // Build values in the deterministic order of `sort_columns`.
@@ -425,6 +429,9 @@ export class SQLStatement {
                         params.push(value)
                     })
                 })
+                if (set_clauses.length === 0) {
+                    throw new Error("UPDATE statement requires at least one value to set")
+                }
                 command += set_clauses.join(", ")
                 // build where clause
                 if (this.where.length > 0) {
@@ -718,10 +725,11 @@ export class VirtualSQLTable {
         const type_hint = param in schema.type_hint ? schema.type_hint[param] : null
 
         // TODO implement null check
-        if (value === "null" || value === "") {
+        if (value === "null") {
             return null
             // the where clause type spec indicates that the type is a string or an array of strings,
             // so checking for actual null is not appropriate
+            // an empty string is a legitimate value for string columns (and matches D1 semantics), so it is not treated as null
         }
 
         switch (type_hint) {

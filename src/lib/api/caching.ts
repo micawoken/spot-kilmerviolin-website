@@ -59,10 +59,11 @@ function constructResponse(payload: any[] | null, comment: string, long: boolean
         payload: payload,
         comment: comment
     } as CacheRecord)
+    const ttl = long ? env.CACHE_API_TTL_LONG : env.CACHE_API_TTL
     return new Response(body, {
         headers: {
             "Content-Type": "application/json",
-            "Cache-Control": `public, max-age=${env.CACHE_API_TTL}, stale-while-revalidate=${env.CACHE_API_TTL * 2}`
+            "Cache-Control": `public, max-age=${ttl}, stale-while-revalidate=${ttl * 2}`
         }
     })
 }
@@ -97,6 +98,19 @@ export async function getCache(store_name: string, key: string): Promise<any[] |
 export async function deleteCache(ctx: ExecutionContext, store_name: string, key: string): Promise<void> {
     const db_cache = await caches.open(store_name)
     ctx.waitUntil(db_cache.delete(generateCacheKey(key)))
+}
+
+/**
+ * Deletes a single entry from the Cache API and resolves once the deletion completes
+ * Unlike deleteCache, this does not require an ExecutionContext, so callers control scheduling
+ *
+ * @param store_name the cache store to delete from
+ * @param key the cache key to delete
+ * @returns whether an entry existed and was deleted
+ */
+export async function deleteCacheKey(store_name: string, key: string): Promise<boolean> {
+    const cache_store = await caches.open(store_name)
+    return await cache_store.delete(generateCacheKey(key))
 }
 
 export async function purgeCache(store_name: string): Promise<boolean> {

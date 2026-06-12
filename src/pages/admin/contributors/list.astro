@@ -23,7 +23,8 @@ const formatted_contributors = is_admin
     ? contributors.map(contributor => ({
         id: contributor.id,
         name: contributor.name,
-        name2: `${contributor.major} '${contributor.class_year}`,
+        // major and class_year are nullable; omit whichever is null instead of rendering "null"
+        name2: [contributor.major, contributor.class_year !== null ? `'${contributor.class_year}` : null].filter(part => part !== null).join(" "),
     }))
     : contributors.map(contributor => contributor.id)
 ---

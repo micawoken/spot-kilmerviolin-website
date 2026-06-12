@@ -695,10 +695,10 @@ export async function listIdentity(): Promise<string[] | null> {
  * @param {boolean} autoenrollment whether to automatically create a Contributor record with the following parameters (if true, the following parameters are required)
  * @param {boolean} confer whether to grant the conferrable roles of the creating identity
  * @param {string} name the name to set on autoenrollment
- * @param {string} major the major to set on autoenrollment
- * @param {number} class_year the class year to set on autoenrollment
+ * @param {string | null} major the major to set on autoenrollment, or null to omit
+ * @param {number | null} class_year the class year to set on autoenrollment, or null to omit
  */
-export async function addIdentity(email: string, autoenrollment?: boolean, confer?: boolean, name?: string, major?: string, class_year?: number): Promise<void> {
+export async function addIdentity(email: string, autoenrollment?: boolean, confer?: boolean, name?: string, major?: string | null, class_year?: number | null): Promise<void> {
     const response = await fetch(composeUrl("identity"), {
         method: "POST",
         body: JSON.stringify([email]),
@@ -831,7 +831,7 @@ export async function getSelf(): Promise<Identity | null> {
  * POST /api/v1/identity/self
  * Perform self-enrollment with a partial Contributor record
  *
- * @param {Partial<Contributor>} record required fields: name, major, class_year
+ * @param {Partial<Contributor>} record required fields: name; major and class_year may be null or omitted
  */
 export async function enrollSelf(record: Partial<Contributor>): Promise<void> {
     const response = await fetch(composeUrl("identity/self"), {

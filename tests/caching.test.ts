@@ -6,7 +6,9 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { putCache, _putCache, getCache, _getCache } from '../src/lib/api/caching'
+import { env } from 'cloudflare:test'
+
+import { putCache, _putCache, getCache, _getCache, deleteCacheKey } from '../src/lib/api/caching'
 
 const generic_data = {
     status: 200,
@@ -36,5 +38,35 @@ describe("Put null into cache", () => {
         await putCache("test_store", "null_key", null_data, "null comment", false)
         const cached_response = await getCache("test_store", "null_key")
         expect(cached_response).toEqual(null_data)
+    })
+})
+
+describe("Cache TTL policy", () => {
+    it("uses the short TTL when long is false", async () => {
+        await putCache("test_store", "short_ttl_key", array_data, "short", false)
+        const response = await _getCache("test_store", "https://cache.local/cache/short_ttl_key")
+        expect(response).toBeDefined()
+        expect(response!.headers.get("Cache-Control")).toContain(`max-age=${env.CACHE_API_TTL}`)
+    })
+
+    it("uses the long TTL when long is true", async () => {
+        await putCache("test_store", "long_ttl_key", array_data, "long", true)
+        const response = await _getCache("test_store", "https://cache.local/cache/long_ttl_key")
+        expect(response).toBeDefined()
+        expect(response!.headers.get("Cache-Control")).toContain(`max-age=${env.CACHE_API_TTL_LONG}`)
+    })
+})
+
+describe("Cache eviction", () => {
+    it("deleteCacheKey removes a cached entry", async () => {
+        await putCache("test_store", "evict_key", array_data, "to be evicted", false)
+        expect(await getCache("test_store", "evict_key")).toEqual(array_data)
+        const deleted = await deleteCacheKey("test_store", "evict_key")
+        expect(deleted).toBe(true)
+        expect(await getCache("test_store", "evict_key")).toBeNull()
+    })
+
+    it("deleteCacheKey returns false for missing entries", async () => {
+        expect(await deleteCacheKey("test_store", "never_existed")).toBe(false)
     })
 })

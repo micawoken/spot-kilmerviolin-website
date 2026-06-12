@@ -151,7 +151,10 @@ export function sqlPrepOp(spec_line: [string, string | string[], SQLCompareOp]):
             if (!Array.isArray(value)) {
                 throw new Error(`Invalid value type for operator ${op}: expected array, got ${typeof value}`)
             }
-            
+            if (value.length === 0) {
+                // an empty list would generate "IN ()", which is a SQLite syntax error
+                throw new Error(`Invalid value for operator ${op}: expected a non-empty array`)
+            }
             return [`${param} ${op} (${value.map(() => "?").join(", ")})`, value]
         case SQLCompareOp.LIKE:
         case SQLCompareOp.NOT_LIKE:
@@ -193,7 +196,8 @@ export function sqlListJoin(spec: Array<[string, (string | string[])?, SQLCompar
             return [`${param} ${value}`, []]
             // value is assumed to be validated
         } else if (exec_mode === "where") {
-            if (!value) {
+            if (value === undefined) {
+                // an empty string is a legitimate comparison value, so only undefined is rejected
                 throw new Error("Value is required for where clauses")
             }
             if (!op) {
@@ -231,7 +235,8 @@ export function sqlListJoin(spec: Array<[string, (string | string[])?, SQLCompar
                 break
             }
             case "where": {
-                if (!value) {
+                if (value === undefined) {
+                    // an empty string is a legitimate comparison value, so only undefined is rejected
                     throw new Error("Value is required for where clauses")
                 }
                 if (!op) {
@@ -324,8 +329,9 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
     }
 
     // the record could be a Composition or a CompositionRecord
-    const rating_suzuki: number | null = rating ? rating.suzuki : null
-    const rating_nyssma: number | null = rating ? rating.nyssma : null
+    // missing/undefined members are normalized to null so downstream stringification cannot crash
+    const rating_suzuki: number | null = rating ? (rating.suzuki ?? null) : null
+    const rating_nyssma: number | null = rating ? (rating.nyssma ?? null) : null
 
     return {
         ...data,
@@ -338,10 +344,10 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
         publish_year: publication_info.year,
         uri_type: publication_info.uri_type,
         uri: publication_info.uri,
-        author_secondary: joinAndFilterItems(author_secondary),
-        contrib_addl: joinAndFilterItems(contrib_addl),
-        phases: joinAndFilterItems(phases),
-        tags: joinAndFilterItems(tags)
+        author_secondary: author_secondary ? joinAndFilterItems(author_secondary) : "",
+        contrib_addl: contrib_addl ? joinAndFilterItems(contrib_addl) : "",
+        phases: phases ? joinAndFilterItems(phases) : "",
+        tags: tags ? joinAndFilterItems(tags) : ""
     }
 }
 
@@ -509,7 +515,8 @@ export function formatContribFromD1(record: D1Contributor): ContributorRecord {
     return {
         ...data,
         id: contributor_id,
-        phases: phases ? splitAndFilterNumbers(phases) : [],
+        // class_year, major, and phases are nullable in the database; a null (or legacy empty-string) phases column maps to null, not []
+        phases: phases ? splitAndFilterNumbers(phases) : null,
         roles: roles ? splitAndFilterItems(roles) : [],
         admin: admin === 1,
         active: active === 1,
@@ -540,11 +547,14 @@ export function formatContribToD1(record: Contributor | ContributorRecord): D1Co
             break
     }
 
+    // the phases column is nullable; an absent or empty list is stored as NULL rather than an empty string
+    const phases_joined = record.phases ? joinAndFilterItems(record.phases) : ""
+
     return {
         ...data,
         entry_date: entry_date,
         contributor_id: id ? id : -1, // if id is set to -1, it cannot be used as a valid primary key for update
-        phases: record.phases ? joinAndFilterItems(record.phases) : "",
+        phases: phases_joined !== "" ? phases_joined : null,
         roles: record.roles ? joinAndFilterItems(record.roles) : "",
         admin: record.admin ? 1 : 0,
         active: record.active ? 1 : 0,
@@ -571,9 +581,12 @@ export function formatContribToD1Partial(record: Partial<Contributor> & { id: nu
         const value = record[key as keyof Contributor]
         if (value !== undefined) {
             switch (key) {
-                case "phases":
-                    output.phases = Array.isArray(value) ? joinAndFilterItems(value) : ""
+                case "phases": {
+                    // nullable column: a null value, empty list, or list of blanks is stored as NULL
+                    const joined = Array.isArray(value) ? joinAndFilterItems(value) : ""
+                    output.phases = joined !== "" ? joined : null
                     break
+                }
                 case "roles":
                     output.roles = Array.isArray(value) ? joinAndFilterItems(value) : ""
                     break
