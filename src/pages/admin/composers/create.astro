@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import ComposerForm from "../../../components/entities/ComposerForm.astro"
@@ -9,10 +10,10 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Composer`} description="Add a new composer to the database"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Add a New Composer</h2>
     <ComposerForm required={true} />
     <p id="transaction-status">Your request status will show here after you press "Submit".</p>

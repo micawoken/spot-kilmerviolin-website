@@ -1,26 +1,31 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { emailFromParam } from "../../../lib/public/validation"
 
 export const prerender = false
+
+// prefill the identity email when arriving from a user-list link (?identity_email=), if it is valid
+const prefill_email = emailFromParam(Astro.url)
 ---
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit User Roles`} description="Add or remove roles for a user"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Add or Remove Roles</h2>
     <p class="general-infohelp">Modifies the roles on the contributor record associated with the given identity email. Requires administrator permissions. A user may hold at most 5 roles.</p>
     <div class="generic-form">
         <form id="iam-form-edit" class="generic-form">
             <fieldset>
                 <legend>User Identity Email</legend>
-                <input type="email" id="iam-form-edit-email" name="email" required />
+                <input type="email" id="iam-form-edit-email" name="email" value={prefill_email} required />
             </fieldset>
             <fieldset>
                 <legend>Roles to Add</legend>

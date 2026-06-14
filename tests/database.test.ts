@@ -15,7 +15,7 @@ import { exec_string } from "../src/lib/api/d1.ts"
 import {
     addComposer, getComposer, listComposers, updateComposer, updateComposerPartial, deleteComposer,
     addContributor, getContributor, updateContributorPartial,
-    purgeCacheAll
+    attachCompositionNames, purgeCacheAll
 } from "../src/lib/api/database.ts"
 
 // mirrors the table definitions in d1.ts (the init strings there are module-private)
@@ -70,6 +70,35 @@ function makeComposer(name: string): Composer {
         bio: "A test composer.",
         image: null,
         tags: ["test", "baroque"]
+    }
+}
+
+// builds a minimal valid CompositionRecord; attachCompositionNames only reads composer_id and
+// author_secondary, so the remaining fields are filler and the compositions table is not needed
+function makeCompositionRecord(overrides: Partial<CompositionRecord>): CompositionRecord {
+    return {
+        id: 1,
+        entry_date: new Date().toISOString(),
+        name: "Test Work",
+        composer_id: 0,
+        contrib_primary_1: 1,
+        contrib_primary_2: null,
+        type: "solo" as WorkType,
+        part: null,
+        key: null,
+        range: null,
+        position_highest: null,
+        notes_pedagogical: null,
+        notes_historical: null,
+        notes_other: null,
+        image: null,
+        rating: { suzuki: null, nyssma: null },
+        publication_info: { name: "", location: "", year: 2000, uri_type: "https", uri: "" },
+        contrib_addl: [],
+        author_secondary: [],
+        phases: [],
+        tags: [],
+        ...overrides
     }
 }
 
@@ -197,6 +226,46 @@ describe("contributor boolean and array round-tripping", () => {
         expect(record!.active).toBe(true)
         expect(record!.roles).toEqual(["reviewer"])
         expect(record!.admin).toBe(false) // untouched
+    })
+})
+
+describe("attachCompositionNames", () => {
+    it("resolves composer_name and author_secondary_names from the composer table", async () => {
+        const main = await withCtx(ctx => addComposer(ctx, makeComposer("Names Main Composer")))
+        const sec1 = await withCtx(ctx => addComposer(ctx, makeComposer("Names Secondary One")))
+        const sec2 = await withCtx(ctx => addComposer(ctx, makeComposer("Names Secondary Two")))
+
+        const composition = makeCompositionRecord({ composer_id: main, author_secondary: [sec1, sec2] })
+        const [enhanced] = await withCtx(ctx => attachCompositionNames(ctx, [composition]))
+
+        // the original record is preserved whole under "object"
+        expect(enhanced.object).toBe(composition)
+        expect(enhanced.names.composer_name).toBe("Names Main Composer")
+        expect(enhanced.names.author_secondary_names).toEqual(["Names Secondary One", "Names Secondary Two"])
+    })
+
+    it("yields an empty string for unresolvable references and preserves array alignment", async () => {
+        const main = await withCtx(ctx => addComposer(ctx, makeComposer("Names Solo Composer")))
+        // 999999 does not exist; its slot must remain so names stay positionally aligned with author_secondary
+        const composition = makeCompositionRecord({ composer_id: main, author_secondary: [999999] })
+        const [enhanced] = await withCtx(ctx => attachCompositionNames(ctx, [composition]))
+
+        expect(enhanced.names.composer_name).toBe("Names Solo Composer")
+        expect(enhanced.names.author_secondary_names).toEqual([""])
+    })
+
+    it("resolves names across multiple compositions with a single composer read", async () => {
+        const a = await withCtx(ctx => addComposer(ctx, makeComposer("Names Composer A")))
+        const b = await withCtx(ctx => addComposer(ctx, makeComposer("Names Composer B")))
+
+        const comps = [
+            makeCompositionRecord({ composer_id: a, author_secondary: [] }),
+            makeCompositionRecord({ composer_id: b, author_secondary: [a] }),
+        ]
+        const enhanced = await withCtx(ctx => attachCompositionNames(ctx, comps))
+
+        expect(enhanced.map(e => e.names.composer_name)).toEqual(["Names Composer A", "Names Composer B"])
+        expect(enhanced[1].names.author_secondary_names).toEqual(["Names Composer A"])
     })
 })
 

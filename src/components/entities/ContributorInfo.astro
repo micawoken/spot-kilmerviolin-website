@@ -6,38 +6,86 @@
  *
  * Element ids follow the contributor-{key} convention used by populateInfo in scripts/interface.ts
  *
- * Protected properties (identity_email, roles, phases, active, admin) are filtered by the API for
- * non-self, non-escalated requests; their fields simply remain empty in that case
+ * Protected properties are filtered by the API for non-self, non-escalated requests; their fields
+ * simply remain empty in that case. The set of protected properties is sourced from
+ * CONTRIBUTOR.protected (lib/api/d1.ts) so the notice below always matches what the API actually
+ * redacts, rather than a hand-maintained list that can drift out of sync.
  *
  * Props:
  * - contributor (optional): a (possibly partial) ContributorRecord provided by SSR, if any
  * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
  */
+import { CONTRIBUTOR } from "../../lib/api/d1";
+import { NOT_PROVIDED } from "../../consts";
+
 const contributor: Partial<ContributorRecord> | null = Astro.props.contributor || null;
 const hidden: boolean = Astro.props.hidden || false;
+
+// renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
+// empty array so a "not supplied" field is visually distinct from an unset/blank render. Booleans
+// (e.g. active/admin) render their literal value, so false is shown as "false", not as missing.
+const disp = (value: unknown, missing?: string): string => {
+    if (value === null || value === undefined) return missing ?? NOT_PROVIDED;
+    if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : missing ?? NOT_PROVIDED;
+    if (typeof value === "string" && value.trim() === "") return missing ?? NOT_PROVIDED;
+    return String(value);
+};
+
+// human-readable labels for the protected contributor columns; any unmapped key falls back to its raw name
+const protected_field_labels: Record<string, string> = {
+    identity_email: "identity email",
+    roles: "roles",
+    admin: "admin",
+};
+const protected_fields = CONTRIBUTOR.protected ?? [];
+const protected_label = protected_fields.map((field) => protected_field_labels[field] ?? field).join(", ");
 ---
 <div id="generic-result-contributor" class=`entity-result-container${hidden ? " hidden" : ""}`>
-    <h2 id="contributor-name" class="entity-result-name">{contributor?.name}</h2>
-    <p id="contributor-id">ID #{contributor?.id}</p>
-
-    {
-        contributor?.image ? (
-            <img id="contributor-image" class="entity-result-image" src={`${contributor.image}`} alt={`Image of contributor ${contributor.name}`} />
-        ) : (
-            <p>No image available.</p>
-        )
-    }
-    <ul id="contributor-details" class="entity-result-details">
-        <li><strong>Class Year:</strong> <span id="contributor-class_year">{contributor?.class_year}</span></li>
-        <li><strong>Major:</strong> <span id="contributor-major">{contributor?.major}</span></li>
-        <li><strong>Public Email:</strong> <span id="contributor-public_email">{contributor?.public_email}</span></li>
-        <li><strong>Identity Email:</strong> <span id="contributor-identity_email">{contributor?.identity_email}</span></li>
-        <li><strong>Phases:</strong> <span id="contributor-phases">{contributor?.phases?.join(", ")}</span></li>
-        <li><strong>Roles:</strong> <span id="contributor-roles">{contributor?.roles?.join(", ")}</span></li>
-        <li><strong>Tags:</strong> <span id="contributor-tags">{contributor?.tags?.join(", ")}</span></li>
-        <li><strong>Active:</strong> <span id="contributor-active">{contributor?.active !== undefined ? String(contributor.active) : ""}</span></li>
-        <li><strong>Admin:</strong> <span id="contributor-admin">{contributor?.admin !== undefined ? String(contributor.admin) : ""}</span></li>
-    </ul>
-    <p id="contributor-bio" class="entity-result-bio">{contributor?.bio}</p>
-    <p class="general-infohelp">Authorization-related fields (identity email, roles, phases, active, admin) are only visible for your own record or with administrator escalation.</p>
+    <div id="contributor-infocard" class="entity-result-infocard">
+        <!-- contains the name, ID #, class year, major, phases, and public email on left, and the image on right -->
+         <div id="contributor-infocard-content" class="entity-result-infocard-content">
+            <h2 id="contributor-name" class="entity-result-name">{contributor?.name}</h2>
+            <p id="contributor-id">ID #{contributor?.id}</p> <p id="contributor-public_email">{disp(contributor?.public_email, "(no email set)")}</p>
+            <div id="contributor-infocard-school">
+                <!-- contains the class year and major on a single line, if defined -->
+                 {
+                    contributor?.class_year ? (
+                        contributor?.major ? (
+                            <p id="contributor-class_year">{disp(contributor?.class_year)}</p> <p id="contributor-major">{disp(contributor?.major)}</p>
+                    ) : (
+                            <p id="contributor-class_year">{disp(contributor?.class_year)}</p> <p id="contributor-major">(no major set)</p>
+                        )
+                    ) : (
+                        contributor?.major ? (
+                            <p id="contributor-major">{disp(contributor?.major)}</p> <p id="contributor-class_year">(no class year set)</p>
+                        ) : (
+                            <p id="contributor-class_year"></p><p id="contributor-major"></p><p id="contributor-_missing">(no school information set)</p>
+                        )
+                    )
+                 }
+            </div>
+            <div id="contributor-infocard-phases">
+                <p id="contributor-phases">Phases {disp(contributor?.phases)}</p>
+            </div>
+        </div>
+        <div id="contributor-image-container" class="entity-result-image-container">
+            <!-- the <img> is always present (hidden when there is no image) so the client-side READ flow
+                 (populateInfo) can fill its src; the "(no image)" placeholder mirrors it inversely. src is
+                 omitted when absent to avoid a broken-image request. -->
+            <img id="contributor-image" class={`entity-result-image${contributor?.image ? "" : " hidden"}`} src={contributor?.image ?? undefined} alt={`Image of contributor ${contributor?.name ?? ""}`} />
+            <p id="contributor-image-missing" class={`entity-result-image-missing${contributor?.image ? " hidden" : ""}`}>No image available.</p>
+        </div>
+    </div>
+    <div id="contributor-bio-container" class="entity-result-bio">
+        <p id="contributor-bio">{disp(contributor?.bio)}</p>
+    </div>
+    <div id="contributor-authinfo" class="entity-result-details">
+        <p class="general-infohelp">Authorization-related fields ({protected_label}) are only visible for your own record or with administrator escalation.</p>
+        <p><strong>Identity Email:</strong> <span id="contributor-identity_email">{disp(contributor?.identity_email)}</span></p>
+        <p><strong>Roles:</strong> <span id="contributor-roles">{disp(contributor?.roles)}</span></p>
+        <p><strong>Admin:</strong> <span id="contributor-admin">{disp(contributor?.admin)}</span></p>
+    </div>
+    <div id="contributor-tags-container" class="entity-result-details">
+        <p><strong>Tags:</strong> <span id="contributor-tags">{disp(contributor?.tags)}</span></p>
+    </div>
 </div>

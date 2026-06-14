@@ -1,9 +1,11 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
-import ComposerResult from "../../../components/entities/ComposerResult.astro"
+import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
+import ComposerInfo from "../../../components/entities/ComposerInfo.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { COMPOSER } from "../../../lib/api/d1"
@@ -37,20 +39,36 @@ if (use_id && composer_data) {
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composer`} description="View a composer"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>View a Composer</h2>
     <IDEntryForm output_div={undefined} hidden={use_id} />
-    <ComposerResult composer={use_id ? composer_data as ComposerRecord : null} hidden={!use_id} />
+    <KeywordSearchBox id_prefix="entity-search" label="Or search by keyword" hidden={use_id} />
+    <ComposerInfo composer={use_id ? composer_data as ComposerRecord : null} hidden={!use_id} />
     <p id="transaction-status">{use_id ? "Composer data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
+    {
+        // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
+        // record, or return to the ID-entry view to look up another (the path without the id query param)
+        use_id ? (
+            <p>
+                <a href={`/admin/composers/edit?id=${id}`}>Edit this composer &gt;</a> | <a href={Astro.url.pathname}>View another composer &gt;</a>
+            </p>
+        ) : null
+    }
     <script>
-        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem, attachKeywordSearchInline } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
         const form_or_button = getForm("composer", APIOpCode.READ)
         console.log("Form or button element obtained for composers read operation:", form_or_button)
         form_or_button.addEventListener((form_or_button instanceof HTMLFormElement) ? "submit" : "click", genHandler(form_or_button, getTransactionElem(), APIOpCode.READ, "composer"))
+        // keyword lookup scoped to composers; selecting a hit loads it on-page via the same READ flow as the ID entry form
+        attachKeywordSearchInline("entity-search-input", "entity-search-button", "entity-search-results", () => "composers", (result) => {
+            const id_input = document.getElementById("form-id-entry-id")
+            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+            form_or_button.requestSubmit()
+        })
     </script>
     <AdminFooter />
 </body>

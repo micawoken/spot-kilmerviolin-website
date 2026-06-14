@@ -14,18 +14,19 @@ const prefill_email = emailFromParam(Astro.url)
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Promote to Administrator`} description="Promote a user to administrator"/>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Deactivate User Account`} description="Deactivate a user account"/>
     <AdminHead />
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <h2>Promote a User to Administrator</h2>
-    <p class="general-warning">Administrators have full control over the database, user access, and site management, including this page. Only promote users you fully trust. Requires administrator permissions.</p>
+    <h2>Deactivate a User Account</h2>
+    <p class="general-warning">Marks the contributor record associated with the given identity email as inactive. A deactivated account loses authorization to modify the composer and composition databases, but its contributor record is retained. Deactivating your own account will revoke your own access. Requires administrator permissions.</p>
+    <p class="general-infohelp">This does not revoke the user's ability to log in. To also remove login access, use <a href="/admin/iam/remove">Delete user</a>.</p>
     <div class="generic-form">
-        <form id="advanced-form-elevate" class="generic-form">
+        <form id="iam-form-deactivate" class="generic-form">
             <fieldset>
                 <legend>User Identity Email</legend>
-                <input type="email" id="advanced-form-elevate-email" name="email" value={prefill_email} required />
+                <input type="email" id="iam-form-deactivate-email" name="email" value={prefill_email} required />
             </fieldset>
             <button type="submit">Submit</button>
         </form>
@@ -35,25 +36,25 @@ const prefill_email = emailFromParam(Astro.url)
         import { updateIdentity } from "../../../scripts/connector"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
 
-        const form = document.getElementById("advanced-form-elevate") as HTMLFormElement
+        const form = document.getElementById("iam-form-deactivate") as HTMLFormElement
         const message = getTransactionElem()
 
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
             const form_data = new FormData(form)
             const email = String(form_data.get("email") ?? "")
-            if (!email) {
-                message.textContent = "Error: an identity email address is required"
-                return
-            }
-            if (!confirm(`Are you sure you want to promote ${email} to administrator?`)) {
+            if (!confirm(`Are you sure you want to deactivate the account for ${email}?`)) {
                 return
             }
             message.textContent = "Processing request..."
             disableInput(form)
             try {
-                await updateIdentity({ admin: { elevate: [email] } })
-                message.textContent = `Request succeeded: promoted ${email} to administrator`
+                if (!email) {
+                    throw new Error("An identity email address is required")
+                }
+                // active.deactivate maps the identity email to the contributor record and marks it inactive
+                await updateIdentity({ active: { deactivate: [email] } })
+                message.textContent = `Request succeeded: deactivated the account for ${email}`
             } catch (error) {
                 message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
                 console.error(error)

@@ -35,6 +35,24 @@ interface APIRequestPrimitive {
 }
 
 /**
+ * The set of tables that the keyword search may target
+ */
+type SearchDatabase = "composers" | "compositions" | "contributors";
+
+/**
+ * A single keyword-search hit
+ *
+ * @property {SearchDatabase} database - the table the hit belongs to (used to build its link)
+ * @property {number} id - the record's primary key
+ * @property {string} name - the display name; for compositions this is "{composer}: {composition}"
+ */
+interface SearchResult {
+    database: SearchDatabase;
+    id: number;
+    name: string;
+}
+
+/**
  * A record stored in the Cache API
  * 
  * @namespace CacheRecord
@@ -325,7 +343,7 @@ interface ComposerPrimitive {
     role: string; // usually "composer", but can be defined as "arranger" or another type as declared
     birth_year: number;
     death_year: number; // -1 is defined as not dead
-    country: string; // used as text for now, but will switch to ISO 3166-1 alpha-2 code in the future
+    country: string; // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/country.ts)
     bio: string;
     image: string | null; // refers to a file in assets, or an external URL
 }
@@ -338,7 +356,7 @@ interface ComposerPrimitive {
  * @property {string} role - the composer's role in the composition (e.g. "composer", "arranger", etc)
  * @property {number} birth_year - the composer's birth year
  * @property {number} death_year - the composer's death year, or -1 if the composer is still alive
- * @property {string} country - the composer's country, stored as text for now but will switch to ISO 3166-1 alpha-2 code in the future
+ * @property {string} country - the composer's country as an ISO 3166-1 alpha-2 code, validated on the client and server (see lib/api/country.ts)
  * @property {string} bio - a short biography of the composer
  * @property {string | null} image - the URL of the composer image, or null
  */
@@ -466,6 +484,35 @@ interface CompositionRecord extends Composition {
     // the default construct for a composition object that originates from D1
     id: number;
     entry_date: string; // ISO 8601 format
+}
+
+/**
+ * The resolved names attached to a composition when the "names" meta flag is set on a GET
+ *
+ * The composition record itself only stores numeric references (composer_id and author_secondary),
+ * so these human-readable names are resolved from the composer table on request and transmitted
+ * alongside the composition rather than embedded in it.
+ *
+ * @property {string} composer_name - the name of the composer referenced by the composition's composer_id
+ * @property {string[]} author_secondary_names - the names of the composers referenced by author_secondary,
+ *   in the same order as the author_secondary array (an unresolvable id yields an empty string)
+ */
+interface CompositionNames {
+    composer_name: string;
+    author_secondary_names: string[];
+}
+
+/**
+ * A composition paired with its resolved names, returned by the connector when the "names" meta flag
+ * is requested. The API object is kept whole under "object" so it remains a valid Composition, with the
+ * supplementary names (which are not part of the Composition spec) carried separately under "names".
+ *
+ * @property {CompositionRecord} object - the composition record, conforming to the Composition interface
+ * @property {CompositionNames} names - the resolved composer_name and author_secondary_names
+ */
+interface CompositionWithNames {
+    object: CompositionRecord;
+    names: CompositionNames;
 }
 
 /**

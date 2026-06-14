@@ -29,6 +29,8 @@ import authorize, {
     conferFrom,
     canModify,
     canAct,
+    canCreate,
+    withActingContributor,
 } from "../src/lib/api/authorize.ts"
 import { exec_string } from "../src/lib/api/d1.ts"
 import { addContributor } from "../src/lib/api/database.ts"
@@ -211,6 +213,83 @@ describe("canAct", () => {
     it("blocks a non-privileged identity from changing the primary contributor columns", () => {
         expect(canAct(record, { contrib_primary_1: 99 }, makeIdentity({ id: 99, admin: false }))).toBe(false)
         expect(canAct(record, { contrib_primary_2: 99 }, makeIdentity({ id: 99, admin: false }))).toBe(false)
+    })
+
+    it("blocks a primary contributor from modifying or removing a defined, non-self co-primary", () => {
+        // primary_1 (id 10) may not overwrite or clear primary_2 (id 20)
+        expect(canAct(record, { contrib_primary_2: 30 }, makeIdentity({ id: 10, admin: false }))).toBe(false)
+        expect(canAct(record, { contrib_primary_2: null }, makeIdentity({ id: 10, admin: false }))).toBe(false)
+        // symmetrically, primary_2 (id 20) may not touch primary_1 (id 10)
+        expect(canAct(record, { contrib_primary_1: 30 }, makeIdentity({ id: 20, admin: false }))).toBe(false)
+    })
+
+    it("lets a primary contributor fill an empty second slot or leave a co-primary unchanged", () => {
+        const solo = { contrib_primary_1: 10, contrib_primary_2: null } as unknown as CompositionRecord
+        // adding a co-primary through the first primary is allowed
+        expect(canAct(solo, { contrib_primary_2: 30 }, makeIdentity({ id: 10, admin: false }))).toBe(true)
+        // re-submitting the co-primary unchanged is not a modification
+        expect(canAct(record, { contrib_primary_2: 20 }, makeIdentity({ id: 10, admin: false }))).toBe(true)
+        // a primary may still edit their own slot
+        expect(canAct(record, { contrib_primary_1: 30 }, makeIdentity({ id: 10, admin: false }))).toBe(true)
+    })
+
+    it("lets an elevated admin reassign a co-primary the lockout would otherwise protect", () => {
+        expect(canAct(record, { contrib_primary_2: 30 }, makeIdentity({ id: 10, admin: true }))).toBe(true)
+        // but only when admin status is in effect (use_admin)
+        expect(canAct(record, { contrib_primary_2: 30 }, makeIdentity({ id: 10, admin: true }), false)).toBe(false)
+    })
+})
+
+describe("canCreate", () => {
+    const record = { contrib_primary_1: 10, contrib_primary_2: 20 } as unknown as Composition
+
+    it("lets an admin name any registered users as primaries", () => {
+        expect(canCreate(record, makeIdentity({ id: 99, admin: true }))).toBe(true)
+        // when admin status is not in effect, the self-primary rule applies instead
+        expect(canCreate(record, makeIdentity({ id: 99, admin: true }), false)).toBe(false)
+    })
+
+    it("lets a non-admin create a composition naming themselves as a primary", () => {
+        expect(canCreate(record, makeIdentity({ id: 10, admin: false }))).toBe(true)
+        expect(canCreate(record, makeIdentity({ id: 20, admin: false }))).toBe(true)
+    })
+
+    it("blocks a non-admin who is not among the primaries", () => {
+        expect(canCreate(record, makeIdentity({ id: 99, admin: false }))).toBe(false)
+    })
+
+    it("blocks an unenrolled identity (id -1)", () => {
+        expect(canCreate(record, makeIdentity({ id: -1, admin: false }))).toBe(false)
+        // even an admin id must be a real, asserted contributor id
+        expect(canCreate(record, makeIdentity({ id: -1, admin: true }))).toBe(false)
+    })
+})
+
+describe("withActingContributor", () => {
+    const current = { contrib_primary_1: 10, contrib_primary_2: 20, contrib_addl: [30] } as unknown as CompositionRecord
+
+    it("appends a non-primary editor who is not already recorded", () => {
+        expect(withActingContributor(current, { name: "x" }, makeIdentity({ id: 99 }))).toEqual([30, 99])
+    })
+
+    it("returns null when the editor is already a primary or already recorded", () => {
+        expect(withActingContributor(current, { name: "x" }, makeIdentity({ id: 10 }))).toBeNull()
+        expect(withActingContributor(current, { name: "x" }, makeIdentity({ id: 20 }))).toBeNull()
+        expect(withActingContributor(current, { name: "x" }, makeIdentity({ id: 30 }))).toBeNull()
+    })
+
+    it("returns null for an unenrolled identity (id -1)", () => {
+        expect(withActingContributor(current, { name: "x" }, makeIdentity({ id: -1 }))).toBeNull()
+    })
+
+    it("uses the proposed primaries when the update reassigns them", () => {
+        // the editor becomes a primary via the proposed change, so they should not also be added to addl
+        expect(withActingContributor(current, { contrib_primary_1: 99 }, makeIdentity({ id: 99 }))).toBeNull()
+    })
+
+    it("bases the merge on the proposed addl list when one is supplied, and de-dupes", () => {
+        expect(withActingContributor(current, { contrib_addl: [5] }, makeIdentity({ id: 99 }))).toEqual([5, 99])
+        expect(withActingContributor(current, { contrib_addl: [99] }, makeIdentity({ id: 99 }))).toBeNull()
     })
 })
 

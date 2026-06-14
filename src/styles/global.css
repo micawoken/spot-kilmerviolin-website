@@ -138,6 +138,65 @@ hr {
 }
 */
 
+/* ----------------------------------------------------------------------------
+ * Color scheme: light + dark via the CSS light-dark() function.
+ *
+ * `color-scheme: light dark` opts the document into both schemes, which is what
+ * lets light-dark(<light>, <dark>) resolve to its first argument under the
+ * light scheme and its second under the dark scheme, following the user's OS/
+ * browser preference. Everything below is a token; this stylesheet and
+ * admin-entities.css consume the tokens (var(--…)) rather than raw hexes, so a
+ * single definition keeps both schemes — and both stylesheets — in sync.
+ * ------------------------------------------------------------------------- */
+:root {
+	color-scheme: light dark;
+
+	/* Body surface + primary text */
+	--color-bg: light-dark(#ffffff, #1a1a1a);
+	--color-text: light-dark(#222222, #e6e6e6);
+	/* secondary / muted text for sub-labels, IDs, and grouped-section headings */
+	--color-text-secondary: light-dark(#333333, #c8c8c8);
+	--color-text-muted: light-dark(#666666, #a0a0a0);
+
+	/* Links: a typical blue in light, an orange-ish hue in dark */
+	--color-link: light-dark(#2337ff, #ff9e5e);
+	--color-link-hover: light-dark(#000d8a, #ffb784);
+
+	/* Neutral gradations, lightest (--shade-1) to strongest (--shade-7). The
+	 * dark-scheme column inverts the ramp so "light" surfaces become dark
+	 * surfaces while borders/separators keep comparable relative contrast. */
+	--shade-1: light-dark(#fafafa, #202020); /* subtle card / list surface */
+	--shade-2: light-dark(#f4f4f4, #262626); /* secondary surface (helpers)  */
+	--shade-3: light-dark(#dddddd, #383838); /* faint divider / section rule */
+	--shade-4: light-dark(#cccccc, #454545); /* default border               */
+	--shade-5: light-dark(#bbbbbb, #555555); /* dashed / stronger border     */
+	--shade-6: light-dark(#999999, #6f6f6f); /* middle-dot separators        */
+	--shade-7: light-dark(#888888, #8a8a8a); /* hover border / emphasis rule */
+
+	/* Placeholder media (the "no image" stand-in rectangle) */
+	--color-placeholder-bg: light-dark(#d8d8d8, #2c2c2c);
+	--color-placeholder-text: light-dark(#2a2a2a, #cfcfcf);
+	--color-placeholder-border: light-dark(#bdbdbd, #4a4a4a);
+}
+
+body {
+	background: var(--color-bg);
+	color: var(--color-text);
+}
+
+a {
+	color: var(--color-link);
+}
+a:hover {
+	color: var(--color-link-hover);
+}
+
+h2 {
+	font-size: 1.5em;
+	margin-block-start: 0em
+}
+
+
 .flex-container {
 	display: flex;
 	flex-direction: row;
@@ -152,7 +211,7 @@ hr {
 }
 .col-header-link {
 	text-decoration: none;
-	color: black;
+	color: var(--color-text);
 }
 
 .hidden {
@@ -177,3 +236,7 @@ hr {
 	white-space: nowrap;
 }
 */
+
+input, textarea, select, button {
+  font-family: inherit;
+}

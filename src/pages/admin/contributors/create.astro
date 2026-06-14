@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import ContributorForm from "../../../components/entities/ContributorForm.astro"
@@ -11,10 +12,10 @@ export const prerender = false
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Contributor`} description="Add a new contributor to the database"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Add a New Contributor</h2>
     <p class="general-infohelp">Creating contributor records requires administrator permissions. To add a user who can log in and contribute, also add them in <a href="/admin/iam/add">Identity & Access Management &gt; Add new user</a> (which can create this record automatically).</p>
     <ContributorForm required={true} show_auth={true} />

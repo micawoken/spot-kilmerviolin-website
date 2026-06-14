@@ -14,18 +14,18 @@ const prefill_email = emailFromParam(Astro.url)
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Promote to Administrator`} description="Promote a user to administrator"/>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Activate User Account`} description="Activate a user account"/>
     <AdminHead />
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <h2>Promote a User to Administrator</h2>
-    <p class="general-warning">Administrators have full control over the database, user access, and site management, including this page. Only promote users you fully trust. Requires administrator permissions.</p>
+    <h2>Activate a User Account</h2>
+    <p class="general-infohelp">Marks the contributor record associated with the given identity email as active. An active account is authorized to modify the composer and composition databases. Requires administrator permissions.</p>
     <div class="generic-form">
-        <form id="advanced-form-elevate" class="generic-form">
+        <form id="iam-form-activate" class="generic-form">
             <fieldset>
                 <legend>User Identity Email</legend>
-                <input type="email" id="advanced-form-elevate-email" name="email" value={prefill_email} required />
+                <input type="email" id="iam-form-activate-email" name="email" value={prefill_email} required />
             </fieldset>
             <button type="submit">Submit</button>
         </form>
@@ -35,25 +35,22 @@ const prefill_email = emailFromParam(Astro.url)
         import { updateIdentity } from "../../../scripts/connector"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
 
-        const form = document.getElementById("advanced-form-elevate") as HTMLFormElement
+        const form = document.getElementById("iam-form-activate") as HTMLFormElement
         const message = getTransactionElem()
 
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
-            const form_data = new FormData(form)
-            const email = String(form_data.get("email") ?? "")
-            if (!email) {
-                message.textContent = "Error: an identity email address is required"
-                return
-            }
-            if (!confirm(`Are you sure you want to promote ${email} to administrator?`)) {
-                return
-            }
             message.textContent = "Processing request..."
+            const form_data = new FormData(form)
             disableInput(form)
             try {
-                await updateIdentity({ admin: { elevate: [email] } })
-                message.textContent = `Request succeeded: promoted ${email} to administrator`
+                const email = String(form_data.get("email") ?? "")
+                if (!email) {
+                    throw new Error("An identity email address is required")
+                }
+                // active.activate maps the identity email to the contributor record and marks it active
+                await updateIdentity({ active: { activate: [email] } })
+                message.textContent = `Request succeeded: activated the account for ${email}`
             } catch (error) {
                 message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
                 console.error(error)

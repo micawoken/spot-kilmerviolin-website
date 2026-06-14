@@ -48,7 +48,7 @@ import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
  * role TEXT NOT NULL,
  * birth_year INTEGER NOT NULL,
  * death_year INTEGER NOT NULL, // -1 is defined as not dead
- * country TEXT NOT NULL, // used as text for now, but will switch to ISO 3166-1 alpha-2 code in the future
+ * country TEXT NOT NULL, // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/country.ts)
  * bio TEXT,
  * image TEXT, // refers to a file in assets, or an external URL
  * tags TEXT, // comma-separated list of tags for filtering and search
@@ -752,11 +752,41 @@ export async function deleteComposition(ctx: ExecutionContext, id: number): Prom
 
 /**
  * List all composition records in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @returns an array of all composition records, or null if no records are found
  * @throws an error if the database query fails
  */
 export async function listCompositions(ctx: ExecutionContext): Promise<CompositionRecord[] | null> {
     return _listWrapper(COMPOSITION, await _listPrimitive(ctx, COMPOSITION)) as Promise<CompositionRecord[] | null>
+}
+
+/**
+ * Pairs each composition with the human-readable names referenced by its numeric fields
+ *
+ * A composition stores only numeric references (composer_id and the author_secondary id list), so this
+ * resolves them to composer names. The whole composer table is fetched once (it is served from the
+ * caching layer) and indexed, so resolving a list of compositions costs a single composer read rather
+ * than one per reference. Unresolvable ids yield an empty string, keeping author_secondary_names aligned
+ * positionally with the source author_secondary array.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param compositions the composition records to resolve names for
+ * @returns each composition paired with its resolved composer_name and author_secondary_names
+ */
+export async function attachCompositionNames(ctx: ExecutionContext, compositions: CompositionRecord[]): Promise<CompositionWithNames[]> {
+    const composers = await listComposers(ctx)
+    const name_map = new Map<number, string>()
+    if (composers) {
+        for (const composer of composers) {
+            name_map.set(composer.id, composer.name)
+        }
+    }
+    return compositions.map(composition => ({
+        object: composition,
+        names: {
+            composer_name: name_map.get(composition.composer_id) ?? "",
+            author_secondary_names: composition.author_secondary.map(id => name_map.get(id) ?? "")
+        }
+    }))
 }

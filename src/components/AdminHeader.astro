@@ -5,9 +5,19 @@ const welcome: boolean = Astro.props.welcome ? Astro.props.welcome : false;
 const date = new Date();
 console.log("data ready, rendering component", identity, welcome, date)
 
+// the display name varies with identity status: a verified Access userinfo name when available, then the
+// sign-in email, then a generic fallback when no identity is present (e.g. local development)
+const display_name = identity?.userinfo?.ok ? identity.userinfo.name : identity?.email || "user";
+const name_defined = identity?.userinfo?.ok || identity?.email;
 ---
 
 <div>
     <h1>Administrative Services</h1>
-    <p>Welcome, {identity?.userinfo?.ok ? identity.userinfo.name : identity?.email || "user"}!</p>
+    {
+        welcome ? (
+            <p>Welcome, {display_name}! <a href="/admin/profile" class="col-item-link">View your profile &gt;</a></p>
+        ) : (
+            <p>{name_defined ? display_name : "Unknown user"} &middot; <a href="/admin/profile" class="col-item-link">My profile &gt;</a></p>
+        )
+    }
 </div>

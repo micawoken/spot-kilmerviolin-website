@@ -11,6 +11,7 @@
 import { env } from "cloudflare:workers"
 import { Key, sqlListJoin, WorkType } from "./common.ts"
 import { SQLStatement } from "./sql.ts"
+import { isValidCountryCode } from "./country.ts"
 
 
 const d1_contrib_sql_init: string = `
@@ -488,6 +489,8 @@ export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boo
         typeof r.role !== "string" ||
         typeof r.birth_year !== "number" ||
         typeof r.death_year !== "number" ||
+        // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
+        (typeof r.country !== "string" || !isValidCountryCode(r.country)) ||
         (typeof r.image !== "string" && r.image !== null) ||
         (typeof r.bio !== "string" && r.bio !== null)) {
         return "Record has invalid types for one or more parameters"
@@ -512,6 +515,8 @@ export function _stateTypeAssertPartialComposer(record: unknown, expect_id: bool
         (r.role !== undefined && typeof r.role !== "string") ||
         (r.birth_year !== undefined && typeof r.birth_year !== "number") ||
         (r.death_year !== undefined && typeof r.death_year !== "number") ||
+        // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
+        (r.country !== undefined && (typeof r.country !== "string" || !isValidCountryCode(r.country))) ||
         (r.image !== undefined && typeof r.image !== "string" && r.image !== null) ||
         (r.bio !== undefined && typeof r.bio !== "string" && r.bio !== null)) {
         return "Record has invalid types for one or more parameters"

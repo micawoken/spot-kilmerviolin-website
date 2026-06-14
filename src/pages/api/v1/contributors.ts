@@ -19,18 +19,20 @@ import { formatContribFromD1, parseAPIRequest } from "../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
 import { addContributor, listContributors } from "../../../lib/api/database"
-import { _stateTypeAssertCompleteContributor } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteContributor, CONTRIBUTOR } from "../../../lib/api/d1"
 import { authEnabled } from "../../../lib/api/environment"
 
 /**
  * GET /api/v1/contributors
- * Returns a list of contributor IDs, or the complete record if requested and authorized
- * 
- * Permissions required: none; *admin* to access complete records
- * 
+ * Returns a list of contributor IDs, or the complete records if requested
+ *
+ * Permissions required: none. The full records are available to any viewer, but the same row-level
+ * security as GET /api/v1/contributors/[id] applies: protected properties (CONTRIBUTOR.protected) are
+ * redacted from every record that is not the requester's own, unless the requester is an admin.
+ *
  * Meta: optional
  * Meta fields:
- *  - full: {boolean} if true, returns the full contributor record instead of just IDs
+ *  - full: {boolean} if true, returns the full contributor records (subject to redaction) instead of just IDs
  * 
  * Body: none
  * 
@@ -62,11 +64,19 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                 if (!auth_enabled) {
                     return constructResponse(request, data, 200)
                 }
-                if (!locals.identity!.admin) {
-                    return constructResponse(request, null, 403)
+                // any viewer may request full records; admins see every record unredacted, while other
+                // users see their own record in full and every other record with its protected
+                // properties stripped (the same row-level security as GET /contributors/[id])
+                if (locals.identity!.admin) {
+                    return constructResponse(request, data, 200)
                 }
-                // return full contributor records
-                return constructResponse(request, data, 200)
+                const self_id = locals.identity?.id
+                const redacted = data.map(record =>
+                    record.id === self_id
+                        ? record
+                        : Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
+                )
+                return constructResponse(request, redacted, 200)
             case false:
             case undefined:
                 // return contributor IDs only

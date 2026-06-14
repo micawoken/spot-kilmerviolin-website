@@ -1,22 +1,26 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { emailFromParam } from "../../../lib/public/validation"
 
 export const prerender = false
 
 // SSR the caller's email so the client script can warn on self-demotion
 const self_email = Astro.locals.identity?.email ?? ""
+// prefill the identity email when arriving from a user-list link (?identity_email=), if it is valid
+const prefill_email = emailFromParam(Astro.url)
 ---
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Demote from Administrator`} description="Demote a user from administrator"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Demote a User from Administrator</h2>
     <p class="general-warning">Demotion removes the user's administrator permissions, but does not deactivate their account or remove their roles. Requires administrator permissions.</p>
     <p class="general-infohelp">Note: the reverse also holds — marking an administrator's account inactive does <strong>not</strong> strip their administrator permissions. An inactive administrator retains full authorization across the API and admin pages. To revoke administrator access you must demote the user here (or remove them from Cloudflare Access); deactivation alone is not sufficient.</p>
@@ -24,7 +28,7 @@ const self_email = Astro.locals.identity?.email ?? ""
         <form id="advanced-form-demote" class="generic-form" data-self-email={self_email}>
             <fieldset>
                 <legend>User Identity Email</legend>
-                <input type="email" id="advanced-form-demote-email" name="email" required />
+                <input type="email" id="advanced-form-demote-email" name="email" value={prefill_email} required />
             </fieldset>
             <button type="submit">Submit</button>
         </form>

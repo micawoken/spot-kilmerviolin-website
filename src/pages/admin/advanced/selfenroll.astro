@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
@@ -14,10 +15,10 @@ const enrollable = identity?.enrollable === true
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Self-Enrollment`} description="Complete self-enrollment to create your contributor record"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={identity} welcome="false"/>
+    <AdminHeader identity={identity} welcome={false}/>
     <h2>Self-Enrollment</h2>
     {
         enrollable ? (

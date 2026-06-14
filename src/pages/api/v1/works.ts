@@ -7,10 +7,12 @@
 
 import type { APIRoute } from "astro"
 import { _stateTypeAssertCompleteComposition } from "../../../lib/api/d1"
-import { addComposition, listCompositions } from "../../../lib/api/database"
+import { addComposition, attachCompositionNames, listCompositions } from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { canCreate } from "../../../lib/api/authorize"
+import { authEnabled } from "../../../lib/api/environment"
 
 /**
  * GET /api/v1/works
@@ -21,7 +23,9 @@ import { constructResponse, constructResponseErrorHook } from "../../../lib/api/
  * Meta: optional
  * Meta fields:
  * - full: {boolean} if true, returns full work records; if false or not provided, returns only work IDs
- * 
+ * - names: {boolean} if true (and full is true), each record is returned as a CompositionWithNames object
+ *   ({ object, names }) with the referenced composer_name and author_secondary_names resolved; off by default
+ *
  * Body: none
  * 
  * @param {APIContext} context - the Astro API context
@@ -39,6 +43,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
+    // the optional "names" flag enriches full records with resolved composer names; reject invalid values
+    const names_flag = api_request.meta?.names
+    if (names_flag !== undefined && typeof names_flag !== "boolean") {
+        return constructResponse(request, null, 400, "Invalid value for meta field 'names': must be a boolean")
+    }
     try {
         const data = await listCompositions(context.locals.cfContext)
         if (data === null) {
@@ -46,7 +55,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         }
         switch (api_request.meta?.full) {
             case true:
-                // return full composition records
+                // return full composition records, optionally paired with resolved names
+                if (names_flag === true) {
+                    return constructResponse(request, await attachCompositionNames(context.locals.cfContext, data), 200)
+                }
                 return constructResponse(request, data, 200)
             case false:
             case undefined:
@@ -93,6 +105,11 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     const record = _stateTypeAssertCompleteComposition(api_request.payload[0], false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
+    }
+    // a non-admin may only create a composition on which they are themselves a primary contributor;
+    // admins may name any registered users as primaries (skipped where auth is disabled, e.g. development)
+    if (authEnabled(request) && !canCreate(record, locals.identity!)) {
+        return constructResponse(request, null, 403, "Forbidden: you must be a primary contributor on compositions you create")
     }
     try {
         const add_response = await addComposition(context.locals.cfContext, record)
