@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../components/BaseHead.astro"
+import AdminHead from "../../components/AdminHead.astro"
 import AdminHeader from "../../components/AdminHeader.astro"
 import AdminFooter from "../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
@@ -15,13 +16,11 @@ const identity = locals.identity
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Composers`} description="Maintain composer information"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
     <!-- Header -->
-    <h1>Administrative Services</h1>
-    <AdminHeader identity={identity} />
-    <br>
+    <AdminHeader identity={identity}  welcome={true}/>
     <!-- links to database management pages -->
     <div class="flex-container"> 
         <div class="column">

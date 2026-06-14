@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import ListResults from "../../../components/entities/ListResults.astro"
@@ -32,10 +33,10 @@ const formatted_contributors = is_admin
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Contributors`} description="View the list of contributors in the database"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>List Contributors</h2>
     {
         is_admin ? null : (

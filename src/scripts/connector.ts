@@ -21,8 +21,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { interface_data } from "./types"
-
 // API REQUEST GENERATION
 
 /**
@@ -202,128 +200,6 @@ export enum APIOpCode {
 }
 
 
-export const api_spec: Record<string, Record<APIOpCode, {
-    call: Function, // the API request function to call
-    expect: keyof typeof interface_data | null, // what the call expects, except for ID (which is automatically added based on the APIOpCode)
-    meta_order: string[], // the order to inject meta parameters, if any, into a call
-    meta_type: Record<string, string> // type hint for the HTML meta constructor (string, number, boolean, etc.)
-}>> = {
-    "composer": {
-        [APIOpCode.CREATE]: {
-            call: createComposer,
-            expect: "composer",
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.READ]: {
-            call: getComposer,
-            expect: null,
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.UPDATE]: {
-            call: replaceComposer,
-            expect: "composer",
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.UPDATE_PARTIAL]: {
-            call: updateComposer,
-            expect: "composer",
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.DELETE]: {
-            call: deleteComposer,
-            expect: null,
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.LIST]: {
-            call: listComposer,
-            expect: null,
-            meta_order: ["full"],
-            meta_type: {"full": "boolean"}
-        }
-    },
-    "composition": {
-        [APIOpCode.CREATE]: {
-            call: createWork,
-            expect: "composition",
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.READ]: {
-            call: getWork,
-            expect: null,
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.UPDATE]: {
-            call: replaceWork,
-            expect: "composition",
-            meta_order: ["elevate"],
-            meta_type: {"elevate": "boolean"}
-        },
-        [APIOpCode.UPDATE_PARTIAL]: {
-            call: updateWork,
-            expect: "composition",
-            meta_order: ["elevate"],
-            meta_type: {"elevate": "boolean"}
-        },
-        [APIOpCode.DELETE]: {
-            call: deleteWork,
-            expect: null,
-            meta_order: ["elevate"],
-            meta_type: {"elevate": "boolean"}
-        },
-        [APIOpCode.LIST]: {
-            call: listWork,
-            expect: null,
-            meta_order: ["elevate"],
-            meta_type: {"elevate": "boolean"}
-        }
-    },
-    "contributor": {
-        [APIOpCode.CREATE]: {
-            call: createContributor,
-            expect: "contributor_partial",
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.READ]: {
-            call: getContributor,
-            expect: null,
-            meta_order: ["elevate"],
-            meta_type: {"elevate": "boolean"}
-        },
-        [APIOpCode.UPDATE]: {
-            call: replaceContributor,
-            expect: "contributor_full",
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.UPDATE_PARTIAL]: {
-            call: updateContributor,
-            expect: "contributor_partial",
-            meta_order: ["elevate"],
-            meta_type: {"elevate": "boolean"}
-        },
-        [APIOpCode.DELETE]: {
-            call: deleteContributor,
-            expect: null,
-            meta_order: [],
-            meta_type: {}
-        },
-        [APIOpCode.LIST]: {
-            call: listContributor,
-            expect: null,
-            meta_order: ["full"],
-            meta_type: {"full": "boolean"}
-        }
-    }
-}
-
 /**
  * GET /api/v1/composers
  * 
@@ -439,15 +315,32 @@ export async function deleteComposer(id: number): Promise<void> {
 }
 
 /**
+ * Type guard distinguishing the enhanced composition response from a plain Composition API object.
+ *
+ * When the `names` flag is passed to getWork/listWork, the server resolves the composition's referenced
+ * composer names and returns a CompositionWithNames ({ object, names }) instead of a bare Composition.
+ * Consumers call this to branch on which shape they received before reading the data.
+ *
+ * @param {Composition | CompositionWithNames | null | undefined} value the value to test
+ * @returns {boolean} true if the value is a CompositionWithNames (carrying resolved names)
+ */
+export function isCompositionWithNames(value: Composition | CompositionWithNames | null | undefined): value is CompositionWithNames {
+    return value !== null && typeof value === "object" && "object" in value && "names" in value
+}
+
+/**
  * GET /api/v1/works
  *
  * @param {boolean} full if true, returns full composition records; if false or not provided, returns only work IDs
- * @returns {number[] | Composition[] | undefined} a list of work IDs, a list of Composition objects, or undefined
+ * @param {boolean} names if true (only honored when full is true), each record is returned as a
+ *   CompositionWithNames object ({ object, names }) with the referenced composer names resolved
+ * @returns {number[] | Composition[] | CompositionWithNames[] | undefined} a list of work IDs, a list of
+ *   Composition objects, a list of CompositionWithNames objects (when names is set), or undefined
  */
-export async function listWork(full?: boolean): Promise<any | null> {
+export async function listWork(full?: boolean, names?: boolean): Promise<any | null> {
     const response = await fetch(composeUrl("works"), {
         method: "GET",
-        headers: {...constructMeta({ full: full }),
+        headers: {...constructMeta({ full: full, names: names }),
             "Content-Type": "application/json"
         }
     })
@@ -458,12 +351,19 @@ export async function listWork(full?: boolean): Promise<any | null> {
 /**
  * GET /api/v1/works/{id}
  *
+ * By default the plain Composition object is returned. When `names` is set, the server resolves the
+ * referenced composer names and returns a CompositionWithNames ({ object, names }); use
+ * isCompositionWithNames to discriminate the result.
+ *
  * @param {number} id the work ID to retrieve
- * @return {Composition | null} the Composition object corresponding to the provided ID, or null if not found
+ * @param {boolean} names if true, returns a CompositionWithNames object with resolved composer names
+ * @return {Composition | CompositionWithNames | null} the composition for the provided ID (plain or
+ *   name-enhanced depending on the names flag), or null if not found
  */
-export async function getWork(id: number): Promise<Composition | null> {
+export async function getWork(id: number, names?: boolean): Promise<Composition | CompositionWithNames | null> {
     const response = await fetch(composeUrl("works", id.toString()), {
-        method: "GET"
+        method: "GET",
+        headers: constructMeta({ names: names })
     })
     return interpretPayload(await parser(response))
 }
@@ -500,13 +400,14 @@ export async function createWork(data: Composition): Promise<number> {
  * @param {number} id the work ID to update
  * @param {Composition} data the work representation
  * @param {boolean} elevate optional; if true, allows consideration of admin status when reviewing contributor lockout
+ * @param {boolean} direct optional; if true, signals direct contributor management so the editor is not auto-added to contrib_addl
  * @return {void}
  */
-export async function replaceWork(id: number, data: Composition, elevate?: boolean): Promise<void> {
+export async function replaceWork(id: number, data: Composition, elevate?: boolean, direct?: boolean): Promise<void> {
     const response = await fetch(composeUrl("works", id.toString()), {
         "method": "PUT",
         "body": JSON.stringify([data]),
-        "headers": {...constructMeta({ elevate: elevate }),
+        "headers": {...constructMeta({ elevate: elevate, direct_contrib: direct }),
             "Content-Type": "application/json"
         }
     })
@@ -523,13 +424,14 @@ export async function replaceWork(id: number, data: Composition, elevate?: boole
  * @param {number} id the work ID to update
  * @param {Partial<Composition>} data the work data to update
  * @param {boolean} elevate optional; if true, allows consideration of admin status when reviewing contributor lockout
+ * @param {boolean} direct optional; if true, signals direct contributor management so the editor is not auto-added to contrib_addl
  * @return {void}
  */
-export async function updateWork(id: number, data: Partial<Composition>, elevate?: boolean): Promise<void> {
+export async function updateWork(id: number, data: Partial<Composition>, elevate?: boolean, direct?: boolean): Promise<void> {
     const response = await fetch(composeUrl("works", id.toString()), {
         "method": "PATCH",
         "body": JSON.stringify([data]),
-        "headers": {...constructMeta({ elevate: elevate }),
+        "headers": {...constructMeta({ elevate: elevate, direct_contrib: direct }),
             "Content-Type": "application/json"
         }
     })
@@ -673,6 +575,26 @@ export async function deleteContributor(id: number): Promise<void> {
         throw new Error(`Unexpected response payload for delete operation: ${JSON.stringify(payload_data)}`)
     }
     return;
+}
+
+/**
+ * POST /api/v1/search
+ *
+ * Runs a ranked keyword search over the entity tables.
+ *
+ * @param {string} keyword the keyword query
+ * @param {SearchDatabase | null} database the table to search, or null/omitted to search all three
+ * @returns {SearchResult[] | null} ranked hits as { database, id, name }, or null
+ */
+export async function searchDatabase(keyword: string, database?: SearchDatabase | null): Promise<SearchResult[] | null> {
+    const response = await fetch(composeUrl("search"), {
+        method: "POST",
+        body: JSON.stringify([{ keyword, database: database ?? null }]),
+        headers: {
+            "Content-Type": "application/json"
+        }
+    })
+    return interpretPayload(await parser(response))
 }
 
 /**
@@ -825,6 +747,30 @@ export async function getSelf(): Promise<Identity | null> {
         method: "GET"
     })
     return interpretPayload(await parser(response))
+}
+
+/**
+ * PATCH /api/v1/identity/self
+ * Change the authenticated user's own identity (sign-in) email
+ *
+ * The server changes the login email of the caller's own contributor record (and the underlying Access
+ * policy); no special permissions are required, but the request only ever affects the caller themselves.
+ *
+ * @param {string} new_email the new identity (sign-in) email to set
+ */
+export async function updateSelfLogin(new_email: string): Promise<void> {
+    const response = await fetch(composeUrl("identity/self"), {
+        method: "PATCH",
+        body: JSON.stringify([new_email]),
+        headers: {
+            "Content-Type": "application/json"
+        }
+    })
+    const payload_data = interpretPayload(await parser(response))
+    if (payload_data !== null) {
+        throw new Error(`Unexpected response payload for updateSelfLogin operation: ${JSON.stringify(payload_data)}`)
+    }
+    return
 }
 
 /**

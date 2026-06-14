@@ -1,0 +1,442 @@
+/*
+ * src/styles/admin-entities.css
+ *
+ * Styles for the admin entity components (Info result views, data-entry Forms, list results, and the
+ * keyword/ID search boxes). Loaded only on admin pages via AdminHead.astro so the public site does
+ * not ship them.
+ *
+ * The component markup lives in the .astro files; this stylesheet realizes the layouts those templates
+ * describe (the composer "infoline" on a single line with separators, the contributor infocard with
+ * the image beside the content, grouped detail sections) and visually organizes the list results.
+ *
+ * Design intent: keep admin pages simple. The palette is grayscale, transitions are avoided, and the
+ * admin typeface is the self-hosted Inter variable font.
+ */
+
+/* ----------------------------------------------------------------------------
+ * Admin typeface: Inter variable (self-hosted in public/fonts)
+ * ------------------------------------------------------------------------- */
+
+@font-face {
+	font-family: "Inter";
+	src: url("/fonts/InterVariable.woff2") format("woff2");
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Inter";
+	src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
+	font-weight: 100 900;
+	font-style: italic;
+	font-display: swap;
+}
+
+body {
+	font-family: "Inter", Helvetica, Arial, system-ui, sans-serif;
+}
+
+/* ----------------------------------------------------------------------------
+ * Entity result (Info) views
+ * ------------------------------------------------------------------------- */
+
+.entity-result-container {
+	border: 1px solid var(--shade-4);
+	border-radius: 8px;
+	padding: 1.25rem 1.5rem;
+	margin-bottom: 1.5rem;
+	background: var(--shade-1);
+	/* shrink-wrap the card to its content so a small/portrait image leaves no excess space to its
+	 * right; still bounded by the page width so wide content does not overflow */
+	width: fit-content;
+	max-width: 100%;
+}
+
+.entity-result-name {
+	margin-bottom: 0.1rem;
+}
+
+/* the "ID #<n>" line sits just under the name; it now lives inside the infocard content column */
+.entity-result-container p[id$="-id"] {
+	margin-top: 0;
+	color: var(--color-text-muted);
+	font-size: 0.9em;
+}
+
+/* Infocard layout (all entity Info views): textual content on the left, image on the right half */
+.entity-result-infocard {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 1.5rem;
+}
+.entity-result-infocard-content {
+	flex: 1 1 48%;
+	min-width: 0;
+}
+.entity-result-image-container {
+	flex: 1 1 48%;
+	min-width: 0;
+	max-width: 50%;
+	max-height: 44%
+}
+
+.entity-result-image {
+	/* cap the rendered image at 40% of the viewport height; width tracks aspect ratio up to the
+	 * container's half-page width, so the image never grows taller than 40vh nor wider than its column */
+	max-height: 40vh;
+	width: auto;
+	max-width: 100%;
+	height: auto;
+	border-radius: 6px;
+	display: block;
+}
+/* explicit compound rule so hiding wins regardless of stylesheet load order vs. global .hidden */
+.entity-result-image.hidden {
+	display: none;
+}
+
+/* When no image is set, a grayed-out rectangle stands in the image's place, with the "no image"
+ * text unhidden and centered inside it at sufficient contrast (dark text on a light-gray field). */
+.entity-result-image-missing {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	/* match the image's cap so the placeholder occupies the same maximum footprint */
+	max-height: 40vh;
+	margin: 0;
+	padding: 0.5rem;
+	background: var(--color-placeholder-bg);
+	color: var(--color-placeholder-text);
+	border: 1px solid var(--color-placeholder-border);
+	border-radius: 6px;
+	font-style: italic;
+}
+.entity-result-image-missing.hidden {
+	display: none;
+}
+
+/* Grouped detail sections share consistent vertical rhythm */
+.entity-result-details > div {
+	margin-bottom: 1rem;
+}
+.entity-result-details > div:last-child {
+	margin-bottom: 0;
+}
+
+.entity-result-bio {
+	margin: 1rem 0;
+	line-height: 1.6;
+}
+
+/* --- Composer: single-line "infoline" (country · role · birth–death) ------ */
+
+#composer-details-infoline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+	color: var(--color-text-secondary);
+}
+#composer-details-infoline p {
+	margin: 0;
+}
+/* period/middle-dot separator between the infoline parts */
+#composer-details-infoline > *:not(:last-child)::after {
+	content: "·";
+	margin-left: 0.5rem;
+	color: var(--shade-6);
+}
+
+/* --- Composition: label/value detail groups ------------------------------ */
+
+#composition-details-composer,
+#composition-details-workprop,
+#composition-details-characteristics,
+#composition-details-ratings,
+#composition-details-publisher,
+#composition-details-contribution,
+#composition-details-tags {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	column-gap: 0.75rem;
+	row-gap: 0.25rem;
+}
+.entity-result-details strong {
+	white-space: nowrap;
+}
+
+/* Composition notes: the grouping divs carry no visible label, so add one */
+#composition-details-notes > div {
+	margin-bottom: 1rem;
+}
+#composition-details-notes > div:last-child {
+	margin-bottom: 0;
+}
+#composition-details-notes-historical::before,
+#composition-details-notes-pedagogical::before,
+#composition-details-notes-other::before {
+	display: block;
+	font-weight: 700;
+	margin-bottom: 0.1rem;
+	color: var(--color-text-secondary);
+}
+#composition-details-notes-historical::before {
+	content: "Historical Notes";
+}
+#composition-details-notes-pedagogical::before {
+	content: "Pedagogical Notes";
+}
+#composition-details-notes-other::before {
+	content: "Other Notes";
+}
+.entity-result-notes {
+	margin: 0;
+	white-space: pre-wrap;
+}
+
+/* --- Contributor: infocard-specific detail rows (shared image layout above) --- */
+
+/* ID # and public email share one line */
+#contributor-infocard-content > #contributor-id,
+#contributor-infocard-content > #contributor-public_email {
+	display: inline;
+	margin: 0;
+}
+#contributor-public_email {
+	color: var(--color-text-muted);
+}
+#contributor-public_email::before {
+	content: "·";
+	margin: 0 0.5rem;
+	color: var(--shade-6);
+}
+
+/* class year and major on a single line, separated; blank entries are hidden */
+#contributor-infocard-school {
+	margin: 0.5rem 0;
+}
+#contributor-infocard-school p {
+	display: inline;
+	margin: 0;
+}
+#contributor-infocard-school p:empty {
+	display: none;
+}
+#contributor-infocard-school p:not(:empty):not(:last-of-type)::after {
+	content: "·";
+	margin: 0 0.5rem;
+	color: var(--shade-6);
+}
+
+#contributor-infocard-phases {
+	margin: 0.25rem 0;
+	color: var(--color-text-secondary);
+}
+#contributor-infocard-phases p {
+	margin: 0;
+}
+
+/* ----------------------------------------------------------------------------
+ * Data-entry forms
+ * ------------------------------------------------------------------------- */
+
+form.generic-form {
+	max-width: 100%;
+}
+
+/* a labelled group of related fieldsets, mirroring the Info view's grouped sections */
+.form-section {
+	margin-bottom: 1.75rem;
+}
+.form-section-title {
+	font-size: 1.35rem;
+	margin-bottom: 0.6rem;
+	padding-bottom: 0.25rem;
+	border-bottom: 2px solid var(--shade-3);
+}
+
+form.generic-form fieldset {
+	border: 1px solid var(--shade-4);
+	border-radius: 6px;
+	margin: 0 0 0.75rem 0;
+	padding: 0.5rem 0.85rem 0.75rem;
+}
+form.generic-form fieldset:last-child {
+	margin-bottom: 0;
+}
+form.generic-form legend {
+	font-weight: 700;
+	padding: 0 0.35rem;
+}
+form.generic-form label {
+	display: inline-block;
+	margin-right: 0.35rem;
+}
+form.generic-form input[type="text"],
+form.generic-form input[type="url"],
+form.generic-form input[type="email"],
+form.generic-form input[type="number"],
+form.generic-form textarea,
+form.generic-form select {
+	max-width: 100%;
+}
+form.generic-form textarea {
+	min-height: 5rem;
+}
+form.generic-form button[type="submit"] {
+	margin-top: 0.5rem;
+	padding: 0.4rem 1.25rem;
+}
+
+/* selects that should flow inline with their surroundings */
+.form-config-horizflow {
+	display: inline-block;
+	width: auto;
+}
+
+/* the inline name->ID lookup helper inside a fieldset */
+.searchhelper {
+	margin-top: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px dashed var(--shade-5);
+	border-radius: 6px;
+	background: var(--shade-2);
+	font-size: 0.9em;
+}
+.searchhelper p {
+	margin: 0 0 0.35rem 0;
+}
+
+/* shared form helper/warning copy (grayscale: warnings read as emphasis, not color) */
+.general-infohelp {
+	font-size: 0.85em;
+	color: var(--color-text-muted);
+	margin: 0.35rem 0;
+}
+.general-warning {
+	font-size: 0.85em;
+	color: var(--color-text);
+	font-weight: 700;
+	border-left: 3px solid var(--shade-7);
+	padding-left: 0.6rem;
+	margin: 0.35rem 0;
+}
+
+/* ----------------------------------------------------------------------------
+ * Keyword / ID search boxes
+ * ------------------------------------------------------------------------- */
+
+.keyword-search,
+.id-entry {
+	margin-bottom: 1.5rem;
+}
+
+[id$="-results"] {
+	margin-top: 0.5rem;
+}
+[id$="-results"] p {
+	margin: 0.15rem 0;
+}
+
+/* in-progress search indicator: the trailing ellipsis blinks in sequence (1 → 2 → 3 dots) */
+.search-progress::after {
+	content: ".";
+	animation: search-ellipsis 1.2s steps(1, end) infinite;
+}
+@keyframes search-ellipsis {
+	0% { content: "."; }
+	33% { content: ".."; }
+	66% { content: "..."; }
+}
+@media (prefers-reduced-motion: reduce) {
+	/* hold a static ellipsis rather than animating for users who prefer reduced motion */
+	.search-progress::after {
+		content: "...";
+		animation: none;
+	}
+}
+
+/* ----------------------------------------------------------------------------
+ * List results
+ * ------------------------------------------------------------------------- */
+
+.list-results-container {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+	gap: 0.75rem;
+	margin: 1rem 0;
+}
+
+.list-result-container {
+	position: relative;
+	border: 1px solid var(--shade-4);
+	border-radius: 6px;
+	padding: 0.6rem 0.85rem;
+	background: var(--shade-1);
+}
+
+/* corner badge: shown only when a name is the primary label */
+.list-result-id {
+	position: absolute;
+	top: 0.6rem;
+	right: 0.85rem;
+	font-size: 0.75em;
+	color: var(--color-text-muted);
+}
+.list-result-container:hover {
+	border-color: var(--shade-7);
+}
+
+
+.list-result-link {
+	font-weight: 700;
+	text-decoration: none;
+	display: inline-block;
+	text-decoration: none;
+	color: var(--color-text);
+}
+/* leave room for the corner ID badge when a name is present */
+.list-result-id + .list-result-link {
+	padding-right: 4rem;
+}
+
+.list-result-link:hover {
+	text-decoration: underline;
+}
+.list-result-edit-link {
+	display: inline-block;
+	margin-top: 0.35rem;
+	font-size: 0.85em;
+}
+
+/* an empty result set renders a single message paragraph, not a card grid */
+.list-results-container > p {
+	grid-column: 1 / -1;
+	margin: 0;
+	color: var(--color-text-muted);
+}
+
+@media (max-width: 720px) {
+	/* stack the infocard: content above, image (or placeholder) below at full width */
+	.entity-result-infocard-content,
+	.entity-result-image-container {
+		flex: 1 1 100%;
+		max-width: 100%;
+	}
+	.entity-result-image-container {
+		max-width: 320px;
+	}
+}
+
+/* ----------------------------------------------------------------------------
+ * Default overrides
+ * ------------------------------------------------------------------------- */
+
+textarea {
+	width: 100%;
+}

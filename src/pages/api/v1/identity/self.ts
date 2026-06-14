@@ -8,8 +8,8 @@
 import type { APIRoute } from "astro";
 import { parseAPIRequest } from "../../../../lib/api/common"
 import { auth_check } from "../../../../lib/public/authservice"
-import { constructResponse } from "../../../../lib/api/http"
-import { finishUser } from "../../../../lib/public/usermgmt"
+import { constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
+import { finishUser, changeLoginEmail } from "../../../../lib/public/usermgmt"
 import { _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
 
 /**
@@ -93,5 +93,57 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     } catch (error) {
         console.log("Error during self-enrollment:", error)
         return constructResponse(request, null, 500, "Failed to finish user enrollment")
+    }
+}
+
+/**
+ * PATCH /api/v1/identity/self
+ * Change the authenticated user's own identity (sign-in) email
+ *
+ * This is the self-service counterpart to PATCH /api/v1/identity's identity_email operation, which is
+ * admin-only and keyed by another user's email: here the target is always the caller's own contributor
+ * record, derived from the authenticated identity, so no special permissions are required. The old email
+ * is read from the caller's own record (changeLoginEmail), so the body carries only the new email.
+ *
+ * Permissions required: none (must be self; an enrollable login without a record is rejected by selfmgmt)
+ *
+ * Meta: none
+ * Body: required, JSON array containing one string (the new identity email)
+ *
+ * @param {APIContext} context - the Astro API context
+ * @returns {Response} a Response object
+ */
+export const PATCH: APIRoute = async (context): Promise<Response> => {
+    const { request, locals } = context
+    // validate identity (selfmgmt: allows an active or inactive own record, rejects enrollable/no-record)
+    const auth_response = auth_check(request, locals.identity, [], false, "selfmgmt")
+    if (auth_response !== null) {
+        return auth_response
+    }
+    // parse request
+    const api_request = await parseAPIRequest(request)
+    if (api_request instanceof Error) {
+        return constructResponse(request, { error: api_request.message }, 400)
+    }
+    // check if the payload is not null and has a length of 1
+    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
+        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
+    }
+    // validate the new email
+    const new_email = api_request.payload[0]
+    if (typeof new_email !== "string" || new_email.trim() === "" || !new_email.includes("@")) {
+        return constructResponse(request, null, 400, "Invalid request body: new identity email must be a valid email string")
+    }
+    // the change targets the caller's own record; selfmgmt guarantees an allowed (non-enrollable) identity,
+    // but guard the id explicitly (e.g. when authentication is disabled in local development, identity is absent)
+    if (locals.identity === undefined || locals.identity.id === undefined || locals.identity.id === null) {
+        return constructResponse(request, null, 403, "No contributor record is associated with your login")
+    }
+    // perform the email change on the caller's own record
+    try {
+        await changeLoginEmail(locals.cfContext, locals.identity.id, new_email.trim())
+        return constructResponse(request, null, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to update identity email")
     }
 }

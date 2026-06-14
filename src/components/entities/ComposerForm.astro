@@ -1,139 +1,141 @@
 ---
 /**
- * Description here
- */
-
-/**
- * Whether all fields required by the API are required by the form (require when performing create, or PUT)
+ * src/components/entities/ComposerForm.astro
+ *
+ * Reusable data-entry form for composer records
+ *
+ * Fields are grouped into labelled sections that mirror the organization of the ComposerInfo result
+ * view: the name/role/country/dates that make up the info line are gathered into a Basic Information
+ * box, the image sits under the biography, and tags come last.
+ *
+ * Props:
+ * - required (optional): whether fields required by the API are required by the form (use for create / PUT)
+ * - hidden (optional): if true, the form starts hidden (used by the edit page until an ID is entered)
+ * - composer (optional): a ComposerRecord provided by SSR to prefill the form
+ * - patch (optional): whether to show the edit target checkboxes for PATCH (partial edit)
+ *
+ * Input ids follow the form-composers-{param} convention, where param matches the input's
+ * name attribute exactly (required by prefillForm in scripts/interface.ts)
  */
 const required: boolean = Astro.props.required || false;
-/**
- * Whether to hide the form (used if an id url param is specified and SSRed)
- */
 const hidden: boolean = Astro.props.hidden || false;
-/**
- * The composer record provided by SSR to prefill, if any
- */
 const composer: ComposerRecord | null = Astro.props.composer || null;
-/**
- * Whether to show the edit target checkboxes for PATCH (partial edit)
- */
 const patch: boolean = Astro.props.patch || false;
-
 ---
 <div class="generic-form">
     <form id="generic-form-composers" class=`generic-form${hidden ? " hidden" : ""}`>
         <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
         <input type="hidden" id="form-composers-id" name="id" value={composer?.id ?? ""} />
-        <fieldset>
-            <legend>Name</legend>
-            <input type="text" id="form-composers-name" name="name" required={required} value={composer?.name || ""} />
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
-                    <label for="form-composers-name-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
 
-        <fieldset>
-            <legend>Role</legend>
-            <select id="form-composers-role" name="role" required={required}>
-                <option value="composer" selected={composer !== null ? composer.role === "composer" : true}>Composer</option>
-                <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}>Arranger</option>
-            </select>
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
-                    <label for="form-composers-role-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+        <div class="form-section">
+            <h3 class="form-section-title">Basic Information</h3>
+            <fieldset>
+                <legend>Name</legend>
+                <input type="text" id="form-composers-name" name="name" required={required} value={composer?.name ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
+                        <label for="form-composers-name-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-        <fieldset>
-            <legend>Birth Year</legend>
-            <input type="number" id="form-composers-birth_year" name="birth_year" required={required} value={composer?.birth_year || ""} />
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-birth_year-edittarget" name="birth_year-edittarget" />
-                    <label for="form-composers-birth_year-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+            <fieldset>
+                <legend>Role</legend>
+                <select id="form-composers-role" name="role" required={required}>
+                    <option value="composer" selected={composer !== null ? composer.role === "composer" : true}>Composer</option>
+                    <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}>Arranger</option>
+                </select>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
+                        <label for="form-composers-role-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-        <fieldset>
-            <legend>Death Year</legend>
-            <input type="number" id="form-composers-death_year" name="death_year" required={required} value={composer?.death_year || ""} />
-            <p class="general-infohelp">If the composer is still living, enter <code>-1</code>.</p>
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-death_year-edittarget" name="death_year-edittarget" />
-                    <label for="form-composers-death_year-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+            <fieldset>
+                <legend>Country</legend>
+                <input type="text" id="form-composers-country" name="country" required={required} value={composer?.country ?? ""} />
+                <p class="general-infohelp">Countries should be entered as their <a href="https://www.iso.org/obp/ui" target="_blank">ISO 3166-1 Alpha-2 code</a>.</p>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-country-edittarget" name="country-edittarget" />
+                        <label for="form-composers-country-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-        <fieldset>
-            <legend>Country</legend>
-            <input type="text" id="form-composers-country" name="country" required={required} value={composer?.country || ""} />
-            <p class="general-infohelp">Countries should be entered as their <a href="https://www.iso.org/obp/ui" target="_blank">ISO 3166-1 Alpha-2 code</a>.</p>
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-country-edittarget" name="country-edittarget" />
-                    <label for="form-composers-country-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+            <fieldset>
+                <legend>Birth Year</legend>
+                <input type="number" id="form-composers-birth_year" name="birth_year" required={required} value={composer?.birth_year ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-birth_year-edittarget" name="birth_year-edittarget" />
+                        <label for="form-composers-birth_year-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-        <fieldset>
-            <legend>Biography</legend>
-            <textarea id="form-composers-bio" name="bio" required={required}>{composer?.bio || ""}</textarea>
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
-                    <label for="form-composers-bio-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+            <fieldset>
+                <legend>Death Year</legend>
+                <input type="number" id="form-composers-death_year" name="death_year" required={required} value={composer?.death_year ?? ""} />
+                <p class="general-infohelp">If the composer is still living, enter <code>-1</code>.</p>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-death_year-edittarget" name="death_year-edittarget" />
+                        <label for="form-composers-death_year-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
+        </div>
 
-        <fieldset>
-            <legend>Tags</legend>
-            <input type="text" id="form-composers-tags" name="tags" value={composer?.tags || ""} />
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
-                    <label for="form-composers-tags-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+        <div class="form-section">
+            <h3 class="form-section-title">Biography</h3>
+            <fieldset>
+                <legend>Biography</legend>
+                <textarea id="form-composers-bio" name="bio">{composer?.bio ?? ""}</textarea>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
+                        <label for="form-composers-bio-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-        <fieldset>
-            <legend>Image URL</legend>
-            <input type="url" id="form-composers-image" name="image" value={composer?.image || ""} />
-            {
-                patch ? (
-                    <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
-                    <label for="form-composers-image-edittarget">Edit this field</label>
-                ) : (
-                    <></>
-                )
-            }
-        </fieldset>
+            <fieldset>
+                <legend>Image URL</legend>
+                <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
+                        <label for="form-composers-image-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">Tags</h3>
+            <fieldset>
+                <legend>Tags</legend>
+                <input type="text" id="form-composers-tags" name="tags" value={composer?.tags ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
+                        <label for="form-composers-tags-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
+        </div>
 
         <button type="submit">Submit</button>
     </form>
 </div>
+<script>
+    // auto-check each field's "Edit this field" checkbox when the field is edited (patch/edit pages only;
+    // a no-op on create pages, which render no edit-target checkboxes)
+    import { enableEditTargetOnChange } from "../../scripts/interface"
+    const composer_form = document.getElementById("generic-form-composers")
+    if (composer_form instanceof HTMLFormElement) enableEditTargetOnChange(composer_form)
+</script>

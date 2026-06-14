@@ -9,3 +9,7 @@ export const SITE_DESCRIPTION = "Website description";
 // admin pages
 export const ADMIN_PAGE_TITLE_PRFX = "Administrative Services - ";
 
+// placeholder shown in entity result views when a field is null or was not supplied by the API
+// (a distinct marker so a blank field is not confused with an empty/unset render)
+export const NOT_PROVIDED = "(not provided)";
+

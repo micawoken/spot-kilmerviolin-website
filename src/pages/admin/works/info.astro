@@ -1,13 +1,15 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
 import CompositionInfo from "../../../components/entities/CompositionInfo.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { COMPOSITION } from "../../../lib/api/d1"
-import { getComposition } from "../../../lib/api/database"
+import { attachCompositionNames, getComposition } from "../../../lib/api/database"
 
 export const prerender = false
 
@@ -15,6 +17,7 @@ export const prerender = false
 const id = Astro.url.searchParams.get("id")
 let use_id: boolean = false
 let composition_data: CompositionRecord | null = null
+let composition_names: CompositionNames | null = null
 if (id) {
     console.log("ID query param found:", id)
     composition_data = await getComposition(Astro.locals.cfContext, COMPOSITION.primary_key, id)
@@ -22,6 +25,9 @@ if (id) {
         console.warn(`No composition found with ID ${id}, falling back to client-side ID entry`)
     } else {
         use_id = true
+        // resolve the referenced composer names so the view can show them alongside the numeric ids
+        const [enhanced] = await attachCompositionNames(Astro.locals.cfContext, [composition_data])
+        composition_names = enhanced.names
     }
 }
 ---
@@ -29,20 +35,36 @@ if (id) {
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composition`} description="View a composition"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>View a Composition</h2>
     <IDEntryForm output_div={undefined} hidden={use_id} />
-    <CompositionInfo composition={use_id ? composition_data as CompositionRecord : null} hidden={!use_id} />
+    <KeywordSearchBox id_prefix="entity-search" label="Or search by keyword" hidden={use_id} />
+    <CompositionInfo composition={use_id ? composition_data as CompositionRecord : null} names={use_id ? composition_names : null} hidden={!use_id} />
     <p id="transaction-status">{use_id ? "Composition data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
+    {
+        // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
+        // record, or return to the ID-entry view to look up another (the path without the id query param)
+        use_id ? (
+            <p>
+                <a href={`/admin/works/edit?id=${id}`}>Edit this composition &gt;</a> | <a href={Astro.url.pathname}>View another composition &gt;</a>
+            </p>
+        ) : null
+    }
     <script>
-        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem, attachKeywordSearchInline } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
         const read_form = getForm("composition", APIOpCode.READ)
         console.log("Form element obtained for compositions read operation:", read_form)
         read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "composition"))
+        // keyword lookup scoped to compositions; selecting a hit loads it on-page via the same READ flow as the ID entry form
+        attachKeywordSearchInline("entity-search-input", "entity-search-button", "entity-search-results", () => "compositions", (result) => {
+            const id_input = document.getElementById("form-id-entry-id")
+            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+            read_form.requestSubmit()
+        })
     </script>
     <AdminFooter />
 </body>

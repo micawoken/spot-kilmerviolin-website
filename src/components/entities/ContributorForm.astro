@@ -4,6 +4,11 @@
  *
  * Reusable data-entry form for contributor records
  *
+ * Fields are grouped into labelled sections that mirror the organization of the ContributorInfo result
+ * view: the infocard fields (name, class year, major, public email, phases) form a Basic Information
+ * box, the image sits under the biography, the authorization-related fields are gathered together, and
+ * tags come last.
+ *
  * Props:
  * - required (optional): whether fields required by the API are required by the form (use for create)
  * - show_auth (optional): whether to render the authorization-related fields (identity_email, roles, admin)
@@ -11,190 +16,233 @@
  * - contributor (optional): a ContributorRecord provided by SSR to prefill the form
  * - patch (optional): whether to show the edit target checkboxes for PATCH (partial edit)
  * - show_elevate (optional): whether to render the administrator escalation checkbox
+ * - profile (optional): self-service profile-editor mode — drops the entire Authorization section
+ *   (identity_email, roles, active, admin) so a user only edits their own non-protected, non-auth
+ *   fields. The identity email is changed separately via /admin/profile/reset_login. Submitted by
+ *   submitProfileEdit (scripts/interface.ts), not the standard PATCH edit-target flow.
  *
  * Input ids follow the form-contributors-{param} convention, where param matches the input's
  * name attribute exactly (required by prefillForm in scripts/interface.ts)
+ *
+ * The acting user's contributor id (data-self-id), admin status (data-is-admin), and the set of
+ * protected properties (data-protected-fields, sourced from CONTRIBUTOR.protected) are exposed on the
+ * form so processSubmit can client-side validate edit permission before issuing a PATCH (the server
+ * remains the authority; this is an early, clearer rejection).
  */
+import { CONTRIBUTOR } from "../../lib/api/d1";
+
 const required: boolean = Astro.props.required || false;
 const show_auth: boolean = Astro.props.show_auth || false;
 const hidden: boolean = Astro.props.hidden || false;
 const contributor: Partial<ContributorRecord> | null = Astro.props.contributor || null;
 const patch: boolean = Astro.props.patch || false;
 const show_elevate: boolean = Astro.props.show_elevate || false;
+const profile: boolean = Astro.props.profile || false;
+
+// identity context for client-side edit-permission validation (see processSubmit in scripts/interface.ts)
+const self_id: number | null = Astro.locals.identity?.id ?? null;
+const is_admin: boolean = Astro.locals.identity?.admin === true;
+const protected_fields: string = (CONTRIBUTOR.protected ?? []).join(",");
 
 const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 ---
 <div class="generic-form">
-	<form id="generic-form-contributors" class=`generic-form${hidden ? " hidden" : ""}`>
-		<!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
-		<input type="hidden" id="form-contributors-id" name="id" value={contributor?.id ?? ""} />
+    <form id="generic-form-contributors" class=`generic-form${hidden ? " hidden" : ""}` data-self-id={self_id ?? ""} data-is-admin={String(is_admin)} data-protected-fields={protected_fields}>
+        <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
+        <input type="hidden" id="form-contributors-id" name="id" value={contributor?.id ?? ""} />
 
-		<fieldset>
-			<legend>Name</legend>
-			<input type="text" id="form-contributors-name" name="name" required={required} value={contributor?.name ?? ""} />
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-name-edittarget" name="name-edittarget" />
-					<label for="form-contributors-name-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+        <div class="form-section">
+            <h3 class="form-section-title">Basic Information</h3>
+            <fieldset>
+                <legend>Name</legend>
+                <input type="text" id="form-contributors-name" name="name" required={required} value={contributor?.name ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-name-edittarget" name="name-edittarget" />
+                        <label for="form-contributors-name-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-		<fieldset>
-			<legend>Class Year</legend>
-			<!-- class_year is a nullable column: a blank input is submitted as null -->
-			<input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
-			<p class="general-infohelp">To omit this field (such as if you do not have a class year), leave it blank.</p>
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-class_year-edittarget" name="class_year-edittarget" />
-					<label for="form-contributors-class_year-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            <fieldset>
+                <legend>Class Year</legend>
+                <!-- class_year is a nullable column: a blank input is submitted as null -->
+                <input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
+                <p class="general-infohelp">To omit this field (such as if you do not have a class year), leave it blank.</p>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-class_year-edittarget" name="class_year-edittarget" />
+                        <label for="form-contributors-class_year-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-		<fieldset>
-			<legend>Major</legend>
-			<!-- major is a nullable column: a blank input is submitted as null -->
-			<input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-major-edittarget" name="major-edittarget" />
-					<label for="form-contributors-major-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            <fieldset>
+                <legend>Major</legend>
+                <!-- major is a nullable column: a blank input is submitted as null -->
+                <input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-major-edittarget" name="major-edittarget" />
+                        <label for="form-contributors-major-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-		<fieldset>
-			<legend>Biography</legend>
-			<textarea id="form-contributors-bio" name="bio">{contributor?.bio ?? ""}</textarea>
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-bio-edittarget" name="bio-edittarget" />
-					<label for="form-contributors-bio-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            <fieldset>
+                <legend>Public Email</legend>
+                <input type="email" id="form-contributors-public_email" name="public_email" value={contributor?.public_email ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-public_email-edittarget" name="public_email-edittarget" />
+                        <label for="form-contributors-public_email-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-		<fieldset>
-			<legend>Public Email</legend>
-			<input type="email" id="form-contributors-public_email" name="public_email" value={contributor?.public_email ?? ""} />
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-public_email-edittarget" name="public_email-edittarget" />
-					<label for="form-contributors-public_email-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            <fieldset>
+                <legend>Phases</legend>
+                <label for="form-contributors-phases">Phases (comma-separated numbers):</label>
+                <!-- phases is a nullable column: a blank input is submitted as null -->
+                <input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-phases-edittarget" name="phases-edittarget" />
+                        <label for="form-contributors-phases-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
+        </div>
 
-		{
-			show_auth ? (
-				<fieldset>
-					<legend>Identity Email</legend>
-					<input type="email" id="form-contributors-identity_email" name="identity_email" required={required} value={contributor?.identity_email ?? ""} />
-					<p class="general-warning">Contributor records are the source of authorization information. Changing this email without updating Identity & Access Management will prevent a contributor from logging in.</p>
-					<p class="general-infohelp">This email can also be modified in <a href="/admin/iam">Identity & Access Management</a>.</p>
-					{
-						patch ? (
-							<input type="checkbox" id="form-contributors-identity_email-edittarget" name="identity_email-edittarget" />
-							<label for="form-contributors-identity_email-edittarget">Edit this field</label>
-						) : null
-					}
-				</fieldset>
-			) : null
-		}
+        <div class="form-section">
+            <h3 class="form-section-title">Biography</h3>
+            <fieldset>
+                <legend>Biography</legend>
+                <textarea id="form-contributors-bio" name="bio">{contributor?.bio ?? ""}</textarea>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-bio-edittarget" name="bio-edittarget" />
+                        <label for="form-contributors-bio-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-		<fieldset>
-			<legend>Image URL</legend>
-			<input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-image-edittarget" name="image-edittarget" />
-					<label for="form-contributors-image-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            <fieldset>
+                <legend>Image URL</legend>
+                <input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-image-edittarget" name="image-edittarget" />
+                        <label for="form-contributors-image-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
+        </div>
 
-		<fieldset>
-			<legend>Phases</legend>
-			<label for="form-contributors-phases">Phases (comma-separated numbers):</label>
-			<!-- phases is a nullable column: a blank input is submitted as null -->
-			<input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-phases-edittarget" name="phases-edittarget" />
-					<label for="form-contributors-phases-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+        {
+        profile ? null : (
+        <div class="form-section">
+            <h3 class="form-section-title">Authorization</h3>
+            {
+                show_auth ? (
+                    <fieldset>
+                        <legend>Identity Email</legend>
+                        <input type="email" id="form-contributors-identity_email" name="identity_email" required={required} value={contributor?.identity_email ?? ""} />
+                        <p class="general-warning">Contributor records are the source of authorization information. Changing this email without updating Identity & Access Management will prevent a contributor from logging in.</p>
+                        <p class="general-infohelp">This email can also be modified in <a href="/admin/iam">Identity & Access Management</a>.</p>
+                        {
+                            patch ? (
+                                <input type="checkbox" id="form-contributors-identity_email-edittarget" name="identity_email-edittarget" />
+                                <label for="form-contributors-identity_email-edittarget">Edit this field</label>
+                            ) : null
+                        }
+                    </fieldset>
+                ) : null
+            }
 
-		{
-			// roles are not part of the partial (PATCH) interface; manage them in IAM instead
-			show_auth && !patch ? (
-				<fieldset>
-					<legend>Roles</legend>
-					<label for="form-contributors-roles">Roles (comma-separated, no spaces):</label>
-					<input type="text" id="form-contributors-roles" name="roles" value={joined(contributor?.roles)} />
-					<p class="general-infohelp">Example: <code>"role1,role2,role3"</code></p>
-					<p class="general-infohelp">Roles can also be modified in <a href="/admin/iam/edit">Identity & Access Management &gt; Add or remove roles</a>.</p>
-				</fieldset>
-			) : null
-		}
+            {
+                // roles are not part of the partial (PATCH) interface; manage them in IAM instead
+                show_auth && !patch ? (
+                    <fieldset>
+                        <legend>Roles</legend>
+                        <label for="form-contributors-roles">Roles (comma-separated, no spaces):</label>
+                        <input type="text" id="form-contributors-roles" name="roles" value={joined(contributor?.roles)} />
+                        <p class="general-infohelp">Example: <code>"role1,role2,role3"</code></p>
+                        <p class="general-infohelp">Roles can also be modified in <a href="/admin/iam/edit">Identity & Access Management &gt; Add or remove roles</a>.</p>
+                    </fieldset>
+                ) : null
+            }
 
-		<fieldset>
-			<legend>Tags</legend>
-			<label for="form-contributors-tags">Tags (comma-separated):</label>
-			<input type="text" id="form-contributors-tags" name="tags" value={joined(contributor?.tags)} />
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-tags-edittarget" name="tags-edittarget" />
-					<label for="form-contributors-tags-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            <fieldset>
+                <legend>Active Status</legend>
+                <select id="form-contributors-active" name="active">
+                    <option value="true" selected={contributor?.active === true}>Active</option>
+                    <option value="false" selected={contributor ? contributor.active === false : true}>Inactive</option>
+                </select>
+                <p class="general-warning">Active status is used to determine authorization status. Marking a contributor, including yourself, as inactive will prevent you from editing the database.</p>
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-active-edittarget" name="active-edittarget" />
+                        <label for="form-contributors-active-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
 
-		<fieldset>
-			<legend>Active Status</legend>
-			<select id="form-contributors-active" name="active">
-				<option value="true" selected={contributor?.active === true}>Active</option>
-				<option value="false" selected={contributor ? contributor.active === false : true}>Inactive</option>
-			</select>
-			<p class="general-warning">Active status is used to determine authorization status. Marking a contributor, including yourself, as inactive will prevent you from editing the database.</p>
-			{
-				patch ? (
-					<input type="checkbox" id="form-contributors-active-edittarget" name="active-edittarget" />
-					<label for="form-contributors-active-edittarget">Edit this field</label>
-				) : null
-			}
-		</fieldset>
+            {
+                // admin status is not part of the partial (PATCH) interface; manage it in IAM instead
+                show_auth && !patch ? (
+                    <fieldset>
+                        <legend>Admin</legend>
+                        <p class="general-infohelp">Administrator status allows users to bypass lockouts preventing modification of contributions by others and provides authorization to several site management facilities. You do not need administrator status to make contributions or manage your past work.</p>
+                        <select id="form-contributors-admin" name="admin">
+                            <option value="true" selected={contributor?.admin === true}>True</option>
+                            <option value="false" selected={contributor ? contributor.admin === false : true}>False</option>
+                        </select>
+                        <p class="general-warning">Admin status is used to determine authorization status. If you are an administrator and mark yourself as not, you will lose access to administrator permissions and cannot regain access without outside help.</p>
+                        <p class="general-infohelp">Administrator status can also be modified in <a href="/admin/iam">Identity & Access Management</a>.</p>
+                    </fieldset>
+                ) : null
+            }
+        </div>
+        )
+        }
 
-		{
-			// admin status is not part of the partial (PATCH) interface; manage it in IAM instead
-			show_auth && !patch ? (
-				<fieldset>
-					<legend>Admin</legend>
-					<p class="general-infohelp">Administrator status allows users to bypass lockouts preventing modification of contributions by others and provides authorization to several site management facilities. You do not need administrator status to make contributions or manage your past work.</p>
-					<select id="form-contributors-admin" name="admin">
-						<option value="true" selected={contributor?.admin === true}>True</option>
-						<option value="false" selected={contributor ? contributor.admin === false : true}>False</option>
-					</select>
-					<p class="general-warning">Admin status is used to determine authorization status. If you are an administrator and mark yourself as not, you will lose access to administrator permissions and cannot regain access without outside help.</p>
-					<p class="general-infohelp">Administrator status can also be modified in <a href="/admin/iam">Identity & Access Management</a>.</p>
-				</fieldset>
-			) : null
-		}
+        <div class="form-section">
+            <h3 class="form-section-title">Tags</h3>
+            <fieldset>
+                <legend>Tags</legend>
+                <label for="form-contributors-tags">Tags (comma-separated):</label>
+                <input type="text" id="form-contributors-tags" name="tags" value={joined(contributor?.tags)} />
+                {
+                    patch ? (
+                        <input type="checkbox" id="form-contributors-tags-edittarget" name="tags-edittarget" />
+                        <label for="form-contributors-tags-edittarget">Edit this field</label>
+                    ) : null
+                }
+            </fieldset>
+        </div>
 
-		{
-			show_elevate ? (
-				<fieldset>
-					<legend>Administrator Escalation</legend>
-					<input type="checkbox" id="form-contributors-elevate" name="elevate" />
-					<label for="form-contributors-elevate">Use administrator escalation for this operation</label>
-					<p class="general-warning">Escalation bypasses row-level security and protected property checks for contributor records other than your own. Proceed with caution.</p>
-				</fieldset>
-			) : null
-		}
+        {
+            show_elevate ? (
+                <div class="form-section">
+                    <h3 class="form-section-title">Administrative Options</h3>
+                    <fieldset>
+                        <legend>Administrator Escalation</legend>
+                        <input type="checkbox" id="form-contributors-elevate" name="elevate" />
+                        <label for="form-contributors-elevate">Use administrator escalation for this operation</label>
+                        <p class="general-warning">Escalation bypasses row-level security and protected property checks for contributor records other than your own. Proceed with caution.</p>
+                    </fieldset>
+                </div>
+            ) : null
+        }
 
-		<button type="submit">Submit</button>
-	</form>
+        <button type="submit">Submit</button>
+    </form>
 </div>
+<script>
+    // auto-check each field's "Edit this field" checkbox when the field is edited (patch/edit pages only;
+    // a no-op on create and self-service profile pages, which render no edit-target checkboxes)
+    import { enableEditTargetOnChange } from "../../scripts/interface"
+    const contributor_form = document.getElementById("generic-form-contributors")
+    if (contributor_form instanceof HTMLFormElement) enableEditTargetOnChange(contributor_form)
+</script>

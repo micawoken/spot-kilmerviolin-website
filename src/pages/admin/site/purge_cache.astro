@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
@@ -10,10 +11,10 @@ export const prerender = false
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Purge Cache`} description="Purge the site's database cache"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Purge the Database Cache</h2>
     <p class="general-infohelp">Purging removes all cached database records, so visitors see database changes immediately. Until the cache repopulates, requests are served directly from the database, which is slower and consumes daily read limits.</p>
     <button type="button" id="site-purge-button">Purge cache</button>

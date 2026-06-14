@@ -218,13 +218,14 @@ export function canAct(record: CompositionRecord, new_record: Partial<Compositio
         // no identity asserted
         return false
     }
-    if (record.contrib_primary_1 === acting_identity.id || record.contrib_primary_2 === acting_identity.id) {
-        // primary contributor
+    if (use_admin && acting_identity.admin) {
+        // admin bypasses lockout entirely, including the co-primary protection below
         return true
     }
-    if (use_admin && acting_identity.admin) {
-        // admin bypasses lockout
-        return true
+    if (record.contrib_primary_1 === acting_identity.id || record.contrib_primary_2 === acting_identity.id) {
+        // a primary contributor may edit, but may not modify or remove a *defined, non-self* co-primary
+        // (filling an empty second slot, e.g. adding a co-primary through the first, remains allowed)
+        return !modifiesProtectedPrimary(record, new_record, acting_identity.id)
     }
     // the user is not an admin and isn't a primary contributor
     // for the operation to proceed, it cannot modify the columns relevant to the lockout system, i.e. the primary contributor columns
@@ -235,4 +236,98 @@ export function canAct(record: CompositionRecord, new_record: Partial<Compositio
     }
     // operation is by non-admin but doesn't modify lockout; proceed
     return true
+}
+
+/**
+ * Detects whether a proposed update modifies or removes a primary contributor slot that currently
+ * holds a defined contributor other than the acting user. Filling an empty (null) slot and leaving a
+ * slot unchanged are both permitted; changing or clearing a non-self contributor is not.
+ *
+ * @param {CompositionRecord} record - the current database record
+ * @param {Partial<Composition>} new_record - the proposed (possibly partial) update in API format
+ * @param {number} self - the acting user's contributor id
+ * @returns {boolean} - true if the update touches a protected (defined, non-self) primary slot
+ */
+function modifiesProtectedPrimary(record: CompositionRecord, new_record: Partial<Composition>, self: number): boolean {
+    const slots: ("contrib_primary_1" | "contrib_primary_2")[] = ["contrib_primary_1", "contrib_primary_2"]
+    return slots.some(slot => {
+        if (!(slot in new_record)) {
+            // the slot is not part of this update; it cannot be modified
+            return false
+        }
+        const current = record[slot]
+        // only a defined contributor other than the acting user is protected
+        if (current === null || current === undefined || current === self) {
+            return false
+        }
+        // protected slot: any change away from its current value is a modify/remove
+        return new_record[slot] !== current
+    })
+}
+
+/**
+ * Returns whether a non-blank, asserted contributor id is held by the acting identity
+ *
+ * @param {number | null | undefined} id - the identity's contributor id
+ * @returns {boolean} - true if the id is a valid (asserted) contributor id, false otherwise
+ */
+function hasContributorId(id: number | null | undefined): id is number {
+    // an unenrolled identity carries id -1 (see buildIdentity); treat that, null, and undefined as "no id"
+    return id !== null && id !== undefined && id !== -1
+}
+
+/**
+ * Enforces the create-time authorization rule for compositions: a non-admin may only create a
+ * composition on which they are themselves a primary contributor, while an admin (when use_admin is
+ * set) may name any registered users as primaries
+ *
+ * @param {Composition} record - the proposed composition record
+ * @param {Identity} acting_identity - the identity of the acting user, assumed to be valid
+ * @param {boolean} use_admin - whether to allow review of admin status
+ * @returns {boolean} - whether the user is allowed to create the proposed record
+ */
+export function canCreate(record: Composition, acting_identity: Identity, use_admin: boolean = true): boolean {
+    if (!hasContributorId(acting_identity?.id)) {
+        // no enrolled identity asserted; cannot be a primary contributor
+        return false
+    }
+    if (use_admin && acting_identity.admin) {
+        // admins may create compositions naming any registered users as primaries
+        return true
+    }
+    // non-admins must name themselves as one of the primary contributors
+    return record.contrib_primary_1 === acting_identity.id || record.contrib_primary_2 === acting_identity.id
+}
+
+/**
+ * Computes the additional-contributor list that records the acting user as a contributor when they
+ * edit a composition without being one of its primaries (the effective primaries are the proposed
+ * ones when the update changes them, else the current record's)
+ *
+ * Returns null when no change is needed: the acting user is unenrolled, is an effective primary, or
+ * is already present in the additional-contributor list.
+ *
+ * @param {CompositionRecord} current - the current database record
+ * @param {Partial<Composition>} proposed - the proposed (possibly partial) update in API format
+ * @param {Identity} acting_identity - the identity of the acting user
+ * @returns {number[] | null} - the updated contrib_addl list, or null if no change is needed
+ */
+export function withActingContributor(current: CompositionRecord, proposed: Partial<Composition>, acting_identity: Identity): number[] | null {
+    if (!hasContributorId(acting_identity?.id)) {
+        return null
+    }
+    const self = acting_identity.id
+    const effective_primary_1 = "contrib_primary_1" in proposed ? proposed.contrib_primary_1 : current.contrib_primary_1
+    const effective_primary_2 = "contrib_primary_2" in proposed ? proposed.contrib_primary_2 : current.contrib_primary_2
+    if (self === effective_primary_1 || self === effective_primary_2) {
+        // the editor is already a primary contributor; nothing to record
+        return null
+    }
+    // base on the proposed list when the update sets it, else carry the current record's list forward
+    const base = "contrib_addl" in proposed && Array.isArray(proposed.contrib_addl) ? proposed.contrib_addl : current.contrib_addl
+    if (base.includes(self)) {
+        // the editor is already recorded as an additional contributor
+        return null
+    }
+    return [...base, self]
 }

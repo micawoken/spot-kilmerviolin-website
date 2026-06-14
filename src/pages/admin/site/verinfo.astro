@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
@@ -15,10 +16,10 @@ const info = verinfo(Astro.request)
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Info`} description="View site build and environment information"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Site Information</h2>
     <h3>Build</h3>
     <ul class="entity-result-details">

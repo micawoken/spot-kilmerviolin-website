@@ -44,7 +44,7 @@ export const composer_interface: Record<string, FieldPair> = {
     "name": ["string", false],
     "birth_year": ["number", false],
     "death_year": ["number", false],
-    "country": ["string", false],
+    "country": ["country", false], // ISO 3166-1 alpha-2 code, validated/normalized by argParse
     "bio": ["string", true],
     "image": ["string", true],
     "role": ["string", false],
@@ -79,6 +79,22 @@ export const contributor_interface_partial: Record<string, FieldPair> = {
     "phases": ["number[]?", true],
     "tags": ["string[]", true],
     "active": ["boolean", false]
+}
+
+// The self-service profile editor's field set: the non-protected, non-authorization contributor
+// properties a user may freely edit on their own record (no identity_email, roles, admin, or active).
+// All fields are rendered together and submitted as a partial (PATCH) without per-field edit targets,
+// so this form is generated in non-patch mode (every listed field is sent on each save). The identity
+// (sign-in) email is changed separately via PATCH /api/v1/identity/self.
+export const contributor_interface_profile: Record<string, FieldPair> = {
+    "name": ["string", false],
+    "class_year": ["number", true],
+    "major": ["string", true],
+    "bio": ["string", true],
+    "public_email": ["string", true],
+    "image": ["string", true],
+    "phases": ["number[]?", true],
+    "tags": ["string[]", true]
 }
 
 export const composition_interface: Record<string, FieldPair> = {
@@ -118,6 +134,10 @@ export const interface_data: Record<string, {
     },
     "contributor_partial": {
         interface: contributor_interface_partial,
+        name: "contributor"
+    },
+    "contributor_profile": {
+        interface: contributor_interface_profile,
         name: "contributor"
     },
     "composition": {

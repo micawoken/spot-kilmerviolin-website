@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
@@ -10,10 +11,10 @@ export const prerender = false
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add User`} description="Add a new user to the access policy"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Add a New User</h2>
     <p class="general-infohelp">Adding a user grants them access to log in. Optionally, a contributor record can be created for them automatically (auto-enrollment); otherwise, they can self-enroll on first login if self-enrollment is enabled.</p>
     <div class="generic-form">

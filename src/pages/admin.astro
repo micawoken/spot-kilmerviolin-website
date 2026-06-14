@@ -1,6 +1,7 @@
 ---
 console.log("starting")
 import BaseHead from "../components/BaseHead.astro"
+import AdminHead from "../components/AdminHead.astro"
 import AdminHeader from "../components/AdminHeader.astro"
 import AdminFooter from "../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../consts"
@@ -19,11 +20,11 @@ console.log("pulled", identity)
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Home`} description="Project administrative services"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
     <!-- Header -->
-    <AdminHeader identity={identity} welcome="true"/>
+    <AdminHeader identity={identity} welcome={true}/>
     <!-- if enrollable, show enroll button -->
      { identity !== null ? (
         identity.enrollable ? (
@@ -82,16 +83,19 @@ console.log("pulled", identity)
         <div class="column">
             <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>
             <ul>
-                <li><a href="/admin/iam/whoami" class="col-item-link">View my user authorization info</a></li>
+                <li><a href="/admin/iam/whoami" class="col-item-link">My authorization info</a></li>
                 <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
                 <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
                 <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
+                <li><a href="/admin/iam/activate" class="col-item-link">Activate user account</a></li>
+                <li><a href="/admin/iam/deactivate" class="col-item-link">Deactivate user account</a></li>
                 <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
             </ul>
         </div>
         <div class="column">
             <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
             <ul>
+                <li><a href="/admin/search" class="col-item-link">Search database</a></li>
                 <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
                 <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
                 <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>

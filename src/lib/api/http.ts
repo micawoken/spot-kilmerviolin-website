@@ -124,7 +124,7 @@ export const error_http = `<!DOCTYPE html>
         <p>Please do not repeat this request.</p>
     </div>
     <div class="global body">
-        <p><a href="javascript:history.back()">Back</a> | <a href="/">Home</a></p>
+        <p><a href="/" onclick="event.preventDefault(); history.back();">Back</a> | <a href="/">Home</a></p>
     </div>
     <div class="global body">
         <p>Need to report a security concern? Contact the webmaster at <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.</p>

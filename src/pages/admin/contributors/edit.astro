@@ -1,9 +1,11 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import ContributorForm from "../../../components/entities/ContributorForm.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
+import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { CONTRIBUTOR } from "../../../lib/api/d1"
@@ -36,17 +38,18 @@ const hidden_form = use_id && contributor_data ? true : false
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Contributor`} description="Edit an existing contributor in the database"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Edit a Contributor</h2>
     <p class="general-infohelp">You may edit your own contributor record. Editing other records, or protected properties (identity email, active status, phases), requires administrator escalation. Roles and administrator status are managed in <a href="/admin/iam">Identity & Access Management</a>.</p>
     <IDEntryForm output_div={"generic-form-contributors"} hidden={hidden_form} show_elevate={is_admin} />
+    <KeywordSearchBox id_prefix="entity-search" label="Or search by keyword" hidden={hidden_form} />
     <ContributorForm required={false} hidden={!hidden_form} contributor={use_id ? contributor_data : null} patch={true} show_auth={true} show_elevate={is_admin} />
     <p id="transaction-status">Your request status will show here after you press "Submit".</p>
     <script>
-        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError, attachKeywordSearch } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
         // patch in editing/updating form (partial edits via PATCH)
         const edit_form = getForm("contributor_partial", APIOpCode.UPDATE_PARTIAL)
@@ -67,11 +70,15 @@ const hidden_form = use_id && contributor_data ? true : false
                 prefillForm("contributor_partial", record)
                 document.getElementById("generic-form-contributors")?.classList.remove("hidden")
                 document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+                // hide both lookup methods once a record is loaded for editing (the keyword box otherwise lingers)
+                document.getElementById("entity-search-container")?.classList.add("hidden")
             } catch (error) {
                 console.error(error)
                 emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
             }
         })
+        // keyword lookup scoped to contributors; clicking a hit loads it via this page's ?id= SSR flow (admin-only prefill)
+        attachKeywordSearch("entity-search-input", "entity-search-button", "entity-search-results", () => "contributors", (result) => `${location.pathname}?id=${result.id}`)
     </script>
     <AdminFooter />
 </body>

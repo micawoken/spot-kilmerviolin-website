@@ -52,8 +52,10 @@ interface AdminPageNode {
  * inherit that section's requirement (fail closed), and unlisted pages elsewhere are open.
  */
 const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
-    // all site management is administrator-only
-    site: { requirement: { admin: true, roles: [] } },
+    // 
+    site: { // any authorized user may perform site management operations
+        requirement: { admin: false, roles: [] },    
+    },
     advanced: {
         children: {
             command: { requirement: { admin: true, roles: [] } },
@@ -70,6 +72,8 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             add: { requirement: { admin: true, roles: ["user_addition"] } },
             list: { requirement: { admin: true, roles: ["user_addition"] } },
             remove: { requirement: { admin: true, roles: ["user_addition"] } },
+            activate: { requirement: { admin: true, roles: [] } }, // endpoint and method requires admin
+            deactivate: { requirement: { admin: true, roles: []} },
             // whoami: open (no requirement) — shows the caller their own authorization info
         },
     },

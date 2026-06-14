@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
@@ -13,10 +14,10 @@ const is_admin = Astro.locals.identity?.admin === true
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete Composition`} description="Delete a composition from the database"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Delete a Composition</h2>
     <p class="general-warning">Deletion is permanent. Only the primary contributors of a composition (or users with the reviewer role) may delete it. Administrators may use elevation to bypass this lockout.</p>
     <IDEntryForm output_div={undefined} hidden={false} show_elevate={is_admin} />

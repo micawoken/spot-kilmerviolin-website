@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../components/BaseHead.astro"
+import AdminHead from "../../components/AdminHead.astro"
 import AdminFooter from "../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 
@@ -10,7 +11,7 @@ const date = new Date()
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Project License`} description="View project license information"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
     <h1>Project License</h1>
@@ -33,7 +34,6 @@ const date = new Date()
     <h2>License</h2>
     <p>Project data from the contributors is licensed for use in this project by pre-existing arrangements and under the <a href="/terms-of-use">Terms of Use</a>.</p>
     <p>Disputes over copyrights of project data should be directed to contact@TBDTBDTBDTBDTBD.com</p>
-    <br>
     <p>Website source code is licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU General Public License, version 3 or later</a>.</p>
     <p class="general-helpinfo">The license is available in LICENSE.md, available from the repository, and the text of the license is accessible at the earlier link.</p>
     <p>This license and the following additional terms apply to the website source code. You agree to this license when you are conveyed a copy of the source code, which will most likely occur when you are granted access to the project's online repository on GitHub. You do not agree to a license by interacting with this website over the Internet, and you are not subject to the license's terms and conditions until you receive a copy of the source code.</p>

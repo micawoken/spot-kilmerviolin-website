@@ -1,5 +1,6 @@
 ---
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
@@ -11,10 +12,10 @@ export const prerender = false
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete Contributor`} description="Delete a contributor from the database"/>
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <h2>Delete a Contributor</h2>
     <p class="general-warning">Deletion is permanent and requires administrator permissions. You cannot delete your own record. Consider deactivating the contributor instead via <a href="/admin/iam/remove">Identity & Access Management &gt; Delete user</a>.</p>
     <IDEntryForm output_div={undefined} hidden={false} />

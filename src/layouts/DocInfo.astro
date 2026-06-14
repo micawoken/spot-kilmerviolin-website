@@ -1,6 +1,7 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 import BaseHead from '../components/BaseHead.astro';
+import AdminHead from '../components/AdminHead.astro';
 import AdminHeader from '../components/AdminHeader.astro';
 import AdminFooter from '../components/AdminFooter.astro';
 import { ADMIN_PAGE_TITLE_PRFX } from '../consts';
@@ -15,7 +16,7 @@ const { title, description, author } = Astro.props;
 <html lang="en">
 <head>
     <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Documentation: ${title}`} description={description} />
-    <meta name="robots" content="noindex" />
+    <AdminHead />
 </head>
 <body>
     <!-- Header -->

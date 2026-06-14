@@ -9,9 +9,9 @@ import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
-import { addComposition, deleteComposition, getComposition, listCompositions, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
+import { addComposition, attachCompositionNames, deleteComposition, getComposition, listCompositions, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
 import { getRecord, _stateTypeAssertCompleteComposition, COMPOSITION, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
-import { canAct, canModify, requires } from "../../../../lib/api/authorize"
+import { canAct, canModify, requires, withActingContributor } from "../../../../lib/api/authorize"
 import { authEnabled } from "../../../../lib/api/environment"
 
 /**
@@ -19,10 +19,14 @@ import { authEnabled } from "../../../../lib/api/environment"
  * Returns the composition record for the specified ID
  * 
  * Permissions required: none
- * 
- * Meta: none
+ *
+ * Meta: optional
+ * Meta fields:
+ *  - names: {boolean} if true, the record is returned as a CompositionWithNames object ({ object, names })
+ *    with the referenced composer_name and author_secondary_names resolved; off by default
+ *
  * Body: none
- * 
+ *
  * @param {APIContext} context - the Astro API context
  * @returns {Response} a Response object with payload of the composition record
  */
@@ -33,7 +37,15 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // api parsing not needed since no meta or body
+    // parse api request; meta is optional and only the "names" field is honored
+    const api_request = await parseAPIRequest(request, [])
+    if (api_request instanceof Error) {
+        return constructResponse(request, null, 400, api_request.message)
+    }
+    const names_flag = api_request.meta?.names
+    if (names_flag !== undefined && typeof names_flag !== "boolean") {
+        return constructResponse(request, null, 400, "Invalid value for meta field 'names': must be a boolean")
+    }
     const state_id = Number(params.id)
     if (isNaN(state_id)) {
         return constructResponse(request, null, 400, "Invalid composition ID: must be a number")
@@ -42,6 +54,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         const d1_record = await getComposition(context.locals.cfContext, "composition_id", state_id.toString())
         if (d1_record === null) {
             return constructResponse(request, null, 404)
+        }
+        // optionally pair the record with its resolved composer names
+        if (names_flag === true) {
+            const [enhanced] = await attachCompositionNames(context.locals.cfContext, [d1_record])
+            return constructResponse(request, enhanced, 200)
         }
         return constructResponse(request, d1_record, 200)
     } catch (error) {
@@ -59,7 +76,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: optional
  * Meta fields:
  *  - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
- * 
+ *  - direct_contrib: {boolean} if true, the caller is managing contributors directly; the editor is not auto-added to contrib_addl
+ *
  * Body: required, shape of Composition
  * 
  * @param {APIContext} context - the Astro API context
@@ -104,6 +122,13 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
                 return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
             }
         }
+        // record the editor as an additional contributor unless they are managing contributors directly
+        if (api_request.meta?.direct_contrib !== true) {
+            const merged = withActingContributor(current_record, record, locals.identity!)
+            if (merged !== null) {
+                record.contrib_addl = merged
+            }
+        }
         // perform update
         await updateComposition(context.locals.cfContext, Number(params.id), record)
         return constructResponse(request, null, 204)
@@ -123,7 +148,8 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  * Meta: optional
  * Meta fields:
  * - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
- * 
+ * - direct_contrib: {boolean} if true, the caller is managing contributors directly; the editor is not auto-added to contrib_addl
+ *
  * Body: required, shape of Partial<Composition>
  * 
  * @param {APIContext} context - the Astro API context
@@ -163,6 +189,13 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             }
             if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
                 return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+            }
+        }
+        // record the editor as an additional contributor unless they are managing contributors directly
+        if (api_request.meta?.direct_contrib !== true) {
+            const merged = withActingContributor(current_record, record, locals.identity!)
+            if (merged !== null) {
+                record.contrib_addl = merged
             }
         }
         // perform update
