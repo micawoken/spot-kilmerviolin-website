@@ -4,15 +4,20 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
-import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
 import ComposerInfo from "../../../components/entities/ComposerInfo.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { COMPOSER } from "../../../lib/api/d1"
 import { getComposer } from "../../../lib/api/database"
-import { formatCompFromD1 } from "../../../lib/api/common"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
 export const prerender = false
+
+// authorize before the direct (API-bypassing) database read below
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
 
 // SSR is used if an ID is specified as a query param; otherwise, we'll load the client-side JS and ID entry
 // check if an id query param exists
@@ -20,18 +25,17 @@ const id = Astro.url.searchParams.get("id")
 let use_id: boolean = false
 let composer_data: ComposerRecord | null = null
 if (id) {
-    console.log("ID query param found:", id)
-    // id param exists and is valid
-    composer_data = await getComposer(Astro.locals.cfContext, COMPOSER.primary_key, id)
+    // id param exists; a missing composers table surfaces the missing-table fallback page
+    const result = await guardedRead(() => getComposer(Astro.locals.cfContext, COMPOSER.primary_key, id))
+    if (result instanceof Response) {
+        return result
+    }
+    composer_data = result
     if (!composer_data) {
         console.warn(`No composer found with ID ${id}, falling back to client-side ID entry`)
     } else {
         use_id = true
     }
-}
-
-if (use_id && composer_data) {
-    console.log("Composer data fetched for ID from query param:", composer_data)
 }
 
 ---
@@ -43,9 +47,9 @@ if (use_id && composer_data) {
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>View a Composer</h2>
-    <IDEntryForm output_div={undefined} hidden={use_id} />
-    <KeywordSearchBox id_prefix="entity-search" label="Or search by keyword" hidden={use_id} />
+    <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
     <ComposerInfo composer={use_id ? composer_data as ComposerRecord : null} hidden={!use_id} />
     <p id="transaction-status">{use_id ? "Composer data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
     {
@@ -58,18 +62,19 @@ if (use_id && composer_data) {
         ) : null
     }
     <script>
-        import { getForm, genHandler, getTransactionElem, attachKeywordSearchInline } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
+        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
         const form_or_button = getForm("composer", APIOpCode.READ)
-        console.log("Form or button element obtained for composers read operation:", form_or_button)
         form_or_button.addEventListener((form_or_button instanceof HTMLFormElement) ? "submit" : "click", genHandler(form_or_button, getTransactionElem(), APIOpCode.READ, "composer"))
         // keyword lookup scoped to composers; selecting a hit loads it on-page via the same READ flow as the ID entry form
-        attachKeywordSearchInline("entity-search-input", "entity-search-button", "entity-search-results", () => "composers", (result) => {
+        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "composers", (result) => {
             const id_input = document.getElementById("form-id-entry-id")
             if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
             form_or_button.requestSubmit()
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

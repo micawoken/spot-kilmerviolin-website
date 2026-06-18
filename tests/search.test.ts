@@ -15,7 +15,7 @@ import { searchComposers, searchCompositions, searchContributors } from "../src/
 // minimal record factories — only the columns the search reads need to be present; the rest are
 // filled loosely and cast, since the search functions never touch them
 function composer(id: number, fields: Partial<ComposerRecord>): ComposerRecord {
-    return { id, name: "", role: "composer", birth_year: 1900, death_year: -1, country: "", bio: "", image: null, tags: [], entry_date: "", ...fields } as ComposerRecord
+    return { id, name: "", role: "composer", birth_year: 1900, death_year: -1, country: "", bio: "", image: null, tags: [], entry_date: "", change_date: "", ...fields } as ComposerRecord
 }
 function contributor(id: number, fields: Partial<ContributorRecord>): ContributorRecord {
     return { id, name: "", bio: null, major: null, roles: [], tags: [], ...fields } as unknown as ContributorRecord

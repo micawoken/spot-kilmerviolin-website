@@ -8,7 +8,6 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 export const prerender = false
 
 const locals = Astro.locals
-const date = new Date()
 
 const identity = locals.identity
 ---
@@ -21,18 +20,18 @@ const identity = locals.identity
 <body>
     <!-- Header -->
     <AdminHeader identity={identity}  welcome={true}/>
+    <main class="admin-main" role="main">
     <!-- Pages for IAM, site info/mgmt, and advanced -->
     <div class="flex-container">
         <div class="column">
             <h2><a href="/admin/advanced" class="col-header-link">Advanced Options</a></h2>
             <ul>
-                <li><a href="/admin/advanced/elevate" class="col-item-link">Promote user to administrator</a></li>
-                <li><a href="/admin/advanced/demote" class="col-item-link">Demote user from administrator</a></li>
                 <li><a href="/admin/advanced/command" class="col-item-link">Access database terminal</a></li>
                 <li><a href="/admin/advanced/selfenroll" class="col-item-link">View self-enrollment flow</a></li>
             </ul>
         </div>
     </div>
+    </main>
     <AdminFooter />
 </body>
 </html>

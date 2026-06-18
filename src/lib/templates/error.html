@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <meta name="color-scheme" content="light dark">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <title>{errorCode} {errorName}</title>
+    <!--
+      Self-contained styles. This page is the worker's generic error fallback (served by both
+      middlewareErrorResponder and constructErrorPage in src/lib/api/http.ts) and cannot render the
+      Astro admin components, so the admin look — the light-dark() color tokens from styles/global.css,
+      the self-hosted Inter typeface, and the AdminFooter sticky-footer anchoring — is reproduced inline
+      rather than linked, so the page always styles correctly even when other assets are unavailable.
+    -->
+    <style>
+        @font-face {
+            font-family: "Inter";
+            src: url("/fonts/InterVariable.woff2") format("woff2");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        /* Admin color tokens (mirrors :root in styles/global.css) so the error page tracks the same
+           light/dark palette as the admin pages. */
+        :root {
+            color-scheme: light dark;
+            --color-bg: light-dark(#ffffff, #1a1a1a);
+            --color-text: light-dark(#222222, #e6e6e6);
+            --color-text-secondary: light-dark(#333333, #c8c8c8);
+            --color-text-muted: light-dark(#666666, #a0a0a0);
+            --color-link: light-dark(#2337ff, #ff9e5e);
+            --color-link-hover: light-dark(#000d8a, #ffb784);
+            --shade-3: light-dark(#dddddd, #383838);
+            --shade-6: light-dark(#999999, #6f6f6f);
+            --shade-7: light-dark(#888888, #8a8a8a);
+        }
+
+        /* Sticky footer: a full-height flex column so the footer is pushed to the bottom of the viewport
+           on short pages (this page is always short) while flowing naturally below longer content.
+           Mirrors the AdminFooter body rules. */
+        body {
+            font-family: "Inter", Helvetica, Arial, system-ui, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+            padding: 16px;
+            box-sizing: border-box;
+            line-height: 1.5;
+        }
+        body > footer {
+            margin-top: auto;
+        }
+
+        a {
+            color: var(--color-link);
+        }
+        a:hover {
+            color: var(--color-link-hover);
+        }
+        /* Visible keyboard focus indicator for accessibility. */
+        a:focus-visible {
+            outline: 2px solid var(--color-link);
+            outline-offset: 2px;
+        }
+
+        h1, h2 {
+            margin-block: 0 0.5rem;
+            line-height: 1.2;
+        }
+
+        /* Header banner echoes the AdminHeader "Administrative Services" branding without taking the
+           page's single <h1> (which names the error), keeping a correct heading hierarchy. */
+        header .site-name {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+        }
+        header .site-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+        header .site-name a:hover {
+            text-decoration: underline;
+        }
+        header {
+            border-bottom: 1px solid var(--shade-3);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        main {
+            flex: 1 0 auto;
+        }
+        .error-code {
+            font-size: 2rem;
+        }
+        .error-actions {
+            margin-top: 1.5rem;
+        }
+        .error-sep {
+            color: var(--shade-6);
+            margin: 0 0.5rem;
+        }
+
+        footer {
+            border-top: 1px solid var(--shade-3);
+            padding-top: 0.75rem;
+            margin-top: 1.5rem;
+            font-size: 0.9em;
+            color: var(--color-text-secondary);
+        }
+        footer p {
+            margin: 0.4rem 0;
+        }
+        footer p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Skip link: visually hidden until focused, then revealed at the top-left. */
+        .skip-link {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            background: var(--color-bg);
+            color: var(--color-link);
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--shade-7);
+            border-radius: 4px;
+        }
+        .skip-link:focus {
+            left: 0.5rem;
+            top: 0.5rem;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#error-main">Skip to content</a>
+    <header role="banner">
+        <p class="site-name"><a href="/" rel="home">Administrative Services</a></p>
+    </header>
+    <main id="error-main">
+        <h1 class="error-code">{errorCode} {errorName}</h1>
+        <p>{errorDescription}</p>
+        <p>Please do not repeat this request.</p>
+        <nav class="error-actions" aria-label="Error page navigation">
+            <a href="/" onclick="event.preventDefault(); history.back();">Back</a>
+            <span class="error-sep" aria-hidden="true">|</span>
+            <a href="/" rel="home">Home</a>
+        </nav>
+    </main>
+    <footer role="contentinfo">
+        <p>Need to report a security concern? Contact the webmaster at <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.</p>
+        <p>Administrative services are &copy; <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU GPLv3 and additional terms</a>.</p>
+    </footer>
+</body>
+</html>

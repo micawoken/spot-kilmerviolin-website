@@ -7,11 +7,11 @@
 
 import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
+import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
-import { addComposition, attachCompositionNames, deleteComposition, getComposition, listCompositions, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
-import { getRecord, _stateTypeAssertCompleteComposition, COMPOSITION, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
-import { canAct, canModify, requires, withActingContributor } from "../../../../lib/api/authorize"
+import { attachCompositionNames, deleteComposition, getComposition, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
+import { _stateTypeAssertCompleteComposition, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
+import { canAct, canModify, withActingContributor } from "../../../../lib/api/authorize"
 import { authEnabled } from "../../../../lib/api/environment"
 
 /**
@@ -23,12 +23,12 @@ import { authEnabled } from "../../../../lib/api/environment"
  * Meta: optional
  * Meta fields:
  *  - names: {boolean} if true, the record is returned as a CompositionWithNames object ({ object, names })
- *    with the referenced composer_name and author_secondary_names resolved; off by default
+ *    with the referenced composer and contributor names resolved; off by default
  *
  * Body: none
  *
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the composition record
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the composition record
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -55,12 +55,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (d1_record === null) {
             return constructResponse(request, null, 404)
         }
+        // change_date carries the record's last-modified time; surface it as the Last-Modified header
+        const last_modified = lastModifiedHeader(d1_record)
         // optionally pair the record with its resolved composer names
         if (names_flag === true) {
             const [enhanced] = await attachCompositionNames(context.locals.cfContext, [d1_record])
-            return constructResponse(request, enhanced, 200)
+            return constructResponse(request, enhanced, 200, undefined, last_modified)
         }
-        return constructResponse(request, d1_record, 200)
+        return constructResponse(request, d1_record, 200, undefined, last_modified)
     } catch (error) {
         return constructResponseErrorHook(request, error, 404)
     }
@@ -80,8 +82,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Body: required, shape of Composition
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the updated composition record
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the updated composition record
  */
 export const PUT: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -133,7 +135,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         await updateComposition(context.locals.cfContext, Number(params.id), record)
         return constructResponse(request, null, 204)
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }
@@ -152,8 +154,8 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  *
  * Body: required, shape of Partial<Composition>
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the updated composition record
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the updated composition record
  */
 export const PATCH: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -202,7 +204,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         await updateCompositionPartial(context.locals.cfContext, Number(params.id), record)
         return constructResponse(request, null, 204)
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }
@@ -219,8 +221,8 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
  * 
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with no payload
+ * @param context - the Astro API context
+ * @returns a Response object with no payload
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -250,7 +252,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         await deleteComposition(context.locals.cfContext, Number(params.id))
         return constructResponse(request, null, 204)
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }

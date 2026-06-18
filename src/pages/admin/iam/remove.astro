@@ -15,6 +15,7 @@ export const prerender = false
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Delete a User</h2>
     <p class="general-warning">Removing a user revokes their ability to log in. By default, their contributor record is also deactivated (but not deleted).</p>
     <div class="generic-form">
@@ -63,6 +64,7 @@ export const prerender = false
             }
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

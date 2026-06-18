@@ -9,7 +9,7 @@ import type { APIRoute } from "astro";
 import { parseAPIRequest } from "../../../../lib/api/common"
 import { auth_check } from "../../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
-import { finishUser, changeLoginEmail } from "../../../../lib/public/usermgmt"
+import { finishUser, changeLoginEmail, deactivateUser } from "../../../../lib/public/usermgmt"
 import { _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
 
 /**
@@ -21,8 +21,8 @@ import { _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object containing the Identity object
+ * @param context - the Astro API context
+ * @returns a Response object containing the Identity object
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -44,8 +44,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, JSON array containing one partial Contributor record with properties: name (required), major, class_year (optional; omitted or null values are stored as null)
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object containing the contributor ID if enrollment is successful, or an error message if enrollment fails
+ * @param context - the Astro API context
+ * @returns a Response object containing the contributor ID if enrollment is successful, or an error message if enrollment fails
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -91,7 +91,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             })
         }
     } catch (error) {
-        console.log("Error during self-enrollment:", error)
+        console.error("Error during self-enrollment:", error)
         return constructResponse(request, null, 500, "Failed to finish user enrollment")
     }
 }
@@ -110,8 +110,8 @@ export const POST: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, JSON array containing one string (the new identity email)
  *
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object
+ * @param context - the Astro API context
+ * @returns a Response object
  */
 export const PATCH: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -145,5 +145,44 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 200)
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Failed to update identity email")
+    }
+}
+
+/**
+ * DELETE /api/v1/identity/self
+ * Deactivate the authenticated user's own contributor record (self-service)
+ *
+ * This is the self-service counterpart to the admin-only deactivation keyed by another user's email
+ * (DELETE /api/v1/identity's activation operation): here the target is always the caller's own record,
+ * derived from the authenticated identity, so no special permissions are required. Deactivation marks the
+ * record inactive — the user keeps the ability to sign in but loses write access (read-only). It does not
+ * remove the user from Cloudflare Access. Idempotent: deactivating an already-inactive record is a no-op.
+ *
+ * Permissions required: none (must be self; an enrollable login without a record is rejected by selfmgmt)
+ *
+ * Meta: none
+ * Body: none
+ *
+ * @param context - the Astro API context
+ * @returns a Response object
+ */
+export const DELETE: APIRoute = async (context): Promise<Response> => {
+    const { request, locals } = context
+    // validate identity (selfmgmt: allows an active or inactive own record, rejects enrollable/no-record)
+    const auth_response = auth_check(request, locals.identity, [], false, "selfmgmt")
+    if (auth_response !== null) {
+        return auth_response
+    }
+    // the deactivation targets the caller's own record; selfmgmt guarantees an allowed (non-enrollable)
+    // identity, but guard the id explicitly (e.g. when authentication is disabled in local development)
+    if (locals.identity === undefined || locals.identity.id === undefined || locals.identity.id === null) {
+        return constructResponse(request, null, 403, "No contributor record is associated with your login")
+    }
+    // mark the caller's own record inactive
+    try {
+        await deactivateUser(locals.cfContext, locals.identity.id)
+        return constructResponse(request, null, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to deactivate your account")
     }
 }

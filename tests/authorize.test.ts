@@ -19,10 +19,10 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest"
-import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
+import { env } from "cloudflare:workers"
 
 import authorize, {
-    roles,
     requires,
     requiresOneOf,
     requiresAllOf,
@@ -51,7 +51,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL
+entry_date TEXT NOT NULL,
+change_date TEXT NOT NULL
 );`
 
 /** Builds an Identity, overriding only the fields a given test cares about. */

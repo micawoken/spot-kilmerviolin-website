@@ -23,70 +23,90 @@ const composer: ComposerRecord | null = Astro.props.composer || null;
 const patch: boolean = Astro.props.patch || false;
 ---
 <div class="generic-form">
-    <form id="generic-form-composers" class=`generic-form${hidden ? " hidden" : ""}`>
+    <form id="generic-form-composers" class=`generic-form${hidden ? " hidden" : ""}` novalidate>
         <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
         <input type="hidden" id="form-composers-id" name="id" value={composer?.id ?? ""} />
 
         <div class="form-section">
             <h3 class="form-section-title">Basic Information</h3>
             <fieldset>
-                <legend>Name</legend>
-                <input type="text" id="form-composers-name" name="name" required={required} value={composer?.name ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
-                        <label for="form-composers-name-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <legend>Name{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field-row">
+                    <input type="text" id="form-composers-name" name="name" required={required} value={composer?.name ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
+                                <label for="form-composers-name-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
-                <legend>Role</legend>
-                <select id="form-composers-role" name="role" required={required}>
-                    <option value="composer" selected={composer !== null ? composer.role === "composer" : true}>Composer</option>
-                    <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}>Arranger</option>
-                </select>
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
-                        <label for="form-composers-role-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <legend>Role{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field-row">
+                    <select id="form-composers-role" name="role" required={required}>
+                        <option value="composer" selected={composer !== null ? composer.role === "composer" : true}>Composer</option>
+                        <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}>Arranger</option>
+                    </select>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
+                                <label for="form-composers-role-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
-                <legend>Country</legend>
-                <input type="text" id="form-composers-country" name="country" required={required} value={composer?.country ?? ""} />
-                <p class="general-infohelp">Countries should be entered as their <a href="https://www.iso.org/obp/ui" target="_blank">ISO 3166-1 Alpha-2 code</a>.</p>
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-country-edittarget" name="country-edittarget" />
-                        <label for="form-composers-country-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <legend>Country{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field-row">
+                    <input type="text" id="form-composers-country" name="country" required={required} value={composer?.country ?? ""} />
+                    <small class="general-infohelp field-inline-help"><a href="https://www.iso.org/obp/ui" target="_blank">ISO 3166-1 Alpha-2 code</a></small>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-country-edittarget" name="country-edittarget" />
+                                <label for="form-composers-country-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
-                <legend>Birth Year</legend>
-                <input type="number" id="form-composers-birth_year" name="birth_year" required={required} value={composer?.birth_year ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-birth_year-edittarget" name="birth_year-edittarget" />
-                        <label for="form-composers-birth_year-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <legend>Birth Year{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field-row">
+                    <input type="number" id="form-composers-birth_year" name="birth_year" required={required} value={composer?.birth_year ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-birth_year-edittarget" name="birth_year-edittarget" />
+                                <label for="form-composers-birth_year-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
-                <legend>Death Year</legend>
-                <input type="number" id="form-composers-death_year" name="death_year" required={required} value={composer?.death_year ?? ""} />
-                <p class="general-infohelp">If the composer is still living, enter <code>-1</code>.</p>
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-death_year-edittarget" name="death_year-edittarget" />
-                        <label for="form-composers-death_year-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <legend>Death Year{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field-row">
+                    <input type="number" id="form-composers-death_year" name="death_year" required={required} value={composer?.death_year ?? ""} />
+                    <small class="general-infohelp field-inline-help">enter <code>-1</code> if living</small>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-death_year-edittarget" name="death_year-edittarget" />
+                                <label for="form-composers-death_year-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
         </div>
 
@@ -97,21 +117,37 @@ const patch: boolean = Astro.props.patch || false;
                 <textarea id="form-composers-bio" name="bio">{composer?.bio ?? ""}</textarea>
                 {
                     patch ? (
-                        <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
-                        <label for="form-composers-bio-edittarget">Edit this field</label>
+                        <div class="field-row field-row-textarea">
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
+                                <label for="form-composers-bio-edittarget">Edit this field</label>
+                            </span>
+                        </div>
                     ) : null
                 }
             </fieldset>
 
             <fieldset>
                 <legend>Image URL</legend>
-                <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
-                        <label for="form-composers-image-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
+                                <label for="form-composers-image-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
+                <div class="searchhelper" id="form-composers-imagepicker">
+                    <label for="form-composers-imagepicker-input"><strong>Search for image</strong></label>
+                    <input type="text" id="form-composers-imagepicker-input" />
+                    <button type="button" id="form-composers-imagepicker-button">Search</button>
+                    <div id="form-composers-imagepicker-results">
+                        <p>Results will display here when searched.</p>
+                    </div>
+                </div>
             </fieldset>
         </div>
 
@@ -119,15 +155,22 @@ const patch: boolean = Astro.props.patch || false;
             <h3 class="form-section-title">Tags</h3>
             <fieldset>
                 <legend>Tags</legend>
-                <input type="text" id="form-composers-tags" name="tags" value={composer?.tags ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
-                        <label for="form-composers-tags-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <input type="text" id="form-composers-tags" name="tags" placeholder="baroque,etude" value={composer?.tags ?? ""} />
+                    <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
+                                <label for="form-composers-tags-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
         </div>
+
+        {required ? <p class="field-required-note"><span class="field-required" aria-hidden="true">*</span> indicates a required field</p> : null}
 
         <button type="submit">Submit</button>
     </form>
@@ -135,7 +178,15 @@ const patch: boolean = Astro.props.patch || false;
 <script>
     // auto-check each field's "Edit this field" checkbox when the field is edited (patch/edit pages only;
     // a no-op on create pages, which render no edit-target checkboxes)
-    import { enableEditTargetOnChange } from "../../scripts/interface"
+    import { enableEditTargetOnChange } from "../../scripts/common"
+    import { attachFilePicker } from "../../scripts/file_picker"
+    import { attachFormValidation } from "../../scripts/form_validate"
     const composer_form = document.getElementById("generic-form-composers")
-    if (composer_form instanceof HTMLFormElement) enableEditTargetOnChange(composer_form)
+    if (composer_form instanceof HTMLFormElement) {
+        enableEditTargetOnChange(composer_form)
+        // live inline format validation (email, country, image URL, etc.)
+        attachFormValidation(composer_form)
+    }
+    // image picker: fill the image URL field from uploaded (R2) or bundled (src/files) images
+    attachFilePicker("form-composers-imagepicker-input", "form-composers-imagepicker-button", "form-composers-imagepicker-results", "form-composers-image")
 </script>

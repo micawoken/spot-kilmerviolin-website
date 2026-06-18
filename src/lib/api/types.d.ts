@@ -53,6 +53,62 @@ interface SearchResult {
 }
 
 /**
+ * The metadata representation of a file stored in the R2 bucket (R2_FILES)
+ *
+ * Files are R2-only: the object key (filename) is the file's identity, and all descriptive
+ * metadata lives in the object's customMetadata (with size/content_type/uploaded sourced from
+ * the R2 object itself). There is no D1 table backing files. See lib/api/r2.ts and lib/api/files.ts.
+ *
+ * @namespace FileMeta
+ * @property {string} key - the object key (filename), which serves as the file's id
+ * @property {number} size - the stored object size in bytes (the optimized variant for images)
+ * @property {string} content_type - the stored MIME type (image/webp for optimized images)
+ * @property {string} uploaded - the upload timestamp, in ISO 8601 format
+ * @property {string} etag - the R2 entity tag of the stored object
+ * @property {string | null} uploader - the contributor id (as a string) that uploaded the file, or null
+ * @property {number | null} width - the image width in pixels, or null for non-images
+ * @property {number | null} height - the image height in pixels, or null for non-images
+ * @property {boolean} optimized - whether the stored bytes are an optimized image variant
+ */
+interface FileMeta {
+    key: string;
+    size: number;
+    content_type: string;
+    uploaded: string; // ISO 8601 format
+    etag: string;
+    uploader: string | null;
+    width: number | null;
+    height: number | null;
+    optimized: boolean;
+}
+
+/**
+ * The set of file sources the file picker can draw from
+ *
+ * "r2" is the live R2 bucket (managed through the files API); "bundled" is the build-time pool
+ * optimized from src/files and published to dist/files (see the files-manifest build step).
+ */
+type FileSource = "r2" | "bundled";
+
+/**
+ * A single file-picker entry, unifying R2 files and build-time bundled (src/files) assets
+ *
+ * @property {FileSource} source - where the entry came from (bundled entries are ranked first)
+ * @property {string} name - the display/file name used for filtering
+ * @property {string} url - the value autofilled into an image field (/api/v1/files/<key> for r2,
+ *   /files/<name> for bundled)
+ * @property {number | null} width - the image width in pixels, if known
+ * @property {number | null} height - the image height in pixels, if known
+ */
+interface FilePickerEntry {
+    source: FileSource;
+    name: string;
+    url: string;
+    width: number | null;
+    height: number | null;
+}
+
+/**
  * A record stored in the Cache API
  * 
  * @namespace CacheRecord
@@ -308,8 +364,8 @@ interface Contributor extends ContributorPrimitive { // API representation of a 
  */
 interface ContributorRecord extends Contributor { // Contributor, but with fields indicating that it originates from D1
     id: number;
-    entry_date: string; // ISO 8601 format
-    
+    entry_date: string; // ISO 8601 format; creation date, managed by business logic
+    change_date: string; // ISO 8601 format; last-modified date, managed by business logic
 }
 
 /**
@@ -327,7 +383,8 @@ interface ContributorRecord extends Contributor { // Contributor, but with field
  */
 interface D1Contributor extends ContributorPrimitive { // database representation of Contributor
     contributor_id: number;
-    entry_date: string; // ISO 8601 format
+    entry_date: string; // ISO 8601 format; creation date
+    change_date: string; // ISO 8601 format; last-modified date
     active: number;
     admin: number;
     phases: string | null; // comma-separated phase numbers, or null if omitted
@@ -343,7 +400,7 @@ interface ComposerPrimitive {
     role: string; // usually "composer", but can be defined as "arranger" or another type as declared
     birth_year: number;
     death_year: number; // -1 is defined as not dead
-    country: string; // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/country.ts)
+    country: string; // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/validation.ts)
     bio: string;
     image: string | null; // refers to a file in assets, or an external URL
 }
@@ -356,7 +413,7 @@ interface ComposerPrimitive {
  * @property {string} role - the composer's role in the composition (e.g. "composer", "arranger", etc)
  * @property {number} birth_year - the composer's birth year
  * @property {number} death_year - the composer's death year, or -1 if the composer is still alive
- * @property {string} country - the composer's country as an ISO 3166-1 alpha-2 code, validated on the client and server (see lib/api/country.ts)
+ * @property {string} country - the composer's country as an ISO 3166-1 alpha-2 code, validated on the client and server (see lib/api/validation.ts)
  * @property {string} bio - a short biography of the composer
  * @property {string | null} image - the URL of the composer image, or null
  */
@@ -372,7 +429,8 @@ interface Composer extends ComposerPrimitive { // the API representation of a co
 interface ComposerRecord extends Composer { // Composer, but with fields indicating that it originates from D1
     // the default construct for a composer object that originates from D1
     id: number;
-    entry_date: string; // ISO 8601 format
+    entry_date: string; // ISO 8601 format; creation date, managed by business logic
+    change_date: string; // ISO 8601 format; last-modified date, managed by business logic
 }
 
 /**
@@ -382,7 +440,8 @@ interface D1Composer extends ComposerPrimitive { // database representation of C
     // the actual object representation stored in D1 before processing as a ComposerRecord
     // see D1Composition - record representation is different
     composer_id: number;
-    entry_date: string; // ISO 8601 format
+    entry_date: string; // ISO 8601 format; creation date
+    change_date: string; // ISO 8601 format; last-modified date
     tags: string; // comma-separated tags
     [key: string]: string | number | null; // no additional fields expected; trying to clear compiler issue
 }
@@ -483,23 +542,34 @@ interface Composition extends CompositionPrimitive {
 interface CompositionRecord extends Composition {
     // the default construct for a composition object that originates from D1
     id: number;
-    entry_date: string; // ISO 8601 format
+    entry_date: string; // ISO 8601 format; creation date, managed by business logic
+    change_date: string; // ISO 8601 format; last-modified date, managed by business logic
 }
 
 /**
  * The resolved names attached to a composition when the "names" meta flag is set on a GET
  *
- * The composition record itself only stores numeric references (composer_id and author_secondary),
- * so these human-readable names are resolved from the composer table on request and transmitted
+ * The composition record itself only stores numeric references (composer_id and author_secondary for
+ * composers; contrib_primary_1, contrib_primary_2, and contrib_addl for contributors), so these
+ * human-readable names are resolved from the composer and contributor tables on request and transmitted
  * alongside the composition rather than embedded in it.
  *
  * @property {string} composer_name - the name of the composer referenced by the composition's composer_id
  * @property {string[]} author_secondary_names - the names of the composers referenced by author_secondary,
  *   in the same order as the author_secondary array (an unresolvable id yields an empty string)
+ * @property {string} contrib_primary_1_name - the name of the contributor referenced by contrib_primary_1
+ *   (an unresolvable id yields an empty string)
+ * @property {string} contrib_primary_2_name - the name of the contributor referenced by contrib_primary_2,
+ *   or an empty string when contrib_primary_2 is null or the id is unresolvable
+ * @property {string[]} contrib_addl_names - the names of the contributors referenced by contrib_addl,
+ *   in the same order as the contrib_addl array (an unresolvable id yields an empty string)
  */
 interface CompositionNames {
     composer_name: string;
     author_secondary_names: string[];
+    contrib_primary_1_name: string;
+    contrib_primary_2_name: string;
+    contrib_addl_names: string[];
 }
 
 /**
@@ -508,7 +578,7 @@ interface CompositionNames {
  * supplementary names (which are not part of the Composition spec) carried separately under "names".
  *
  * @property {CompositionRecord} object - the composition record, conforming to the Composition interface
- * @property {CompositionNames} names - the resolved composer_name and author_secondary_names
+ * @property {CompositionNames} names - the resolved composer and contributor names
  */
 interface CompositionWithNames {
     object: CompositionRecord;
@@ -536,7 +606,8 @@ interface D1Composition extends CompositionPrimitive {
     rating_suzuki: number | null;
     rating_nyssma: number | null;
     tags: string; // comma-separated list
-    entry_date: string; // ISO 8601 format
+    entry_date: string; // ISO 8601 format; creation date
+    change_date: string; // ISO 8601 format; last-modified date
     full_name?: string; // generated and stored in d1, but not used in middleware and business logic
     [key: string]: string | number | null; // no additional fields expected; trying to clear compiler issue
 }

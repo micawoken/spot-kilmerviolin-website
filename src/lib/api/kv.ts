@@ -56,8 +56,6 @@ export async function getKey(key: string, properties?: Partial<KVNamespaceGetOpt
     if (!value) {
         return null
     }
-    console.log(key)
-    console.log(value)
     if (value.value === null) {
         // key does not exist
         return null

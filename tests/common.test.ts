@@ -9,6 +9,7 @@ import { formatCompFromD1, formatCompToD1, formatCompToD1Partial, SQLCompareOp, 
 const d1_composer_record: D1Composer = {
     composer_id: 1,
     entry_date: "2024-01-01T00:00:00Z",
+    change_date: "2024-01-01T00:00:00Z",
     name: "First Last",
     role: "composer",
     birth_year: 1900,
@@ -22,6 +23,7 @@ const d1_composer_record: D1Composer = {
 const composer_record: ComposerRecord = {
     id: 1,
     entry_date: "2024-01-01T00:00:00Z",
+    change_date: "2024-01-01T00:00:00Z",
     name: "First Last",
     role: "composer",
     birth_year: 1900,
@@ -46,6 +48,7 @@ const composer: Composer = {
 const d1_composer_if_new: D1Composer = {
     composer_id: -1,
     entry_date: new Date().toISOString(), // analogue for current date
+    change_date: new Date().toISOString(), // analogue for current date (seeded to entry_date for a new record)
     name: "First Last",
     role: "composer",
     birth_year: 1900,
@@ -81,8 +84,9 @@ describe('D1Composer to Composer conversion', () => {
 describe('Composer to D1Composer conversion for new record', () => {
     it('should convert Composer to D1Composer with composer_id -1 and current date', () => {
         let result = formatCompToD1(composer)
-        // override the date, which drifts because of run time
+        // override the dates, which drift because of run time
         result.entry_date = d1_composer_if_new.entry_date
+        result.change_date = d1_composer_if_new.change_date
         expect(result).toEqual(d1_composer_if_new)
     })
 })

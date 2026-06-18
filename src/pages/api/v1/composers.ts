@@ -6,11 +6,11 @@
  */
 
 import type { APIRoute } from "astro"
-import { _stateTypeAssertCompleteComposer, getRecord } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteComposer } from "../../../lib/api/d1"
 import { addComposer, listComposers } from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
 
 
 /**
@@ -25,12 +25,11 @@ import { constructResponse, constructResponseErrorHook } from "../../../lib/api/
  * 
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @return {Response} either a list of IDs or the full records
+ * @param context - the Astro API context
+ * @return either a list of IDs or the full records
  * 
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
-    console.log("Received request for GET /api/v1/composers")
     const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
@@ -42,27 +41,27 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    console.log("Parsed API request:", api_request)
     try {
         const data = await listComposers(context.locals.cfContext)
         if (data === null) {
             return constructResponse(request, null, 500, "Unknown state: list composer operation returned null")
         }
-        console.log("Retrieved composer data:", data)
+        // the latest change_date across the listed records is the collection's last-modified time
+        const last_modified = lastModifiedHeader(data)
         switch (api_request.meta?.full) {
             case true:
                 // return full composer records
-                return constructResponse(request, data, 200)
+                return constructResponse(request, data, 200, undefined, last_modified)
             case false:
             case undefined:
                 // return composer IDs only
                 const ids = data.map(record => record.id)
-                return constructResponse(request, ids, 200)
+                return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }
     } catch (error) {
-        console.log("Error in GET /api/v1/composers:", error)
+        console.error("Error in GET /api/v1/composers:", error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }
@@ -76,8 +75,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, Composer[] single item
  * 
- * @param {APIContext} context - the Astro API context
- * @return {Response} a Response object with the ID of the new record, or an error
+ * @param context - the Astro API context
+ * @return a Response object with the ID of the new record, or an error
  * 
  */
 export const POST: APIRoute = async (context): Promise<Response> => {

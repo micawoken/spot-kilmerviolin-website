@@ -9,8 +9,21 @@
  * - HTTP responses
  * 
  * 
- * No dependencies
+ * Copyright (C) 2026 Michael Wong.
  * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -48,7 +61,13 @@ import { env } from "cloudflare:workers";
  */
 
 
-const cache_host = "https://cache.local" // virtual origin for Cache API keys
+/**
+ * The hostname to construct the caching address from
+ * 
+ * Cloudflare recommends that this be a valid domain name since DNS resolution may occur, so this is being used for now
+ * 
+ */
+const cache_host = "https://spot-kilmer-violin-website.mwmsc.workers.dev"
 
 function generateCacheKey(key: string): string {
     return `${cache_host}/cache/${key}`
@@ -69,15 +88,12 @@ function constructResponse(payload: any[] | null, comment: string, long: boolean
 }
 
 export async function _putCache(store_name: string, cache_key: string, response: Response): Promise<void> {
-    console.log("Putting cache with key:", cache_key, "and response:", response)
     const cache_store = await caches.open(store_name)
     return cache_store.put(cache_key, response.clone())
 }
 
 export async function putCache(store_name: string, key: string, payload: any[] | null, comment: string, long: boolean): Promise<void> {
-    console.log("Putting cache with key:", key, "payload:", payload, "comment:", comment, "long:", long)
     const response = constructResponse(payload, comment, long)
-    console.log("Constructed cache response:", response)
     await _putCache(store_name, generateCacheKey(key), response)
 }
 
@@ -113,7 +129,7 @@ export async function deleteCacheKey(store_name: string, key: string): Promise<b
     return await cache_store.delete(generateCacheKey(key))
 }
 
-export async function purgeCache(store_name: string): Promise<boolean> {
+export async function purgeCache(_store_name: string): Promise<boolean> {
     // re-implement later
     
     return true

@@ -4,8 +4,32 @@
  * Provides common services for API endpoints, such as decomposing and composing objects
  * 
  * 
+ * Copyright (C) 2026 Michael Wong.
  * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
+import { normalizePitchRange, normalizePosition } from "./validation"
+
+// the composition range and highest-position fields are stored in canonical form: a range has its note
+// letters uppercased, and a position is always stored as an (uppercase) Roman numeral (an integer input
+// is converted). Blank/null values pass through unchanged. Inputs are validated before reaching here.
+const normalizeRangeValue = (value: any): any =>
+    (typeof value === "string" && value.trim() !== "") ? normalizePitchRange(value) : value
+const normalizePositionValue = (value: any): any =>
+    (typeof value === "string" && value.trim() !== "") ? normalizePosition(value) : value
 
 // types
 
@@ -268,6 +292,40 @@ function joinAndFilterItems(values: Array<string | number>): string {
     return values.map(item => item.toString().trim()).filter(item => item !== "").join(",")
 }
 
+/** A per-field transform used by {@link applyPartialFields}; mutates `output` for a defined `value`. */
+type PartialFieldTransform = (value: any, output: Record<string, unknown>) => void
+
+/**
+ * Shared loop for the three format*ToD1Partial converters. Iterates a partial record, skipping the
+ * `id` column (callers map it to the table's primary-key column) and any undefined field, then either
+ * applies the field's transform or passes the value through unchanged.
+ */
+function applyPartialFields(
+    record: Record<string, any>,
+    output: Record<string, unknown>,
+    transforms: { [field: string]: PartialFieldTransform }
+): void {
+    for (const key in record) {
+        if (key === "id") {
+            continue
+        }
+        const value = record[key]
+        if (value === undefined) {
+            continue
+        }
+        const transform = transforms[key]
+        if (transform) {
+            transform(value, output)
+        } else {
+            output[key] = value
+        }
+    }
+}
+
+/** Transform builder: joins an array field into a comma-separated string, or "" when not an array. */
+const joinOrEmpty = (field: string): PartialFieldTransform =>
+    (value, output) => { output[field] = Array.isArray(value) ? joinAndFilterItems(value) : "" }
+
 /**
  * Converts a D1Composition object representation in D1 to CompositionRecord
  * 
@@ -312,19 +370,20 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
  */
 export function formatWorkToD1(record: Composition | CompositionRecord): D1Composition {
     // converts a Composition object to D1Composition
-    // if the supplied object is a Composition, and not a CompositionRecord, the id and entry_date field are set to null equivalents
-    let author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, tags, data
+    // if the supplied object is a Composition, and not a CompositionRecord, the id, entry_date, and change_date fields are set to null equivalents
+    let author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, change_date, tags, data
     switch ("id" in record) {
         case true:
-            // record is a CompositionRecord, so it has the id and entry_date fields, which are used in the output
-            ({ author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, tags, ...data } = record as CompositionRecord)
+            // record is a CompositionRecord, so it has the id, entry_date, and change_date fields, which are used in the output
+            ({ author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, change_date, tags, ...data } = record as CompositionRecord)
 
             break
         case false:
-            // record is a Composition, so it does not have the id and entry_date fields; these are set to null equivalents in the output
+            // record is a Composition, so it does not have the id, entry_date, or change_date fields; these are set to null equivalents in the output
             ({ author_secondary, contrib_addl, rating, phases, publication_info, tags, ...data } = record as Composition)
             id = null
             entry_date = null // it is assumed that Compositions retain their shape; also, entry_date is ignored for updates
+            change_date = null // change_date is set by business logic on insert/update (see database.ts), not from the supplied object
             break
     }
 
@@ -335,7 +394,11 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
 
     return {
         ...data,
+        // store range and highest position in their canonical (normalized) form
+        range: normalizeRangeValue((data as Record<string, any>).range),
+        position_highest: normalizePositionValue((data as Record<string, any>).position_highest),
         entry_date: entry_date,
+        change_date: change_date,
         composition_id: id ? id : -1, // if id is set to -1, it cannot be used as a valid primary key for update
         rating_suzuki: rating_suzuki,
         rating_nyssma: rating_nyssma,
@@ -353,71 +416,54 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
 
 /**
  * Converts a partial Composition object (with a required id field) to a partial D1Composition object, for use in UPDATE statements
- * 
- * @param {Partial<Composition> & { id: number }}
  */
 export function formatWorkToD1Partial(record: Partial<Composition> & { id: number }): Partial<D1Composition> {
     // used for UPDATE statements where only some columns are updated
     // the id field is required to identify the record to update, but other fields are optional and only included if they are being updated
-    let output: Partial<D1Composition> = {
+    const output: Partial<D1Composition> = {
         composition_id: record.id
     }
-    for (const key in record) {
-        if (key === "id") {
-            continue
-        }
-        const value = record[key as keyof Composition]
-        if (value !== undefined) {
-            switch (key) {
-                case "author_secondary":
-                    output.author_secondary = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    break
-                case "contrib_addl":
-                    output.contrib_addl = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    break
-                case "phases":
-                    output.phases = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    break
-                case "tags":
-                    output.tags = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    break
-                case "rating":
-                    if (
-                        typeof value === "object" &&
-                        value !== null &&
-                        !Array.isArray(value) &&
-                        "suzuki" in value &&
-                        "nyssma" in value
-                    ) {
-                        const rating = value as CompositionRating
-                        output.rating_suzuki = rating.suzuki !== undefined ? rating.suzuki : null
-                        output.rating_nyssma = rating.nyssma !== undefined ? rating.nyssma : null
-                    }
-                    break
-                case "publication_info":
-                    if (
-                        typeof value === "object" &&
-                        value !== null &&
-                        !Array.isArray(value) &&
-                        "location" in value &&
-                        "name" in value &&
-                        "year" in value &&
-                        "uri_type" in value &&
-                        "uri" in value
-                    ) {
-                        const publication_info = value as PublicationInfo
-                        output.publish_location = publication_info.location
-                        output.publish_name = publication_info.name
-                        output.publish_year = publication_info.year
-                        output.uri_type = publication_info.uri_type
-                        output.uri = publication_info.uri
-                    }
-                    break
-                default:
-                    (output as Record<string, unknown>)[key] = value
+    applyPartialFields(record as Record<string, any>, output as Record<string, unknown>, {
+        author_secondary: joinOrEmpty("author_secondary"),
+        contrib_addl: joinOrEmpty("contrib_addl"),
+        phases: joinOrEmpty("phases"),
+        tags: joinOrEmpty("tags"),
+        // normalize range and highest position to their canonical stored form when present
+        range: (value, out) => { out.range = normalizeRangeValue(value) },
+        position_highest: (value, out) => { out.position_highest = normalizePositionValue(value) },
+        rating: (value, out) => {
+            if (
+                typeof value === "object" &&
+                value !== null &&
+                !Array.isArray(value) &&
+                "suzuki" in value &&
+                "nyssma" in value
+            ) {
+                const rating = value as CompositionRating
+                out.rating_suzuki = rating.suzuki !== undefined ? rating.suzuki : null
+                out.rating_nyssma = rating.nyssma !== undefined ? rating.nyssma : null
+            }
+        },
+        publication_info: (value, out) => {
+            if (
+                typeof value === "object" &&
+                value !== null &&
+                !Array.isArray(value) &&
+                "location" in value &&
+                "name" in value &&
+                "year" in value &&
+                "uri_type" in value &&
+                "uri" in value
+            ) {
+                const publication_info = value as PublicationInfo
+                out.publish_location = publication_info.location
+                out.publish_name = publication_info.name
+                out.publish_year = publication_info.year
+                out.uri_type = publication_info.uri_type
+                out.uri = publication_info.uri
             }
         }
-    }
+    })
     return output
 }
 
@@ -446,59 +492,44 @@ export function formatCompFromD1(record: D1Composer): ComposerRecord {
  */
 export function formatCompToD1(record: Composer | ComposerRecord): D1Composer {
     // converts a Composer object to D1Composer
-    let data, id, entry_date, tags
+    let data, id, entry_date, change_date, tags
     switch ("id" in record) {
         case true:
-            // record is a ComposerRecord, so it has the id and entry_date fields, which are used in the output
-            ({ id, entry_date, tags, ...data } = record as ComposerRecord)
+            // record is a ComposerRecord, so it has the id, entry_date, and change_date fields, which are used in the output
+            ({ id, entry_date, change_date, tags, ...data } = record as ComposerRecord)
             break
         case false:
             // record is just Composer
             ({ tags, ...data } = record as Composer)
             id = null
             entry_date = (new Date().toISOString()) // it is assumed that Composers retain their shape; also, entry_date is ignored for updates
+            change_date = entry_date // change_date is set by business logic on insert/update (see database.ts); seeded to entry_date for a new record
             break
     }
     return {
         ...data,
         tags: tags ? joinAndFilterItems(tags) : "",
         entry_date: entry_date,
+        change_date: change_date,
         composer_id: id ? id : -1 // if id is set to -1, it cannot be used as a valid primary key for update
     }
 }
 
 /**
  * Converts a partial Composer object (with a required id field) to a partial D1Composer object, for use in UPDATE statements
- * 
- * @param {Partial<Composer> & { id: number }}
- * @return {Partial<D1Composer>} the converted partial D1Composer object
+ *
+ * @return the converted partial D1Composer object
  */
 export function formatCompToD1Partial(record: Partial<Composer> & { id: number }): Partial<D1Composer> {
     // used for UPDATE statements where only some columns are updated
     // the id field is required to identify the record to update, but other fields are optional and only included if they are being updated
-    let output: Partial<D1Composer> = {
+    const output: Partial<D1Composer> = {
         composer_id: record.id
     }
-    for (const key in record) {
-        switch (key) {
-            case "id":
-                continue
-            case "tags": {
-                const value = record[key as keyof Composer]
-                if (Array.isArray(value)) {
-                    output.tags = joinAndFilterItems(value)
-                }
-                break
-            }
-            default: {
-                const value = record[key as keyof Composer]
-                if (value !== undefined) {
-                    (output as Record<string, unknown>)[key] = value
-                }
-                break
-            }
-        }
-    }
+    applyPartialFields(record as Record<string, any>, output as Record<string, unknown>, {
+        // composer tags are only written when an array is supplied (no empty-string fallback)
+        tags: (value, out) => { if (Array.isArray(value)) out.tags = joinAndFilterItems(value) }
+    })
     return output
 }
 
@@ -533,17 +564,18 @@ export function formatContribFromD1(record: D1Contributor): ContributorRecord {
 export function formatContribToD1(record: Contributor | ContributorRecord): D1Contributor {
     // converts a Contributor object to D1Contributor
 
-    let data, id, entry_date
+    let data, id, entry_date, change_date
     switch ("id" in record) {
         case true:
-            // record is a ContributorRecord, so it has the id and entry_date fields, which are used in the output
-            ({ id, entry_date, ...data } = record as ContributorRecord)
+            // record is a ContributorRecord, so it has the id, entry_date, and change_date fields, which are used in the output
+            ({ id, entry_date, change_date, ...data } = record as ContributorRecord)
             break
         case false:
             // record is just Contributor
             ({ ...data } = record as Contributor)
             id = null
             entry_date = (new Date().toISOString()) // it is assumed that Contributors retain their shape; also, entry_date is ignored for updates
+            change_date = entry_date // change_date is set by business logic on insert/update (see database.ts); seeded to entry_date for a new record
             break
     }
 
@@ -553,6 +585,7 @@ export function formatContribToD1(record: Contributor | ContributorRecord): D1Co
     return {
         ...data,
         entry_date: entry_date,
+        change_date: change_date,
         contributor_id: id ? id : -1, // if id is set to -1, it cannot be used as a valid primary key for update
         phases: phases_joined !== "" ? phases_joined : null,
         roles: record.roles ? joinAndFilterItems(record.roles) : "",
@@ -571,39 +604,20 @@ export function formatContribToD1(record: Contributor | ContributorRecord): D1Co
 export function formatContribToD1Partial(record: Partial<Contributor> & { id: number }): Partial<D1Contributor> {
     // used for UPDATE statements where only some columns are updated
     // the id field is required to identify the record to update, but other fields are optional and only included if they are being updated
-    let output: Partial<D1Contributor> = {
+    const output: Partial<D1Contributor> = {
         contributor_id: record.id
     }
-    for (const key in record) {
-        if (key === "id") {
-            continue
-        }
-        const value = record[key as keyof Contributor]
-        if (value !== undefined) {
-            switch (key) {
-                case "phases": {
-                    // nullable column: a null value, empty list, or list of blanks is stored as NULL
-                    const joined = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    output.phases = joined !== "" ? joined : null
-                    break
-                }
-                case "roles":
-                    output.roles = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    break
-                case "admin":
-                    output.admin = value ? 1 : 0
-                    break
-                case "active":
-                    output.active = value ? 1 : 0
-                    break
-                case "tags":
-                    output.tags = Array.isArray(value) ? joinAndFilterItems(value) : ""
-                    break
-                default:
-                    (output as Record<string, unknown>)[key] = value
-            }
-        }
-    }
+    applyPartialFields(record as Record<string, any>, output as Record<string, unknown>, {
+        phases: (value, out) => {
+            // nullable column: a null value, empty list, or list of blanks is stored as NULL
+            const joined = Array.isArray(value) ? joinAndFilterItems(value) : ""
+            out.phases = joined !== "" ? joined : null
+        },
+        roles: joinOrEmpty("roles"),
+        admin: (value, out) => { out.admin = value ? 1 : 0 },
+        active: (value, out) => { out.active = value ? 1 : 0 },
+        tags: joinOrEmpty("tags")
+    })
     return output
 }
 
@@ -649,7 +663,6 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
     let data: { payload: unknown, meta?: Record<string, string | boolean | number | null> }
     try {
         const body_text = await request.text()
-        console.log("data: ", body_text)
         if (body_text.trim() === "") {
             data = {
                 payload: null
@@ -678,7 +691,6 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
      *  if an empty array is supplied, header parsing executes, but if there is no data to parse, an empty meta is returned silently
      */
     const enforce_meta_presence = meta_expect_keys ? meta_expect_keys.length > 0 : false
-    console.log(data)
 
     if (meta_expect_keys && !meta_header && !enforce_meta_presence) {
         // meta is optional and missing
@@ -692,7 +704,6 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
     } else if (meta_expect_keys && meta_header) {
         // attempt to parse JSON string
         try {
-            console.log("Meta header: ", meta_header)
             data.meta = JSON.parse(meta_header)
         } catch (e) {
             return new Error(`Failed to parse meta header as JSON: ${e}`)

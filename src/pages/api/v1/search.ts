@@ -24,8 +24,8 @@ import { constructResponse, constructResponseErrorHook } from "../../../lib/api/
  *   { keyword: string, database?: "composers" | "compositions" | "contributors" | null }
  * When database is null or omitted, all three tables are searched.
  *
- * @param {APIContext} context - the Astro API context
- * @returns {Response} the ranked list of hits, or an error message
+ * @param context - the Astro API context
+ * @returns the ranked list of hits, or an error message
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context

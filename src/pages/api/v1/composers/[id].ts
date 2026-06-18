@@ -7,9 +7,9 @@
 
 import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
+import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
-import { getRecord, _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer, COMPOSER } from "../../../../lib/api/d1"
+import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../../../../lib/api/d1"
 import { deleteComposer, getComposer, updateComposer, updateComposerPartial } from "../../../../lib/api/database"
 
 /**
@@ -21,8 +21,8 @@ import { deleteComposer, getComposer, updateComposer, updateComposerPartial } fr
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with the composer record if found 
+ * @param context - the Astro API context
+ * @returns a Response object with the composer record if found 
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -39,14 +39,13 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     }
     try {
         const d1_record = await getComposer(context.locals.cfContext, "composer_id", state_id.toString())
-        console.log("D1 fetch result for composer ID", state_id, ":", d1_record)
         if (d1_record === null) {
             return constructResponse(request, null, 404)
         }
-        console.log("Returning composer ID ", state_id)
-        return constructResponse(request, d1_record, 200)
+        // change_date carries the record's last-modified time; surface it as the Last-Modified header
+        return constructResponse(request, d1_record, 200, undefined, lastModifiedHeader(d1_record))
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 404)
     }
 }
@@ -60,8 +59,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, complete Composer object
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with status of the update operation
+ * @param context - the Astro API context
+ * @returns a Response object with status of the update operation
  */
 export const PUT: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -94,7 +93,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         await updateComposer(context.locals.cfContext, state_id, record)
         return constructResponse(request, null, 204)
     } catch (error) {
-        console.log(error instanceof Error ? error.message : error)
+        console.error(error instanceof Error ? error.message : error)
         return constructResponseErrorHook(request, error, 500, "Failed to update composer")
     }
 }
@@ -108,8 +107,8 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, partial Composer object
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with status of the update operation
+ * @param context - the Astro API context
+ * @returns a Response object with status of the update operation
  */
 export const PATCH: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -141,7 +140,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         await updateComposerPartial(context.locals.cfContext, state_id, record)
         return constructResponse(request, null, 204)
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 500, "Failed to update composer")
     }
 }
@@ -158,8 +157,8 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
  * Note: composer IDs and names are used as foreign keys in composition records; attempting
  * to delete a composer record referenced by at least one composition record will fail
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with status of the delete operation
+ * @param context - the Astro API context
+ * @returns a Response object with status of the delete operation
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context

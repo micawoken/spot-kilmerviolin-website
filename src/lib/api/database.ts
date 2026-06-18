@@ -4,7 +4,21 @@
  * Provides higher-level database services on top of D1, integrating KV caching and Cache API caching
  * 
  * 
- * Dependent on d1.ts
+ * Copyright (C) 2026 Michael Wong.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -16,7 +30,7 @@
 
 
 import { formatContribToD1, formatContribToD1Partial, formatCompToD1, formatWorkToD1, formatWorkToD1Partial, formatCompToD1Partial, formatContribFromD1, formatCompFromD1, formatWorkFromD1, SQLCompareOp } from "./common.ts"
-import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpecificProp, deleteRecord, exec_string, recordTypeAssertComplete } from "./d1.ts"
+import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpecificProp, exec_string, recordTypeAssertComplete } from "./d1.ts"
 import { SQLStatement, VirtualSQLTable } from "./sql.ts"
 import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
 import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
@@ -40,20 +54,22 @@ import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
  * admin INTEGER NOT NULL, // 0 or 1
  * image TEXT // URL to contributor image
  * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date TEXT NOT NULL // ISO 8601 format
- * 
+ * entry_date TEXT NOT NULL, // ISO 8601 format; creation date, hidden from users and managed by business logic
+ * change_date TEXT // ISO 8601 format; last-modified date, hidden from users and managed by business logic
+ *
  * COMPOSERS:
  * composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
  * name TEXT UNIQUE NOT NULL,
  * role TEXT NOT NULL,
  * birth_year INTEGER NOT NULL,
  * death_year INTEGER NOT NULL, // -1 is defined as not dead
- * country TEXT NOT NULL, // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/country.ts)
+ * country TEXT NOT NULL, // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/validation.ts)
  * bio TEXT,
  * image TEXT, // refers to a file in assets, or an external URL
  * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date TEXT NOT NULL // ISO 8601 format
- * 
+ * entry_date TEXT NOT NULL, // ISO 8601 format; creation date, hidden from users and managed by business logic
+ * change_date TEXT // ISO 8601 format; last-modified date, hidden from users and managed by business logic
+ *
  * COMPOSITIONS:
  * composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
  * name TEXT NOT NULL,
@@ -79,8 +95,9 @@ import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
  * notes_other TEXT,
  * image TEXT,
  * phases TEXT NOT NULL, // comma-separated list of phase numbers
- * entry_date TEXT NOT NULL, // ISO 8601 format
+ * entry_date TEXT NOT NULL, // ISO 8601 format; creation date, hidden from users and managed by business logic
  * tags TEXT, // comma-separated list of tags for filtering and search
+ * change_date TEXT, // ISO 8601 format; last-modified date, hidden from users and managed by business logic
  * full_name TEXT UNIQUE NOT NULL GENERATED ALWAYS AS ((SELECT name FROM composers WHERE composers.composer_id = compositions.composer_id) || ' (' || name || ')') STORED // used for indexing and search
  * FOREIGN KEY (composer_id) REFERENCES COMPOSERS(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  * FOREIGN KEY (contrib_primary_1) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -94,15 +111,28 @@ import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
  * @param fixed Whether to purge only known keys, or purge all enrolled keys
  */
 async function purgeKV(fixed: boolean = true): Promise<void> {
-    // purges KV entries
+    // purges KV entries; best-effort, since a KV usage limit hit mid-purge should not throw (stale
+    // entries expire on their own via the KV TTL)
+    const safeDelete = async (key: string): Promise<void> => {
+        try {
+            await deleteKey(key)
+        } catch (error) {
+            console.warn(`Failed to purge KV key '${key}'; it will expire via TTL`, error)
+        }
+    }
     if (fixed) {
         // purge only known keys
         const known_keys = ["composers", "contributors", "compositions"]
-        await Promise.all(known_keys.map(key => deleteKey(key)))
+        await Promise.all(known_keys.map(safeDelete))
         return;
     } else {
-        const keys = await listKeys(false) as string[]
-        await Promise.all(keys.map(key => deleteKey(key)))
+        try {
+            const keys = await listKeys(false) as string[]
+            await Promise.all(keys.map(safeDelete))
+        } catch (error) {
+            // a list is itself a metered KV operation; if it is unavailable, leave entries to expire
+            console.warn("Failed to list KV keys during purge; entries will expire via TTL", error)
+        }
         return;
     }
 }
@@ -123,29 +153,178 @@ export async function purgeCacheAll(kv_fixed: boolean = true): Promise<boolean> 
 }
 
 /**
+ * The storage tiers a read can be served from, ordered cheapest/fastest first. D1 is the authoritative
+ * source of truth; the Cache API and KV are accelerators layered in front of it. Used to report which
+ * tier served a request as the system degrades across usage limits.
+ */
+type StorageTier = "cache-api" | "kv" | "d1"
+
+/**
+ * Heuristically classifies whether an error reflects a Cloudflare usage-limit, rate-limit, or quota
+ * condition (the free-plan D1/KV caps this module degrades around) rather than a genuine fault such as
+ * malformed SQL or bad data.
+ *
+ * Cloudflare reports these conditions as ordinary Errors whose message — sometimes only the nested
+ * `cause` — carries the detail, so the whole chain is flattened and scanned for the vocabulary these
+ * limits surface with. Classification is deliberately inclusive: skipping a tier we could have used is
+ * cheap and self-correcting, whereas the authoritative D1 path never relies on this to swallow real
+ * errors (it only uses it to decide whether a degraded whole-table fallback is worth attempting).
+ *
+ * @param error the thrown value to classify
+ * @returns whether the error should be treated as a recoverable capacity condition
+ */
+function isCapacityError(error: unknown): boolean {
+    const markers = ["limit", "exceeded", "quota", "429", "too many", "rate limit", "throttl", "daily", "overloaded"]
+    const flatten = (value: unknown, depth: number = 0): string => {
+        if (!value || depth > 4) {
+            return ""
+        }
+        if (typeof value === "string") {
+            return value
+        }
+        if (value instanceof Error) {
+            return `${value.message} ${flatten((value as { cause?: unknown }).cause, depth + 1)}`
+        }
+        try {
+            return JSON.stringify(value)
+        } catch {
+            return String(value)
+        }
+    }
+    return markers.some(marker => flatten(error).toLowerCase().includes(marker))
+}
+
+/**
+ * Schedules a best-effort cache write whose failure must never reach the caller. Populating or
+ * invalidating the Cache API and KV is purely an optimization, so if the destination tier is over its
+ * usage limit (or fails for any other reason) the error is logged and dropped rather than turning a
+ * successful read or write into a failure.
+ *
+ * @param ctx the Worker ExecutionContext, used to keep the write alive past the response
+ * @param operation the cache-population/invalidation operation to run
+ */
+function _backfill(ctx: ExecutionContext, operation: () => Promise<unknown>): void {
+    ctx.waitUntil(operation().catch(error => {
+        console.warn("Best-effort cache operation failed; continuing without it", error)
+    }))
+}
+
+/**
+ * Coerces a value pulled from a cache tier into table rows, tolerating both the bare-array shape this
+ * module writes and the legacy `{ results: [...] }` shape older entries may still carry.
+ *
+ * @param value the raw cached value
+ * @returns the rows, or null if the value is empty or not row-shaped
+ */
+function _asRows(value: unknown): Record<string, string | number | null>[] | null {
+    if (!value) {
+        return null
+    }
+    if (Array.isArray(value)) {
+        return value as Record<string, string | number | null>[]
+    }
+    if (typeof value === "object" && "results" in (value as Record<string, unknown>)) {
+        const results = (value as { results?: unknown }).results
+        if (Array.isArray(results)) {
+            return results as Record<string, string | number | null>[]
+        }
+    }
+    return null
+}
+
+/**
+ * Resolves the full contents of a table for virtual execution, degrading gracefully across storage
+ * tiers as usage limits are hit.
+ *
+ * Tiers are consulted cheapest-first — Cache API, then KV, then an authoritative D1 table read. The two
+ * cache tiers are pure accelerators, so any failure reading them (a usage limit, a malformed entry, a
+ * parse error) is logged and skipped rather than propagated. Only the final D1 read is authoritative: if
+ * it too fails there is nowhere left to fall back to and the error propagates (all options exhausted).
+ * Whenever the data comes from a slower tier, the faster tiers are backfilled best-effort so subsequent
+ * reads stay cheap.
+ *
+ * @param table the table name to resolve
+ * @param long whether to cache the table under the long Cache API policy
+ * @param ctx the Worker ExecutionContext
+ * @returns the resolved rows and the tier that served them
+ * @throws if every tier is exhausted (the authoritative D1 read fails)
+ */
+async function _resolveTable(table: string, long: boolean, ctx: ExecutionContext): Promise<{ rows: Record<string, string | number | null>[], origin: StorageTier }> {
+    // Tier 1: Cache API (free, fastest)
+    try {
+        const rows = _asRows(await getCache("db_cache", table))
+        if (rows) {
+            return { rows, origin: "cache-api" }
+        }
+    } catch (error) {
+        console.warn(`Cache API read failed for table '${table}'; degrading to KV`, error)
+    }
+
+    // Tier 2: KV (cheap, but capped at 100k reads/day on the free plan)
+    try {
+        const rows = _asRows(await getKey(table))
+        if (rows) {
+            // promote into the Cache API so subsequent reads can avoid KV entirely
+            _backfill(ctx, () => putCache("db_cache", table, rows, new Date().toISOString(), long))
+            return { rows, origin: "kv" }
+        }
+    } catch (error) {
+        console.warn(`KV read failed for table '${table}'; degrading to D1`, error)
+    }
+
+    // Tier 3: D1 (authoritative source of truth) — a failure here is terminal
+    const result = await exec_string(`SELECT * FROM ${table}`)
+    const rows = result.results as Record<string, string | number | null>[]
+    // repopulate both faster tiers best-effort so the next read does not have to reach D1
+    _backfill(ctx, () => putCache("db_cache", table, rows, new Date().toISOString(), long))
+    _backfill(ctx, () => setKey(table, rows, "json"))
+    return { rows, origin: "d1" }
+}
+
+/**
+ * Reads a query result cached under its statement identifier from the Cache API.
+ *
+ * Identifier-keyed results live only in the Cache API (they are never written to KV), so unlike
+ * full-table resolution this consults a single tier — and avoids spending a metered KV read on a key
+ * that can never be present. A read failure is treated as a miss so the caller falls through to D1.
+ *
+ * @param identifier the statement identifier (see SQLStatement.identifier)
+ * @returns the cached rows, or null on a miss or read failure
+ */
+async function _cacheFetchIdentifier(identifier: string): Promise<Record<string, string | number | null>[] | null> {
+    try {
+        return _asRows(await getCache("db_cache", identifier))
+    } catch (error) {
+        console.warn(`Cache API read failed for query '${identifier}'; treating as a miss`, error)
+        return null
+    }
+}
+
+/**
  * Execute the provided SQLStatement with the caching system context in runtime
- * 
+ *
  * @param stmt the SQLStatement to execute
  * @param ctx the Cloudflare Worker ExecutionContext
  * @returns the results of the SQLStatement execution as an array of records
- * 
+ *
  */
 async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<ExecResult> {
     // wraps exec_stmt commands to provide caching through KV and the Cache API
     // see lib/api/caching.ts for caching policy overview
-    console.log("Finished statement: ", stmt.finish())
     const identifier = stmt.identifier()
     if (identifier === null) {
+        // SQLStatement.identifier() returns null if the verb is not "SELECT": these verbs mutate state, so
+        // they can only be served by the authoritative D1 tier. There is no fallback for a write — a usage
+        // limit here propagates because the change genuinely cannot be persisted anywhere else.
         const output = await exec_stmt(stmt)
-        // SQLStatement.identifier() returns null if the verb is not "SELECT"
-        // the class's other supported verbs modify the database state, so cache needs to be purged
-        ctx.waitUntil(purgeCache("db_cache"))
-        // invalidate KV backing store for this table so Cache API is not repopulated with stale KV data
+        // the write succeeded, so the now-stale caches are invalidated best-effort (a failed eviction must
+        // not fail the write; the entries will also expire on their own via TTL)
+        _backfill(ctx, () => purgeCache("db_cache"))
         if (stmt.from) {
-            ctx.waitUntil(deleteKey(stmt.from))
-            // purgeCache cannot drop the whole store on Workers, so the per-table Cache API entry
-            // must be evicted directly or simple SELECTs will keep serving stale data until TTL expiry
-            ctx.waitUntil(deleteCacheKey("db_cache", stmt.from))
+            // invalidate the KV backing store and the per-table Cache API entry so a simple SELECT is not
+            // repopulated from, or kept serving, stale data (the Cache API has no store-wide purge)
+            _backfill(ctx, () => deleteKey(stmt.from!))
+            _backfill(ctx, () => deleteCacheKey("db_cache", stmt.from!))
         }
         return {
             data: output.results as Record<string, string | number | null>[],
@@ -154,72 +333,54 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
             meta: output.meta
         }
     }
-    // check the Cache API
     if (stmt.isSimple()) {
-        /*
-        // check if the serialized command has been executed and cached
-        console.log("Fetching query ", identifier, " from cache")
-        const id_cache = await _cacheFetch(identifier, false)
-        if (id_cache) {
-            return {
-                data: id_cache as Record<string, string | number | null>[],
-                query_scope: "local",
-                cached: true
-            }
-        }
-        */ // disabling serial-based caching since large-scale cache invalidation is not possible at this time
-
-        // identifier cache miss; pull the entire database
-        // for full database queries, the name of the table is used
-        // for cached queries, the identifier is used
-        console.log("Fetching table ", stmt.from!, " from cache")
-        const db_cache = await _cacheFetch(stmt.from!, true)
-        console.log("DB CACHE FETCH RESULT:", db_cache)
-        let db
-        let from_cache = false
-        if (db_cache) {
-            // execute the command on the virtualized database
-            db = new VirtualSQLTable(stmt.schema, db_cache as Record<string, string | number | null>[])
-            from_cache = true
-        } else {
-            // the table has not been cached, so pull the whole table, cache it, and run on the virtual table
-            const data = await exec_string(`SELECT * FROM ${stmt.from!}`)
-            db = new VirtualSQLTable(stmt.schema, data.results as Record<string, string | number | null>[])
-            // load into cache; caching is low priority and should be non-blocking, so they are awaited, and it is not a disaster if the cache puts fail
-            ctx.waitUntil(putCache("db_cache", stmt.from!, data.results, new Date().toISOString(), true))
-            ctx.waitUntil(setKey(stmt.from!, data.results, "json"))
-        }
-        console.log("Executing statement")
-        const output = db.execute(stmt)
-        // load the data into cache
-        //ctx.waitUntil(putCache("db_cache", identifier, output, new Date().toISOString(), true)) // see earlier on disabling id-based caching
-
+        // simple SELECTs run against the whole table on the virtual engine, so they can be satisfied from
+        // whichever storage tier is still within its limits. _resolveTable walks Cache API -> KV -> D1 and
+        // only throws once every tier is exhausted.
+        const { rows, origin } = await _resolveTable(stmt.from!, true, ctx)
+        const output = new VirtualSQLTable(stmt.schema, rows).execute(stmt)
         return {
             data: output as Record<string, string | number | null>[],
-            cached: from_cache,
+            cached: origin !== "d1",
             query_scope: "global"
         }
-    } else {
-        // query for the serialized command
-        console.log("Fetching query ", identifier, " from cache")
-        const db_cache = await _cacheFetch(identifier, false)
-        if (db_cache) {
-            return {
-                data: db_cache as Record<string, string | number | null>[],
-                cached: true,
-                query_scope: "local"
-            }
-        }
-        // cache miss; execute command, then return and cache
+    }
+
+    // non-simple SELECTs (those using ORDER BY / LIMIT) cannot be keyed by table name, so they are served
+    // from the identifier-keyed Cache API entry, then D1.
+    const cached = await _cacheFetchIdentifier(identifier)
+    if (cached) {
+        return { data: cached, cached: true, query_scope: "local" }
+    }
+    try {
         const output = await exec_stmt(stmt)
-        console.log("Output for identifier ", identifier, ":", output)
-        ctx.waitUntil(putCache("db_cache", identifier, output.results as Record<string, string | number | null>[], new Date().toISOString(), false))
+        _backfill(ctx, () => putCache("db_cache", identifier, output.results as Record<string, string | number | null>[], new Date().toISOString(), false))
         return {
             data: output.results as Record<string, string | number | null>[],
             cached: false,
             query_scope: "local",
             meta: output.meta
         }
+    } catch (error) {
+        // D1 is the last dedicated tier for this query shape. Only attempt the degraded fallback below when
+        // D1 is unavailable specifically because of a usage limit; a genuine query error propagates.
+        if (!isCapacityError(error)) {
+            throw error
+        }
+        console.warn(`D1 unavailable for query '${identifier}' due to a usage limit; attempting degraded whole-table execution`, error)
+    }
+
+    // Last resort: pull the whole table from whatever tier is still available and execute the statement on
+    // the virtual engine (VirtualSQLTable.execute supports ORDER BY and LIMIT, so the output is correct).
+    // This is gated behind D1 exhaustion only because it reads the entire table rather than letting D1 do a
+    // targeted query. If no tier can supply the table either, _resolveTable throws and the request fails —
+    // every option has then been exhausted.
+    const { rows } = await _resolveTable(stmt.from!, true, ctx)
+    const output = new VirtualSQLTable(stmt.schema, rows).execute(stmt)
+    return {
+        data: output as Record<string, string | number | null>[],
+        cached: true,
+        query_scope: "global"
     }
 }
 
@@ -238,50 +399,6 @@ export async function run_stmt(stmt: SQLStatement, ctx: ExecutionContext): Promi
 }
 
 /**
- * Retrieve an item from the database cache
- * If found in KV but not in Cache API, it is loaded into Cache API for faster future retrieval
- * 
- * @param key the cache key to retrieve
- * @param long whether to use long caching policy
- * @returns the cached data, or null if not found
- * 
- */
-async function _cacheFetch(key: string, long: boolean): Promise<unknown> {
-    // fetches the identified data from Cache API and KV
-    // check Cache API first
-    console.log(`Attempting to fetch from cache with key ${key}`)
-    const cache_result = await getCache("db_cache", key)
-    if (cache_result) {
-        console.log(`Cache hit for key ${key}`)
-        if (Array.isArray(cache_result)) {
-            return cache_result
-        }
-        if (typeof cache_result === "object" && cache_result !== null && "results" in cache_result) {
-            const results = (cache_result as { results?: unknown }).results
-            if (Array.isArray(results)) {
-                return results
-            }
-        }
-        return cache_result
-    }
-    console.log(`Cache miss for key ${key}`)
-    console.log(`Attempting to fetch from KV with key ${key}`)
-    // check KV
-    const kv_result = await getKey(key)
-    console.log(`KV fetch result for key ${key}:`, kv_result)
-    if (kv_result) {
-        console.log(`KV hit for key ${key}, loading into cache`)
-        // update Cache API with the KV result for faster future retrieval
-        await putCache("db_cache", key, kv_result, new Date().toISOString(), long)
-        return kv_result
-    }
-    console.log(`KV miss for key ${key}`)
-    return null
-    
-}
-
-
-/**
  * Internal function to add a new record to the database, with type assertion and cache management
  * 
  * @param ctx the Cloudflare Worker ExecutionContext
@@ -292,27 +409,27 @@ async function _cacheFetch(key: string, long: boolean): Promise<unknown> {
  */
 async function _addPrimitive(ctx: ExecutionContext, schema: D1Schema, record: Contributor | Composition | Composer): Promise<number> {
     const stmt = new SQLStatement(schema, "INSERT", schema.name) // new record insertion uses all columns since none are specified
-    let entry, id
+    let entry
     switch (schema) {
         case CONTRIBUTOR:
             entry = formatContribToD1(record as Contributor)
-            id = entry.contributor_id
             break
         case COMPOSER:
             entry = formatCompToD1(record as Composer)
-            id = entry.composer_id
             break
         case COMPOSITION:
             entry = formatWorkToD1(record as Composition)
-            id = entry.composition_id
             break
         default:
             throw new Error("Invalid schema")
     }
     stmt.addValueGroup(entry)
     stmt.voidValue(0, schema.primary_key)
-    stmt.editValue(0, "entry_date", new Date().toISOString())
-    console.log("Statement info: ", stmt)
+    // entry_date (creation) and change_date (last-modified) are managed here, not from caller input;
+    // on insert both are stamped with the same instant since creation is also the first modification
+    const now = new Date().toISOString()
+    stmt.editValue(0, "entry_date", now)
+    stmt.editValue(0, "change_date", now)
     const output = await _exec_wrap(stmt, ctx)
     return output.meta!.last_row_id
 }
@@ -393,10 +510,12 @@ async function _updatePrimitive(ctx: ExecutionContext, schema: D1Schema, id: num
         default:
             throw new Error("Invalid schema")
     }
-    stmt.addColumns(schema.columns.filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))) // exclude primary key and entry date from update
-    stmt.addValueGroup(entry, [schema.primary_key, "entry_date"]) // exclude primary key and entry date from update
+    stmt.addColumns(schema.columns.filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))) // exclude primary key and hidden meta columns (entry_date, change_date) from update
+    stmt.addValueGroup(entry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and hidden meta columns; change_date is restamped below, entry_date is preserved
+    // change_date tracks the last modification, so it is stamped here on every update (entry_date is left untouched)
+    stmt.editValue(0, "change_date", new Date().toISOString())
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
-    const output = await _exec_wrap(stmt, ctx)
+    await _exec_wrap(stmt, ctx)
     return null
 }
 
@@ -433,10 +552,12 @@ async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, 
         // nothing to update; running a SET-less UPDATE would be invalid SQL, so treat as a no-op
         return null
     }
-    stmt.addColumns(update_columns) // exclude primary key and entry date from update
-    stmt.addValueGroup(cleanEntry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and entry date from update
+    stmt.addColumns(update_columns) // exclude primary key and hidden meta columns (entry_date, change_date) from update
+    stmt.addValueGroup(cleanEntry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and hidden meta columns from update
+    // a real column changed (guarded above), so stamp change_date as the last-modified time (entry_date is left untouched)
+    stmt.editValue(0, "change_date", new Date().toISOString())
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
-    const output = await _exec_wrap(stmt, ctx)
+    await _exec_wrap(stmt, ctx)
     return null
 }
 
@@ -452,7 +573,7 @@ async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, 
 async function _deletePrimitive(ctx: ExecutionContext, schema: D1Schema, id: number): Promise<null> {
     const stmt = new SQLStatement(schema, "DELETE", schema.name)
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
-    const output = await _exec_wrap(stmt, ctx)
+    await _exec_wrap(stmt, ctx)
     return null
 }
 
@@ -764,29 +885,41 @@ export async function listCompositions(ctx: ExecutionContext): Promise<Compositi
 /**
  * Pairs each composition with the human-readable names referenced by its numeric fields
  *
- * A composition stores only numeric references (composer_id and the author_secondary id list), so this
- * resolves them to composer names. The whole composer table is fetched once (it is served from the
- * caching layer) and indexed, so resolving a list of compositions costs a single composer read rather
- * than one per reference. Unresolvable ids yield an empty string, keeping author_secondary_names aligned
- * positionally with the source author_secondary array.
+ * A composition stores only numeric references: composer_id and the author_secondary id list point into
+ * the composer table, while contrib_primary_1, contrib_primary_2, and contrib_addl point into the
+ * contributor table. This resolves all of them to names. Each table is fetched once (both are served from
+ * the caching layer) and indexed, so resolving a list of compositions costs a single read per table
+ * rather than one per reference. Unresolvable ids yield an empty string, keeping author_secondary_names
+ * and contrib_addl_names aligned positionally with their source arrays; a null contrib_primary_2 also
+ * yields an empty string.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param compositions the composition records to resolve names for
- * @returns each composition paired with its resolved composer_name and author_secondary_names
+ * @returns each composition paired with its resolved composer and contributor names
  */
 export async function attachCompositionNames(ctx: ExecutionContext, compositions: CompositionRecord[]): Promise<CompositionWithNames[]> {
     const composers = await listComposers(ctx)
-    const name_map = new Map<number, string>()
+    const composer_names = new Map<number, string>()
     if (composers) {
         for (const composer of composers) {
-            name_map.set(composer.id, composer.name)
+            composer_names.set(composer.id, composer.name)
+        }
+    }
+    const contributors = await listContributors(ctx)
+    const contributor_names = new Map<number, string>()
+    if (contributors) {
+        for (const contributor of contributors) {
+            contributor_names.set(contributor.id, contributor.name)
         }
     }
     return compositions.map(composition => ({
         object: composition,
         names: {
-            composer_name: name_map.get(composition.composer_id) ?? "",
-            author_secondary_names: composition.author_secondary.map(id => name_map.get(id) ?? "")
+            composer_name: composer_names.get(composition.composer_id) ?? "",
+            author_secondary_names: composition.author_secondary.map(id => composer_names.get(id) ?? ""),
+            contrib_primary_1_name: contributor_names.get(composition.contrib_primary_1) ?? "",
+            contrib_primary_2_name: composition.contrib_primary_2 === null ? "" : (contributor_names.get(composition.contrib_primary_2) ?? ""),
+            contrib_addl_names: composition.contrib_addl.map(id => contributor_names.get(id) ?? "")
         }
     }))
 }

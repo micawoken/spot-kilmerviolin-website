@@ -8,7 +8,6 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 export const prerender = false
 
 const locals = Astro.locals
-const date = new Date()
 
 const identity = locals.identity
 ---
@@ -21,6 +20,7 @@ const identity = locals.identity
 <body>
     <!-- Header -->
     <AdminHeader identity={identity}  welcome={true}/>
+    <main class="admin-main" role="main">
     <!-- Pages for IAM, site info/mgmt, and advanced -->
     <div class="flex-container">
         <div class="column">
@@ -30,14 +30,14 @@ const identity = locals.identity
                 <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
                 <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
                 <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
-                <li><a href="/admin/iam/activate" class="col-item-link">Activate user account</a></li>
-                <li><a href="/admin/iam/deactivate" class="col-item-link">Deactivate user account</a></li>
+                <li><a href="/admin/iam/email" class="col-item-link">Change sign-in email</a></li>
                 <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
             </ul>
         </div>
     </div>
     <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/iam" class="general-helppointer-link">Identity & Access Management</a>documentation and video.</p>
-    <p class="general-helpinfo">Looking for options to promote or demote a user as administrator? Those options are in <a href="/admin/advanced" class="general-helpinfo-link">Advanced Options</a> &gt; <a href="/admin/advanced/elevate" class="general-helpinfo-link">Promote user to administrator</a> and <a href="/admin/advanced/demote" class="general-helpinfo-link">Demote user from administrator</a>.</p>
+    <p class="general-helpinfo">Looking for options to activate or deactivate an account, or to promote or demote a user as administrator? Those options are in <a href="/admin/user" class="general-helpinfo-link">User Management</a>.</p>
+    </main>
     <AdminFooter />
 </body>
 </html>

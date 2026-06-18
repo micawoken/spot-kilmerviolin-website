@@ -1,7 +1,7 @@
 /**
  * scripts/interface.ts
  * 
- * Provides high-level functions related to calling the API
+ * Provides high-level functions related to populating the user interface
  * 
  * 
  * Copyright (C) 2026 Michael Wong.
@@ -21,10 +21,16 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { FieldPair } from "./types"
-import { constructRating, constructPubInfo, custom_object_parsers, interface_data } from "./types"
+import { interface_data } from "./types"
 import { NOT_PROVIDED } from "../consts"
-import { isValidCountryCode, normalizeCountryCode, countryCodeName } from "../lib/api/country"
+import { formatInfoValue } from "./format"
+import { renderPublicationUri } from "./publication"
+import {
+    renderContributorRefLink,
+    renderContributorRefLinks,
+    renderComposerNameLink,
+    renderComposerNameLinks,
+} from "./references"
 import {
     APIOpCode,
     createComposer,
@@ -46,268 +52,45 @@ import {
     updateContributor,
     deleteContributor,
     listContributor,
-    searchDatabase
 } from "./connector"
+import { assertCanEditContributor, errorMessage, generateObjectForm, setInfoHtml, singleParse } from "./common"
+import { validateFormFields } from "./form_validate"
+import { _resetKeywordSearch } from "./keyword_search"
+
+
+// DATA FETCHER
+
+
+
+// INPUT CONTROL
+
 
 /**
- * Renders an animated "Searching" progress indicator into a results container.
+ * Sets the `disabled` state of every input-like control in a form (inputs, textareas, selects, buttons).
+ * Shared by disableInput/enableInput so the form-locking logic lives in one place.
  *
- * The trailing ellipsis cycles 1 → 2 → 3 dots via the `.search-progress` CSS animation (defined in
- * styles/admin-entities.css) to signal that a search is in flight. Replaces any existing content; it is
- * overwritten once results (or an error) arrive.
- *
- * @param {HTMLElement} target the results container to render the indicator into
+ * @param {HTMLFormElement} form_elem the form whose controls should be toggled
+ * @param {boolean} disabled the disabled state to apply
  */
-function renderSearchProgress(target: HTMLElement): void {
-    target.textContent = ""
-    const indicator = document.createElement("span")
-    indicator.className = "search-progress"
-    indicator.textContent = "Searching"
-    target.appendChild(indicator)
+function setInputsDisabled(form_elem: HTMLFormElement, disabled: boolean): void {
+    const inputs = form_elem.querySelectorAll("input, textarea, select, button")
+    inputs.forEach(input => {
+        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement || input instanceof HTMLButtonElement) {
+            input.disabled = disabled
+        } else {
+            console.warn(`Unsupported form element type for ${disabled ? "disabling" : "enabling"}: `, input)
+        }
+    })
 }
 
 export function disableInput(form_elem: HTMLFormElement): void {
-    const inputs = form_elem.querySelectorAll("input, textarea, select, button")
-    inputs.forEach(input => {
-        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement || input instanceof HTMLButtonElement) {
-            input.disabled = true
-        } else {
-            console.warn("Unsupported form element type for disabling: ", input)
-        }
-    })
+    setInputsDisabled(form_elem, true)
 }
 
 export function enableInput(form_elem: HTMLFormElement): void {
-    const inputs = form_elem.querySelectorAll("input, textarea, select, button")
-    inputs.forEach(input => {
-        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement || input instanceof HTMLButtonElement) {
-            input.disabled = false
-        } else {
-            console.warn("Unsupported form element type for enabling: ", input)
-        }
-    })
+    setInputsDisabled(form_elem, false)
 }
 
-/**
- * Parses a single integer field value, enforcing that it is a whole number.
- *
- * All numeric fields in the API (IDs, years, ratings, phase numbers) are integers, and ID fields in
- * particular must always be numbers. parseFloat/parseInt are too lenient for this (they accept inputs
- * like "12abc" or "1.5"), so this rejects anything that is not a bare integer.
- *
- * @param {string} raw the raw input value
- * @param {string} param the parameter name, used for error messages
- * @returns {number} the parsed integer
- * @throws {Error} if the input is not a valid integer
- */
-function parseIntegerStrict(raw: string, param: string): number {
-    const trimmed = raw.trim()
-    if (!/^-?\d+$/.test(trimmed)) {
-        throw new Error(`Invalid integer input for parameter ${param}: "${raw}" (must be a whole number)`)
-    }
-    const num = Number(trimmed)
-    if (!Number.isInteger(num)) {
-        throw new Error(`Invalid integer input for parameter ${param}: "${raw}" (must be a whole number)`)
-    }
-    return num
-}
-
-function argParse(param: string, type: string, raw_value: string): string | string[] | number | number[] | boolean | undefined {
-    switch (type) {
-        case "string":
-            return raw_value
-        case "country": {
-            // countries are standardized to ISO 3166-1 alpha-2 codes; normalize and reject anything the
-            // runtime cannot resolve to a region (mirrored server-side in the composer type assertions)
-            const normalized = normalizeCountryCode(raw_value)
-            if (!isValidCountryCode(normalized)) {
-                throw new Error(`Invalid country for parameter ${param}: "${raw_value}" (must be an ISO 3166-1 alpha-2 country code)`)
-            }
-            return normalized
-        }
-        case "number":
-            // numeric fields (including all ID fields) are integers and are enforced as such
-            return parseIntegerStrict(raw_value, param)
-        case "boolean":
-            return raw_value.toLowerCase() === "true"
-        case "string[]":
-            // empty segments (e.g. from a trailing comma) are dropped rather than sent as empty strings
-            return raw_value.split(",").map(s => s.trim()).filter(s => s !== "")
-        case "number[]":
-        case "number[]?": // nullable array: parses like number[]; empty inputs become null instead of [] (handled in generateObjectForm)
-            // number arrays (e.g. secondary author / additional contributor ID lists) are integer lists
-            return raw_value.split(",").map(s => s.trim()).filter(s => s !== "").map(s => parseIntegerStrict(s, param))
-        default:
-            if (type.startsWith("X-")) {
-                throw new Error(`Custom object ${type} should be passed in the custom_objects parameter, not as a type in the type_data mapping`)
-            }
-            console.warn(`Unsupported type ${type} for parameter ${param}`)
-            return;
-    }
-}
-
-function customObjectParse(custom_object_type: keyof typeof custom_object_parsers, form_data: FormData, allow_omit: boolean, nullable: boolean): {
-    output: any,
-    exclude: string
-} | undefined {
-    const data = custom_object_parsers[custom_object_type]
-    const type_name = data[0]
-    const constructor = data[1]
-    const params = data[2]
-    // missing entries and empty inputs are both passed to the constructor as null,
-    // letting constructors map blank inputs onto nullable columns
-    const values = params.map(param => {
-        const raw = form_data.get(param)
-        return (raw === null || raw === "") ? null : raw
-    })
-    const output = constructor(...values)
-    if (!output) {
-        if (values.every(value => value === null)) {
-            // the whole group was left blank or is not rendered by this form
-            if (!allow_omit && !nullable) {
-                throw new Error(`Form data is missing required parameters for custom object ${custom_object_type}: ${params.join(", ")}`)
-            }
-            console.log(`Custom object ${custom_object_type} left blank, emitting as omitted.`)
-            return;
-        }
-        // inputs were provided but rejected; surface the problem instead of silently dropping them
-        throw new Error(`Invalid input for custom object ${custom_object_type}. Inputs: ${params.map((param, i) => `${param}=${values[i] ?? ""}`).join(", ")}`)
-    }
-    return {
-        output: output,
-        exclude: type_name
-    }
-}
-
-/**
- * Given a FormData object and a type mapping, generates the object representation
- * (performs the same task as generateObject, but with a specified form object instead of DOM IDs)
- * 
- */
-export function generateObjectForm(form_data: FormData, type_data: Record<string, FieldPair>, allow_omit: boolean = false, custom_objects: (keyof typeof custom_object_parsers)[] = [], patch: boolean = false): Record<string, any> {
-    let result: Record<string, any> = {}
-    let exclude = new Set<string>() // excludes type_data properties that were created by the custom object constructor
-    // manage custom objects
-    for (const custom_object of custom_objects) {
-        const field_name = custom_object_parsers[custom_object][0]
-        // always exclude the constructed field from the main loop, so it is not overwritten
-        exclude.add(field_name)
-        if (patch) {
-            // in patch mode, only include the custom object if its group-level checkbox is checked
-            const editable = form_data.get(`${field_name}-edittarget`)
-            if (editable !== "on") {
-                console.log(`Custom object ${field_name} is not marked for editing, skipping.`)
-                continue
-            }
-        }
-        const parsed = customObjectParse(custom_object, form_data, allow_omit, type_data[field_name][1])
-        // invalid (non-blank) input throws inside customObjectParse; a falsy return means the group was left blank
-        if (!parsed) {
-            // blank nullable groups are sent as null in full mode and skipped in patch mode
-            if (!patch) {
-                result[field_name] = null
-            }
-            continue
-        }
-        result[field_name] = parsed.output
-    }
-
-    const remaining = Object.entries(type_data).filter(([param, _]) => !exclude.has(param))
-
-    for (const [param, [type, is_optional]] of remaining) {
-        if (!form_data.has(param)) {
-            if (patch) {
-                // a patch form may legitimately not render every interface field
-                console.log(`Form data is missing parameter ${param} in patch mode, skipping parameter.`)
-                continue
-            }
-            if (!allow_omit && !is_optional) {
-                throw new Error(`Form data is missing required parameter ${param}`)
-            }
-            // array-typed fields must be sent as empty arrays; the API requires Array values for them
-            result[param] = type.endsWith("[]") ? [] : null
-            console.log(`Form data is missing parameter ${param}, which is ${is_optional ? "optional" : "required"}.`, `allow_omit is ${allow_omit}.`)
-            continue
-        }
-        if (patch) {
-            // check if the associated checkbox element is checked; if not, continue
-            const editable = form_data.get(`${param}-edittarget`)
-            if (editable !== "on") {
-                console.log(`Parameter ${param} is not marked for editing, skipping parameter.`, `allow_omit is ${allow_omit}.`)
-                continue
-            }
-            // proceed
-        }
-        const raw_value = form_data.get(param)
-        if (typeof raw_value !== "string") {
-            if (!allow_omit && !is_optional) {
-                throw new Error(`Form data for parameter ${param} is not a string`)
-            }
-            console.warn(`Form data for parameter ${param} is not a string, ignoring parameter.`, `allow_omit is ${allow_omit}.`)
-            continue
-        }
-        if (raw_value === "") {
-            // empty inputs are nulls (an empty optional number would otherwise fail to parse)
-            if (!patch && !allow_omit && !is_optional) {
-                throw new Error(`Form data is missing required parameter ${param}`)
-            }
-            // array-typed fields must be sent as empty arrays; the API requires Array values for them
-            result[param] = type.endsWith("[]") ? [] : null
-            continue
-        }
-        const parsed_value = argParse(param, type, raw_value)
-        if (parsed_value === undefined) {
-            throw new Error(`Failed to parse form data for parameter ${param} with value ${raw_value} and type ${type}`)
-        }
-        // nullable arrays that parse to no elements (e.g. an input of only commas) are sent as null, not []
-        result[param] = (type === "number[]?" && Array.isArray(parsed_value) && parsed_value.length === 0) ? null : parsed_value
-    }
-    return result
-}
-
-/**
- * Client-side validation of whether the acting user may edit a given contributor record.
- *
- * Mirrors the server authorization in PATCH /api/v1/contributors/[id]: a user may edit their own
- * record freely, but editing another user's record — or any protected property — requires being an
- * administrator with elevation enabled. The server remains authoritative; this surfaces a clear error
- * before the request is sent. Identity context is read from the form's dataset (set by
- * ContributorForm.astro), with the protected-property list sourced from CONTRIBUTOR.protected.
- *
- * @param {HTMLFormElement} form the contributor form, carrying identity context in its dataset
- * @param {number} record_id the id of the contributor record being edited
- * @param {boolean} elevate whether administrator elevation is requested for this operation
- * @param {Record<string, any>} data the (partial) record being submitted
- * @throws {Error} if the acting user lacks permission for the requested edit
- */
-function assertCanEditContributor(form: HTMLFormElement, record_id: number, elevate: boolean, data: Record<string, any>): void {
-    const self_raw = form.dataset.selfId ?? ""
-    const self_id = self_raw === "" ? null : parseInt(self_raw)
-    const is_admin = form.dataset.isAdmin === "true"
-    const protected_fields = (form.dataset.protectedFields ?? "").split(",").map(s => s.trim()).filter(s => s !== "")
-    // editing another record, or any protected property, both require an elevated (admin + elevate) request
-    const elevated = is_admin && elevate
-    const is_self = self_id !== null && !isNaN(self_id) && self_id === record_id
-
-    if (!is_self && !elevated) {
-        throw new Error("You do not have permission to edit this contributor record. You may only edit your own record; editing another contributor requires administrator escalation.")
-    }
-    const edited_protected = protected_fields.filter(field => field in data)
-    if (edited_protected.length > 0 && !elevated) {
-        throw new Error(`Editing protected ${edited_protected.length === 1 ? "property" : "properties"} (${edited_protected.join(", ")}) requires administrator escalation.`)
-    }
-}
-
-function singleParse(form_data: FormData): string {
-    if (!form_data.has("id")) {
-        throw new Error(`Form data is missing required parameter id for this operation`)
-    }
-    const id = form_data.get("id")!
-    if (typeof id !== "string") {
-        throw new Error(`Form data for parameter id is not a string`)
-    }
-    return id
-}
 
 /**
  * Emits catched errors onto a status element
@@ -336,7 +119,6 @@ const generic_form_codes: Record<keyof typeof interface_data, string> = {
 const generic_read_code = "generic-form-id-entry"
 
 export function getForm(noun: keyof typeof interface_data, exec_mode: APIOpCode): HTMLFormElement {
-    console.log(`Getting form for noun ${noun} and operation ${APIOpCode[exec_mode]}`)
     if (exec_mode === APIOpCode.LIST) {
         throw new Error("List operation is SSR, no form is allowed")
     } else if (exec_mode === APIOpCode.READ || exec_mode === APIOpCode.DELETE) {
@@ -350,11 +132,9 @@ export function getForm(noun: keyof typeof interface_data, exec_mode: APIOpCode)
         }
         return form
     } else {
-        console.log(generic_form_codes, noun)
         const form_code = generic_form_codes[noun]
         const form = document.getElementById(form_code)
         if (!form) {
-            console.log(`Form with id ${form_code} not found in DOM for noun ${noun} and operation ${exec_mode}`)
             throw new Error(`Form with id ${form_code} not found in DOM for noun ${noun} and operation ${exec_mode}`)
         }
         if (!(form instanceof HTMLFormElement)) {
@@ -372,24 +152,15 @@ export function getTransactionElem(): Element {
     return elem
 }
 
-
 /**
- * Common function to send API requests for composers, compositions, and contributors
- * 
- * Returns the API response payload
- * 
- * @param {APIOpCode} exec_mode the type of operation being performed
- * @param {object} spec the specification from connector.ts
- * @param {any} data the data to send in the request body, if applicable
- * @param {Record<string, any>} meta the meta parameters to include in the request, if applicable
- * @param {number} id the ID of the record being updated or deleted, if applicable
- * @returns {Promise<any>} the interpreted response payload
- * @throws {Error} if pre-request processing fails, the call fails, or call processing fails
+ * Hides the lookup dialogs (ID entry form and keyword search box) once a record has been loaded for
+ * on-page viewing in the READ flow, so the rendered record stands alone. Shared by the per-noun READ
+ * branches in processSubmit.
  */
-// NOTE: The previous abstraction `_commonCall`/`commonCall` has been removed
-// in favor of directly calling the concrete connector functions exported
-// from `connector.ts`. This reduces indirection and makes event handlers
-// call the intended API functions explicitly.
+function hideLookupForRecordView(): void {
+    document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+    document.getElementById("entity-search-container")?.classList.add("hidden")
+}
 
 export async function populateInfo(noun: keyof typeof interface_data, data: object, force_prefix?: string): Promise<void> {
     const type_name = interface_data[noun].name
@@ -400,12 +171,16 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
             await populateInfo(noun, value as object, elem_id)
             continue
         }
+        // the publication URI type is intentionally not rendered as its own field on CompositionInfo (the
+        // URI render conveys the type); skip it silently rather than warning about the absent element
+        if (elem_id.endsWith("publication_info-uri_type")) {
+            continue
+        }
         const elem = document.getElementById(elem_id)
         if (!elem) {
             console.warn(`Element with id ${elem_id} not found in DOM for populating info`)
             continue
         }
-        console.log(`Populating element with id ${elem_id} with value:`, value)
         // image fields render into an <img> element, not text: set its src and toggle the sibling
         // "(no image)" placeholder (id `${elem_id}-missing`). The <img> is always present in the Info
         // components so this client-side READ path can fill it, mirroring the SSR view; the src is left
@@ -424,31 +199,38 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
             }
             continue
         }
-        // mirror the SSR `disp` helper in the entity Info components: a null/undefined/blank/empty-array
-        // value renders as a clear "not provided" marker so it is distinct from an unset/blank field
-        if (value === null || value === undefined) {
-            elem.textContent = NOT_PROVIDED
-        } else if (Array.isArray(value)) {
-            elem.textContent = value.length > 0 ? value.join(", ") : NOT_PROVIDED
-        } else if (typeof value === "string" && value.trim() === "") {
-            elem.textContent = NOT_PROVIDED
-        } else if (type_name === "composer" && key === "death_year" && value === -1) {
-            // a composer death_year of -1 denotes a living composer (mirrors the ComposerInfo SSR view)
-            elem.textContent = "Present"
-        } else if (type_name === "composer" && key === "country" && typeof value === "string") {
-            // composer countries are stored as ISO 3166-1 alpha-2 codes; render the English name (mirrors the ComposerInfo SSR view)
-            elem.textContent = countryCodeName(value)
-        } else if (key === "id" && force_prefix === undefined) {
-            // the SSR Info components render the id element as "ID #<n>"; mirror that here so the client-side
-            // READ flow does not overwrite the "ID #" prefix with a bare number (the id element is top-level only)
-            elem.textContent = `ID #${String(value)}`
-        } else {
-            elem.textContent = String(value)
+        // the publication URI renders according to its declared uri_type (a sibling field on the
+        // publication_info object currently being populated): a clickable link for https/doi, the literal
+        // "isbn:{value}" text for isbn. renderPublicationUri returns markup-safe HTML (every value is
+        // escapeHtml-encoded), assigned via innerHTML, mirroring the set:html render in CompositionInfo.astro.
+        // A blank/absent URI falls through to the shared "not provided" marker below.
+        if (elem_id.endsWith("publication_info-uri") && !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""))) {
+            elem.innerHTML = renderPublicationUri((data as { uri_type?: string }).uri_type, String(value), NOT_PROVIDED)
+            continue
         }
+        // phases render with a "Phases" label and a "(no phases specified)" marker when empty (mirrors the
+        // ContributorInfo SSR card). This must precede the generic null/array/blank branches below: phases
+        // is a number[], so the Array.isArray branch would otherwise overwrite the label with a bare value,
+        // and an empty/unset phases value would lose the label to the NOT_PROVIDED marker.
+        if (key === "phases" && force_prefix === undefined) {
+            const body =
+                (value === null || value === undefined) ? "(no phases specified)"
+                : Array.isArray(value) ? (value.length > 0 ? value.join(", ") : "(no phases specified)")
+                : (typeof value === "string" && value.trim() === "") ? "(no phases specified)"
+                : String(value)
+            elem.textContent = `Phases ${body}`
+            continue
+        }
+        // mirror the SSR `disp` helper in the entity Info components: a null/undefined/blank/empty-array
+        // value renders as a clear "not provided" marker, and the per-entity special cases (living-composer
+        // death year, country code → name, top-level "ID #" prefix, contributor admin account type, plain
+        // booleans) render as their human-readable forms (see scripts/format.ts).
+        elem.textContent = formatInfoValue(type_name, key, value, force_prefix === undefined)
     }
     // unhide table
     document.getElementById(`generic-result-${type_name}`)?.classList.remove("hidden")
 }
+
 
 export async function clearInfo(noun: keyof typeof interface_data): Promise<void> {
     const type_name = interface_data[noun].name
@@ -474,8 +256,6 @@ export async function retrieveObjectFromIDEntry(id_entry_form: HTMLFormElement, 
     if (isNaN(id)) {
         throw new Error(`Parsed ID value is not a valid number: ${id}`)
     }
-    // optional escalation checkbox (admin retrieval of protected contributor properties)
-    const elevate = form_data.get("elevate") === "on" ? true : undefined
     // retrieve the record from the API
     switch (interface_data[noun].name) {
         case "composer":
@@ -487,252 +267,271 @@ export async function retrieveObjectFromIDEntry(id_entry_form: HTMLFormElement, 
             return (isCompositionWithNames(work) ? work.object : work) as CompositionRecord | null
         }
         case "contributor":
-            return await getContributor(id, elevate)
+            // always request elevation for the prefill lookup: the edit form renders every protected
+            // property for admins, so they should always be populated. The server only honors elevation
+            // for admins (GET /contributors/[id]), so non-admins still receive the filtered record. The
+            // elevation checkbox is reserved for the edit (write) operation, not this read.
+            return await getContributor(id, true)
         default:
             throw new Error(`Unsupported noun ${interface_data[noun].name} for retrieval in retrieveObjectFromIDEntry`)
     }
 }
 
 /**
+ * Parses a submitted form into the API payload for its operation: the record id for single-item
+ * operations (READ/DELETE), the id plus a (partial) object for updates, or a freshly generated object
+ * for creates. Contributor updates are additionally checked client-side for ownership and protected-property
+ * authorization so the user receives an immediate, clear rejection before any request is sent.
+ *
+ * @param {FormData} formData the submitted form data
+ * @param {APIOpCode} exec_mode the operation being performed
+ * @param {keyof typeof interface_data} noun the interface noun being operated on
+ * @param {HTMLFormElement} form the originating form (for the contributor edit-authorization check)
+ * @param {boolean | undefined} elevate whether administrator escalation was requested
+ * @returns {{ data: any, record_id?: number }} the generated object and/or target record id
+ */
+function buildSubmitPayload(formData: FormData, exec_mode: APIOpCode, noun: keyof typeof interface_data, form: HTMLFormElement, elevate: boolean | undefined): { data: any, record_id?: number } {
+    if (exec_mode === APIOpCode.READ || exec_mode === APIOpCode.DELETE) {
+        // single-item exec mode - form is single-item (ID), so pull the single item
+        const record_id = parseInt(singleParse(formData))
+        if (isNaN(record_id)) {
+            throw new Error(`Parsed ID value is not a valid number`)
+        }
+        return { data: null, record_id }
+    } else if (exec_mode === APIOpCode.UPDATE || exec_mode === APIOpCode.UPDATE_PARTIAL) {
+        // updates target an existing record via the form's hidden id input
+        const record_id = parseInt(String(formData.get("id")))
+        if (isNaN(record_id)) {
+            throw new Error(`Form data is missing a valid record ID for this operation`)
+        }
+        const partial = (exec_mode === APIOpCode.UPDATE_PARTIAL)
+        const data = generateObjectForm(formData, interface_data[noun].interface, partial, interface_data[noun].custom_objects, partial)
+        // contributor edits are subject to ownership and protected-property authorization; validate
+        // client-side before sending so the user receives an immediate, clear rejection
+        if (interface_data[noun].name === "contributor") {
+            assertCanEditContributor(form, record_id, elevate === true, data as Record<string, any>)
+        }
+        return { data, record_id }
+    } else {
+        // standard exec mode - pull form values
+        const data = generateObjectForm(formData, interface_data[noun].interface, false, interface_data[noun].custom_objects)
+        return { data }
+    }
+}
+
+/**
+ * Renders a loaded composition record into the info card. When the record carries resolved names, the
+ * record is populated generically and then the composer/secondary-author/contributor references are
+ * rendered as info-page links (set via innerHTML), mirroring the SSR CompositionInfo card; the *_name keys
+ * are held back from the generic pass because they have no plain-text element and render as markup here.
+ *
+ * @param {Awaited<ReturnType<typeof getWork>>} rec the loaded composition record (possibly name-enhanced)
+ * @param {keyof typeof interface_data} noun the composition interface noun
+ */
+async function displayCompositionRecord(rec: NonNullable<Awaited<ReturnType<typeof getWork>>>, noun: keyof typeof interface_data): Promise<void> {
+    if (isCompositionWithNames(rec)) {
+        // composer_name and author_secondary_names are held back from the generic pass too: like the
+        // contributor refs below, they render as info-page links (set:html) rather than the plain text
+        // populateInfo would set.
+        const { contrib_primary_1_name, contrib_primary_2_name, contrib_addl_names, composer_name, author_secondary_names, ...composer_names } = rec.names
+        await populateInfo(noun, rec.object as any)
+        await populateInfo(noun, composer_names as any)
+        const obj = rec.object as CompositionRecord
+        // composer and secondary authors link to their composer info pages (mirrors the SSR CompositionInfo card)
+        setInfoHtml("composition-composer_name", renderComposerNameLink(obj.composer_id, composer_name, "(error in composer name)"))
+        setInfoHtml("composition-author_secondary_names", renderComposerNameLinks(obj.author_secondary, author_secondary_names, "(no secondary authors)"))
+        // contributor references render inline as "id (name)" links to each contributor info page
+        setInfoHtml("composition-contrib_primary_1", renderContributorRefLink(obj.contrib_primary_1, contrib_primary_1_name, NOT_PROVIDED))
+        setInfoHtml("composition-contrib_primary_2", renderContributorRefLink(obj.contrib_primary_2, contrib_primary_2_name, "(no additional primary contributor specified)"))
+        setInfoHtml("composition-contrib_addl", renderContributorRefLinks(obj.contrib_addl, contrib_addl_names, "(no additional contributors specified)"))
+    } else {
+        await populateInfo(noun, rec as any)
+    }
+}
+
+/**
+ * The execution context passed to each entity operation handler in ENTITY_OPS.
+ */
+interface OpContext {
+    form: HTMLFormElement
+    message: Element
+    data: any
+    record_id?: number
+    elevate?: boolean
+    direct?: boolean
+    noun: keyof typeof interface_data
+}
+
+/**
+ * Dispatch table mapping each API noun and operation to its handler. Each handler issues the connector
+ * call, reports the result on the status element, and wires the post-submit next-task links — replacing
+ * the per-noun switch that processSubmit previously carried inline. Adding an entity or operation is a
+ * matter of adding an entry rather than another switch branch.
+ */
+const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => Promise<void>>>> = {
+    composer: {
+        [APIOpCode.CREATE]: async ({ form, message, data, noun }) => {
+            const id = await createComposer(data as Composer)
+            message.textContent = `Request succeeded: assigned composer ID ${id.toString()}`
+            await attachNextTask(form, message, APIOpCode.CREATE, noun)
+        },
+        [APIOpCode.READ]: async ({ form, message, record_id, noun }) => {
+            const rec = await getComposer(record_id!)
+            if (rec) {
+                hideLookupForRecordView()
+                await populateInfo(noun, rec as any)
+                message.textContent = "Request succeeded: composer loaded"
+            } else {
+                message.textContent = "No composer found for given ID"
+            }
+            // offer the edit link only when a record was actually loaded
+            await attachNextTask(form, message, APIOpCode.READ, noun, false, rec ? record_id : undefined)
+        },
+        [APIOpCode.UPDATE]: async ({ form, message, record_id, data, noun }) => {
+            await replaceComposer(record_id!, data as Composer)
+            message.textContent = "Request succeeded: updated composer record"
+            await attachNextTask(form, message, APIOpCode.UPDATE, noun)
+        },
+        [APIOpCode.UPDATE_PARTIAL]: async ({ form, message, record_id, data, noun }) => {
+            await updateComposer(record_id!, data as Partial<Composer>)
+            message.textContent = "Request succeeded: updated composer record"
+            await attachNextTask(form, message, APIOpCode.UPDATE_PARTIAL, noun)
+        },
+        [APIOpCode.DELETE]: async ({ form, message, record_id, noun }) => {
+            await deleteComposer(record_id!)
+            message.textContent = "Request succeeded: deleted composer record"
+            await attachNextTask(form, message, APIOpCode.DELETE, noun)
+        },
+        [APIOpCode.LIST]: async ({ message }) => {
+            await listComposer()
+            message.textContent = "Request succeeded: list retrieved"
+        },
+    },
+    composition: {
+        [APIOpCode.CREATE]: async ({ form, message, data, noun }) => {
+            const id = await createWork(data as Composition)
+            message.textContent = `Request succeeded: assigned composition ID ${id.toString()}`
+            await attachNextTask(form, message, APIOpCode.CREATE, noun)
+        },
+        [APIOpCode.READ]: async ({ form, message, record_id, noun }) => {
+            // request resolved composer and contributor names so the view can show them alongside the numeric ids
+            const rec = await getWork(record_id!, true)
+            if (rec) {
+                hideLookupForRecordView()
+                await displayCompositionRecord(rec, noun)
+                message.textContent = "Request succeeded: composition loaded"
+            } else {
+                message.textContent = "No composition found for given ID"
+            }
+            // offer the edit link only when a record was actually loaded
+            await attachNextTask(form, message, APIOpCode.READ, noun, false, rec ? record_id : undefined)
+        },
+        [APIOpCode.UPDATE]: async ({ form, message, record_id, data, elevate, direct, noun }) => {
+            await replaceWork(record_id!, data as Composition, elevate, direct)
+            message.textContent = "Request succeeded: updated composition record"
+            await attachNextTask(form, message, APIOpCode.UPDATE, noun)
+        },
+        [APIOpCode.UPDATE_PARTIAL]: async ({ form, message, record_id, data, elevate, direct, noun }) => {
+            await updateWork(record_id!, data as Partial<Composition>, elevate, direct)
+            message.textContent = "Request succeeded: updated composition record"
+            await attachNextTask(form, message, APIOpCode.UPDATE_PARTIAL, noun)
+        },
+        [APIOpCode.DELETE]: async ({ form, message, record_id, elevate, noun }) => {
+            await deleteWork(record_id!, elevate)
+            message.textContent = "Request succeeded: deleted composition record"
+            await attachNextTask(form, message, APIOpCode.DELETE, noun)
+        },
+        [APIOpCode.LIST]: async ({ message }) => {
+            await listWork()
+            message.textContent = "Request succeeded: list retrieved"
+        },
+    },
+    contributor: {
+        [APIOpCode.CREATE]: async ({ form, message, data, noun }) => {
+            const id = await createContributor(data as Contributor)
+            message.textContent = `Request succeeded: assigned contributor ID ${id.toString()}`
+            await attachNextTask(form, message, APIOpCode.CREATE, noun)
+        },
+        [APIOpCode.READ]: async ({ form, message, record_id, noun }) => {
+            // always request elevation for the view lookup: the info card shows protected properties for
+            // admins, so they should always be populated. The server only honors elevation for admins
+            // (GET /contributors/[id]), so non-admins still receive the filtered record.
+            const rec = await getContributor(record_id!, true)
+            if (rec) {
+                hideLookupForRecordView()
+                await populateInfo(noun, rec as any)
+                message.textContent = "Request succeeded: contributor loaded"
+            } else {
+                message.textContent = "No contributor found for given ID"
+            }
+            // offer the edit link only when a record was actually loaded
+            await attachNextTask(form, message, APIOpCode.READ, noun, false, rec ? record_id : undefined)
+        },
+        [APIOpCode.UPDATE]: async ({ form, message, record_id, data, noun }) => {
+            await replaceContributor(record_id!, data as Contributor)
+            message.textContent = "Request succeeded: updated contributor record"
+            await attachNextTask(form, message, APIOpCode.UPDATE, noun)
+        },
+        [APIOpCode.UPDATE_PARTIAL]: async ({ form, message, record_id, data, elevate, noun }) => {
+            await updateContributor(record_id!, data as Partial<Contributor>, elevate)
+            message.textContent = "Request succeeded: updated contributor record"
+            await attachNextTask(form, message, APIOpCode.UPDATE_PARTIAL, noun)
+        },
+        [APIOpCode.DELETE]: async ({ form, message, record_id, noun }) => {
+            await deleteContributor(record_id!)
+            message.textContent = "Request succeeded: deleted contributor record"
+            await attachNextTask(form, message, APIOpCode.DELETE, noun)
+        },
+        [APIOpCode.LIST]: async ({ message }) => {
+            await listContributor()
+            message.textContent = "Request succeeded: list retrieved"
+        },
+    },
+}
+
+/**
  * Common event listener code for responding to composer, composition, and contributor form submissions
- * 
+ *
  * @param {SubmitEvent} submit_event the form submission event
  * @param {HTMLFormElement | string | null} form the form element, the content of a single-element form, or null
  * @param {Element} message the DOM element on which to display status messages
  * @param {APIOpCode} exec_mode the type of operation being performed
- * 
- * 
+ *
+ *
  */
 export async function processSubmit(submit_event: SubmitEvent | PointerEvent, form: HTMLFormElement, message: Element, exec_mode: APIOpCode, noun: keyof typeof interface_data) {
     submit_event.preventDefault();
     message.textContent = "Processing request..."
-    console.log("Form element received in processSubmit: ", form)
     if (!(form instanceof HTMLFormElement)) {
         throw new Error(`Invalid form input for processSubmit: expected HTMLFormElement, got ${typeof form}`)
     }
     const formData = new FormData(form)
     disableInput(form)
+    // client-side format validation with inline hints; the ID-entry form used by READ/DELETE has no
+    // validated fields, so it is skipped. A failure aborts before any request, leaving the field hints up.
+    if (exec_mode !== APIOpCode.READ && exec_mode !== APIOpCode.DELETE) {
+        if (!validateFormFields(form, exec_mode === APIOpCode.UPDATE_PARTIAL)) {
+            message.textContent = "Please correct the highlighted fields and try again."
+            enableInput(form)
+            return
+        }
+    }
     // optional elevation/escalation checkbox rendered on some admin forms (ignored by generateObjectForm)
     const elevate = formData.get("elevate") === "on" ? true : undefined
     // optional direct-contributor-management toggle (composition admin forms); signals the server not to auto-add the editor
     const direct = formData.get("contrib_direct") === "on" ? true : undefined
-    let data: any = null
-    let record_id: number | undefined = undefined
 
     try {
-        if (exec_mode === APIOpCode.READ || exec_mode === APIOpCode.DELETE) {
-            // single-item exec mode - form is single-item (ID), so pull the single item
-            record_id = parseInt(singleParse(formData))
-            if (isNaN(record_id)) {
-                throw new Error(`Parsed ID value is not a valid number`)
-            }
-        } else if (exec_mode === APIOpCode.UPDATE || exec_mode === APIOpCode.UPDATE_PARTIAL) {
-            // updates target an existing record via the form's hidden id input
-            record_id = parseInt(String(formData.get("id")))
-            if (isNaN(record_id)) {
-                throw new Error(`Form data is missing a valid record ID for this operation`)
-            }
-            const partial = (exec_mode === APIOpCode.UPDATE_PARTIAL)
-            data = generateObjectForm(formData, interface_data[noun].interface, partial, interface_data[noun].custom_objects, partial)
-            // contributor edits are subject to ownership and protected-property authorization; validate
-            // client-side before sending so the user receives an immediate, clear rejection
-            if (interface_data[noun].name === "contributor") {
-                assertCanEditContributor(form, record_id, elevate === true, data as Record<string, any>)
-            }
-        } else {
-            // standard exec mode - pull form values
-            data = generateObjectForm(formData, interface_data[noun].interface, false, interface_data[noun].custom_objects)
-        }
-
+        const { data, record_id } = buildSubmitPayload(formData, exec_mode, noun, form, elevate)
+        // route to the connector call for this entity and operation (see ENTITY_OPS)
         const api_noun = interface_data[noun].name
-        // Direct, explicit calls to connector functions based on noun and operation
-        if (api_noun === "composer") {
-            switch (exec_mode) {
-                case APIOpCode.CREATE: {
-                    const id = await createComposer(data as Composer)
-                    message.textContent = `Request succeeded: assigned composer ID ${id.toString()}`
-                    if (form instanceof HTMLFormElement) await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.READ: {
-                    const rec = await getComposer(record_id!)
-                    console.log("Record retrieved from API: ", rec)
-                    if (rec) {
-                        document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
-                        document.getElementById("entity-search-container")?.classList.add("hidden")
-                        await populateInfo(noun, rec as any)
-                        message.textContent = "Request succeeded: composer loaded"
-                    } else {
-                        message.textContent = "No composer found for given ID"
-                    }
-                    // offer the edit link only when a record was actually loaded
-                    await attachNextTask(form, message, exec_mode, noun, false, rec ? record_id : undefined)
-                    break
-                }
-                case APIOpCode.UPDATE: {
-                    await replaceComposer(record_id!, data as Composer)
-                    message.textContent = "Request succeeded: updated composer record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.UPDATE_PARTIAL: {
-                    await updateComposer(record_id!, data as Partial<Composer>)
-                    message.textContent = "Request succeeded: updated composer record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.DELETE: {
-                    await deleteComposer(record_id!)
-                    message.textContent = "Request succeeded: deleted composer record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.LIST: {
-                    const list = await listComposer()
-                    console.log(list)
-                    message.textContent = "Request succeeded: list retrieved"
-                    break
-                }
-            }
-        } else if (api_noun === "composition") {
-            switch (exec_mode) {
-                case APIOpCode.CREATE: {
-                    const id = await createWork(data as Composition)
-                    message.textContent = `Request succeeded: assigned composition ID ${id.toString()}`
-                    if (form instanceof HTMLFormElement) await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.READ: {
-                    // request resolved composer names so the view can show them alongside the numeric ids
-                    const rec = await getWork(record_id!, true)
-                    if (rec) {
-                        document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
-                        document.getElementById("entity-search-container")?.classList.add("hidden")
-                        if (isCompositionWithNames(rec)) {
-                            // populate the record, then the resolved names (composer_name / author_secondary_names)
-                            await populateInfo(noun, rec.object as any)
-                            await populateInfo(noun, rec.names as any)
-                        } else {
-                            await populateInfo(noun, rec as any)
-                        }
-                        message.textContent = "Request succeeded: composition loaded"
-                    } else {
-                        message.textContent = "No composition found for given ID"
-                    }
-                    // offer the edit link only when a record was actually loaded
-                    await attachNextTask(form, message, exec_mode, noun, false, rec ? record_id : undefined)
-                    break
-                }
-                case APIOpCode.UPDATE: {
-                    await replaceWork(record_id!, data as Composition, elevate, direct)
-                    message.textContent = "Request succeeded: updated composition record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.UPDATE_PARTIAL: {
-                    await updateWork(record_id!, data as Partial<Composition>, elevate, direct)
-                    message.textContent = "Request succeeded: updated composition record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.DELETE: {
-                    await deleteWork(record_id!, elevate)
-                    message.textContent = "Request succeeded: deleted composition record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.LIST: {
-                    const list = await listWork()
-                    console.log(list)
-                    message.textContent = "Request succeeded: list retrieved"
-                    break
-                }
-            }
-        } else if (api_noun === "contributor") {
-            switch (exec_mode) {
-                case APIOpCode.CREATE: {
-                    const id = await createContributor(data as Contributor)
-                    message.textContent = `Request succeeded: assigned contributor ID ${id.toString()}`
-                    if (form instanceof HTMLFormElement) await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.READ: {
-                    const rec = await getContributor(record_id!, elevate)
-                    if (rec) {
-                        document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
-                        document.getElementById("entity-search-container")?.classList.add("hidden")
-                        await populateInfo(noun, rec as any)
-                        message.textContent = "Request succeeded: contributor loaded"
-                    } else {
-                        message.textContent = "No contributor found for given ID"
-                    }
-                    // offer the edit link only when a record was actually loaded
-                    await attachNextTask(form, message, exec_mode, noun, false, rec ? record_id : undefined)
-                    break
-                }
-                case APIOpCode.UPDATE: {
-                    await replaceContributor(record_id!, data as Contributor)
-                    message.textContent = "Request succeeded: updated contributor record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.UPDATE_PARTIAL: {
-                    await updateContributor(record_id!, data as Partial<Contributor>, elevate)
-                    message.textContent = "Request succeeded: updated contributor record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.DELETE: {
-                    await deleteContributor(record_id!)
-                    message.textContent = "Request succeeded: deleted contributor record"
-                    await attachNextTask(form, message, exec_mode, noun)
-                    break
-                }
-                case APIOpCode.LIST: {
-                    const list = await listContributor()
-                    console.log(list)
-                    message.textContent = "Request succeeded: list retrieved"
-                    break
-                }
-            }
-        } else {
+        const handler = ENTITY_OPS[api_noun]?.[exec_mode]
+        if (!handler) {
             throw new Error(`Unsupported API noun ${api_noun}`)
         }
+        await handler({ form, message, data, record_id, elevate, direct, noun })
     } catch (error) {
-        message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-        console.error(error)
-        // allow the user to correct their input and retry
-        enableInput(form)
-    }
-}
-
-/**
- * Submits the self-service profile editor as a partial (PATCH) update to the caller's own contributor
- * record.
- *
- * Unlike the admin edit page, the profile editor renders every editable field at once and has no
- * per-field edit-target checkboxes, so the object is generated in non-patch mode (every rendered field
- * is sent on each save, replacing its stored value). The field set (contributor_profile) excludes the
- * identity email, roles, admin, and active, so no protected property is ever sent and the edit needs no
- * administrator escalation — the server authorizes it purely as a self-edit. The record id is taken from
- * the caller's identity (self_id), not from form input, so the form can only ever update its own record.
- *
- * @param {HTMLFormElement} form the profile editor form
- * @param {Element} message the status element on which to report progress and errors
- * @param {number} self_id the acting user's own contributor id (the PATCH target)
- */
-export async function submitProfileEdit(form: HTMLFormElement, message: Element, self_id: number): Promise<void> {
-    message.textContent = "Processing request..."
-    disableInput(form)
-    try {
-        const form_data = new FormData(form)
-        // generate in non-patch mode: every profile field is present in the form and is sent on save
-        const data = generateObjectForm(form_data, interface_data["contributor_profile"].interface, false, [], false)
-        await updateContributor(self_id, data as Partial<Contributor>)
-        message.textContent = "Request succeeded: your profile has been updated."
-        enableInput(form)
-    } catch (error) {
-        message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+        message.textContent = `Error: ${errorMessage(error)}`
         console.error(error)
         // allow the user to correct their input and retry
         enableInput(form)
@@ -756,45 +555,87 @@ export function genHandler(form: HTMLFormElement, message: Element, exec_mode: A
 }
 
 /**
- * Resets and re-reveals the keyword search box that the info pages pair with the ID entry form.
+ * Submits the self-service profile editor as a partial (PATCH) update to the caller's own contributor
+ * record.
  *
- * The on-page READ flow (processSubmit) hides both the ID entry form and the keyword search box when a
- * record is loaded; this restores the keyword box (clearing its input and results) so the next task can
- * search again. No-ops on pages without a keyword box (e.g. create/delete), so it is safe to call generally.
+ * Unlike the admin edit page, the profile editor renders every editable field at once and has no
+ * per-field edit-target checkboxes, so the object is generated in non-patch mode (every rendered field
+ * is sent on each save, replacing its stored value). The field set (contributor_profile) excludes the
+ * identity email, roles, admin, and active, so no protected property is ever sent and the edit needs no
+ * administrator escalation — the server authorizes it purely as a self-edit. The record id is taken from
+ * the caller's identity (self_id), not from form input, so the form can only ever update its own record.
+ *
+ * @param {HTMLFormElement} form the profile editor form
+ * @param {Element} message the status element on which to report progress and errors
+ * @param {number} self_id the acting user's own contributor id (the PATCH target)
  */
-function _resetKeywordSearch(): void {
-    const search_container = document.getElementById("entity-search-container")
-    if (!search_container) {
-        return
-    }
-    search_container.classList.remove("hidden")
-    const search_input = document.getElementById("entity-search-input")
-    if (search_input instanceof HTMLInputElement) {
-        search_input.value = ""
-    }
-    const search_results = document.getElementById("entity-search-results")
-    if (search_results) {
-        search_results.replaceChildren()
-        const placeholder = document.createElement("p")
-        placeholder.textContent = "Results will display here when searched."
-        search_results.appendChild(placeholder)
+export async function submitProfileEdit(form: HTMLFormElement, message: Element, self_id: number): Promise<void> {
+    message.textContent = "Processing request..."
+    disableInput(form)
+    try {
+        // client-side format validation with inline hints, before generating and sending the update
+        if (!validateFormFields(form, false)) {
+            message.textContent = "Please correct the highlighted fields and try again."
+            enableInput(form)
+            return
+        }
+        const form_data = new FormData(form)
+        // generate in non-patch mode: every profile field is present in the form and is sent on save
+        const data = generateObjectForm(form_data, interface_data["contributor_profile"].interface, false, [], false)
+        await updateContributor(self_id, data as Partial<Contributor>)
+        message.textContent = "Request succeeded: your profile has been updated."
+        enableInput(form)
+    } catch (error) {
+        message.textContent = `Error: ${errorMessage(error)}`
+        console.error(error)
+        // allow the user to correct their input and retry
+        enableInput(form)
     }
 }
 
-function _nextTaskEventListener(form: HTMLFormElement, message: Element, action: Element, clear_state?: keyof typeof interface_data, reveal_search: boolean = false): (e: Event) => void {
+/**
+ * Restores the record-lookup view that the edit pages hide once a record is loaded into the edit form.
+ *
+ * The edit pages (contributors/works/composers) hide the ID entry form, the keyword search box, and — on
+ * the contributor page — the standalone elevation box when a record is loaded for editing. After a
+ * successful edit, the "Edit another" next task calls this to re-reveal and reset those lookup dialogs so
+ * the user can pull up another record. Resetting the ID entry form also clears the elevation checkbox
+ * bound to it via its `form` attribute. No-ops on any element that is absent, so it is safe to call generally.
+ */
+function _resetLookup(): void {
+    document.getElementById("generic-form-id-entry-container")?.classList.remove("hidden")
+    const id_entry_form = document.getElementById("generic-form-id-entry")
+    if (id_entry_form instanceof HTMLFormElement) {
+        id_entry_form.reset()
+    }
+    // the contributor edit page renders the elevation control as a standalone box placed after the lookups
+    document.getElementById("generic-form-id-entry-elevate-container")?.classList.remove("hidden")
+    // the keyword search box is shared with the info pages
+    _resetKeywordSearch()
+}
+
+function _nextTaskEventListener(form: HTMLFormElement, message: Element, action: Element, clear_state?: keyof typeof interface_data, reveal_search: boolean = false, relookup: boolean = false): (e: Event) => void {
     return (e: Event) => {
         e.preventDefault()
         form.reset()
         enableInput(form)
-        try {
-            form.parentElement?.classList.remove("hidden")
-        } catch (e) {
-            console.warn("Failed to unhide form for next task: ", e)
-            form.classList.remove("hidden")
-        }
-        // info pages also pair the ID entry form with a keyword search box; restore it for the next search
-        if (reveal_search) {
-            _resetKeywordSearch()
+        if (relookup) {
+            // edit pages: the submitted form is the prefilled edit form (not a lookup form), and it carries
+            // the hidden class on the form element itself. Hide it again and restore the ID-entry/keyword-
+            // search/elevation lookup dialogs so the user can pull up another record to edit.
+            form.classList.add("hidden")
+            _resetLookup()
+        } else {
+            try {
+                form.parentElement?.classList.remove("hidden")
+            } catch (e) {
+                console.warn("Failed to unhide form for next task: ", e)
+                form.classList.remove("hidden")
+            }
+            // info pages also pair the ID entry form with a keyword search box; restore it for the next search
+            if (reveal_search) {
+                _resetKeywordSearch()
+            }
         }
         message.textContent = "Your request status will show here after you press \"Submit\"."
         if (clear_state) {
@@ -802,25 +643,6 @@ function _nextTaskEventListener(form: HTMLFormElement, message: Element, action:
         }
         message.removeChild(action)
     }
-}
-
-function _attachNextTask(form: HTMLFormElement, message: Element, noun: keyof typeof interface_data, action_text: string, try_again: boolean, clear_state: boolean, reveal_search: boolean = false, edit_link?: { href: string, label: string }): void {
-    const next_task_link_text = document.createElement("p")
-    // an optional edit link sits to the left of the next-task link on the same line (used after a READ so
-    // the just-viewed record can be edited directly); it navigates normally, so it needs no click handler
-    if (edit_link) {
-        const edit_link_object = document.createElement("a")
-        edit_link_object.href = edit_link.href
-        edit_link_object.textContent = edit_link.label
-        next_task_link_text.appendChild(edit_link_object)
-        next_task_link_text.appendChild(document.createTextNode(" | "))
-    }
-    const next_task_link_object = document.createElement("a")
-    next_task_link_object.href = "#"
-    next_task_link_object.textContent = try_again ? `Try again >` : `${action_text} another ${interface_data[noun].name} >`
-    next_task_link_object.addEventListener("click", _nextTaskEventListener(form, message, next_task_link_text, clear_state ? noun : undefined, reveal_search))
-    next_task_link_text.appendChild(next_task_link_object)
-    message.appendChild(next_task_link_text)
 }
 
 /**
@@ -834,56 +656,6 @@ const admin_path_segment: Record<string, string> = {
     "composer": "composers",
     "composition": "works",
     "contributor": "contributors",
-}
-
-/**
- * Auto-checks the per-field "Edit this field" checkbox when its field is edited.
- *
- * The PATCH (partial edit) forms render an edit-target checkbox per field, and generateObjectForm only
- * sends fields whose checkbox is checked. To spare users from ticking each box by hand, this checks the
- * matching checkbox as soon as the user modifies a field. Programmatic prefill (prefillForm) sets .value
- * directly and dispatches no input event, so it does not trip these listeners.
- *
- * Most inputs map to a checkbox named `${input.name}-edittarget`. The composition custom-object groups
- * are the exception: their inputs (rating_suzuki/rating_nyssma and the publish_name, publish_location,
- * publish_year, uri and uri_type fields) share one group-level checkbox (rating-edittarget or
- * publication_info-edittarget), mapped explicitly.
- *
- * No-ops on forms without edit-target checkboxes (e.g. create and self-service profile forms).
- *
- * @param {HTMLFormElement} form the form whose inputs should auto-check their edit-target checkboxes
- */
-export function enableEditTargetOnChange(form: HTMLFormElement): void {
-    // custom-object group fields share a single group-level edit-target checkbox
-    const group_map: Record<string, string> = {
-        "rating_suzuki": "rating",
-        "rating_nyssma": "rating",
-        "publish_name": "publication_info",
-        "publish_location": "publication_info",
-        "publish_year": "publication_info",
-        "uri_type": "publication_info",
-        "uri": "publication_info",
-    }
-    const inputs = form.querySelectorAll("input, textarea, select")
-    inputs.forEach(input => {
-        if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement)) {
-            return
-        }
-        const name = input.name
-        // skip the edit-target checkboxes themselves and any unnamed control
-        if (!name || name.endsWith("-edittarget")) {
-            return
-        }
-        const target_param = group_map[name] ?? name
-        const checkbox = form.querySelector(`[name="${target_param}-edittarget"]`)
-        if (!(checkbox instanceof HTMLInputElement)) {
-            return
-        }
-        const mark = () => { checkbox.checked = true }
-        // "input" covers typing; "change" covers selects and other commit-style edits
-        input.addEventListener("input", mark)
-        input.addEventListener("change", mark)
-    })
 }
 
 /**
@@ -941,160 +713,57 @@ export function prefillForm(noun: keyof typeof interface_data, record: Record<st
     }
 }
 
-/**
- * Attaches a name-search helper to an entity ID input
- *
- * On button click, fetches the full record list, filters by name (case-insensitive substring),
- * and renders clickable results which fill the target ID input when selected
- *
- * @param {"composer" | "contributor"} kind which record list to search
- * @param {string} input_id DOM id of the search text input
- * @param {string} button_id DOM id of the search button
- * @param {string} results_div_id DOM id of the element in which to render results
- * @param {string} target_input_id DOM id of the ID input to fill upon selection
- */
-export function attachSearchHelper(kind: "composer" | "contributor", input_id: string, button_id: string, results_div_id: string, target_input_id: string): void {
-    const button = document.getElementById(button_id)
-    const input = document.getElementById(input_id)
-    const results_div = document.getElementById(results_div_id)
-    const target_input = document.getElementById(target_input_id)
-    if (!button || !(input instanceof HTMLInputElement) || !results_div || !(target_input instanceof HTMLInputElement)) {
-        console.warn(`Search helper elements not found or invalid for ${kind}: `, { input_id, button_id, results_div_id, target_input_id })
-        return
+
+// COMPONENT ATTACH FUNCTIONS
+
+function _attachNextTask(form: HTMLFormElement, message: Element, noun: keyof typeof interface_data, action_text: string, try_again: boolean, clear_state: boolean, reveal_search: boolean = false, relookup: boolean = false, edit_link?: { href: string, label: string }): void {
+    const next_task_link_text = document.createElement("p")
+    // an optional edit link sits to the left of the next-task link on the same line (used after a READ so
+    // the just-viewed record can be edited directly); it navigates normally, so it needs no click handler
+    if (edit_link) {
+        const edit_link_object = document.createElement("a")
+        edit_link_object.href = edit_link.href
+        edit_link_object.textContent = edit_link.label
+        next_task_link_text.appendChild(edit_link_object)
+        next_task_link_text.appendChild(document.createTextNode(" | "))
     }
-    button.addEventListener("click", async (evt: Event) => {
-        evt.preventDefault()
-        renderSearchProgress(results_div as HTMLElement)
-        try {
-            const records = (kind === "composer") ? await listComposer(true) : await listContributor(true)
-            if (!Array.isArray(records)) {
-                throw new Error("No records returned from search")
-            }
-            const query = input.value.trim().toLowerCase()
-            const matches = records.filter((rec: any) => typeof rec?.name === "string" && rec.name.toLowerCase().includes(query))
-            results_div.textContent = ""
-            if (matches.length === 0) {
-                results_div.textContent = "No matches found."
-                return
-            }
-            for (const match of matches) {
-                const entry = document.createElement("p")
-                const link = document.createElement("a")
-                link.href = "#"
-                link.textContent = `ID #${match.id} - ${match.name}`
-                link.addEventListener("click", (e: Event) => {
-                    e.preventDefault()
-                    target_input.value = String(match.id)
-                    results_div.textContent = `Selected ID #${match.id} - ${match.name}`
-                })
-                entry.appendChild(link)
-                results_div.appendChild(entry)
-            }
-        } catch (error) {
-            // any viewer may list contributors; non-self records come back with protected properties
-            // redacted, but the name used for searching is not protected, so search still works
-            results_div.textContent = `Search unavailable: ${error instanceof Error ? error.message : String(error)}`
-            console.error(error)
-        }
-    })
+    const next_task_link_object = document.createElement("a")
+    next_task_link_object.href = "#"
+    next_task_link_object.textContent = try_again ? `Try again >` : `${action_text} another ${interface_data[noun].name} >`
+    next_task_link_object.addEventListener("click", _nextTaskEventListener(form, message, next_task_link_text, clear_state ? noun : undefined, reveal_search, relookup))
+    next_task_link_text.appendChild(next_task_link_object)
+    message.appendChild(next_task_link_text)
 }
 
-/**
- * Internal: wires a keyword-search box, delegating per-result link setup to `bindResult`.
- *
- * On button click, sends the keyword (and the database returned by getDatabase) to /api/v1/search and
- * renders each hit as a link. Callers control what selecting a hit does via `bindResult`, which receives
- * the freshly created anchor and its result so it can either set an href (navigation) or attach an
- * on-page click handler.
- *
- * @param {string} input_id DOM id of the keyword text input
- * @param {string} button_id DOM id of the search button
- * @param {string} results_div_id DOM id of the element in which to render results
- * @param {() => SearchDatabase | null} getDatabase returns the database to scope to, or null for all three
- * @param {(link: HTMLAnchorElement, result: SearchResult) => void} bindResult configures each result link
- */
-function _attachKeywordSearch(input_id: string, button_id: string, results_div_id: string, getDatabase: () => SearchDatabase | null, bindResult: (link: HTMLAnchorElement, result: SearchResult) => void): void {
-    const button = document.getElementById(button_id)
-    const input = document.getElementById(input_id)
-    const results_div = document.getElementById(results_div_id)
-    if (!button || !(input instanceof HTMLInputElement) || !results_div) {
-        console.warn("Keyword search elements not found or invalid: ", { input_id, button_id, results_div_id })
-        return
+export async function attachNextTask(form: HTMLFormElement, message: Element, exec_mode: APIOpCode, noun: keyof typeof interface_data, try_again: boolean = false, record_id?: number): Promise<void> {
+    switch (exec_mode) {
+        case APIOpCode.READ: {
+            // after viewing a record, offer a direct edit link to the left of the next-task ("View another") link
+            const segment = admin_path_segment[interface_data[noun].name]
+            const edit_link = (segment && record_id !== undefined && !try_again)
+                ? { href: `/admin/${segment}/edit?id=${record_id}`, label: `Edit this ${interface_data[noun].name} >` }
+                : undefined
+            // info pages also reveal/clear the keyword search box so the next task can search again
+            _attachNextTask(form, message, noun, "View", try_again, true, true, false, edit_link)
+            break
+        }
+        case APIOpCode.LIST:
+            console.error("List operation does not have a next task to attach")
+            break
+        case APIOpCode.CREATE:
+            _attachNextTask(form, message, noun, "Create", try_again, false)
+            break
+        case APIOpCode.UPDATE:
+        case APIOpCode.UPDATE_PARTIAL:
+            // the edit pages hide their lookup dialogs when a record loads; relookup restores them for the next edit
+            _attachNextTask(form, message, noun, "Edit", try_again, false, false, true)
+            break
+        case APIOpCode.DELETE:
+            _attachNextTask(form, message, noun, "Delete", try_again, false)
+            break
+        default:
+            console.warn(`Unsupported operation code ${exec_mode} for next task attachment`)
     }
-    button.addEventListener("click", async (evt: Event) => {
-        evt.preventDefault()
-        const keyword = input.value.trim()
-        if (keyword === "") {
-            results_div.textContent = "Enter a keyword to search."
-            return
-        }
-        if (keyword.length < 3) {
-            results_div.textContent = "Please enter at least 3 characters for the search."
-            return
-        }
-        renderSearchProgress(results_div as HTMLElement)
-        try {
-            const results = await searchDatabase(keyword, getDatabase())
-            results_div.textContent = ""
-            if (!Array.isArray(results) || results.length === 0) {
-                results_div.textContent = "No matches found."
-                return
-            }
-            for (const result of results) {
-                const entry = document.createElement("p")
-                const link = document.createElement("a")
-                link.textContent = `ID #${result.id} - ${result.name}`
-                bindResult(link, result)
-                entry.appendChild(link)
-                results_div.appendChild(entry)
-            }
-        } catch (error) {
-            results_div.textContent = `Search unavailable: ${error instanceof Error ? error.message : String(error)}`
-            console.error(error)
-        }
-    })
-}
-
-/**
- * Attaches a navigating keyword-search box (used by the standalone search page and the edit pages).
- *
- * Each hit becomes a link whose target is produced by getHref: the standalone search page routes each
- * hit to its entity's info page, while the edit pages route to the current page's "?id=" SSR flow (which
- * prefills the edit form).
- *
- * @param {string} input_id DOM id of the keyword text input
- * @param {string} button_id DOM id of the search button
- * @param {string} results_div_id DOM id of the element in which to render results
- * @param {() => SearchDatabase | null} getDatabase returns the database to scope to, or null for all three
- * @param {(result: SearchResult) => string} getHref builds the href for a given hit
- */
-export function attachKeywordSearch(input_id: string, button_id: string, results_div_id: string, getDatabase: () => SearchDatabase | null, getHref: (result: SearchResult) => string): void {
-    _attachKeywordSearch(input_id, button_id, results_div_id, getDatabase, (link, result) => {
-        link.href = getHref(result)
-    })
-}
-
-/**
- * Attaches an on-page (non-navigating) keyword-search box, used by the entity info (view) pages.
- *
- * Selecting a hit invokes `onSelect` instead of navigating, so the info pages can load the record in
- * place via the same READ flow used by the ID entry form (which hides both search boxes and renders the
- * record), keeping ID search and keyword search behaviorally identical.
- *
- * @param {string} input_id DOM id of the keyword text input
- * @param {string} button_id DOM id of the search button
- * @param {string} results_div_id DOM id of the element in which to render results
- * @param {() => SearchDatabase | null} getDatabase returns the database to scope to, or null for all three
- * @param {(result: SearchResult) => void} onSelect handles a selected hit (e.g. loads it on-page)
- */
-export function attachKeywordSearchInline(input_id: string, button_id: string, results_div_id: string, getDatabase: () => SearchDatabase | null, onSelect: (result: SearchResult) => void): void {
-    _attachKeywordSearch(input_id, button_id, results_div_id, getDatabase, (link, result) => {
-        link.href = "#"
-        link.addEventListener("click", (e: Event) => {
-            e.preventDefault()
-            onSelect(result)
-        })
-    })
 }
 
 /**
@@ -1190,33 +859,3 @@ export function attachContributorManagement(form: HTMLFormElement, patch: boolea
         }
     })
 }
-
-export async function attachNextTask(form: HTMLFormElement, message: Element, exec_mode: APIOpCode, noun: keyof typeof interface_data, try_again: boolean = false, record_id?: number): Promise<void> {
-    switch (exec_mode) {
-        case APIOpCode.READ: {
-            // after viewing a record, offer a direct edit link to the left of the next-task ("View another") link
-            const segment = admin_path_segment[interface_data[noun].name]
-            const edit_link = (segment && record_id !== undefined && !try_again)
-                ? { href: `/admin/${segment}/edit?id=${record_id}`, label: `Edit this ${interface_data[noun].name} >` }
-                : undefined
-            // info pages also reveal/clear the keyword search box so the next task can search again
-            _attachNextTask(form, message, noun, "View", try_again, true, true, edit_link)
-            break
-        }
-        case APIOpCode.LIST:
-            console.error("List operation does not have a next task to attach")
-            break
-        case APIOpCode.CREATE:
-            _attachNextTask(form, message, noun, "Create", try_again, false)
-            break
-        case APIOpCode.UPDATE:
-        case APIOpCode.UPDATE_PARTIAL:
-            _attachNextTask(form, message, noun, "Edit", try_again, false)
-            break
-        case APIOpCode.DELETE:
-            _attachNextTask(form, message, noun, "Delete", try_again, false)
-            break
-        default:
-            console.warn(`Unsupported operation code ${exec_mode} for next task attachment`)
-    }
-} 

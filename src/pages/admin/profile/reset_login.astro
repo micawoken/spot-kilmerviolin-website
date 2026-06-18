@@ -20,17 +20,18 @@ const has_record = identity?.id !== undefined && identity?.id !== null
 </head>
 <body>
     <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Change Sign-In Email</h2>
     {
         has_record ? (
             <>
                 <p class="general-infohelp">This changes the email you use to sign in (your identity email), updating both your contributor record and the access policy. It does not change your public email — edit that under <a href="/admin/profile/edit">Edit my profile</a>.</p>
-                <p class="general-warning">After this change, you must sign in with the new email. Make sure you control the new address and that an administrator has not separately restricted it, or you may lose access.</p>
+                <p class="general-warning">After this change, you must sign in with the new email. Do not make a mistake — you will lose access if you enter an incorrect email.</p>
                 <div class="generic-form">
                     <form id="profile-form-reset_login" class="generic-form" data-current-email={current_email}>
                         <fieldset>
                             <legend>Current Sign-In Email</legend>
-                            <p>Your current sign-in email is <strong id="profile-current-email">{current_email || "(unknown)"}</strong>.</p>
+                            <p class="profile-current-email-line">Your current sign-in email is <strong id="profile-current-email">{current_email || "(unknown)"}</strong>.</p>
                             <label for="profile-form-reset_login-old_email">Re-enter your current email to confirm:</label>
                             <input type="email" id="profile-form-reset_login-old_email" name="old_email" required />
                         </fieldset>
@@ -83,7 +84,7 @@ const has_record = identity?.id !== undefined && identity?.id !== null
                                     throw new Error("The new email is the same as your current sign-in email.")
                                 }
                                 await updateSelfLogin(new_email)
-                                message.textContent = "Request succeeded: your sign-in email has been updated. Use the new email the next time you sign in."
+                                message.textContent = "Request succeeded: your sign-in email has been updated. You will be prompted to sign-in when you leave this page."
                             } catch (error) {
                                 message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
                                 console.error(error)
@@ -101,6 +102,14 @@ const has_record = identity?.id !== undefined && identity?.id !== null
             )
         )
     }
+    </main>
     <AdminFooter />
+    <style>
+        /* the legend already labels this field; pull the current-email line up tight under it rather than
+           leaving the default paragraph top margin, which read as an excessive gap */
+        .profile-current-email-line {
+            margin-top: 0.25rem;
+        }
+    </style>
 </body>
 </html>

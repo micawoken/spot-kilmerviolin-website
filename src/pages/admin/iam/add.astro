@@ -4,8 +4,12 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { emailFromParam } from "../../../lib/api/validation"
 
 export const prerender = false
+
+// prefill the user email when arriving from an unlinked-contributor link on the user list (?identity_email=), if valid
+const prefill_email = emailFromParam(Astro.url)
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -15,13 +19,14 @@ export const prerender = false
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Add a New User</h2>
-    <p class="general-infohelp">Adding a user grants them access to log in. Optionally, a contributor record can be created for them automatically (auto-enrollment); otherwise, they can self-enroll on first login if self-enrollment is enabled.</p>
+    <p class="general-infohelp">Allow a user to log onto the system. Optionally, automatically create a contributor record. This operation requires the userenroll role or administrator permissions.</p>
     <div class="generic-form">
         <form id="iam-form-add" class="generic-form">
             <fieldset>
                 <legend>User Email</legend>
-                <input type="email" id="iam-form-add-email" name="email" required />
+                <input type="email" id="iam-form-add-email" name="email" value={prefill_email} required />
             </fieldset>
             <fieldset>
                 <legend>Auto-Enrollment</legend>
@@ -33,10 +38,11 @@ export const prerender = false
 
                     <label for="iam-form-add-major">Major:</label>
                     <input type="text" id="iam-form-add-major" name="major" />
+                    <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
 
                     <label for="iam-form-add-class_year">Class Year:</label>
                     <input type="number" id="iam-form-add-class_year" name="class_year" />
-                    <p class="general-infohelp">The major and class year are optional; leave them blank to omit.</p>
+                    <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
 
                     <input type="checkbox" id="iam-form-add-confer" name="confer" />
                     <label for="iam-form-add-confer">Confer your conferrable roles to the new contributor</label>
@@ -98,6 +104,7 @@ export const prerender = false
             }
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

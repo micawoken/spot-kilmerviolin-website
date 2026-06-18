@@ -26,7 +26,5 @@ export default async function rebuild() {
         method: "POST"})
     if (!response.ok) {
         console.error("Failed to trigger rebuild:", response.statusText)
-    } else {
-        console.log("Rebuild triggered successfully")
     }
 }

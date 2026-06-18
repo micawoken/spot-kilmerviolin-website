@@ -15,8 +15,10 @@ export const prerender = false
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Rebuild the Site</h2>
-    <p class="general-infohelp">Rebuilding regenerates the site's static pages from the current database contents and redeploys the Worker. The build and deploy take several minutes to complete; check the <a href="/admin/site/verinfo">site info page</a> later to confirm the new build timestamp.</p>
+    <p class="general-warning">Website rebuilds use cloud compute minutes on either GitHub Actions or Worker Builds. These are subject to monthly usage limits. Do not rebuild the website until you are done.</p>
+    <p class="general-infohelp">When you update the database, it does not update the static contributor/composer/composition records. To update it, trigger a website rebuild here.</p>
     <button type="button" id="site-rebuild-button">Rebuild site</button>
     <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
     <script>
@@ -43,6 +45,7 @@ export const prerender = false
             }
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

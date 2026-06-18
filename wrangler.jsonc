@@ -3,16 +3,49 @@
 	"compatibility_date": "2026-04-20",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "@astrojs/cloudflare/entrypoints/server",
-	// the workers.dev hostname doubles as the staging environment; runtime environment
-	// detection (src/lib/api/environment.ts) treats workers.dev hostnames as staging and
-	// all other hostnames of production builds as production
+	// the current website route
 	"workers_dev": true,
+	"routes": [],
+	// preview_urls must stay enabled for the "staging" preview alias to resolve (it otherwise
+	// defaults to follow workers_dev); set explicitly so the staging deploy does not silently break
+	"preview_urls": true,
+
+	// logging config
+	"observability": {
+		"enabled": true,
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 1.0
+		}
+	},
+
+	// for error reporting
+	"upload_source_maps": true,
+	
+	// constants fixed in wrangler (others, such as error reporting, are determined dynamically by the exec environment)
+	"vars": {
+		"CACHE_API_TTL": 7200, // 2 hours
+		"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
+		"KV_CACHE_TTL": 57600, // 16 hours
+		"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf", // points to the list reusable component used by the access policy, which is used by the access application
+		"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283", // the account ID for michaelwongmusic@gmail.com
+		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // the aud for the Access policy to validate the JWT against
+		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
+		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com" // the domain for the Access policy to validate the JWT against
+		// DB write gating is now determined dynamically by the runtime environment (see dbWriteEnabled in src/lib/api/environment.ts)
+	},
+
+	// secret requirements
+	"secrets": {
+		"required": ["CF_ACCESS_TOKEN", "CF_DEPLOY_HOOK"]
+	},
+
+	// api bindings
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS"
 	},
-	"d1_databases":
-		[
+	"d1_databases": [
 			{
 				"binding": "DB_MAIN",
 				"database_name": "spot-kilmerviolin-db-prod",
@@ -25,6 +58,20 @@
 			"id": "2bf25987699b46ebbe56e997c845b0a9"
 		}
 	],
+	"r2_buckets": [
+		{
+			"binding": "R2_FILES",
+			"bucket_name": "spot-violin-kilmer-website-files"
+		}
+	],
+	"images": {
+		"binding": "IMAGES"
+	},
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA"
+	},
+
+	// rate limits
 	"ratelimits": [
 		{
 			"name": "RL_FREQ", // applied based on IP address, intended to stop high-frequency requests
@@ -64,31 +111,22 @@
 				"limit": 30,
 				"period": 60
 			}
+		},
+		{
+			"name": "RL_API_FILES_READ", // applied to file reads (GET /api/v1/files/{id}) by IP; R2 Class B operations are capped at 10M/mo, so a generous per-IP limit keeps internal call volume well under the ceiling without throttling normal admin use
+			"namespace_id": "1006",
+			"simple": {
+				"limit": 120,
+				"period": 60
+			}
+		},
+		{
+			"name": "RL_API_FILES_WRITE", // applied to file lists/uploads/replacements/deletions by user; R2 Class A operations are capped at 1M/mo, so a low per-user limit prevents internal logic from running excessive writes/lists against R2
+			"namespace_id": "1007",
+			"simple": {
+				"limit": 30,
+				"period": 60
+			}
 		}
-	],
-	"version_metadata": {
-		"binding": "CF_VERSION_METADATA"
-	},
-	"observability": {
-		"enabled": true,
-		"traces": {
-			"enabled": true,
-			"head_sampling_rate": 1.0
-		}
-	},
-	"upload_source_maps": true,
-
-	// environment-dependent values (formerly AUTH_ENABLED and RICH_ERRORS) are derived at
-	// runtime from the request hostname and build mode; see src/lib/api/environment.ts
-	"vars": {
-		"CACHE_API_TTL": 7200, // 2 hours
-		"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
-		"KV_CACHE_TTL": 57600, // 16 hours
-		"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf", // points to the list reusable component used by the access policy, which is used by the access application
-		"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283", // the account ID for michaelwongmusic@gmail.com
-		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // will replace later
-		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
-		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com",
-		"DB_ENABLE_WRITE": true // whether to allow the database primitives to perform write operations, enforced by exec_stmt
-	}
+	]
 }

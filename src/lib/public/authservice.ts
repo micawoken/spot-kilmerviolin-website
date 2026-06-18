@@ -6,9 +6,8 @@
 
 import { env } from "cloudflare:workers"
 import { requiresAllOf } from "../api/authorize"
-import { errorAPIPayload } from "../api/common"
 import { authEnabled } from "../api/environment"
-import { _constructHeaders, API_headers, cors_fallback_origin } from "../api/http"
+import { constructResponse } from "../api/http"
 
 
 /**
@@ -33,132 +32,18 @@ export function auth_check(request: Request, identity: Identity | undefined, req
     // verify authentication
     if (identity === undefined) {
         // middleware failed to authenticate and construct authorization info
-        return new Response(
-            JSON.stringify(errorAPIPayload("Unauthorized - no credential")),
-            {
-                status: 401,
-                statusText: "Unauthorized",
-                headers: _constructHeaders(API_headers, 
-                    {
-                        "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                        "Origin": request.headers.get("Origin") || cors_fallback_origin
-                    }
-                )
-            }
-        )
+        return constructResponse(request, null, 401, "Unauthorized - no credential")
     }
 
-    // verify the credential is active or enrollable
+    // verify the credential is active or enrollable; the inactive path carries all the branching
     if (!identity.active) {
-        // the toggle state between allowable and enrollable is enforced by authorize.ts and by the identity middleware - if enrollable is True, then allowed is always False; the reverse is not necessarily true
-
-        if (identity.allowed && !identity.enrollable && identity.admin && mode !== "enroll") {
-            // admins with allowable but inactive credentials still retain full authorization
-            return null
-        }
-
-        if (!identity.enrollable && mode !== "selfmgmt") {
-            return new Response(
-                JSON.stringify(errorAPIPayload("Unauthorized - credential not active")),
-                {
-                    status: 401,
-                    statusText: "Unauthorized",
-                    headers: _constructHeaders(API_headers, 
-                        {
-                            "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                            "Origin": request.headers.get("Origin") || cors_fallback_origin
-                        }
-                    )
-                }
-            )
-        } else if (!identity.enrollable && mode === "selfmgmt") {
-            // the credential is inactive, not enrollable, and the mode is for self-manage
-            if (!identity.allowed) {
-                // credentials that are not enrollable but with no auth info can't be used
-                return new Response(
-                    JSON.stringify(errorAPIPayload("Unauthorized - credential lacking authorization information")),
-                    {
-                        status: 401,
-                        statusText: "Unauthorized",
-                        headers: _constructHeaders(API_headers, 
-                            {
-                                "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                                "Origin": request.headers.get("Origin") || cors_fallback_origin
-                            }
-                        )
-                    }
-                )
-            }
-            if (required_perms.length > 0) {
-                // even if the page is self-manage, the required permissions cannot be met with an inactive profile
-                return new Response(
-                    JSON.stringify(errorAPIPayload("Forbidden - credential lacking active authorization information")),
-                    {
-                        status: 403,
-                        statusText: "Forbidden",
-                        headers: _constructHeaders(API_headers, 
-                            {
-                                "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                                "Origin": request.headers.get("Origin") || cors_fallback_origin
-                            }
-                        )
-                    }
-                )
-            }
-            return null // credential is inactive, but the authorization mode allows inactive credentials if the page is for self-management
-        }
-        // credential is enrollable
-        if (identity.allowed) {
-            // impossible state - guard in case a credential with a record passes through
-            return new Response(
-                JSON.stringify(errorAPIPayload("Internal Server Error - invalid credential state or server mode")),
-                {
-                    status: 500,
-                    statusText: "Internal Server Error",
-                    headers: _constructHeaders(API_headers, 
-                        {
-                            "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                            "Origin": request.headers.get("Origin") || cors_fallback_origin
-                        }
-                    )
-                }
-            )
-        }
-        if (mode !== "enroll") {
-            return new Response(
-                JSON.stringify(errorAPIPayload("Unauthorized - credential lacks authorization" + (env.API_USER_SELFENROLL ? "; perform self-enrollment" : ""))),
-                {
-                    status: 401,
-                    statusText: "Unauthorized",
-                    headers: _constructHeaders(API_headers, 
-                        {
-                            "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                            "Origin": request.headers.get("Origin") || cors_fallback_origin
-                        }
-                    )
-                }
-            )
-        } else {
-            return null // credential is enrollable, and the page requires enrollable credentials
-        }
+        return _checkInactiveCredential(request, identity, required_perms, mode)
     }
 
     // guard
     if (identity.enrollable || !identity.active || !identity.allowed || mode === "enroll") {
         // impossible state
-        return new Response(
-            JSON.stringify(errorAPIPayload("Internal Server Error - invalid credential state or server mode")),
-            {
-                status: 500,
-                statusText: "Internal Server Error",
-                headers: _constructHeaders(API_headers, 
-                    {
-                        "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                        "Origin": request.headers.get("Origin") || cors_fallback_origin
-                    }
-                )
-            }
-        )
+        return constructResponse(request, null, 500, "Internal Server Error - invalid credential state or server mode")
     }
 
     /*
@@ -172,20 +57,51 @@ export function auth_check(request: Request, identity: Identity | undefined, req
     // verify authorization
     if (!identity.admin && !requiresAllOf(required_perms, identity, fail_closed)) {
         // user is authenticated but not authorized to access this resource
-        return new Response(
-            JSON.stringify(errorAPIPayload("Forbidden")),
-            {
-                status: 403,
-                statusText: "Forbidden",
-                headers: _constructHeaders(API_headers, 
-                    {
-                        "Access-Control-Allow-Origin": request.headers.get("Origin") || cors_fallback_origin,
-                        "Origin": request.headers.get("Origin") || cors_fallback_origin
-                    }
-                )
-            }
-        )
+        return constructResponse(request, null, 403, "Forbidden")
     }
     // user passes authorization check
     return null
+}
+
+/**
+ * Resolves the authorization outcome for an inactive credential (identity.active === false), the most
+ * branch-heavy path of {@link auth_check}. Returns a Response to reject, or null to allow the request
+ * to proceed. Behavior is unchanged from the previously-inlined logic:
+ *  - admins with an allowable (non-enrollable) record keep full access outside enroll mode
+ *  - non-enrollable credentials are rejected unless the mode is selfmgmt, where an allowable,
+ *    permissionless request is permitted
+ *  - enrollable credentials are only accepted in enroll mode
+ */
+function _checkInactiveCredential(request: Request, identity: Identity, required_perms: (keyof RoleProfile)[], mode: "default" | "selfmgmt" | "enroll"): Response | null {
+    // the toggle state between allowable and enrollable is enforced by authorize.ts and by the identity middleware - if enrollable is True, then allowed is always False; the reverse is not necessarily true
+
+    if (identity.allowed && !identity.enrollable && identity.admin && mode !== "enroll") {
+        // admins with allowable but inactive credentials still retain full authorization
+        return null
+    }
+
+    if (!identity.enrollable && mode !== "selfmgmt") {
+        return constructResponse(request, null, 401, "Unauthorized - credential not active")
+    } else if (!identity.enrollable && mode === "selfmgmt") {
+        // the credential is inactive, not enrollable, and the mode is for self-manage
+        if (!identity.allowed) {
+            // credentials that are not enrollable but with no auth info can't be used
+            return constructResponse(request, null, 401, "Unauthorized - credential lacking authorization information")
+        }
+        if (required_perms.length > 0) {
+            // even if the page is self-manage, the required permissions cannot be met with an inactive profile
+            return constructResponse(request, null, 403, "Forbidden - credential lacking active authorization information")
+        }
+        return null // credential is inactive, but the authorization mode allows inactive credentials if the page is for self-management
+    }
+    // credential is enrollable
+    if (identity.allowed) {
+        // impossible state - guard in case a credential with a record passes through
+        return constructResponse(request, null, 500, "Internal Server Error - invalid credential state or server mode")
+    }
+    if (mode !== "enroll") {
+        return constructResponse(request, null, 401, "Unauthorized - credential lacks authorization" + (env.API_USER_SELFENROLL ? "; perform self-enrollment" : ""))
+    } else {
+        return null // credential is enrollable, and the page requires enrollable credentials
+    }
 }

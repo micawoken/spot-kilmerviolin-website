@@ -4,14 +4,20 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
-import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
 import CompositionInfo from "../../../components/entities/CompositionInfo.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { COMPOSITION } from "../../../lib/api/d1"
 import { attachCompositionNames, getComposition } from "../../../lib/api/database"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
 export const prerender = false
+
+// authorize before the direct (API-bypassing) database read below
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
 
 // SSR is used if an ID is specified as a query param; otherwise, we'll load the client-side JS and ID entry
 const id = Astro.url.searchParams.get("id")
@@ -19,15 +25,23 @@ let use_id: boolean = false
 let composition_data: CompositionRecord | null = null
 let composition_names: CompositionNames | null = null
 if (id) {
-    console.log("ID query param found:", id)
-    composition_data = await getComposition(Astro.locals.cfContext, COMPOSITION.primary_key, id)
+    // a missing compositions table surfaces the missing-table fallback page
+    const result = await guardedRead(() => getComposition(Astro.locals.cfContext, COMPOSITION.primary_key, id))
+    if (result instanceof Response) {
+        return result
+    }
+    composition_data = result
     if (!composition_data) {
         console.warn(`No composition found with ID ${id}, falling back to client-side ID entry`)
     } else {
         use_id = true
-        // resolve the referenced composer names so the view can show them alongside the numeric ids
-        const [enhanced] = await attachCompositionNames(Astro.locals.cfContext, [composition_data])
-        composition_names = enhanced.names
+        // resolve the referenced composer and contributor names so the view can show them alongside the
+        // numeric ids; a missing composers/contributors table surfaces the missing-table fallback page
+        const enhanced_result = await guardedRead(() => attachCompositionNames(Astro.locals.cfContext, [composition_data as CompositionRecord]))
+        if (enhanced_result instanceof Response) {
+            return enhanced_result
+        }
+        composition_names = enhanced_result[0].names
     }
 }
 ---
@@ -39,9 +53,9 @@ if (id) {
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>View a Composition</h2>
-    <IDEntryForm output_div={undefined} hidden={use_id} />
-    <KeywordSearchBox id_prefix="entity-search" label="Or search by keyword" hidden={use_id} />
+    <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
     <CompositionInfo composition={use_id ? composition_data as CompositionRecord : null} names={use_id ? composition_names : null} hidden={!use_id} />
     <p id="transaction-status">{use_id ? "Composition data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
     {
@@ -54,18 +68,19 @@ if (id) {
         ) : null
     }
     <script>
-        import { getForm, genHandler, getTransactionElem, attachKeywordSearchInline } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
+        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
         const read_form = getForm("composition", APIOpCode.READ)
-        console.log("Form element obtained for compositions read operation:", read_form)
         read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "composition"))
         // keyword lookup scoped to compositions; selecting a hit loads it on-page via the same READ flow as the ID entry form
-        attachKeywordSearchInline("entity-search-input", "entity-search-button", "entity-search-results", () => "compositions", (result) => {
+        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "compositions", (result) => {
             const id_input = document.getElementById("form-id-entry-id")
             if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
             read_form.requestSubmit()
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

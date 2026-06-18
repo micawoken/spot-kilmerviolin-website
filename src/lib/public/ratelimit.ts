@@ -34,7 +34,43 @@ export enum RLScope {
     /**
      * Applies to admin pages that are dynamically rendered, limits by user
      */
-    ENDPOINT_PAGERENDER_ADMIN
+    ENDPOINT_PAGERENDER_ADMIN,
+    /**
+     * Applies to file reads (GET /api/v1/files/{id}), limited by IP against the dedicated
+     * RL_API_FILES_READ binding to keep R2 Class B operation volume within the free plan
+     */
+    ENDPOINT_API_FILES_READ,
+    /**
+     * Applies to file lists/uploads/replacements/deletions, limited by user against the dedicated
+     * RL_API_FILES_WRITE binding to keep R2 Class A operation volume within the free plan
+     */
+    ENDPOINT_API_FILES_WRITE
+}
+
+/**
+ * Per-scope rate-limit configuration. Most scopes share RL_FREQ (keyed per scope) and only differ in
+ * whether they meter by IP or by user; the file scopes route to their own bindings so file traffic is
+ * metered independently of the other API limits. Bindings are resolved lazily so env access happens at
+ * call time rather than module load. An unmapped scope falls back to RL_FREQ for the binding (matching
+ * the previous switch default) and throws when its key type is requested.
+ */
+const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit, keyType: "ip" | "user" }> = {
+    [RLScope.IP_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "ip" },
+    [RLScope.ENDPOINT_API_PUBLIC]: { binding: () => env.RL_FREQ, keyType: "user" },
+    [RLScope.ENDPOINT_API_ADMIN_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "user" },
+    [RLScope.ENDPOINT_API_ADMIN_USER]: { binding: () => env.RL_FREQ, keyType: "user" },
+    [RLScope.ENDPOINT_PAGERENDER_ADMIN]: { binding: () => env.RL_FREQ, keyType: "user" },
+    // file reads are metered by IP (mirroring the global frequency limit); file writes by user
+    [RLScope.ENDPOINT_API_FILES_READ]: { binding: () => env.RL_API_FILES_READ, keyType: "ip" },
+    [RLScope.ENDPOINT_API_FILES_WRITE]: { binding: () => env.RL_API_FILES_WRITE, keyType: "user" }
+}
+
+/**
+ * Maps a rate-limit scope to the binding that enforces it, falling back to RL_FREQ for any unmapped
+ * scope (preserving the previous shared-binding default).
+ */
+function _scopeBinding(rl_key: RLScope): RateLimit {
+    return (RL_SCOPE_CONFIG[rl_key]?.binding ?? (() => env.RL_FREQ))()
 }
 
 
@@ -51,17 +87,11 @@ function _unpackKey(key_pair: { ip: string, user: string } | string, rl_key: RLS
     if (typeof key_pair === "string") {
         return key_pair
     }
-    switch (rl_key) {
-        case RLScope.IP_GLOBAL:
-            return key_pair.ip
-        case RLScope.ENDPOINT_API_PUBLIC:
-        case RLScope.ENDPOINT_API_ADMIN_GLOBAL:
-        case RLScope.ENDPOINT_API_ADMIN_USER:
-        case RLScope.ENDPOINT_PAGERENDER_ADMIN:
-            return key_pair.user
-        default:
-            throw new Error("Invalid RLScope")
+    const config = RL_SCOPE_CONFIG[rl_key]
+    if (!config) {
+        throw new Error("Invalid RLScope")
     }
+    return config.keyType === "ip" ? key_pair.ip : key_pair.user
 }
 
 async function _call_RL(rl_key: RLScope, rl_value: { ip: string, user: string } | string, auto_global: boolean = true): Promise<boolean> {
@@ -82,7 +112,8 @@ async function _call_RL(rl_key: RLScope, rl_value: { ip: string, user: string } 
         // global RL already called; return
         return true
     }
-    const outcome = await env.RL_FREQ.limit({ key: `${rl_key}:${rl_entry}` })
+    // most scopes share RL_FREQ keyed per scope; the file scopes use their own dedicated bindings
+    const outcome = await _scopeBinding(rl_key).limit({ key: `${rl_key}:${rl_entry}` })
     return outcome.success
 }
 
@@ -95,7 +126,9 @@ async function _call_RLs(rl_keys: RLScope[], rl_value: { ip: string, user: strin
         }
     }
     for (const rl_key of rl_keys) {
-        if (!_call_RL(rl_key, rl_value, false)) {
+        // _call_RL is async; without awaiting it the returned Promise is always truthy and every
+        // per-scope limit would be silently skipped (only the global RL_FREQ check above would apply)
+        if (!(await _call_RL(rl_key, rl_value, false))) {
             return false
         }
     }

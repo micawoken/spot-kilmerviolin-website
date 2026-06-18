@@ -15,12 +15,13 @@
  */
 
 import type { APIRoute } from "astro"
-import { formatContribFromD1, parseAPIRequest } from "../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { parseAPIRequest } from "../../../lib/api/common"
+import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
 import { addContributor, listContributors } from "../../../lib/api/database"
 import { _stateTypeAssertCompleteContributor, CONTRIBUTOR } from "../../../lib/api/d1"
 import { authEnabled } from "../../../lib/api/environment"
+import { resolveIdentityEmail } from "../../../lib/api/fallback"
 
 /**
  * GET /api/v1/contributors
@@ -36,8 +37,8 @@ import { authEnabled } from "../../../lib/api/environment"
  * 
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of string[] of contributor IDs or D1Contributor[] of complete contributor records
+ * @param context - the Astro API context
+ * @returns a Response object with payload of string[] of contributor IDs or D1Contributor[] of complete contributor records
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     // returns JSON as an API response
@@ -59,16 +60,19 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 500, "Unknown state: list contributor operation returned null")
         }
         const auth_enabled: boolean = authEnabled(request)
+        // the latest change_date across the listed records is the collection's last-modified time;
+        // redaction only strips protected properties (change_date is not one), so the value is unaffected
+        const last_modified = lastModifiedHeader(data)
         switch (api_request.meta?.full) {
             case true:
                 if (!auth_enabled) {
-                    return constructResponse(request, data, 200)
+                    return constructResponse(request, data, 200, undefined, last_modified)
                 }
                 // any viewer may request full records; admins see every record unredacted, while other
                 // users see their own record in full and every other record with its protected
                 // properties stripped (the same row-level security as GET /contributors/[id])
                 if (locals.identity!.admin) {
-                    return constructResponse(request, data, 200)
+                    return constructResponse(request, data, 200, undefined, last_modified)
                 }
                 const self_id = locals.identity?.id
                 const redacted = data.map(record =>
@@ -76,17 +80,17 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                         ? record
                         : Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
                 )
-                return constructResponse(request, redacted, 200)
+                return constructResponse(request, redacted, 200, undefined, last_modified)
             case false:
             case undefined:
                 // return contributor IDs only
                 const ids = data.map(record => record.id)
-                return constructResponse(request, ids, 200)
+                return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be boolean")
         }
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }
@@ -100,8 +104,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, Contributor object
  * 
- * @param {APIContext} context - the Astro API context
- * @return {Response} a Response object with the ID of the new record, or an error
+ * @param context - the Astro API context
+ * @return a Response object with the ID of the new record, or an error
  * 
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
@@ -120,8 +124,15 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
+    // a blank/omitted identity_email is replaced with a generated fallback address (see lib/api/fallback.ts)
+    // so a contributor with no real sign-in email still satisfies the identity_email NOT NULL UNIQUE
+    // constraint; an invalid name is left to fail the type assertion below
+    const raw = api_request.payload[0]
+    if (raw !== null && typeof raw === "object" && typeof raw.name === "string") {
+        raw.identity_email = resolveIdentityEmail(raw.identity_email, raw.name)
+    }
     // validate the payload as a complete contributor record
-    const record: Contributor | string = _stateTypeAssertCompleteContributor(api_request.payload[0], false)
+    const record: Contributor | string = _stateTypeAssertCompleteContributor(raw, false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }

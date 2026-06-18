@@ -20,7 +20,6 @@ const pointer_address = (enviro === "admin") ? `/admin/${noun}s/info?id=${id}` :
     {
         enviro === "admin" ? (
             <>
-                <br />
                 <a href={`/admin/${noun}s/edit?id=${id}`} class="list-result-edit-link" id={`list-result-${noun}-${id}-link`}>Edit &gt;</a>
             </>
         ) : (

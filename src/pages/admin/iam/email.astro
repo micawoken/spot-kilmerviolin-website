@@ -1,0 +1,93 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { emailFromParam } from "../../../lib/api/validation"
+
+export const prerender = false
+
+// prefill the user's current identity email when arriving from a user-list link (?identity_email=), if it is valid
+const prefill_email = emailFromParam(Astro.url)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Change Login Email`} description="Change a user's login (identity) email"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Change a User's Login Email</h2>
+    <p class="general-infohelp">Changes the login (identity) email for the contributor record with the provided current email. This updates both the Cloudflare Access login and the contributor record. This operation requires administrator permissions.</p>
+    <p class="general-warning">The user must log in with the new email after this change. To change your own login email, use the self-service profile page instead.</p>
+    <div class="generic-form">
+        <form id="iam-form-email" class="generic-form" novalidate>
+            <fieldset>
+                <legend>Current Login Email<span class="field-required" aria-hidden="true">*</span></legend>
+                <div class="field-row">
+                    <input type="email" id="iam-form-email-current" name="current_email" value={prefill_email} required />
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>New Login Email<span class="field-required" aria-hidden="true">*</span></legend>
+                <div class="field-row">
+                    <input type="email" id="iam-form-email-new" name="new_email" required />
+                </div>
+            </fieldset>
+            <p class="field-required-note"><span class="field-required" aria-hidden="true">*</span> indicates a required field</p>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { changeIdentityEmail } from "../../../scripts/connector"
+        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
+        const form = document.getElementById("iam-form-email") as HTMLFormElement
+        const message = getTransactionElem()
+
+        // live inline email validation, mirroring the entity forms
+        attachFormValidation(form)
+
+        form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            // submit gate: reject malformed emails with inline hints before sending the request
+            if (!validateFormFields(form)) {
+                message.textContent = "Please correct the highlighted fields and try again."
+                return
+            }
+            const form_data = new FormData(form)
+            const current_email = String(form_data.get("current_email") ?? "")
+            const new_email = String(form_data.get("new_email") ?? "")
+            if (!current_email || !new_email) {
+                message.textContent = "Error: both the current and new login email are required"
+                return
+            }
+            if (current_email.toLowerCase() === new_email.toLowerCase()) {
+                message.textContent = "Error: the new login email matches the current one"
+                return
+            }
+            if (!confirm(`Are you sure you want to change the login email for ${current_email} to ${new_email}?`)) {
+                return
+            }
+            message.textContent = "Processing request..."
+            disableInput(form)
+            try {
+                // maps the user's current identity email to their new one
+                await changeIdentityEmail({ [current_email]: new_email })
+                message.textContent = `Request succeeded: changed the login email for ${current_email} to ${new_email}`
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                enableInput(form)
+            }
+        })
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

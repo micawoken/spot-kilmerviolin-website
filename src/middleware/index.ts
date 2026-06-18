@@ -8,8 +8,9 @@
  */
 
 import { sequence } from "astro/middleware"
+import { requestContext } from "./context"
 import { preflight } from "./preflight"
 import { identity } from "./identity"
 import { rateLimit } from "./ratelimit"
 
-export const onRequest = sequence(preflight, identity, rateLimit)
+export const onRequest = sequence(requestContext, preflight, identity, rateLimit)

@@ -1,4 +1,16 @@
 ---
+/**
+ * src/layouts/DocInfo.astro
+ *
+ * Layout for the documentation pages served from the `docs` content collection through
+ * src/pages/admin/docs/[...slug].astro. It renders the shared admin chrome (BaseHead, AdminHead,
+ * AdminHeader, AdminFooter) around the collection entry's rendered Markdown/MDX body, which is
+ * projected through <slot />. The entry's frontmatter (title, description, author) is passed in as
+ * props and used for the document head, the page heading, and the byline.
+ *
+ * The [...slug] route is server-rendered (prerender = false), so the identity middleware has run and
+ * populated Astro.locals.identity by the time this layout renders.
+ */
 import type { CollectionEntry } from 'astro:content';
 import BaseHead from '../components/BaseHead.astro';
 import AdminHead from '../components/AdminHead.astro';
@@ -8,9 +20,11 @@ import { ADMIN_PAGE_TITLE_PRFX } from '../consts';
 
 type Props = CollectionEntry<'docs'>['data'];
 
-const { title, description, author } = Astro.props;
+const { title, description } = Astro.props;
 
-
+// pass the resolved caller to the header so it greets the signed-in administrator (falls back to a
+// generic label in local development where no identity is present)
+const identity = Astro.locals.identity ?? null;
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -19,15 +33,14 @@ const { title, description, author } = Astro.props;
     <AdminHead />
 </head>
 <body>
-    <!-- Header -->
-    <h1>Administrative Services - Documentation</h1>
-    <AdminHeader />
-    <p></p>
-    <br>
+    <AdminHeader identity={identity} welcome={false} />
     <main>
         <article>
+            <h1>{title}</h1>
+            <p>{description}</p>
             <slot />
         </article>
     </main>
     <AdminFooter />
+</body>
 </html>
