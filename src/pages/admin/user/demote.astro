@@ -1,0 +1,78 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { emailFromParam } from "../../../lib/api/validation"
+
+export const prerender = false
+
+// SSR the caller's email so the client script can warn on self-demotion
+const self_email = Astro.locals.identity?.email ?? ""
+// prefill the identity email when arriving from a user-list link (?identity_email=), if it is valid
+const prefill_email = emailFromParam(Astro.url)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Demote from Administrator`} description="Demote a user from administrator"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Demote a User from Administrator</h2>
+    <p class="general-warning">Demotion removes the user's administrator permissions, but does not deactivate their account or remove any roles they possess. To perform this operation, you must be an administrator.</p>
+    <p class="general-infohelp">The reverse also holds — marking an administrator's account inactive does <strong>not</strong> strip their administrator permissions. An inactive administrator retains full authorization across the API and admin pages. To revoke administrator access, you must demote the user here; deactivation alone is not sufficient.</p>
+    <div class="generic-form">
+        <form id="user-form-demote" class="generic-form" data-self-email={self_email}>
+            <fieldset>
+                <legend>User Identity Email</legend>
+                <input type="email" id="user-form-demote-email" name="email" value={prefill_email} required />
+            </fieldset>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { demoteIdentity } from "../../../scripts/connector"
+        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+        const form = document.getElementById("user-form-demote") as HTMLFormElement
+        const message = getTransactionElem()
+        const self_email = form.dataset.selfEmail ?? ""
+
+        form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            const form_data = new FormData(form)
+            const email = String(form_data.get("email") ?? "")
+            if (!email) {
+                message.textContent = "Error: an identity email address is required"
+                return
+            }
+            if (!confirm(`Are you sure you want to demote ${email} from administrator?`)) {
+                return
+            }
+            if (self_email && email.toLowerCase() === self_email.toLowerCase()) {
+                if (!confirm("WARNING: you entered your own email. Demoting yourself removes your access to all administrator pages, and another administrator will be needed to restore it. Are you absolutely sure?")) {
+                    return
+                }
+            }
+            message.textContent = "Processing request..."
+            disableInput(form)
+            try {
+                await demoteIdentity([email])
+                message.textContent = `Request succeeded: demoted ${email} from administrator`
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                enableInput(form)
+            }
+        })
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

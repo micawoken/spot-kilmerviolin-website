@@ -6,11 +6,25 @@
  * Returns a BaseIdentity object for a validated identity
  * 
  * 
- * No internal dependencies; dependent on env (Workers) and jose
- * 
- * 
  * Portions of this file borrow code from the mwm-go-shorturl project (mwmsc.net) by
  * Michael Wong; for questions, contact him at contact@michaelwongmusic.com
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  * 
  */
 
@@ -144,8 +158,8 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
         // token is valid, active, and unexpired, so authorize the user
         return construct(sub, email, nbf_time, exp_time)
     } catch (error) {
-        console.log(error)
         // jwt validation failed - not cryptographically valid
+        console.error("JWT validation failed:", error)
         return null
     }
 }

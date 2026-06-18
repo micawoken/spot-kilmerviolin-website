@@ -9,115 +9,101 @@ import { env } from "cloudflare:workers"
 import type { MiddlewareHandler } from "astro"
 import { middlewareErrorResponder } from "../lib/api/http"
 import { parseJWT, retrieveCredential } from "../lib/api/authenticate"
-import { authEnabled } from "../lib/api/environment"
-import authorize, { requires } from "../lib/api/authorize"
-
-
-const comment_401 = "You have not provided valid credentials to access this resource. Please log in and try again."
-const comment_403 = "Your user account is not authorized to access this resource."
+import { authEnabled, detectEnvironment } from "../lib/api/environment"
+import authorize from "../lib/api/authorize"
+import { isFallbackEmail } from "../lib/api/fallback"
+import { type AdminAccess, satisfiesAccess, comment_401, comment_403 } from "../lib/api/page_auth"
 
 
 /**
- * The authorization a caller must satisfy to view an admin page. The requirement is met if the
- * caller is an administrator (when admin is permitted) OR is active and holds one of the listed
- * role permissions. admin is checked without requiring active, mirroring the API's policy that an
- * inactive administrator retains full authorization (see auth_check).
- */
-interface AdminPageRequirement {
-    /** whether an administrator satisfies this requirement */
-    admin: boolean
-    /** role permissions, any one of which satisfies this requirement for an active caller */
-    roles: (keyof RoleProfile)[]
-}
-
-/**
- * A node in the admin page structure. A node may carry a requirement (gating itself and, by
+ * A node in the admin page structure. A node may carry an access requirement (gating itself and, by
  * default, its descendants) and/or a map of child path segments to further nodes.
  */
 interface AdminPageNode {
-    /** authorization needed for this page; descendants inherit it unless they override it. Omitted means open. */
-    requirement?: AdminPageRequirement
+    /** authorization needed for this page; descendants inherit it unless they override it. */
+    access?: AdminAccess
     /** nested admin pages keyed by their path segment */
     children?: Record<string, AdminPageNode>
 }
 
 /**
- * Declarative map of the admin page structure to its page-level authorization requirements
- * (defense in depth; every /api/* endpoint still enforces its own authorization). Keyed by the
- * path segment following /admin. Pages with no requirement on their path — the navigation shell,
- * the per-entity CRUD pages, and the self-service pages (iam/whoami, advanced/selfenroll) — are
- * open, since they expose no privileged data server-side and their actions are gated at the API.
+ * Declarative map of the admin page structure to its page-level authorization requirements (defense in
+ * depth; every /api/* endpoint still enforces its own authorization). Keyed by the path segment
+ * following /admin.
  *
- * Keep this in sync with the pages under src/pages/admin; unlisted pages under a gated section
- * inherit that section's requirement (fail closed), and unlisted pages elsewhere are open.
+ * The /admin index defaults to "any" (the landing page exposes no privileged data and must stay
+ * reachable so an inactive or not-yet-enrolled caller can navigate to the self-service flows), while
+ * every other admin page defaults to "active": most pages must not be accessible to an inactive caller
+ * unless they are an administrator. Pages an inactive/enrollable caller must still reach — the
+ * self-enrollment flow, "my authorization info", and the profile pages — are explicitly marked "any".
+ *
+ * Keep this in sync with the pages under src/pages/admin; an unlisted page under a gated section
+ * inherits that section's requirement (fail closed), and an unlisted page elsewhere falls back to the
+ * "active" default.
  */
 const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
-    // 
-    site: { // any authorized user may perform site management operations
-        requirement: { admin: false, roles: [] },    
-    },
     advanced: {
         children: {
-            command: { requirement: { admin: true, roles: [] } },
-            elevate: { requirement: { admin: true, roles: [] } },
-            demote: { requirement: { admin: true, roles: [] } },
-            // selfenroll: open (no requirement) — intended for not-yet-enrolled callers
+            // the database terminal maps to POST /api/v1/command, which requires admin
+            command: { access: { kind: "admin" } },
+            // the self-enrollment flow must be reachable by a not-yet-enrolled (inactive) caller
+            selfenroll: { access: { kind: "any" } },
+        },
+    },
+    user: {
+        children: {
+            // activation (PUT /api/v1/identity/activation) is delegated to the user_activation permission
+            activate: { access: { kind: "role", roles: ["user_activation"] } },
+            // deactivation (DELETE /api/v1/identity/activation) remains admin-only
+            deactivate: { access: { kind: "admin" } },
+            // promotion/demotion (PUT/DELETE /api/v1/identity/admin) require admin
+            elevate: { access: { kind: "admin" } },
+            demote: { access: { kind: "admin" } },
         },
     },
     iam: {
         children: {
-            // editing roles/admin status maps to PATCH /api/v1/identity, which requires admin
-            edit: { requirement: { admin: true, roles: [] } },
+            // editing roles maps to PATCH/PUT /api/v1/identity/roles, which requires admin
+            edit: { access: { kind: "admin" } },
+            // changing another user's login email maps to PATCH /api/v1/identity/email, which requires admin
+            email: { access: { kind: "admin" } },
             // listing/adding/removing users maps to endpoints requiring the user_addition permission
-            add: { requirement: { admin: true, roles: ["user_addition"] } },
-            list: { requirement: { admin: true, roles: ["user_addition"] } },
-            remove: { requirement: { admin: true, roles: ["user_addition"] } },
-            activate: { requirement: { admin: true, roles: [] } }, // endpoint and method requires admin
-            deactivate: { requirement: { admin: true, roles: []} },
-            // whoami: open (no requirement) — shows the caller their own authorization info
+            add: { access: { kind: "role", roles: ["user_addition"] } },
+            list: { access: { kind: "role", roles: ["user_addition"] } },
+            remove: { access: { kind: "role", roles: ["user_addition"] } },
+            // "my authorization info" shows the caller their own info; reachable while inactive
+            whoami: { access: { kind: "any" } },
         },
     },
+    // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
+    // own record, so they remain reachable by an inactive (but enrolled) caller
+    profile: { access: { kind: "any" } },
 }
 
 /**
- * Walks ADMIN_PAGE_STRUCTURE along the request path, reads the authorization requirement that
- * applies to the resolved page, and checks the identity against it.
+ * Walks ADMIN_PAGE_STRUCTURE along the request path and resolves the access requirement for the page.
+ *
+ * The caller guarantees path_components[0] === "admin". The /admin index resolves to "any"; every other
+ * page starts from the "active" default and is narrowed by the most specific node encountered. An
+ * unlisted segment stops the walk but keeps the inherited requirement (fail closed).
  *
  * @param {string[]} path_components - the non-empty path segments of the request URL
- * @param {Identity} identity - the constructed identity for the caller
- * @returns {boolean} true if the caller may view the page, false if it should be rejected with 403
+ * @returns {AdminAccess} the access requirement that applies to the resolved page
  */
-function adminPageAuthorized(path_components: string[], identity: Identity): boolean {
-    if (path_components[0] !== "admin") {
-        return true
-    }
-    // follow the structure along the path, tracking the most specific requirement encountered;
-    // an unlisted segment stops the walk but keeps the inherited requirement (fail closed)
+function adminPageAccess(path_components: string[]): AdminAccess {
+    let access: AdminAccess = path_components.length === 1 ? { kind: "any" } : { kind: "active" }
     let children: Record<string, AdminPageNode> | undefined = ADMIN_PAGE_STRUCTURE
-    let requirement: AdminPageRequirement | undefined = undefined
     for (let i = 1; i < path_components.length; i++) {
         const node: AdminPageNode | undefined = children?.[path_components[i]]
         if (node === undefined) {
             break
         }
-        if (node.requirement !== undefined) {
-            requirement = node.requirement
+        if (node.access !== undefined) {
+            access = node.access
         }
         children = node.children
     }
-    if (requirement === undefined) {
-        // the path resolves to no gated page; open by default
-        return true
-    }
-    // an administrator satisfies the requirement when admin access is permitted
-    if (requirement.admin && identity.admin) {
-        return true
-    }
-    // otherwise an active caller holding one of the accepted role permissions satisfies it
-    if (identity.active && requirement.roles.some(role => requires(role, identity))) {
-        return true
-    }
-    return false
+    return access
 }
 
 
@@ -137,6 +123,12 @@ export const identity: MiddlewareHandler = async (context, next) => {
      */
 
     if (path_components.length > 0 && (path_components[0] === "api" || path_components[0] === "admin")) {
+        // staging serves only public-facing pages; the admin UI and the API are disabled there.
+        // Respond 404 to hide their existence (staging needs no auth secrets as a result).
+        if (detectEnvironment(context.request) === "staging") {
+            return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
+        }
+
         // the request path requires authentication and authorization
 
         // on local development (development build served from localhost/127.0.0.1),
@@ -162,6 +154,12 @@ export const identity: MiddlewareHandler = async (context, next) => {
             // credential invalid, unauthorized
             return middlewareErrorResponder(context.request, 401, comment_401)
         }
+        // fallback identity emails are reserved placeholders for contributors with no real sign-in email
+        // (see lib/api/fallback.ts); refuse to construct an identity for one so it can never authenticate,
+        // even if such an address somehow appears in Access
+        if (isFallbackEmail(validation.email)) {
+            return middlewareErrorResponder(context.request, 403, comment_403)
+        }
         // credential is authenticated, construct the identity information
         const constructed_identity: Identity = await authorize(validation)
         // verify the credential can be used, or is unusable but enrollable
@@ -183,9 +181,10 @@ export const identity: MiddlewareHandler = async (context, next) => {
         }
         // credential is useable, so set to locals
         context.locals.identity = constructed_identity
-        // NO CHECK HAS BEEN MADE ON WHETHER THE CREDENTIAL IS ACTIVE
-        // page-level authorization for the admin UI (API routes enforce their own checks downstream)
-        if (!adminPageAuthorized(path_components, constructed_identity)) {
+        // page-level authorization for the admin UI (API routes enforce their own checks downstream).
+        // Active-state gating happens here via the resolved access requirement: most admin pages require
+        // an active caller unless they are an administrator (see ADMIN_PAGE_STRUCTURE / satisfiesAccess).
+        if (path_components[0] === "admin" && !satisfiesAccess(adminPageAccess(path_components), constructed_identity)) {
             return middlewareErrorResponder(context.request, 403, comment_403)
         }
         return next()

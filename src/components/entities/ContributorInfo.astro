@@ -23,11 +23,12 @@ const hidden: boolean = Astro.props.hidden || false;
 
 // renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
 // empty array so a "not supplied" field is visually distinct from an unset/blank render. Booleans
-// (e.g. active/admin) render their literal value, so false is shown as "false", not as missing.
+// render as "Yes"/"No" rather than their literal "true"/"false".
 const disp = (value: unknown, missing?: string): string => {
     if (value === null || value === undefined) return missing ?? NOT_PROVIDED;
     if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : missing ?? NOT_PROVIDED;
     if (typeof value === "string" && value.trim() === "") return missing ?? NOT_PROVIDED;
+    if (typeof value === "boolean") return value ? "Yes" : "No";
     return String(value);
 };
 
@@ -35,7 +36,7 @@ const disp = (value: unknown, missing?: string): string => {
 const protected_field_labels: Record<string, string> = {
     identity_email: "identity email",
     roles: "roles",
-    admin: "admin",
+    admin: "account type",
 };
 const protected_fields = CONTRIBUTOR.protected ?? [];
 const protected_label = protected_fields.map((field) => protected_field_labels[field] ?? field).join(", ");
@@ -47,25 +48,14 @@ const protected_label = protected_fields.map((field) => protected_field_labels[f
             <h2 id="contributor-name" class="entity-result-name">{contributor?.name}</h2>
             <p id="contributor-id">ID #{contributor?.id}</p> <p id="contributor-public_email">{disp(contributor?.public_email, "(no email set)")}</p>
             <div id="contributor-infocard-school">
-                <!-- contains the class year and major on a single line, if defined -->
-                 {
-                    contributor?.class_year ? (
-                        contributor?.major ? (
-                            <p id="contributor-class_year">{disp(contributor?.class_year)}</p> <p id="contributor-major">{disp(contributor?.major)}</p>
-                    ) : (
-                            <p id="contributor-class_year">{disp(contributor?.class_year)}</p> <p id="contributor-major">(no major set)</p>
-                        )
-                    ) : (
-                        contributor?.major ? (
-                            <p id="contributor-major">{disp(contributor?.major)}</p> <p id="contributor-class_year">(no class year set)</p>
-                        ) : (
-                            <p id="contributor-class_year"></p><p id="contributor-major"></p><p id="contributor-_missing">(no school information set)</p>
-                        )
-                    )
-                 }
+                <!-- class year and major render on a single line. Both data-bearing elements are ALWAYS
+                     present (with placeholder markers when unset) so the client-side READ flow
+                     (populateInfo) can fill them; conditionally omitting them would leave populateInfo
+                     with no target and strand the SSR placeholder text in the DOM. -->
+                 <p id="contributor-class_year">{disp(contributor?.class_year, "(no class year set)")}</p> <p id="contributor-major">{disp(contributor?.major, "(no major set)")}</p>
             </div>
             <div id="contributor-infocard-phases">
-                <p id="contributor-phases">Phases {disp(contributor?.phases)}</p>
+                <p id="contributor-phases">Phases {disp(contributor?.phases, "(no phases specified)")}</p>
             </div>
         </div>
         <div id="contributor-image-container" class="entity-result-image-container">
@@ -77,13 +67,13 @@ const protected_label = protected_fields.map((field) => protected_field_labels[f
         </div>
     </div>
     <div id="contributor-bio-container" class="entity-result-bio">
-        <p id="contributor-bio">{disp(contributor?.bio)}</p>
+        <p id="contributor-bio">{disp(contributor?.bio, "(no bio available)")}</p>
     </div>
     <div id="contributor-authinfo" class="entity-result-details">
-        <p class="general-infohelp">Authorization-related fields ({protected_label}) are only visible for your own record or with administrator escalation.</p>
+        <p class="general-infohelp">Authorization-related fields ({protected_label}) are only visible for your user account unless you are an administrator.</p>
         <p><strong>Identity Email:</strong> <span id="contributor-identity_email">{disp(contributor?.identity_email)}</span></p>
-        <p><strong>Roles:</strong> <span id="contributor-roles">{disp(contributor?.roles)}</span></p>
-        <p><strong>Admin:</strong> <span id="contributor-admin">{disp(contributor?.admin)}</span></p>
+        <p><strong>Roles:</strong> <span id="contributor-roles">{disp(contributor?.roles, "(no roles specified)")}</span></p>
+        <p><strong>Account type:</strong> <span id="contributor-admin">{contributor?.admin === undefined || contributor?.admin === null ? disp(contributor?.admin) : (contributor.admin ? "Administrator" : "Standard")}</span></p>
     </div>
     <div id="contributor-tags-container" class="entity-result-details">
         <p><strong>Tags:</strong> <span id="contributor-tags">{disp(contributor?.tags)}</span></p>

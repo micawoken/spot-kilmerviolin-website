@@ -4,18 +4,23 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
-import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
 import ContributorInfo from "../../../components/entities/ContributorInfo.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { CONTRIBUTOR } from "../../../lib/api/d1"
 import { getContributor } from "../../../lib/api/database"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
 export const prerender = false
 
-const is_admin = Astro.locals.identity?.admin === true
+// authorize before any direct (API-bypassing) database read; the unfiltered SSR read below is further
+// restricted to admins so protected properties are never leaked to a non-admin active caller
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
 
-console.log("Admin status of current user:", is_admin)
+const is_admin = Astro.locals.identity?.admin === true
 
 // SSR is used if an ID is specified as a query param, but only for admins:
 // the direct database read is unfiltered and would leak protected properties to non-admins
@@ -23,8 +28,12 @@ const id = Astro.url.searchParams.get("id")
 let use_id: boolean = false
 let contributor_data: ContributorRecord | null = null
 if (id && is_admin) {
-    console.log("ID query param found:", id)
-    contributor_data = await getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, id)
+    // a missing contributors table surfaces the missing-table fallback page
+    const result = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, id))
+    if (result instanceof Response) {
+        return result
+    }
+    contributor_data = result
     if (!contributor_data) {
         console.warn(`No contributor found with ID ${id}, falling back to client-side ID entry`)
     } else {
@@ -40,9 +49,9 @@ if (id && is_admin) {
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>View a Contributor</h2>
-    <IDEntryForm output_div={undefined} hidden={use_id} show_elevate={is_admin} />
-    <KeywordSearchBox id_prefix="entity-search" label="Or search by keyword" hidden={use_id} />
+    <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
     <ContributorInfo contributor={use_id ? contributor_data as ContributorRecord : null} hidden={!use_id} />
     <p id="transaction-status">{use_id ? "Contributor data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
     {
@@ -55,18 +64,19 @@ if (id && is_admin) {
         ) : null
     }
     <script>
-        import { getForm, genHandler, getTransactionElem, attachKeywordSearchInline } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
+        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
         const read_form = getForm("contributor_partial", APIOpCode.READ)
-        console.log("Form element obtained for contributors read operation:", read_form)
         read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "contributor_partial"))
         // keyword lookup scoped to contributors; selecting a hit loads it on-page via the same READ flow as the ID entry form
-        attachKeywordSearchInline("entity-search-input", "entity-search-button", "entity-search-results", () => "contributors", (result) => {
+        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "contributors", (result) => {
             const id_input = document.getElementById("form-id-entry-id")
             if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
             read_form.requestSubmit()
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

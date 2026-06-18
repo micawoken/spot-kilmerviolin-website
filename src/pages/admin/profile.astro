@@ -8,8 +8,16 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 
 import { CONTRIBUTOR } from "../../lib/api/d1"
 import { getContributor } from "../../lib/api/database"
+import { guardPage, guardedRead } from "../../lib/api/page_auth"
 
 export const prerender = false
+
+// the profile is self-service (reachable while inactive/enrollable); the read below is keyed by the
+// caller's own id, but still authorize before touching the database directly
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "any" })
+if (denied) {
+    return denied
+}
 
 // the middleware has already resolved the caller's identity; the profile is the caller's own record, so
 // it is read directly by the caller's contributor id (a self read, so protected properties are fine to show)
@@ -18,7 +26,12 @@ const self_id = identity?.id ?? null
 
 let contributor_data: ContributorRecord | null = null
 if (self_id !== null && self_id !== undefined) {
-    contributor_data = await getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id))
+    // a missing contributors table surfaces the missing-table fallback page
+    const result = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id)))
+    if (result instanceof Response) {
+        return result
+    }
+    contributor_data = result
     if (!contributor_data) {
         console.warn(`No contributor record found for self id ${self_id}`)
     }
@@ -32,11 +45,12 @@ if (self_id !== null && self_id !== undefined) {
 </head>
 <body>
     <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>My Profile</h2>
     {
         contributor_data ? (
-            <>
-                <p class="general-infohelp">This is your profile as it appears in the contributor database. To change your personal information, use <a href="/admin/profile/edit">Edit my profile</a>. To change the email you sign in with, use <a href="/admin/profile/reset_login">Change sign-in email</a>. Your sign-in email is shown below as the identity email.</p>
+            <div class="profile-content">
+                <p class="general-infohelp">This is your user profile, connected to your contributor record. The non-protected information of your record displayed here will be published to the website. To change your personal information, use <a href="/admin/profile/edit">Edit my profile</a>. To change the email you sign in with (the identity email), use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
                 <ContributorInfo contributor={contributor_data} />
                 {
                     contributor_data.image ? (
@@ -44,10 +58,9 @@ if (self_id !== null && self_id !== undefined) {
                     ) : null
                 }
                 <div class="entity-result-details">
-                    <p><a href="/admin/profile/edit" class="col-item-link">Edit my profile &gt;</a></p>
-                    <p><a href="/admin/profile/reset_login" class="col-item-link">Change sign-in email &gt;</a></p>
+                    <span><a href="/admin/profile/edit" class="col-item-link">Edit my profile &gt;</a> | <a href="/admin/profile/reset_login" class="col-item-link">Change sign-in email &gt;</a> | <a href="/admin/profile/deactivate" class="col-item-link">Deactivate my account &gt;</a></span>
                 </div>
-            </>
+            </div>
         ) : (
             identity?.enrollable ? (
                 <p class="general-warning">Your login is not yet linked to a contributor record, so you have no profile to display. Complete <a href="/admin/advanced/selfenroll">self-enrollment</a> first.</p>
@@ -56,6 +69,7 @@ if (self_id !== null && self_id !== undefined) {
             )
         )
     }
+    </main>
     <AdminFooter />
 </body>
 </html>

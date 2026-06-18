@@ -9,76 +9,89 @@
  */
 
 import { env } from "cloudflare:workers"
-import { Key, sqlListJoin, WorkType } from "./common.ts"
+import { Key, WorkType } from "./common.ts"
 import { SQLStatement } from "./sql.ts"
-import { isValidCountryCode } from "./country.ts"
+import { dbWriteEnabled } from "./environment.ts"
+import {
+    isValidCountryCode,
+    isValidEmail,
+    isValidImageUrl,
+    isValidPitchRange,
+    isValidPosition,
+    isValidYear,
+    SUPPORTED_URI_TYPES,
+    validateURIForType
+} from "./validation.ts"
 
 
-const d1_contrib_sql_init: string = `
-CREATE TABLE contributors ( 
-contributor_id INTEGER PRIMARY KEY AUTOINCREMENT, 
-name TEXT UNIQUE NOT NULL,
-class_year INTEGER,
-major TEXT,
-phases TEXT,
-bio TEXT, 
-public_email TEXT, 
-identity_email TEXT UNIQUE NOT NULL, 
-active INTEGER NOT NULL, 
-roles TEXT NOT NULL, 
-admin INTEGER NOT NULL, 
-image TEXT, 
-tags TEXT, 
-entry_date TEXT NOT NULL 
-);
-`
-const d1_composer_sql_init: string = `
-CREATE TABLE composers ( 
-composer_id INTEGER PRIMARY KEY AUTOINCREMENT, 
-name TEXT UNIQUE NOT NULL, 
-role TEXT NOT NULL,
-birth_year INTEGER NOT NULL, 
-death_year INTEGER NOT NULL, 
-country TEXT NOT NULL, 
-bio TEXT, 
-image TEXT, 
-tags TEXT, 
-entry_date TEXT NOT NULL 
-);
-`
-const d1_composition_sql_init: string = `
-CREATE TABLE compositions (
-composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
-name TEXT NOT NULL,
-composer_id INTEGER NOT NULL,
-contrib_primary_1 INTEGER NOT NULL,
-contrib_primary_2 INTEGER,
-contrib_addl TEXT,
-author_secondary TEXT,
-type TEXT NOT NULL,
-part TEXT,
-rating_suzuki INTEGER,
-rating_nyssma INTEGER,
-publish_location TEXT NOT NULL,
-publish_name TEXT NOT NULL,
-publish_year INTEGER NOT NULL,
-uri_type TEXT NOT NULL,
-uri TEXT,
-key TEXT,
-range TEXT,
-position_highest TEXT,
-notes_pedagogical TEXT,
-notes_historical TEXT,
-notes_other TEXT,
-image TEXT,
-phases TEXT NOT NULL,
-entry_date TEXT NOT NULL,
-tags TEXT,
-FOREIGN KEY (composer_id) REFERENCES composers(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
-FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
-FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
-);
-`
+/*
+ * D1 table spec info
+ *
+ * CREATE TABLE contributors (
+ *   contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
+ *   name TEXT UNIQUE NOT NULL,
+ *   class_year INTEGER,
+ *   major TEXT,
+ *   phases TEXT,
+ *   bio TEXT,
+ *   public_email TEXT,
+ *   identity_email TEXT UNIQUE NOT NULL,
+ *   active INTEGER NOT NULL,
+ *   roles TEXT NOT NULL,
+ *   admin INTEGER NOT NULL,
+ *   image TEXT,
+ *   tags TEXT,
+ *   entry_date TEXT NOT NULL,
+ *   change_date TEXT
+ * );
+ *
+ * CREATE TABLE composers (
+ *   composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+ *   name TEXT UNIQUE NOT NULL,
+ *   role TEXT NOT NULL,
+ *   birth_year INTEGER NOT NULL,
+ *   death_year INTEGER NOT NULL,
+ *   country TEXT NOT NULL,
+ *   bio TEXT,
+ *   image TEXT,
+ *   tags TEXT,
+ *   entry_date TEXT NOT NULL,
+ *   change_date TEXT
+ * );
+ *
+ * CREATE TABLE compositions (
+ *   composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
+ *   name TEXT NOT NULL,
+ *   composer_id INTEGER NOT NULL,
+ *   contrib_primary_1 INTEGER NOT NULL,
+ *   contrib_primary_2 INTEGER,
+ *   contrib_addl TEXT,
+ *   author_secondary TEXT,
+ *   type TEXT NOT NULL,
+ *   part TEXT,
+ *   rating_suzuki INTEGER,
+ *   rating_nyssma INTEGER,
+ *   publish_location TEXT NOT NULL,
+ *   publish_name TEXT NOT NULL,
+ *   publish_year INTEGER NOT NULL,
+ *   uri_type TEXT NOT NULL,
+ *   uri TEXT,
+ *   key TEXT,
+ *   range TEXT,
+ *   position_highest TEXT,
+ *   notes_pedagogical TEXT,
+ *   notes_historical TEXT,
+ *   notes_other TEXT,
+ *   image TEXT,
+ *   phases TEXT NOT NULL,
+ *   entry_date TEXT NOT NULL,
+ *   tags TEXT,
+ *   change_date TEXT,
+ *   FOREIGN KEY (composer_id) REFERENCES composers(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
+ *   FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
+ *   FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
+ * );
+ */
 
 
 
@@ -88,9 +101,9 @@ FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDAT
 export const CONTRIBUTOR: D1Schema = {
     db: env.DB_MAIN,
     name: "contributors",
-    columns: ["contributor_id", "name", "class_year", "major", "phases", "bio", "public_email", "identity_email", "active", "roles", "admin", "image", "tags", "entry_date"],
+    columns: ["contributor_id", "name", "class_year", "major", "phases", "bio", "public_email", "identity_email", "active", "roles", "admin", "image", "tags", "entry_date", "change_date"],
     index: ["contributor_id", "identity_email", "public_email"],
-    repr_exclude: ["entry_date"],
+    repr_exclude: ["entry_date", "change_date"],
     primary_key: "contributor_id",
     type_hint: {
         contributor_id: "number",
@@ -106,7 +119,8 @@ export const CONTRIBUTOR: D1Schema = {
         admin: "number",
         image: "string",
         tags: "string",
-        entry_date: "string"
+        entry_date: "string",
+        change_date: "string"
     },
     protected: ["roles", "admin", "identity_email"]
 }
@@ -117,9 +131,9 @@ export const CONTRIBUTOR: D1Schema = {
 export const COMPOSER: D1Schema = {
     db: env.DB_MAIN,
     name: "composers",
-    columns: ["composer_id", "name", "role", "birth_year", "death_year", "country", "bio", "image", "tags", "entry_date"],
+    columns: ["composer_id", "name", "role", "birth_year", "death_year", "country", "bio", "image", "tags", "entry_date", "change_date"],
     index: ["composer_id", "name"],
-    repr_exclude: ["entry_date"],
+    repr_exclude: ["entry_date", "change_date"],
     primary_key: "composer_id",
     type_hint: {
         composer_id: "number",
@@ -131,7 +145,8 @@ export const COMPOSER: D1Schema = {
         bio: "string",
         image: "string",
         tags: "string",
-        entry_date: "string"
+        entry_date: "string",
+        change_date: "string"
     }
 }
 
@@ -145,9 +160,9 @@ export const COMPOSITION: D1Schema = {
     columns: ["composition_id", "name", "composer_id", "contrib_primary_1", "contrib_primary_2",
         "contrib_addl", "author_secondary", "type", "part", "rating_suzuki", "rating_nyssma", "publish_location",
         "publish_name", "publish_year", "uri_type", "uri", "key", "range", "position_highest", "notes_pedagogical",
-        "notes_historical", "notes_other", "image", "phases", "entry_date", "tags"],
+        "notes_historical", "notes_other", "image", "phases", "entry_date", "tags", "change_date"],
     index: ["composition_id"],
-    repr_exclude: ["entry_date"],
+    repr_exclude: ["entry_date", "change_date"],
     primary_key: "composition_id",
     type_hint: {
         composition_id: "number",
@@ -175,7 +190,8 @@ export const COMPOSITION: D1Schema = {
         image: "string",
         phases: "string", // comma-separated phase numbers, which are converted to a number array later
         entry_date: "string",
-        tags: "string"
+        tags: "string",
+        change_date: "string"
     }
 }
 
@@ -192,18 +208,20 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
     try {
         prepared = env.DB_MAIN.prepare(command)
     } catch (error) {
-        throw error
+        // identify the failing stage (preparation) and the offending statement; the original message is
+        // appended verbatim so any embedded SQLITE_ code is preserved for the error hook and cause chain
+        throw new Error(`Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
     }
 
     let exec_result
     try {
         exec_result = await prepared.bind(...params).run()
     } catch (error) {
-        throw error
+        throw new Error(`Failed to execute SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
     }
-    
+
     if (!exec_result.success) {
-        throw new Error(`SQL execution failed.`)
+        throw new Error(`SQL execution did not succeed for statement [${command}]`)
     }
 
     return exec_result // will format later
@@ -217,23 +235,23 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
  * @throws an error if preparation or execution fails, or if execution does not succeed
  */
 export async function exec_stmt(stmt: SQLStatement): Promise<D1Result> {
-    // DB_ENABLE_WRITE gates all writes issued through the statement abstraction (see wrangler.jsonc)
-    if (stmt.verb !== "SELECT" && !env.DB_ENABLE_WRITE) {
-        throw new Error("Database writes are disabled by DB_ENABLE_WRITE")
+    // dbWriteEnabled gates all writes issued through the statement abstraction; it resolves the runtime
+    // environment from the request URL recorded by the requestContext middleware (writes are disabled on
+    // staging, where the API and admin are unavailable)
+    if (stmt.verb !== "SELECT" && !dbWriteEnabled()) {
+        throw new Error("Database writes are disabled in this environment")
     }
     let finished
     try {
         finished = stmt.finish()
-        if (!finished) {
-            throw new Error("Failed to finalize SQL statement: missing required components")
-        }
     } catch (error) {
-        throw error
+        // name the operation (verb + table) that failed to finalize so the cause is identifiable upstream
+        throw new Error(`Failed to finalize ${stmt.verb} statement on table '${stmt.from}': ${error instanceof Error ? error.message : String(error)}`, { cause: error })
     }
     const [command, params] = finished
     const result = await _exec(command, params)
     if (!result) {
-        throw new Error("Failed to execute SQL statement")
+        throw new Error(`Failed to execute ${stmt.verb} statement on table '${stmt.from}'`)
     }
     return result
 }
@@ -380,155 +398,190 @@ export function recordTypeAssert(schema: D1Schema, record: Record<string, string
 }
 
 /**
+ * A per-field validation rule consumed by {@link assertRecordBySpec}.
+ *   - `invalid` returns true when a present (non-undefined) value is invalid for the field; it
+ *     receives the `partial` flag for the few fields whose rule depends on it (rating/pub info).
+ *   - `elementCheck` performs a secondary array-element validation, returning a field-specific
+ *     error message or null. It only runs after every base check has passed.
+ */
+type FieldRule = {
+    invalid: (value: any, partial: boolean) => boolean
+    elementCheck?: (value: any) => string | null
+}
+
+type RecordSpec = { [field: string]: FieldRule }
+
+/**
+ * Shared, declarative implementation of the per-type record validators below. It reproduces the
+ * checks the hand-written validators previously inlined, in the same order and with identical error
+ * strings:
+ *   - the id column keeps its special rule (a number, or absent/undefined when expect_id is false)
+ *   - in partial mode an undefined field is skipped; in complete mode an absent field fails its own
+ *     base check (typeof undefined never matches a base type), so presence is enforced implicitly
+ *   - base type checks run first (any failure yields the generic message); array-element checks run
+ *     afterwards in spec order so their field-specific messages are preserved
+ *
+ * @returns true if the record satisfies the spec, otherwise a string error message
+ */
+function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean, expect_id: boolean): true | string {
+    // type guard
+    if (typeof record !== "object" || record === null) {
+        return "Record is not an object"
+    }
+    const r = record as { [key: string]: any }
+    // id is nullable on inbound records: it must be a number, or absent (undefined) when not expected
+    if ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) {
+        return "Record has invalid types for one or more parameters"
+    }
+    for (const field in spec) {
+        const value = r[field]
+        if (partial && value === undefined) {
+            continue
+        }
+        if (spec[field].invalid(value, partial)) {
+            return "Record has invalid types for one or more parameters"
+        }
+    }
+    // validate arrays are of correct type, once all base checks have passed
+    for (const field in spec) {
+        const elementCheck = spec[field].elementCheck
+        if (!elementCheck) {
+            continue
+        }
+        const value = r[field]
+        if (partial && value === undefined) {
+            continue
+        }
+        const error = elementCheck(value)
+        if (error) {
+            return error
+        }
+    }
+    return true
+}
+
+// shared field predicates: each returns true when the value is invalid for that field
+const _invalidString = (v: any) => typeof v !== "string"
+const _invalidBoolean = (v: any) => typeof v !== "boolean"
+// nullable variants accept null alongside the base type
+const _invalidNullableString = (v: any) => typeof v !== "string" && v !== null
+// a nullable image field: null, or a string that (when non-blank) is a valid image URL or internal path
+const _invalidNullableImage = (v: any) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidImageUrl(v)))
+// a nullable email field: null, or a string that (when non-blank) is a valid email address
+const _invalidNullableEmail = (v: any) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidEmail(v)))
+// every element of an array is a positive integer (used for id and phase-number lists)
+const _allPositiveIntegers = (v: any[]) => v.every((item: any) => typeof item === "number" && Number.isInteger(item) && item >= 1)
+
+/** Field spec for Contributor records. */
+const CONTRIBUTOR_SPEC: RecordSpec = {
+    name: { invalid: _invalidString },
+    // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
+    // class_year, when present, is a positive (4-digit) year
+    class_year: { invalid: v => v !== null && (typeof v !== "number" || !isValidYear(v)) },
+    major: { invalid: _invalidNullableString },
+    phases: {
+        invalid: v => !(v instanceof Array) && v !== null,
+        // phase numbers must be positive integers
+        elementCheck: v => (v !== null && v.length > 0 && !_allPositiveIntegers(v))
+            ? "Record has invalid value for phases parameter (expected positive integers)" : null
+    },
+    bio: { invalid: _invalidNullableString },
+    public_email: { invalid: _invalidNullableEmail },
+    // identity_email is filled with a generated fallback address before validation when blank, so by the
+    // time it reaches here it is always a present, non-blank string and must be a valid email
+    identity_email: { invalid: v => typeof v !== "string" || !isValidEmail(v) },
+    active: { invalid: _invalidBoolean },
+    roles: {
+        invalid: v => !(v instanceof Array),
+        elementCheck: v => (!v.every((role: any) => typeof role === "string") && v.length > 0)
+            ? "Record has invalid type for roles parameter" : null
+    },
+    admin: { invalid: _invalidBoolean },
+    image: { invalid: _invalidNullableImage }
+}
+
+/** Field spec for Composer records. */
+const COMPOSER_SPEC: RecordSpec = {
+    name: { invalid: _invalidString },
+    role: { invalid: _invalidString },
+    // birth_year is a positive (4-digit) year; death_year additionally permits the -1 "living" sentinel
+    birth_year: { invalid: v => typeof v !== "number" || !isValidYear(v) },
+    death_year: { invalid: v => typeof v !== "number" || !isValidYear(v, true) },
+    // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
+    country: { invalid: v => typeof v !== "string" || !isValidCountryCode(v) },
+    image: { invalid: _invalidNullableImage },
+    bio: { invalid: _invalidNullableString }
+}
+
+/**
  * Given an unknown object from JSON, determine if it is a complete Contributor record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a Contributor type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: boolean = true): Contributor | string {
-    // type guard
-    if (typeof record !== "object" || record === null) {
-        return "Record is not an object"
-    }
-    const r = record as { [key: string]: any }
-
-    console.log(record)
-
-    console.log("Asserting contributor record:",
-        ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)),
-        (typeof r.class_year !== "number" && r.class_year !== null),
-        typeof r.name !== "string",
-        (typeof r.major !== "string" && r.major !== null),
-        (!(r.phases instanceof Array) && r.phases !== null),
-        (typeof r.bio !== "string" && r.bio !== null),
-        (typeof r.public_email !== "string" && r.public_email !== null),
-        typeof r.identity_email !== "string",
-        typeof r.active !== "boolean",
-        !(r.roles instanceof Array),
-        typeof r.admin !== "boolean",
-        (typeof r.image !== "string" && r.image !== null))
-
-    console.log(r)
-
-    // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
-    if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
-        typeof r.name !== "string" ||
-        (typeof r.class_year !== "number" && r.class_year !== null) ||
-        (typeof r.major !== "string" && r.major !== null) ||
-        (!(r.phases instanceof Array) && r.phases !== null) ||
-        (typeof r.bio !== "string" && r.bio !== null) ||
-        (typeof r.public_email !== "string" && r.public_email !== null) ||
-        typeof r.identity_email !== "string" ||
-        typeof r.active !== "boolean" ||
-        !(r.roles instanceof Array) ||
-        typeof r.admin !== "boolean" ||
-        (typeof r.image !== "string" && r.image !== null)) {
-        return "Record has invalid types for one or more parameters"
-    }
-    // validate arrays are of correct type
-    if (r.phases !== null && r.phases.length > 0 && !r.phases.every((phase: any) => typeof phase === "number")) {
-        return "Record has invalid type for phases parameter"
-    }
-    if (!r.roles.every((role: any) => typeof role === "string") && r.roles.length > 0) {
-        return "Record has invalid type for roles parameter"
-    }
-    return r as Contributor
-} 
+    const result = assertRecordBySpec(record, CONTRIBUTOR_SPEC, false, expect_id)
+    return result === true ? record as Contributor : result
+}
 
 /**
  * Given an unknown object from JSON, determine if it is a valid partial Contributor record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a partial Contributor type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertPartialContributor(record: unknown, expect_id: boolean = true): Partial<Contributor> | string {
-    // type guard
-    if (typeof record !== "object" || record === null) {
-        return "Record is not an object"
-    }
-    const r = record as { [key: string]: any }
-    // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
-    if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
-        (r.name !== undefined && typeof r.name !== "string") ||
-        (r.class_year !== undefined && typeof r.class_year !== "number" && r.class_year !== null) ||
-        (r.major !== undefined && typeof r.major !== "string" && r.major !== null) ||
-        (r.phases !== undefined && !(r.phases instanceof Array) && r.phases !== null) ||
-        (r.bio !== undefined && typeof r.bio !== "string" && r.bio !== null) ||
-        (r.public_email !== undefined && typeof r.public_email !== "string" && r.public_email !== null) ||
-        (r.identity_email !== undefined && typeof r.identity_email !== "string") ||
-        (r.active !== undefined && typeof r.active !== "boolean") ||
-        (r.roles !== undefined && !(r.roles instanceof Array)) ||
-        (r.admin !== undefined && typeof r.admin !== "boolean") ||
-        (r.image !== undefined && typeof r.image !== "string" && r.image !== null)) {
-        return "Record has invalid types for one or more parameters"
-    }
-    // validate arrays are of correct type, if they exist
-    if (r.phases !== undefined && r.phases !== null && (r.phases.length > 0 && !r.phases.every((phase: any) => typeof phase === "number"))) {
-        return "Record has invalid type for phases parameter"
-    }
-    if (r.roles !== undefined && (!r.roles.every((role: any) => typeof role === "string") && r.roles.length > 0)) {
-        return "Record has invalid type for roles parameter"
-    }
-    return r as Partial<Contributor>
+    const result = assertRecordBySpec(record, CONTRIBUTOR_SPEC, true, expect_id)
+    return result === true ? record as Partial<Contributor> : result
 }
 
 /**
  * Given an unknown object from JSON, determine if it is a complete Composer record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a Composer type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boolean = true): Composer | string {
-    // type guard
-    if (typeof record !== "object" || record === null) {
-        return "Record is not an object"
-    }
-    const r = record as { [key: string]: any }
-    if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
-        typeof r.name !== "string" ||
-        typeof r.role !== "string" ||
-        typeof r.birth_year !== "number" ||
-        typeof r.death_year !== "number" ||
-        // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
-        (typeof r.country !== "string" || !isValidCountryCode(r.country)) ||
-        (typeof r.image !== "string" && r.image !== null) ||
-        (typeof r.bio !== "string" && r.bio !== null)) {
-        return "Record has invalid types for one or more parameters"
-    }
-    return r as Composer
+    const result = assertRecordBySpec(record, COMPOSER_SPEC, false, expect_id)
+    return result === true ? record as Composer : result
 }
 
 /**
  * Given an unknown object from JSON, determine if it is a valid partial Composer record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a partial Composer type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertPartialComposer(record: unknown, expect_id: boolean = true): Partial<Composer> | string {
-    // type guard
-    if (typeof record !== "object" || record === null) {
-        return "Record is not an object"
-    }
-    const r = record as { [key: string]: any }
-    if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
-        (r.name !== undefined && typeof r.name !== "string") ||
-        (r.role !== undefined && typeof r.role !== "string") ||
-        (r.birth_year !== undefined && typeof r.birth_year !== "number") ||
-        (r.death_year !== undefined && typeof r.death_year !== "number") ||
-        // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
-        (r.country !== undefined && (typeof r.country !== "string" || !isValidCountryCode(r.country))) ||
-        (r.image !== undefined && typeof r.image !== "string" && r.image !== null) ||
-        (r.bio !== undefined && typeof r.bio !== "string" && r.bio !== null)) {
-        return "Record has invalid types for one or more parameters"
-    }
-    return r as Partial<Composer>
+    const result = assertRecordBySpec(record, COMPOSER_SPEC, true, expect_id)
+    return result === true ? record as Partial<Composer> : result
 }
 
 /**
- * Given an unknown object from JSON, determine if it is a complete CompRating record and perform a type assertion
- * 
- * @param record the record to check and assert
- * @returns the record as a CompRating type if valid, or a string error message if invalid
+ * Validates a single rating member (Suzuki or NYSSMA level). Each member is independently nullable: a
+ * null is accepted (an unrated level), otherwise the value must be an integer within the member's range.
+ *
+ * @param value the rating member value
+ * @param min the inclusive lower bound for a present (non-null) level
+ * @param max the inclusive upper bound for a present (non-null) level
+ * @returns true if the member is null or an in-range integer
+ */
+function validateRatingMember(value: any, min: number, max: number): boolean {
+    if (value === null) {
+        return true
+    }
+    return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max
+}
+
+/**
+ * Given an unknown object from JSON, determine if it is a valid CompositionRating. The suzuki and nyssma
+ * members are independently nullable; when present, suzuki must be an integer in 1–10 and nyssma in 1–6
+ * (mirrors the client-side constructRating bounds). In complete mode both members must be present and
+ * valid; in partial mode at least one must be present and valid.
+ *
+ * @param record the record to check
+ * @param partial whether a partial rating (a single member) is acceptable
+ * @returns true if the record is a valid rating
  */
 function validateCompRating(record: unknown, partial: boolean = false): boolean {
     if (typeof record !== "object" || record === null) {
@@ -537,14 +590,14 @@ function validateCompRating(record: unknown, partial: boolean = false): boolean 
     const r = record as { [key: string]: any }
 
     const tests: boolean[] = [
-        "suzuki" in r ? typeof r.suzuki === "number" : false,
-        "nyssma" in r ? typeof r.nyssma === "number" : false
+        "suzuki" in r ? validateRatingMember(r.suzuki, 1, 10) : false,
+        "nyssma" in r ? validateRatingMember(r.nyssma, 1, 6) : false
     ]
     return partial ? tests.some(test => test) : tests.every(test => test)
 }
 
 /** * Given an unknown object from JSON, determine if it is a complete PublicationInfo record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a PublicationInfo type if valid, or a string error message if invalid
  */
@@ -556,100 +609,82 @@ function validatePubInfo(record: unknown, partial: boolean = false): boolean {
     const tests: boolean[] = [
         "location" in r ? typeof r.location === "string" : false,
         "name" in r ? typeof r.name === "string" : false,
-        "year" in r ? typeof r.year === "number" : false,
+        // the publication year must be a positive integer (a 4-digit year is the expected form)
+        "year" in r ? isValidYear(r.year) : false,
         "uri_type" in r ? typeof r.uri_type === "string" : false,
         "uri" in r ? typeof r.uri === "string" : false
     ]
+    // The uri_type is authoritative: when present it must be a supported type, and a non-empty uri must
+    // match that type's shape. This is enforced regardless of partial/complete so an inconsistent
+    // type/URI pairing is always rejected (a blank uri carries nothing to validate against and is allowed,
+    // since the uri column is nullable). A missing uri_type defers to the type checks above.
+    if ("uri_type" in r && typeof r.uri_type === "string") {
+        if (!SUPPORTED_URI_TYPES.includes(r.uri_type)) {
+            return false
+        }
+        if ("uri" in r && typeof r.uri === "string" && r.uri.trim() !== "" && !validateURIForType(r.uri_type, r.uri)) {
+            return false
+        }
+    }
     return partial ? tests.some(test => test) : tests.every(test => test)
 }
+/** Field spec for Composition records. */
+const COMPOSITION_SPEC: RecordSpec = {
+    name: { invalid: _invalidString },
+    // id references must be positive integers (1-based record ids)
+    composer_id: { invalid: v => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
+    contrib_primary_1: { invalid: v => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
+    contrib_primary_2: { invalid: v => v !== null && (typeof v !== "number" || !Number.isInteger(v) || v < 1) },
+    contrib_addl: {
+        invalid: v => !(v instanceof Array),
+        elementCheck: v => (v.length > 0 && !_allPositiveIntegers(v))
+            ? "Record has invalid value for contrib_addl parameter (expected positive integer ids)" : null
+    },
+    author_secondary: {
+        invalid: v => !(v instanceof Array),
+        elementCheck: v => (v.length > 0 && !_allPositiveIntegers(v))
+            ? "Record has invalid value for author_secondary parameter (expected positive integer ids)" : null
+    },
+    phases: {
+        invalid: v => !(v instanceof Array),
+        elementCheck: v => (v.length > 0 && !_allPositiveIntegers(v))
+            ? "Record has invalid value for phases parameter (expected positive integers)" : null
+    },
+    type: { invalid: v => typeof v !== "string" && !(v in WorkType) },
+    part: { invalid: _invalidNullableString },
+    key: { invalid: v => (typeof v !== "string" && !(v in Key)) && v !== null },
+    // range: a two-note pitch range (e.g. G3-A5); position_highest: a Roman numeral or integer. Both are
+    // nullable, and a blank string is tolerated (mapped to a cleared value); a non-blank value must match.
+    range: { invalid: v => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPitchRange(v))) },
+    position_highest: { invalid: v => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPosition(v))) },
+    notes_pedagogical: { invalid: _invalidNullableString },
+    notes_historical: { invalid: _invalidNullableString },
+    notes_other: { invalid: _invalidNullableString },
+    image: { invalid: _invalidNullableImage },
+    // rating is nullable only in complete mode; in partial mode a present rating must validate
+    // (mirrors the original, which dropped the !== null guard and passed partial=true to validateCompRating)
+    rating: { invalid: (v, partial) => partial ? !validateCompRating(v, true) : (v !== null && !validateCompRating(v, false)) },
+    publication_info: { invalid: (v, partial) => !validatePubInfo(v, partial) }
+}
+
 /**
  * Given an unknown object from JSON, determine if it is a complete Composition record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a Composition type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: boolean = true): Composition | string {
-    // type guard
-    if (typeof record !== "object" || record === null) {
-        return "Record is not an object"
-    }
-    const r = record as { [key: string]: any }
-
-
-    console.log(((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)),
-        typeof r.name !== "string",
-        typeof r.composer_id !== "number",
-        typeof r.contrib_primary_1 !== "number",
-        (r.contrib_primary_2 !== null && typeof r.contrib_primary_2 !== "number"),
-        (!(r.contrib_addl instanceof Array)),
-        (!(r.author_secondary instanceof Array)),
-        (!(r.phases instanceof Array)),
-        (typeof r.type !== "string" && !(r.type in WorkType)),
-        (typeof r.part !== "string" && r.part !== null),
-        ((typeof r.key !== "string" && !(r.key in Key)) && r.key !== null),
-        (typeof r.range !== "string" && r.range !== null),
-        (typeof r.position_highest !== "string" && r.position_highest !== null),
-        (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null),
-        (typeof r.notes_historical !== "string" && r.notes_historical !== null),
-        (typeof r.notes_other !== "string" && r.notes_other !== null),
-        (r.rating !== null && !validateCompRating(r.rating, false)),
-        !validatePubInfo(r.publication_info, false))
-    if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
-        typeof r.name !== "string" ||
-        typeof r.composer_id !== "number" ||
-        typeof r.contrib_primary_1 !== "number" || 
-        (r.contrib_primary_2 !== null && typeof r.contrib_primary_2 !== "number") ||
-        (!(r.contrib_addl instanceof Array)) ||
-        (!(r.author_secondary instanceof Array)) ||
-        (!(r.phases instanceof Array)) ||
-        (typeof r.type !== "string" && !(r.type in WorkType)) ||
-        (typeof r.part !== "string" && r.part !== null) ||
-        ((typeof r.key !== "string" && !(r.key in Key)) && r.key !== null) ||
-        (typeof r.range !== "string" && r.range !== null) ||
-        (typeof r.position_highest !== "string" && r.position_highest !== null) ||
-        (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null) ||
-        (typeof r.notes_historical !== "string" && r.notes_historical !== null) ||
-        (typeof r.notes_other !== "string" && r.notes_other !== null) ||
-        (r.rating !== null && !validateCompRating(r.rating, false)) ||
-        !validatePubInfo(r.publication_info, false))
-    {
-        return "Record has invalid types for one or more parameters"
-    }
-    return r as Composition
+    const result = assertRecordBySpec(record, COMPOSITION_SPEC, false, expect_id)
+    return result === true ? record as Composition : result
 }
 
 /**
  * Given an unknown object from JSON, determine if it is a valid partial Composition record and perform a type assertion
- * 
+ *
  * @param record the record to check and assert
  * @returns the record as a partial Composition type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertPartialComposition(record: unknown, expect_id: boolean = true): Partial<Composition> | string {
-    // type guard
-    if (typeof record !== "object" || record === null) {
-        return "Record is not an object"
-    }
-    const r = record as { [key: string]: any }
-    if (((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) ||
-        (r.name !== undefined && typeof r.name !== "string") ||
-        (r.composer_id !== undefined && typeof r.composer_id !== "number") ||
-        (r.contrib_primary_1 !== undefined && typeof r.contrib_primary_1 !== "number") || 
-        (r.contrib_primary_2 !== undefined && (r.contrib_primary_2 !== null && typeof r.contrib_primary_2 !== "number")) ||
-        (r.contrib_addl !== undefined && !(r.contrib_addl instanceof Array)) ||
-        (r.author_secondary !== undefined && !(r.author_secondary instanceof Array)) ||
-        (r.phases !== undefined && !(r.phases instanceof Array)) ||
-        (r.type !== undefined && (typeof r.type !== "string" && !(r.type in WorkType))) ||
-        (r.part !== undefined && (typeof r.part !== "string" && r.part !== null)) ||
-        (r.key !== undefined && ((typeof r.key !== "string" && !(r.key in Key)) && r.key !== null)) ||
-        (r.range !== undefined && (typeof r.range !== "string" && r.range !== null)) ||
-        (r.position_highest !== undefined && (typeof r.position_highest !== "string" && r.position_highest !== null)) ||
-        (r.notes_pedagogical !== undefined && (typeof r.notes_pedagogical !== "string" && r.notes_pedagogical !== null)) ||
-        (r.notes_historical !== undefined && (typeof r.notes_historical !== "string" && r.notes_historical !== null)) ||
-        (r.notes_other !== undefined && (typeof r.notes_other !== "string" && r.notes_other !== null)) ||
-        (r.rating !== undefined && !validateCompRating(r.rating, true)) ||
-        (r.publication_info !== undefined && !validatePubInfo(r.publication_info, true))) 
-    {
-        return "Record has invalid types for one or more parameters"
-    }
-    return r as Partial<Composition>
+    const result = assertRecordBySpec(record, COMPOSITION_SPEC, true, expect_id)
+    return result === true ? record as Partial<Composition> : result
 }

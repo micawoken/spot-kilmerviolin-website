@@ -8,15 +8,26 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 // list is rendered server-side
 import { listContributors } from "../../../lib/api/database"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
 export const prerender = false
 
+// the list is read directly from the database (bypassing the API), so authorize before the read: any
+// active caller may view the id list, while full records stay admin-only (mirrored in formatting below)
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
+
 const is_admin = Astro.locals.identity?.admin === true
 
-// pull the list
-const contributors = await listContributors(Astro.locals.cfContext)
+// pull the list; a missing contributors table surfaces the missing-table fallback page rather than a raw 500
+const contributors = await guardedRead(() => listContributors(Astro.locals.cfContext))
+if (contributors instanceof Response) {
+    return contributors
+}
 if (!contributors) {
-    throw new Error("Failed to fetch contributors list")
+    throw new Error("Failed to fetch the contributors list from the database")
 }
 
 // mirror the API's security model: full records are admin-only, others get IDs only
@@ -25,7 +36,7 @@ const formatted_contributors = is_admin
         id: contributor.id,
         name: contributor.name,
         // major and class_year are nullable; omit whichever is null instead of rendering "null"
-        name2: [contributor.major, contributor.class_year !== null ? `'${contributor.class_year}` : null].filter(part => part !== null).join(" "),
+        name2: [contributor.major, contributor.class_year !== null ? `${contributor.class_year}` : null].filter(part => part !== null).join(" "),
     }))
     : contributors.map(contributor => contributor.id)
 ---
@@ -37,13 +48,10 @@ const formatted_contributors = is_admin
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>List Contributors</h2>
-    {
-        is_admin ? null : (
-            <p class="general-infohelp">Contributor names are only listed for administrators; other users see record IDs only.</p>
-        )
-    }
     <ListResults noun="contributor" enviro="admin" results={formatted_contributors} />
+    </main>
     <AdminFooter />
 </body>
 </html>

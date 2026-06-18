@@ -47,70 +47,90 @@ const protected_fields: string = (CONTRIBUTOR.protected ?? []).join(",");
 const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 ---
 <div class="generic-form">
-    <form id="generic-form-contributors" class=`generic-form${hidden ? " hidden" : ""}` data-self-id={self_id ?? ""} data-is-admin={String(is_admin)} data-protected-fields={protected_fields}>
+    <form id="generic-form-contributors" class=`generic-form${hidden ? " hidden" : ""}` data-self-id={self_id ?? ""} data-is-admin={String(is_admin)} data-protected-fields={protected_fields} novalidate>
         <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
         <input type="hidden" id="form-contributors-id" name="id" value={contributor?.id ?? ""} />
 
         <div class="form-section">
             <h3 class="form-section-title">Basic Information</h3>
             <fieldset>
-                <legend>Name</legend>
-                <input type="text" id="form-contributors-name" name="name" required={required} value={contributor?.name ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-name-edittarget" name="name-edittarget" />
-                        <label for="form-contributors-name-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <legend>Name{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field-row">
+                    <input type="text" id="form-contributors-name" name="name" required={required} value={contributor?.name ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-name-edittarget" name="name-edittarget" />
+                                <label for="form-contributors-name-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
                 <legend>Class Year</legend>
-                <!-- class_year is a nullable column: a blank input is submitted as null -->
-                <input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
-                <p class="general-infohelp">To omit this field (such as if you do not have a class year), leave it blank.</p>
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-class_year-edittarget" name="class_year-edittarget" />
-                        <label for="form-contributors-class_year-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <!-- class_year is a nullable column: a blank input is submitted as null. Optionality is
+                         conveyed by the absence of a required (*) marker, not a placeholder. -->
+                    <input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-class_year-edittarget" name="class_year-edittarget" />
+                                <label for="form-contributors-class_year-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
                 <legend>Major</legend>
-                <!-- major is a nullable column: a blank input is submitted as null -->
-                <input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-major-edittarget" name="major-edittarget" />
-                        <label for="form-contributors-major-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <!-- major is a nullable column: a blank input is submitted as null -->
+                    <input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-major-edittarget" name="major-edittarget" />
+                                <label for="form-contributors-major-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
                 <legend>Public Email</legend>
-                <input type="email" id="form-contributors-public_email" name="public_email" value={contributor?.public_email ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-public_email-edittarget" name="public_email-edittarget" />
-                        <label for="form-contributors-public_email-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <input type="email" id="form-contributors-public_email" name="public_email" value={contributor?.public_email ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-public_email-edittarget" name="public_email-edittarget" />
+                                <label for="form-contributors-public_email-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
 
             <fieldset>
                 <legend>Phases</legend>
-                <label for="form-contributors-phases">Phases (comma-separated numbers):</label>
-                <!-- phases is a nullable column: a blank input is submitted as null -->
-                <input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-phases-edittarget" name="phases-edittarget" />
-                        <label for="form-contributors-phases-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <!-- phases is a nullable column: a blank input is submitted as null -->
+                    <input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
+                    <small class="general-infohelp field-inline-help">comma-separated numbers</small>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-phases-edittarget" name="phases-edittarget" />
+                                <label for="form-contributors-phases-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
         </div>
 
@@ -121,21 +141,37 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <textarea id="form-contributors-bio" name="bio">{contributor?.bio ?? ""}</textarea>
                 {
                     patch ? (
-                        <input type="checkbox" id="form-contributors-bio-edittarget" name="bio-edittarget" />
-                        <label for="form-contributors-bio-edittarget">Edit this field</label>
+                        <div class="field-row field-row-textarea">
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-bio-edittarget" name="bio-edittarget" />
+                                <label for="form-contributors-bio-edittarget">Edit this field</label>
+                            </span>
+                        </div>
                     ) : null
                 }
             </fieldset>
 
             <fieldset>
                 <legend>Image URL</legend>
-                <input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-image-edittarget" name="image-edittarget" />
-                        <label for="form-contributors-image-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-image-edittarget" name="image-edittarget" />
+                                <label for="form-contributors-image-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
+                <div class="searchhelper" id="form-contributors-imagepicker">
+                    <label for="form-contributors-imagepicker-input"><strong>Search for image</strong></label>
+                    <input type="text" id="form-contributors-imagepicker-input" />
+                    <button type="button" id="form-contributors-imagepicker-button">Search</button>
+                    <div id="form-contributors-imagepicker-results">
+                        <p>Results will display here when searched.</p>
+                    </div>
+                </div>
             </fieldset>
         </div>
 
@@ -147,15 +183,20 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 show_auth ? (
                     <fieldset>
                         <legend>Identity Email</legend>
-                        <input type="email" id="form-contributors-identity_email" name="identity_email" required={required} value={contributor?.identity_email ?? ""} />
+                        <div class="field-row">
+                            <input type="email" id="form-contributors-identity_email" name="identity_email" value={contributor?.identity_email ?? ""} />
+                            {
+                                patch ? (
+                                    <span class="field-edittarget">
+                                        <input type="checkbox" id="form-contributors-identity_email-edittarget" name="identity_email-edittarget" />
+                                        <label for="form-contributors-identity_email-edittarget">Edit this field</label>
+                                    </span>
+                                ) : null
+                            }
+                        </div>
                         <p class="general-warning">Contributor records are the source of authorization information. Changing this email without updating Identity & Access Management will prevent a contributor from logging in.</p>
+                        <p class="general-infohelp">If this contributor has no sign-in email, leave this blank: a placeholder address is generated automatically. A contributor with a placeholder address cannot log in and cannot be enrolled in Identity & Access Management until given a real email.</p>
                         <p class="general-infohelp">This email can also be modified in <a href="/admin/iam">Identity & Access Management</a>.</p>
-                        {
-                            patch ? (
-                                <input type="checkbox" id="form-contributors-identity_email-edittarget" name="identity_email-edittarget" />
-                                <label for="form-contributors-identity_email-edittarget">Edit this field</label>
-                            ) : null
-                        }
                     </fieldset>
                 ) : null
             }
@@ -165,9 +206,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 show_auth && !patch ? (
                     <fieldset>
                         <legend>Roles</legend>
-                        <label for="form-contributors-roles">Roles (comma-separated, no spaces):</label>
-                        <input type="text" id="form-contributors-roles" name="roles" value={joined(contributor?.roles)} />
-                        <p class="general-infohelp">Example: <code>"role1,role2,role3"</code></p>
+                        <div class="field-row">
+                            <input type="text" id="form-contributors-roles" name="roles" placeholder="role1,role2,role3" value={joined(contributor?.roles)} />
+                            <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                        </div>
                         <p class="general-infohelp">Roles can also be modified in <a href="/admin/iam/edit">Identity & Access Management &gt; Add or remove roles</a>.</p>
                     </fieldset>
                 ) : null
@@ -175,17 +217,21 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Active Status</legend>
-                <select id="form-contributors-active" name="active">
-                    <option value="true" selected={contributor?.active === true}>Active</option>
-                    <option value="false" selected={contributor ? contributor.active === false : true}>Inactive</option>
-                </select>
+                <div class="field-row">
+                    <select id="form-contributors-active" name="active">
+                        <option value="true" selected={contributor?.active === true}>Active</option>
+                        <option value="false" selected={contributor ? contributor.active === false : true}>Inactive</option>
+                    </select>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-active-edittarget" name="active-edittarget" />
+                                <label for="form-contributors-active-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
                 <p class="general-warning">Active status is used to determine authorization status. Marking a contributor, including yourself, as inactive will prevent you from editing the database.</p>
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-active-edittarget" name="active-edittarget" />
-                        <label for="form-contributors-active-edittarget">Edit this field</label>
-                    ) : null
-                }
             </fieldset>
 
             {
@@ -193,13 +239,15 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 show_auth && !patch ? (
                     <fieldset>
                         <legend>Admin</legend>
+                        <div class="field-row">
+                            <select id="form-contributors-admin" name="admin">
+                                <option value="true" selected={contributor?.admin === true}>True</option>
+                                <option value="false" selected={contributor ? contributor.admin === false : true}>False</option>
+                            </select>
+                        </div>
                         <p class="general-infohelp">Administrator status allows users to bypass lockouts preventing modification of contributions by others and provides authorization to several site management facilities. You do not need administrator status to make contributions or manage your past work.</p>
-                        <select id="form-contributors-admin" name="admin">
-                            <option value="true" selected={contributor?.admin === true}>True</option>
-                            <option value="false" selected={contributor ? contributor.admin === false : true}>False</option>
-                        </select>
                         <p class="general-warning">Admin status is used to determine authorization status. If you are an administrator and mark yourself as not, you will lose access to administrator permissions and cannot regain access without outside help.</p>
-                        <p class="general-infohelp">Administrator status can also be modified in <a href="/admin/iam">Identity & Access Management</a>.</p>
+                        <p class="general-infohelp">Administrator status can also be modified in <a href="/admin/advanced">Advanced Options</a>.</p>
                     </fieldset>
                 ) : null
             }
@@ -211,14 +259,18 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <h3 class="form-section-title">Tags</h3>
             <fieldset>
                 <legend>Tags</legend>
-                <label for="form-contributors-tags">Tags (comma-separated):</label>
-                <input type="text" id="form-contributors-tags" name="tags" value={joined(contributor?.tags)} />
-                {
-                    patch ? (
-                        <input type="checkbox" id="form-contributors-tags-edittarget" name="tags-edittarget" />
-                        <label for="form-contributors-tags-edittarget">Edit this field</label>
-                    ) : null
-                }
+                <div class="field-row">
+                    <input type="text" id="form-contributors-tags" name="tags" value={joined(contributor?.tags)} />
+                    <small class="general-infohelp field-inline-help">comma-separated</small>
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input type="checkbox" id="form-contributors-tags-edittarget" name="tags-edittarget" />
+                                <label for="form-contributors-tags-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
             </fieldset>
         </div>
 
@@ -236,13 +288,23 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             ) : null
         }
 
+        {required ? <p class="field-required-note"><span class="field-required" aria-hidden="true">*</span> indicates a required field</p> : null}
+
         <button type="submit">Submit</button>
     </form>
 </div>
 <script>
     // auto-check each field's "Edit this field" checkbox when the field is edited (patch/edit pages only;
     // a no-op on create and self-service profile pages, which render no edit-target checkboxes)
-    import { enableEditTargetOnChange } from "../../scripts/interface"
+    import { enableEditTargetOnChange } from "../../scripts/common"
+    import { attachFilePicker } from "../../scripts/file_picker"
+    import { attachFormValidation } from "../../scripts/form_validate"
     const contributor_form = document.getElementById("generic-form-contributors")
-    if (contributor_form instanceof HTMLFormElement) enableEditTargetOnChange(contributor_form)
+    if (contributor_form instanceof HTMLFormElement) {
+        enableEditTargetOnChange(contributor_form)
+        // live inline format validation (emails, image URL, comma-separated lists, etc.)
+        attachFormValidation(contributor_form)
+    }
+    // image picker: fill the image URL field from uploaded (R2) or bundled (src/files) images
+    attachFilePicker("form-contributors-imagepicker-input", "form-contributors-imagepicker-button", "form-contributors-imagepicker-results", "form-contributors-image")
 </script>

@@ -208,7 +208,6 @@ export class SQLStatement {
         if (index >= this.values.length) {
             throw new Error(`Value index ${index} out of bounds for statement values of length ${this.values.length}`)
         }
-        console.log(this.schema.columns)
         if (!(this.schema.columns.includes(param))) {
             throw new Error(`Invalid parameter '${param}' for table '${this.from}'`)
         }
@@ -337,7 +336,7 @@ export class SQLStatement {
             }
         }
         if (this.where.length > 0) {
-            for (const [param, value, op] of this.where) {
+            for (const [param] of this.where) {
                 if (!this.schema.columns.includes(param)) {
                     throw new Error(`Invalid column '${param}' for table '${this.from}'`)
                 }
@@ -721,7 +720,7 @@ export class VirtualSQLTable {
      */
     static valueConvert(schema: D1Schema, where_clause: [string, string | string[], SQLCompareOp]): string | string[] | number | number[] | null {
         // converts value types from strings to functional types
-        const [param, value, op] = where_clause
+        const [param, value] = where_clause
         const type_hint = param in schema.type_hint ? schema.type_hint[param] : null
 
         // TODO implement null check

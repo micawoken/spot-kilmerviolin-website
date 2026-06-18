@@ -11,7 +11,7 @@
  */
 
 import MiniSearch from "minisearch"
-import { countryCodeName } from "./country"
+import { countryCodeName } from "../../scripts/format"
 
 /** the tables the search endpoint accepts */
 export const VALID_DATABASES: SearchDatabase[] = ["composers", "compositions", "contributors"]

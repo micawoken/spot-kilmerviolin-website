@@ -1,9 +1,10 @@
 ---
-console.log("rendering component")
-const identity: Identity | null = Astro.props.identity;
+// Astro.locals.identity is undefined (not null) when no identity was constructed — notably in local
+// development, where the identity middleware bypasses auth and never sets locals.identity. Coalesce to
+// null here so the `identity !== null` guards below also catch undefined; otherwise `undefined !== null`
+// is true and reading identity.enrollable/.active throws, blanking the page mid-render.
+const identity: Identity | null = Astro.props.identity ?? null;
 const welcome: boolean = Astro.props.welcome ? Astro.props.welcome : false;
-const date = new Date();
-console.log("data ready, rendering component", identity, welcome, date)
 
 // the display name varies with identity status: a verified Access userinfo name when available, then the
 // sign-in email, then a generic fallback when no identity is present (e.g. local development)
@@ -11,13 +12,28 @@ const display_name = identity?.userinfo?.ok ? identity.userinfo.name : identity?
 const name_defined = identity?.userinfo?.ok || identity?.email;
 ---
 
-<div>
+<header role="banner">
     <h1>Administrative Services</h1>
     {
         welcome ? (
-            <p>Welcome, {display_name}! <a href="/admin/profile" class="col-item-link">View your profile &gt;</a></p>
+            <p>Welcome, {display_name}! <a href="/admin/profile" class="col-item-link">View your profile &gt;</a> &middot; <a href="/admin/logout" class="col-item-link">Logout &gt;</a></p>
         ) : (
-            <p>{name_defined ? display_name : "Unknown user"} &middot; <a href="/admin/profile" class="col-item-link">My profile &gt;</a></p>
+            <p>{name_defined ? display_name : "Unknown user"} &middot; <a href="/admin/profile" class="col-item-link">My profile &gt;</a> &middot; <a href="/admin/logout" class="col-item-link">Logout &gt;</a></p>
         )
     }
-</div>
+</header>
+{/* Account-status callouts live in the header so they appear on every admin page, not just the home page.
+    Enrollment (the higher-priority blocker) shows when the profile has no contributor record; the inactive
+    notice shows when the profile is marked inactive. */}
+{ identity !== null && identity.enrollable ? (
+    <div id="enroll-container" class="callout-invert">
+        <p class="general-warning">Your profile is not associated with a contributor record. You cannot perform any operation until you complete self-enrollment.</p>
+        <p>To complete self-enrollment, navigate to the <a href="/admin/advanced/selfenroll" class="col-item-link">self-enrollment flow</a>.</p>
+    </div>
+) : null }
+{ identity !== null && !identity.active ? (
+    <div id="inactive-container" class="callout-emphasis">
+        <p class="general-warning">Your profile is marked as inactive. Your user permissions are limited.</p>
+        <p class="general-warning">To make contributions, an administrator must activate your profile.</p>
+    </div>
+) : null }

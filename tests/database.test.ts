@@ -12,6 +12,7 @@ import { describe, it, expect, beforeAll } from "vitest"
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 
 import { exec_string } from "../src/lib/api/d1.ts"
+import { WorkType } from "../src/lib/api/common.ts"
 import {
     addComposer, getComposer, listComposers, updateComposer, updateComposerPartial, deleteComposer,
     addContributor, getContributor, updateContributorPartial,
@@ -34,7 +35,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL
+entry_date TEXT NOT NULL,
+change_date TEXT NOT NULL
 );`
 
 const composers_ddl = `
@@ -48,7 +50,8 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL
+entry_date TEXT NOT NULL,
+change_date TEXT NOT NULL
 );`
 
 // runs a database.ts call with a fresh ExecutionContext and flushes its waitUntil work,
@@ -73,12 +76,14 @@ function makeComposer(name: string): Composer {
     }
 }
 
-// builds a minimal valid CompositionRecord; attachCompositionNames only reads composer_id and
-// author_secondary, so the remaining fields are filler and the compositions table is not needed
+// builds a minimal valid CompositionRecord; attachCompositionNames only reads the reference fields
+// (composer_id and author_secondary for composers; contrib_primary_1, contrib_primary_2, and contrib_addl
+// for contributors), so the remaining fields are filler and the compositions table is not needed
 function makeCompositionRecord(overrides: Partial<CompositionRecord>): CompositionRecord {
     return {
         id: 1,
         entry_date: new Date().toISOString(),
+        change_date: new Date().toISOString(),
         name: "Test Work",
         composer_id: 0,
         contrib_primary_1: 1,
@@ -266,6 +271,45 @@ describe("attachCompositionNames", () => {
 
         expect(enhanced.map(e => e.names.composer_name)).toEqual(["Names Composer A", "Names Composer B"])
         expect(enhanced[1].names.author_secondary_names).toEqual(["Names Composer A"])
+    })
+
+    it("resolves contributor names for the primary and additional contributor references", async () => {
+        const composer = await withCtx(ctx => addComposer(ctx, makeComposer("Names Contrib Composer")))
+        const p1 = await withCtx(ctx => addContributor(ctx, makeContributor("Names Contrib Primary One", "names-c1@example.com")))
+        const p2 = await withCtx(ctx => addContributor(ctx, makeContributor("Names Contrib Primary Two", "names-c2@example.com")))
+        const a1 = await withCtx(ctx => addContributor(ctx, makeContributor("Names Contrib Addl One", "names-c3@example.com")))
+        const a2 = await withCtx(ctx => addContributor(ctx, makeContributor("Names Contrib Addl Two", "names-c4@example.com")))
+
+        const composition = makeCompositionRecord({
+            composer_id: composer,
+            contrib_primary_1: p1,
+            contrib_primary_2: p2,
+            contrib_addl: [a1, a2],
+        })
+        const [enhanced] = await withCtx(ctx => attachCompositionNames(ctx, [composition]))
+
+        expect(enhanced.names.contrib_primary_1_name).toBe("Names Contrib Primary One")
+        expect(enhanced.names.contrib_primary_2_name).toBe("Names Contrib Primary Two")
+        expect(enhanced.names.contrib_addl_names).toEqual(["Names Contrib Addl One", "Names Contrib Addl Two"])
+    })
+
+    it("yields an empty string for a null contrib_primary_2 and for unresolvable contributor ids", async () => {
+        const composer = await withCtx(ctx => addComposer(ctx, makeComposer("Names Contrib Edge Composer")))
+        const p1 = await withCtx(ctx => addContributor(ctx, makeContributor("Names Contrib Resolvable", "names-c5@example.com")))
+
+        // contrib_primary_2 is null (omitted) and one contrib_addl id (999999) does not exist; the latter's
+        // slot must remain so contrib_addl_names stays positionally aligned with contrib_addl
+        const composition = makeCompositionRecord({
+            composer_id: composer,
+            contrib_primary_1: p1,
+            contrib_primary_2: null,
+            contrib_addl: [p1, 999999],
+        })
+        const [enhanced] = await withCtx(ctx => attachCompositionNames(ctx, [composition]))
+
+        expect(enhanced.names.contrib_primary_1_name).toBe("Names Contrib Resolvable")
+        expect(enhanced.names.contrib_primary_2_name).toBe("")
+        expect(enhanced.names.contrib_addl_names).toEqual(["Names Contrib Resolvable", ""])
     })
 })
 

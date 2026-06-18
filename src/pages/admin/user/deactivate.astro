@@ -1,0 +1,70 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { emailFromParam } from "../../../lib/api/validation"
+
+export const prerender = false
+
+// prefill the identity email when arriving from a user-list link (?identity_email=), if it is valid
+const prefill_email = emailFromParam(Astro.url)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Deactivate User Account`} description="Deactivate a user account"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Deactivate a User Account</h2>
+    <p class="general-infohelp">Deactivates the contributor record with the provided identity email. This operation requires administrator permissions.</p>
+    <p class="general-warning">This does not revoke the user's ability to log in. To also remove login access, use <a href="/admin/iam/remove">Delete user</a>.</p>
+    <div class="generic-form">
+        <form id="user-form-deactivate" class="generic-form">
+            <fieldset>
+                <legend>User Identity Email</legend>
+                <input type="email" id="user-form-deactivate-email" name="email" value={prefill_email} required />
+            </fieldset>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { deactivateIdentity } from "../../../scripts/connector"
+        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+        const form = document.getElementById("user-form-deactivate") as HTMLFormElement
+        const message = getTransactionElem()
+
+        form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            const form_data = new FormData(form)
+            const email = String(form_data.get("email") ?? "")
+            if (!confirm(`Are you sure you want to deactivate the account for ${email}?`)) {
+                return
+            }
+            message.textContent = "Processing request..."
+            disableInput(form)
+            try {
+                if (!email) {
+                    throw new Error("An identity email address is required")
+                }
+                // maps the identity email to the contributor record and marks it inactive
+                await deactivateIdentity([email])
+                message.textContent = `Request succeeded: deactivated the account for ${email}`
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                enableInput(form)
+            }
+        })
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

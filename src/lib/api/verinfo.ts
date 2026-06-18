@@ -6,7 +6,7 @@
  */
 
 import { env } from 'cloudflare:workers';
-import { authEnabled, detectEnvironment, richErrors } from './environment';
+import { authEnabled, dbWriteEnabled, detectEnvironment, richErrors } from './environment';
 
 export default function verinfo(request: Request) {
     const data = env.CF_VERSION_METADATA
@@ -21,7 +21,7 @@ export default function verinfo(request: Request) {
         environment: {
             name: detectEnvironment(request),
             authservice: authEnabled(request),
-            db_writable: env.DB_ENABLE_WRITE,
+            db_writable: dbWriteEnabled(request),
             ttls: {
                 cacheApi: {
                     default: env.CACHE_API_TTL,

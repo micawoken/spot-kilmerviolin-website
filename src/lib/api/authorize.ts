@@ -6,14 +6,25 @@
  * Provides basic authorization primitives for Identity objects, such as verifying role permissions and admin status
  * 
  * 
- * Calls depend on authenticate.ts
- * Dependent on d1.ts (to query authorization data)
+ * Copyright (C) 2026 Michael Wong.
  * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
 import { getRecordSpecificProp, CONTRIBUTOR, recordTypeAssertComplete } from "./d1.ts";
-import { SQLStatement } from "./sql.ts";
 
 /**
  * The available roles and their permissions defined in lib/api/authorize.ts
@@ -39,8 +50,8 @@ export const roles: Record<string, RoleProfile> = {
 /**
  * Returns the contributor record associated with the BaseIdentity, or null if no such record exists
  * 
- * @param {BaseIdentity} identity - the BaseIdentity object to find a matching contributor record for
- * @returns {Promise<D1Contributor | null>} - a promise that resolves to the matching contributor record, or null if no match is found
+ * @param identity - the BaseIdentity object to find a matching contributor record for
+ * @returns - a promise that resolves to the matching contributor record, or null if no match is found
  * 
  */
 async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor | null> {
@@ -60,9 +71,9 @@ async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor
 /**
  * Using a BaseIdentity from authenticate.ts and a contributor record from d1.ts, constructs an authorization record
  * 
- * @param {BaseIdentity} identity - the BaseIdentity object to construct from
- * @param {D1Contributor | null} record - the D1Contributor record to construct from, or null if no such record exists
- * @returns {Identity} - the constructed Identity object
+ * @param identity - the BaseIdentity object to construct from
+ * @param record - the D1Contributor record to construct from, or null if no such record exists
+ * @returns - the constructed Identity object
  */
 function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Identity {
     // builds an Identity object from a BaseIdentity and a D1Contributor record
@@ -97,8 +108,8 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
 /**
  * Constructs an Identity object with authorization info from a BaseIdentity
  *
- * @param {BaseIdentity} identity - the BaseIdentity object to construct from
- * @returns {Promise<Identity>} - a promise that resolves to the constructed Identity object
+ * @param identity - the BaseIdentity object to construct from
+ * @returns - a promise that resolves to the constructed Identity object
  *
  */
 export default async function authorize(identity: BaseIdentity): Promise<Identity> {
@@ -110,9 +121,9 @@ export default async function authorize(identity: BaseIdentity): Promise<Identit
 
 /**
  * Checks if a given identity has a required permission based on their assigned roles
- * @param {keyof RoleProfile} permission - the permission to check for
- * @param {Identity} identity - the Identity object to check permissions for
- * @return {boolean} - true if the identity has the required permission, false otherwise
+ * @param permission - the permission to check for
+ * @param identity - the Identity object to check permissions for
+ * @return - true if the identity has the required permission, false otherwise
  * 
  */
 export function requires(permission: keyof RoleProfile, identity: Identity): boolean {
@@ -122,31 +133,33 @@ export function requires(permission: keyof RoleProfile, identity: Identity): boo
 
 /**
  * Checks if a given identity has at least one of the required permissions based on their assigned roles
- * @param {keyof RoleProfile[]} permissions - the permissions to check for
- * @param {Identity} identity - the Identity object to check permissions for
- * @return {boolean} - true if the identity has at least one of the required permissions, false otherwise
+ * @param permissions - the permissions to check for
+ * @param identity - the Identity object to check permissions for
+ * @return - true if the identity has at least one of the required permissions, false otherwise
  */
 export function requiresOneOf(permissions: (keyof RoleProfile)[], identity: Identity, fail_closed: boolean = true): boolean {
-    if (permissions.length === 0) {
-        if (fail_closed) return identity.admin
-        else return true
-    }
-    const user_roles = identity.roles
-    return user_roles.some(role => {
-        const profile = roles[role]
-        // an unknown role string (stale/typo data) has no profile; treat it as granting nothing rather than throwing
-        if (!profile) return false
-        return permissions.some(permission => profile[permission] === true)
-    })
+    return _requiresMatch(permissions, identity, fail_closed, "some")
 }
 
 /**
  * Checks if a given identity has all of the required permissions based on their assigned roles
- * @param {keyof RoleProfile[]} permissions - the permissions to check for
- * @param {Identity} identity - the Identity object to check permissions for
- * @return {boolean} - true if the identity has all of the required permissions, false otherwise
+ * @param permissions - the permissions to check for
+ * @param identity - the Identity object to check permissions for
+ * @return - true if the identity has all of the required permissions, false otherwise
  */
 export function requiresAllOf(permissions: (keyof RoleProfile)[], identity: Identity, fail_closed: boolean = true): boolean {
+    return _requiresMatch(permissions, identity, fail_closed, "every")
+}
+
+/**
+ * Shared role/permission check for {@link requiresOneOf} and {@link requiresAllOf}. With an empty
+ * permission set the result depends on fail_closed (admins only when closed, everyone when open).
+ * Otherwise the identity passes if at least one of its roles satisfies the permissions under `match`:
+ * "some" requires any one permission, "every" requires all of them within a single role.
+ *
+ * @param match - whether a role must grant some or every requested permission
+ */
+function _requiresMatch(permissions: (keyof RoleProfile)[], identity: Identity, fail_closed: boolean, match: "some" | "every"): boolean {
     if (permissions.length === 0) {
         if (fail_closed) return identity.admin
         else return true
@@ -156,18 +169,18 @@ export function requiresAllOf(permissions: (keyof RoleProfile)[], identity: Iden
         const profile = roles[role]
         // an unknown role string (stale/typo data) has no profile; treat it as granting nothing rather than throwing
         if (!profile) return false
-        return permissions.every(permission => profile[permission] === true)
+        return permissions[match](permission => profile[permission] === true)
     })
 }
 
 /**
  * Returns a list of conferrable roles that the given identity can confer to other users
- * @param {Identity} identity - the Identity object to check conferrable roles for
- * @return {string[]} - a list of conferrable roles that the identity can confer to other users
+ * @param identity - the Identity object to check conferrable roles for
+ * @return - a list of conferrable roles that the identity can confer to other users
  */
 export function conferFrom(identity: Identity): string[] {
     // an admin check is not performed since the case where an admin wants to confer all roles is an edge case that isn't too important to ease
-    return identity.roles.filter((value, index, array) => {
+    return identity.roles.filter((value) => {
         if (!(value in roles)) {
             return false
         }
@@ -178,10 +191,10 @@ export function conferFrom(identity: Identity): string[] {
 /**
  * Implements the contribution edit lockout
  * 
- * @param {CompositionRecord} record - the composition record to compare against
- * @param {Identity} identity - the Identity object to review, assumed to be valid
- * @param {boolean} use_admin - whether to allow review of admin status
- * @returns {boolean} - whether the user is allowed to modify the record
+ * @param record - the composition record to compare against
+ * @param identity - the Identity object to review, assumed to be valid
+ * @param use_admin - whether to allow review of admin status
+ * @returns - whether the user is allowed to modify the record
  */
 export function canModify(record: CompositionRecord, acting_identity: Identity, use_admin: boolean = true): boolean {
     if (acting_identity?.id === null || acting_identity.id === undefined) {
@@ -206,11 +219,11 @@ export function canModify(record: CompositionRecord, acting_identity: Identity, 
 /**
  * Protects the contribution edit lockout mechanism by enforcing readonly on its implementing columns
  * 
- * @param {CompositionRecord} record - the current database record to compare against
- * @param {Partial<Composition>} new_record - the new proposed record in API format, which may be partial
- * @param {Identity} acting_identity - the identity of the acting user
- * @param {boolean} use_admin - whether to allow review of admin status
- * @returns {boolean} - whether the user is allowed to perform the modification as-is
+ * @param record - the current database record to compare against
+ * @param new_record - the new proposed record in API format, which may be partial
+ * @param acting_identity - the identity of the acting user
+ * @param use_admin - whether to allow review of admin status
+ * @returns - whether the user is allowed to perform the modification as-is
  * 
  */
 export function canAct(record: CompositionRecord, new_record: Partial<Composition>, acting_identity: Identity, use_admin: boolean = true) {
@@ -243,10 +256,10 @@ export function canAct(record: CompositionRecord, new_record: Partial<Compositio
  * holds a defined contributor other than the acting user. Filling an empty (null) slot and leaving a
  * slot unchanged are both permitted; changing or clearing a non-self contributor is not.
  *
- * @param {CompositionRecord} record - the current database record
- * @param {Partial<Composition>} new_record - the proposed (possibly partial) update in API format
- * @param {number} self - the acting user's contributor id
- * @returns {boolean} - true if the update touches a protected (defined, non-self) primary slot
+ * @param record - the current database record
+ * @param new_record - the proposed (possibly partial) update in API format
+ * @param self - the acting user's contributor id
+ * @returns - true if the update touches a protected (defined, non-self) primary slot
  */
 function modifiesProtectedPrimary(record: CompositionRecord, new_record: Partial<Composition>, self: number): boolean {
     const slots: ("contrib_primary_1" | "contrib_primary_2")[] = ["contrib_primary_1", "contrib_primary_2"]
@@ -268,8 +281,8 @@ function modifiesProtectedPrimary(record: CompositionRecord, new_record: Partial
 /**
  * Returns whether a non-blank, asserted contributor id is held by the acting identity
  *
- * @param {number | null | undefined} id - the identity's contributor id
- * @returns {boolean} - true if the id is a valid (asserted) contributor id, false otherwise
+ * @param id - the identity's contributor id
+ * @returns - true if the id is a valid (asserted) contributor id, false otherwise
  */
 function hasContributorId(id: number | null | undefined): id is number {
     // an unenrolled identity carries id -1 (see buildIdentity); treat that, null, and undefined as "no id"
@@ -281,10 +294,10 @@ function hasContributorId(id: number | null | undefined): id is number {
  * composition on which they are themselves a primary contributor, while an admin (when use_admin is
  * set) may name any registered users as primaries
  *
- * @param {Composition} record - the proposed composition record
- * @param {Identity} acting_identity - the identity of the acting user, assumed to be valid
- * @param {boolean} use_admin - whether to allow review of admin status
- * @returns {boolean} - whether the user is allowed to create the proposed record
+ * @param record - the proposed composition record
+ * @param acting_identity - the identity of the acting user, assumed to be valid
+ * @param use_admin - whether to allow review of admin status
+ * @returns - whether the user is allowed to create the proposed record
  */
 export function canCreate(record: Composition, acting_identity: Identity, use_admin: boolean = true): boolean {
     if (!hasContributorId(acting_identity?.id)) {
@@ -307,10 +320,10 @@ export function canCreate(record: Composition, acting_identity: Identity, use_ad
  * Returns null when no change is needed: the acting user is unenrolled, is an effective primary, or
  * is already present in the additional-contributor list.
  *
- * @param {CompositionRecord} current - the current database record
- * @param {Partial<Composition>} proposed - the proposed (possibly partial) update in API format
- * @param {Identity} acting_identity - the identity of the acting user
- * @returns {number[] | null} - the updated contrib_addl list, or null if no change is needed
+ * @param current - the current database record
+ * @param proposed - the proposed (possibly partial) update in API format
+ * @param acting_identity - the identity of the acting user
+ * @returns - the updated contrib_addl list, or null if no change is needed
  */
 export function withActingContributor(current: CompositionRecord, proposed: Partial<Composition>, acting_identity: Identity): number[] | null {
     if (!hasContributorId(acting_identity?.id)) {

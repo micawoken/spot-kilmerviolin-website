@@ -7,11 +7,12 @@
 
 import type { APIRoute } from "astro"
 import { formatContribFromD1, parseAPIRequest } from "../../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
+import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
-import { addContributor, deleteContributor, listContributors, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
+import { deleteContributor, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
 import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
 import { authEnabled } from "../../../../lib/api/environment"
+import { generateFallbackEmail, resolveIdentityEmail } from "../../../../lib/api/fallback"
 
 /**
  * GET /api/v1/contributors/[id]
@@ -25,8 +26,8 @@ import { authEnabled } from "../../../../lib/api/environment"
  *  - elevate: {boolean} if true, and the user is an admin, disable the safe property check for non-self contributors; defaults to false
  * 
  * Body: none
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the contributor record, filtered based on permissions and elevation request
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the contributor record, filtered based on permissions and elevation request
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -54,16 +55,19 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         // convert the record type
         const record = formatContribFromD1(d1_record)
 
+        // change_date carries the record's last-modified time; surface it as the Last-Modified header
+        // (change_date is not a protected property, so it survives the redaction below)
+        const last_modified = lastModifiedHeader(record)
         const auth_enabled: boolean = authEnabled(request)
         // validate self identity
         if (locals.identity?.id !== state_id && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
             // identity is not self, and either elevate is false or user is not admin
             // filter out protected properties from the record before returning
             const filtered_record = Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
-            return constructResponse(request, filtered_record, 200)
+            return constructResponse(request, filtered_record, 200, undefined, last_modified)
         }
         // return full record
-        return constructResponse(request, record, 200)
+        return constructResponse(request, record, 200, undefined, last_modified)
     } catch (error) {
         return constructResponseErrorHook(request, error, 404)
     }
@@ -80,8 +84,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, JSON object of complete contributor record with updated fields
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object
+ * @param context - the Astro API context
+ * @returns a Response object
  */
 export const PUT: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -99,8 +103,14 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
+    // a blank/omitted identity_email is replaced with a generated fallback address (see lib/api/fallback.ts)
+    // so the record still satisfies the identity_email NOT NULL UNIQUE constraint
+    const raw = api_request.payload[0]
+    if (raw !== null && typeof raw === "object" && typeof raw.name === "string") {
+        raw.identity_email = resolveIdentityEmail(raw.identity_email, raw.name)
+    }
     // validate request body as complete contributor record
-    const record = _stateTypeAssertCompleteContributor(api_request.payload[0], false)
+    const record = _stateTypeAssertCompleteContributor(raw, false)
     if (typeof record === "string") {
         return constructResponse(request, null, 400, `Invalid request body: ${record}`)
     }
@@ -128,8 +138,8 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  *  - elevate: {boolean} if true, and the user is an admin, disable the safe property check and disable row-level security for this request
  * 
  * Body: required, JSON object of partial contributor record with fields to update; must include the id field and value must match the ID in the URL
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object
+ * @param context - the Astro API context
+ * @returns a Response object
  */
 export const PATCH: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -159,19 +169,26 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 404)
         }
         // validate self identity
-        console.log(locals.identity?.id !== state_id, !(api_request.meta?.elevate === true && locals.identity?.admin), auth_enabled)
         if (locals.identity?.id !== state_id && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
             // identity is not self, and either elevate is false or user is not admin
             return constructResponse(request, null, 403)
         }
         
+        // an explicitly blanked identity_email is replaced with a generated fallback address so the
+        // record keeps a valid (NOT NULL UNIQUE) sign-in email (see lib/api/fallback.ts). The slug is
+        // drawn from the name in this update if present, else the existing record's name. identity_email
+        // is a protected property, so this edit is still gated by the elevation check below.
+        const raw = api_request.payload[0]
+        if (raw !== null && typeof raw === "object" && "identity_email" in raw && (raw.identity_email === null || raw.identity_email === "")) {
+            const existing = d1_record.results[0] as D1Contributor
+            const slug_name = typeof raw.name === "string" && raw.name.trim() !== "" ? raw.name : existing.name
+            raw.identity_email = generateFallbackEmail(slug_name)
+        }
         // validate request body as partial contributor record
-        console.log(api_request.payload[0])
-        const record = _stateTypeAssertPartialContributor(api_request.payload[0], false)
+        const record = _stateTypeAssertPartialContributor(raw, false)
         if (typeof record === "string") {
             return constructResponse(request, null, 400, `Invalid request body: ${record}`)
         }
-        console.log("record: ", record)
         // validate that properties are safe
         if (CONTRIBUTOR.protected!.some(prop => prop in record) && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
             // record includes protected properties, and either elevate is false or user is not admin
@@ -194,8 +211,8 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object
+ * @param context - the Astro API context
+ * @returns a Response object
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context

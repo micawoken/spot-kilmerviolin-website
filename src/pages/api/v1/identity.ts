@@ -7,11 +7,12 @@
 
 import type { APIContext, APIRoute } from "astro"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { _constructHeaders, constructResponse } from "../../../lib/api/http"
+import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import { list_users, add_user, remove_user } from "../../../lib/api/access_iam_mgmt"
+import { isFallbackEmail } from "../../../lib/api/fallback"
 import { auth_check } from "../../../lib/public/authservice"
 import { roles } from "../../../lib/api/authorize"
-import { createUser, removeUser, emailToId, elevateUser, demoteUser, activateUser, deactivateUser, assignRole, removeRole, changeLoginEmail, _changeLoginEmail } from "../../../lib/public/usermgmt"
+import { createUser, removeUser, emailToId, elevateUser, demoteUser, activateUser, deactivateUser, assignRole, removeRole, _changeLoginEmail } from "../../../lib/public/usermgmt"
 
 /**
  * GET /api/v1/identity
@@ -22,8 +23,8 @@ import { createUser, removeUser, emailToId, elevateUser, demoteUser, activateUse
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of string[] of user emails
+ * @param context - the Astro API context
+ * @returns a Response object with payload of string[] of user emails
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     // returns a JSON of string[] containing emails
@@ -34,8 +35,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // perform requested operation
-    const result = await list_users()
-    return constructResponse(request, result, 200)
+    try {
+        const result = await list_users()
+        return constructResponse(request, result, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to list users")
+    }
 }
 /**
  * POST /api/v1/identity
@@ -53,8 +58,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * 
  * Body: required, JSON array of [email_to_add: string]
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object
+ * @param context - the Astro API context
+ * @returns a Response object
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     // accepts an API request payload as a list containing the one email to add
@@ -71,19 +76,31 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (api_request.payload === null || api_request.payload.length !== 1 || typeof api_request.payload[0] !== "string") {
         return constructResponse(request, null, 400, "Bad request: payload must be a list containing exactly one email string")
     }
-    if (api_request.meta?.autoenrollment === true) {
-        // major and class_year map to nullable columns: null (or an omitted key) is accepted and stored as null
-        const meta_major = api_request.meta?.major ?? null
-        const meta_class_year = api_request.meta?.class_year ?? null
-        if (typeof api_request.meta?.confer !== "boolean" || typeof api_request.meta?.name !== "string" || (meta_major !== null && typeof meta_major !== "string") || (meta_class_year !== null && typeof meta_class_year !== "number")) {
-            return constructResponse(request, null, 400, "Bad request: missing or invalid meta fields for autoenrollment")
+    // fallback identity emails are reserved placeholders that can never authenticate (see lib/api/fallback.ts);
+    // reject an attempt to enroll one up front with a clear 400, rather than letting add_user throw deep in
+    // the enrollment flow
+    if (isFallbackEmail(api_request.payload[0])) {
+        return constructResponse(request, null, 400, "Cannot enroll a reserved fallback identity email. Assign the contributor a real sign-in email before enrolling them in Access.")
+    }
+    // any enrollment failure (the add_user fallback guard as a backstop, or a Cloudflare Access API error)
+    // is reported as a clean error response so the request never crashes with an unhandled exception
+    try {
+        if (api_request.meta?.autoenrollment === true) {
+            // major and class_year map to nullable columns: null (or an omitted key) is accepted and stored as null
+            const meta_major = api_request.meta?.major ?? null
+            const meta_class_year = api_request.meta?.class_year ?? null
+            if (typeof api_request.meta?.confer !== "boolean" || typeof api_request.meta?.name !== "string" || (meta_major !== null && typeof meta_major !== "string") || (meta_class_year !== null && typeof meta_class_year !== "number")) {
+                return constructResponse(request, null, 400, "Bad request: missing or invalid meta fields for autoenrollment")
+            }
+            await createUser(context.locals.cfContext, locals.identity!, api_request.meta?.confer, api_request.payload[0], api_request.meta?.name, meta_major, meta_class_year)
+            return constructResponse(request, null, 201)
+        } else {
+            const email = api_request.payload[0]
+            await add_user(email)
+            return constructResponse(request, null, 201)
         }
-        await createUser(context.locals.cfContext, locals.identity!, api_request.meta?.confer, api_request.payload[0], api_request.meta?.name, meta_major, meta_class_year)
-        return constructResponse(request, null, 201)
-    } else {
-        const email = api_request.payload[0]
-        await add_user(email)
-        return constructResponse(request, null, 201)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to add user")
     }
 }
 
@@ -138,8 +155,8 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  *     }
  * }
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object
+ * @param context - the Astro API context
+ * @returns a Response object
  */
 export const PATCH: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -161,34 +178,43 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Bad request: payload must be a JSON object")
     }
     let errors: string[] = []
-    const admin_exec = "admin" in api_request.payload[0] ? await _parseAdmin(context, request, api_request.payload[0]) : []
-    if (admin_exec instanceof Response) {
-        admin_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
-        return admin_exec
+    // the sub-parsers run sequential DB transactions; wrap them so a thrown error (e.g. a SQLite failure
+    // mid-sequence) is reported as a clean error response, with whatever errors accumulated so far attached,
+    // rather than escaping as an unhandled exception
+    try {
+        const admin_exec = "admin" in api_request.payload[0] ? await _parseAdmin(context, request, api_request.payload[0]) : []
+        if (admin_exec instanceof Response) {
+            admin_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
+            return admin_exec
+        }
+        errors = errors.concat(admin_exec)
+        const active_exec = "active" in api_request.payload[0] ? await _parseActive(context, request, api_request.payload[0]) : []
+        if (active_exec instanceof Response) {
+            active_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
+            return active_exec
+        }
+        errors = errors.concat(active_exec)
+        const roles_exec = "roles" in api_request.payload[0] ? await _parseRoles(context, request, api_request.payload[0]) : []
+        if (roles_exec instanceof Response) {
+            roles_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
+            return roles_exec
+        }
+        errors = errors.concat(roles_exec)
+        const identity_email_exec = "identity_email" in api_request.payload[0] ? await _parseIdEmail(context, request, api_request.payload[0]) : []
+        if (identity_email_exec instanceof Response) {
+            identity_email_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
+            return identity_email_exec
+        }
+        errors = errors.concat(identity_email_exec)
+        // operation succeeded
+        const response = constructResponse(request, null, 200)
+        response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
+        return response
+    } catch (error) {
+        const response = constructResponseErrorHook(request, error, 500, "Failed to apply identity update; previous transactions may have succeeded")
+        response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
+        return response
     }
-    errors = errors.concat(admin_exec)
-    const active_exec = "active" in api_request.payload[0] ? await _parseActive(context, request, api_request.payload[0]) : []
-    if (active_exec instanceof Response) {
-        active_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
-        return active_exec
-    }
-    errors = errors.concat(active_exec)
-    const roles_exec = "roles" in api_request.payload[0] ? await _parseRoles(context, request, api_request.payload[0]) : []
-    if (roles_exec instanceof Response) {
-        roles_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
-        return roles_exec
-    }
-    errors = errors.concat(roles_exec)
-    const identity_email_exec = "identity_email" in api_request.payload[0] ? await _parseIdEmail(context, request, api_request.payload[0]) : []
-    if (identity_email_exec instanceof Response) {
-        identity_email_exec.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
-        return identity_email_exec
-    }
-    errors = errors.concat(identity_email_exec)
-    // operation succeeded
-    const response = constructResponse(request, null, 200)
-    response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
-    return response
 }
 
 async function _parseAdmin(context: APIContext, request: Request, payload: {admin: unknown}): Promise<string[] | Response> {
@@ -340,6 +366,11 @@ async function _parseIdEmail(context: APIContext, request: Request, payload: {id
         if (typeof new_email !== "string") {
             return constructResponse(request, null, 400, `Bad request: new email for ${old_email} must be a string; previous transactions may have succeeded`)
         }
+        // a reserved fallback address can never be enrolled in Access (see lib/api/fallback.ts); reject it
+        // before _changeLoginEmail mutates the contributor record and then fails at enrollment
+        if (isFallbackEmail(new_email)) {
+            return constructResponse(request, null, 400, `Bad request: cannot set ${old_email}'s identity email to a reserved fallback address; previous transactions may have succeeded`)
+        }
         const id = await emailToId(old_email)
         if (id === null) {
             errors.push(`identity_email: no contributor record found for ${old_email}`)
@@ -374,12 +405,16 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     if (api_request.payload === null || api_request.payload.length !== 1 || typeof api_request.payload[0] !== "string") {
         return constructResponse(request, null, 400, "Bad request: payload must be a list containing exactly one email string")
     }
-    if (api_request.meta?.autodeactivation === true || api_request.meta?.autodeactivation === undefined) {
-        // from lib/public/usermgmt.ts, deactivates contributor record
-        await removeUser(context.locals.cfContext, api_request.payload[0])
-    } else {
-        // from lib/api/access_iam_mgmt.ts, removes user from Access policy without changing contributor record
-        await remove_user(api_request.payload[0])
+    try {
+        if (api_request.meta?.autodeactivation === true || api_request.meta?.autodeactivation === undefined) {
+            // from lib/public/usermgmt.ts, deactivates contributor record
+            await removeUser(context.locals.cfContext, api_request.payload[0])
+        } else {
+            // from lib/api/access_iam_mgmt.ts, removes user from Access policy without changing contributor record
+            await remove_user(api_request.payload[0])
+        }
+        return constructResponse(request, null, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to remove user")
     }
-    return constructResponse(request, null, 200)
 }

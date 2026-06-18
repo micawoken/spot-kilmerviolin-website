@@ -13,12 +13,7 @@ interface ResultObject {
 }
 
 
-console.log("Rendering ListResults with props:", { noun, results, enviro })
-
 const no_body = results.length > 0 && typeof results[0] === "number"
-
-
-console.log("length: ", results.length, "no_body: ", no_body)
 
 ---
 <div id={`list-results-${noun}`} class="list-results-container">

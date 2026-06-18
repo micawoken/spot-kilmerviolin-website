@@ -8,21 +8,30 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 // list is rendered server-side
 import { listComposers } from "../../../lib/api/database"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
-// pull the list
-const composers = await listComposers(Astro.locals.cfContext)
-if (!composers) {
-    throw new Error("Failed to fetch composers list")
+export const prerender = false
+
+// authorize before the direct (API-bypassing) database read below
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
 }
-console.log("Fetched composers list:", composers)
+
+// pull the list; a missing composers table surfaces the missing-table fallback page rather than a raw 500
+const composers = await guardedRead(() => listComposers(Astro.locals.cfContext))
+if (composers instanceof Response) {
+    return composers
+}
+if (!composers) {
+    throw new Error("Failed to fetch the composers list from the database")
+}
 
 const formatted_composers = composers.map(composer => ({
     id: composer.id,
     name: composer.name,
     name2: `${composer.birth_year || "?"} - ${composer.death_year ? (composer.death_year === -1 ? "Present" : composer.death_year) : "?"}`,
 }))
-
-console.log("Formatted composers list for ListResults component:", formatted_composers)
 
 ---
 <!DOCTYPE html>
@@ -33,8 +42,10 @@ console.log("Formatted composers list for ListResults component:", formatted_com
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>List Composers</h2>
     <ListResults noun="composer" enviro="admin" results={formatted_composers} />
+    </main>
     <AdminFooter />
 </body>
 </html>

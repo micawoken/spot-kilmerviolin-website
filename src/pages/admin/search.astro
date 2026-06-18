@@ -16,12 +16,12 @@ export const prerender = false
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Search the Database</h2>
-    <p class="general-infohelp">Search composers, compositions, and contributors by keyword. Matches on names, composer names, tags, bios, and notes rank highest. Select a database to narrow the search, or leave it on "All databases". Click a result to view it.</p>
+    <p class="general-infohelp">Search composers, compositions, and contributors by keyword.</p>
     <KeywordSearchBox id_prefix="admin-search" label="Search by keyword" database_select={true} />
-    <p id="transaction-status">Your search results will show here after you press "Search".</p>
     <script>
-        import { attachKeywordSearch } from "../../scripts/interface"
+        import { attachKeywordSearch } from "../../scripts/keyword_search"
 
         // each table's hits route to that entity's info (view) page
         const INFO_PATHS: Record<SearchDatabase, string> = {
@@ -42,6 +42,7 @@ export const prerender = false
             (result) => `${INFO_PATHS[result.database]}?id=${result.id}`
         )
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

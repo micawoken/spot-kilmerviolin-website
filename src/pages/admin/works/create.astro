@@ -16,14 +16,15 @@ export const prerender = false
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Add a New Composition</h2>
     <CompositionForm required={true} />
     <p id="transaction-status">Your request status will show here after you press "Submit".</p>
     <script>
-        import { getForm, genHandler, getTransactionElem, attachSearchHelper, attachContributorManagement } from "../../../scripts/interface"
+        import { getForm, genHandler, getTransactionElem, attachContributorManagement } from "../../../scripts/interface"
         import { APIOpCode } from "../../../scripts/connector"
+        import { attachSearchHelper } from "../../../scripts/keyword_search"
         const create_form = getForm("composition", APIOpCode.CREATE)
-        console.log("Form element obtained for compositions create operation:", create_form)
         create_form.addEventListener("submit", genHandler(create_form, getTransactionElem(), APIOpCode.CREATE, "composition"))
         // manage the primary/additional contributor fields (hidden + auto-assigned unless an admin opts into direct editing)
         attachContributorManagement(create_form, false)
@@ -32,6 +33,7 @@ export const prerender = false
         attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_1-input", "form-composition-searchhelper-contrib_primary_1-button", "form-composition-searchhelper-contrib_primary_1-results", "form-composition-contrib_primary_1")
         attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_2-input", "form-composition-searchhelper-contrib_primary_2-button", "form-composition-searchhelper-contrib_primary_2-results", "form-composition-contrib_primary_2")
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

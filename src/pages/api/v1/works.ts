@@ -10,7 +10,7 @@ import { _stateTypeAssertCompleteComposition } from "../../../lib/api/d1"
 import { addComposition, attachCompositionNames, listCompositions } from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
 import { canCreate } from "../../../lib/api/authorize"
 import { authEnabled } from "../../../lib/api/environment"
 
@@ -24,12 +24,12 @@ import { authEnabled } from "../../../lib/api/environment"
  * Meta fields:
  * - full: {boolean} if true, returns full work records; if false or not provided, returns only work IDs
  * - names: {boolean} if true (and full is true), each record is returned as a CompositionWithNames object
- *   ({ object, names }) with the referenced composer_name and author_secondary_names resolved; off by default
+ *   ({ object, names }) with the referenced composer and contributor names resolved; off by default
  *
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} either a list of IDs or the full records
+ * @param context - the Astro API context
+ * @returns either a list of IDs or the full records
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -53,18 +53,21 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (data === null) {
             return constructResponse(request, null, 500, "Unknown state: list composition operation returned null")
         }
+        // the latest change_date across the listed records is the collection's last-modified time, sent
+        // as Last-Modified on every shape (full records, names-enriched, or the ID-only list)
+        const last_modified = lastModifiedHeader(data)
         switch (api_request.meta?.full) {
             case true:
                 // return full composition records, optionally paired with resolved names
                 if (names_flag === true) {
-                    return constructResponse(request, await attachCompositionNames(context.locals.cfContext, data), 200)
+                    return constructResponse(request, await attachCompositionNames(context.locals.cfContext, data), 200, undefined, last_modified)
                 }
-                return constructResponse(request, data, 200)
+                return constructResponse(request, data, 200, undefined, last_modified)
             case false:
             case undefined:
                 // return composition IDs only
                 const ids = data.map(record => record.id)
-                return constructResponse(request, ids, 200)
+                return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }
@@ -82,8 +85,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required; shape of a Composition object
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} the created record, or an error message
+ * @param context - the Astro API context
+ * @returns the created record, or an error message
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -117,7 +120,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             Location: `/api/v1/works/${add_response.toString()}`
         })
     } catch (error) {
-        console.log(error)
+        console.error(error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }

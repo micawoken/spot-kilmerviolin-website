@@ -5,10 +5,12 @@ import sitemap from "@astrojs/sitemap";
 
 import cloudflare from "@astrojs/cloudflare";
 
+import optimizeFiles from "./integrations/optimize-files.mjs";
+
 // https://astro.build/config
 export default defineConfig({
 	site: "https://example.com", // will set later
-	integrations: [mdx(), sitemap()],
+	integrations: [mdx(), sitemap(), optimizeFiles()],
 	adapter: cloudflare(),
 	trailingSlash: "never",
 	output: "server", // prerender needs to be enabled on the relevant pages

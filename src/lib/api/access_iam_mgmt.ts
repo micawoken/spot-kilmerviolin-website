@@ -3,9 +3,26 @@
  * 
  * Provides functions relating to granting and revoking access via Cloudflare Access
  * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ * 
+ * This license is also subject to additional terms as specified in the README.md.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from 'cloudflare:workers';
+import { isFallbackEmail } from './fallback';
 
 const cf_api_base = "https://api.cloudflare.com/client/v4"
 const cf_gateway_list_endpoint = "/accounts/{account_id}/gateway/lists/{list_id}"
@@ -96,6 +113,11 @@ export async function list_users(): Promise<string[]> {
  */
 export async function add_user(email: string): Promise<void> {
     const normalized = email.trim().toLowerCase()
+    // fallback identity emails are reserved placeholders for contributors who cannot sign in
+    // (see lib/api/fallback.ts); refuse to enroll one so it can never become an authenticable account
+    if (isFallbackEmail(normalized)) {
+        throw new Error("Refusing to enroll a reserved fallback identity email in Access")
+    }
     const existing = await list_users();
     if (existing.includes(normalized)) {
         return;

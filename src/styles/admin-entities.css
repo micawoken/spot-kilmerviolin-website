@@ -78,7 +78,18 @@ body {
 	flex: 1 1 48%;
 	min-width: 0;
 	max-width: 50%;
-	max-height: 44%
+}
+/* When this container is showing the "no image" placeholder (rather than a real <img>), it carries the
+ * 4:3 footprint and the 40vh cap itself, and the placeholder fills it (height:100%). The shape has to
+ * live on the container — not the placeholder — because in the narrow/stacked layout the container is a
+ * column flex item whose main size is height: the flex algorithm sizes it from the placeholder's
+ * (text) min-content height and ignores an aspect-ratio set on the placeholder, so a placeholder that
+ * derived its own height from aspect-ratio would overflow the collapsed container and overlap the
+ * details below it. A real <img> doesn't hit this (its intrinsic height is known), so the rule is
+ * scoped via :has() to the placeholder case only. */
+.entity-result-image-container:has(> .entity-result-image-missing:not(.hidden)) {
+	aspect-ratio: 4 / 3;
+	max-height: 40vh;
 }
 
 .entity-result-image {
@@ -103,10 +114,13 @@ body {
 	align-items: center;
 	justify-content: center;
 	text-align: center;
+	/* fill the container, which owns the 4:3 footprint and 40vh cap (see the :has() rule above); this
+	 * keeps the placeholder from ever exceeding its container and overlapping the details below it */
 	width: 100%;
-	aspect-ratio: 4 / 3;
-	/* match the image's cap so the placeholder occupies the same maximum footprint */
-	max-height: 40vh;
+	height: 100%;
+	/* include the 0.5rem padding and 1px border in the 100%/100% size so the placeholder fills its
+	 * container exactly (matching where a real <img> sits) rather than overflowing */
+	box-sizing: border-box;
 	margin: 0;
 	padding: 0.5rem;
 	background: var(--color-placeholder-bg);
@@ -152,7 +166,28 @@ body {
 	color: var(--shade-6);
 }
 
-/* --- Composition: label/value detail groups ------------------------------ */
+/* --- File: single-line "infoline" (content type · size · API url) --------- */
+/* mirrors the composer infoline (flex row with a middle-dot separator between parts) */
+#file-details-infoline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+	color: var(--color-text-secondary);
+}
+#file-details-infoline p {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+#file-details-infoline > *:not(:last-child)::after {
+	content: "·";
+	margin-left: 0.5rem;
+	color: var(--shade-6);
+}
+
+/* --- Composition / File: label/value detail groups ------------------------ */
 
 #composition-details-composer,
 #composition-details-workprop,
@@ -160,21 +195,48 @@ body {
 #composition-details-ratings,
 #composition-details-publisher,
 #composition-details-contribution,
-#composition-details-tags {
+#composition-details-tags,
+#file-details-image,
+#file-details-provenance {
 	display: grid;
 	grid-template-columns: max-content 1fr;
 	column-gap: 0.75rem;
 	row-gap: 0.25rem;
 }
+#file-details-image > span,
+#file-details-provenance > span {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
 .entity-result-details strong {
 	white-space: nowrap;
 }
-
-/* Composition notes: the grouping divs carry no visible label, so add one */
-#composition-details-notes > div {
-	margin-bottom: 1rem;
+/* let long composition values (URIs, names, ID lists) wrap inside their column rather than forcing the
+ * grid to overflow horizontally; min-width:0 lets the value track shrink below its content's intrinsic
+ * width so the wrapping actually takes effect */
+#composition-details-composer > span,
+#composition-details-workprop > span,
+#composition-details-characteristics > span,
+#composition-details-ratings > span,
+#composition-details-publisher > span,
+#composition-details-contribution > span,
+#composition-details-tags > span {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
-#composition-details-notes > div:last-child {
+
+/* Composition notes: the grouping divs carry no visible label, so add one. The notes section spans the
+ * full width of the wide-details row and lays its three sub-notes side by side when there is room
+ * (collapsing to a single column on narrow screens); grid row/column gaps handle the spacing, so the
+ * per-div margins are zeroed. */
+#composition-details-notes {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	column-gap: 2rem;
+	row-gap: 1rem;
+	align-items: start;
+}
+#composition-details-notes > div {
 	margin-bottom: 0;
 }
 #composition-details-notes-historical::before,
@@ -197,6 +259,29 @@ body {
 .entity-result-notes {
 	margin: 0;
 	white-space: pre-wrap;
+}
+
+/* --- Wide detail sections (below the infocard) ---------------------------- */
+
+/* Detail sections that live BELOW the infocard rather than inside its left content column, so they span
+ * the full card width instead of being squeezed beside the image. On wide viewports the groups flow into
+ * as many columns as fit (each at least ~22rem) to use the available horizontal space; they collapse to a
+ * single column as the card narrows. align-items:start keeps groups top-aligned rather than stretched. */
+.entity-result-details-wide {
+	margin-top: 1.25rem;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+	column-gap: 2rem;
+	row-gap: 1rem;
+	align-items: start;
+}
+/* grid row-gap owns the vertical rhythm here, so cancel the generic .entity-result-details > div margin */
+.entity-result-details-wide > div {
+	margin-bottom: 0;
+}
+/* notes are text-heavy: give them the full row (the small label/value groups share the remaining grid) */
+.entity-result-details-wide > #composition-details-notes {
+	grid-column: 1 / -1;
 }
 
 /* --- Contributor: infocard-specific detail rows (shared image layout above) --- */
@@ -239,6 +324,123 @@ body {
 }
 #contributor-infocard-phases p {
 	margin: 0;
+}
+
+/* --- Auth-info (whoami) card --------------------------------------------- */
+
+/* Reuses the entity card shell, plus: a corner "Contributor ID #" badge (the .list-result-id look),
+ * an email · account-type infoline, and a horizontal Yes/No status-flag row that reflows to a column
+ * on narrow viewports. */
+.auth-info-card {
+	position: relative;
+}
+/* leave room for the corner Contributor ID badge so the name does not run under it */
+.auth-info-card .entity-result-name {
+	padding-right: 11rem;
+}
+.auth-info-infoline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin: 0.1rem 0 0.75rem;
+	color: var(--color-text-secondary);
+}
+.auth-info-infoline > *:not(:last-child)::after {
+	content: "·";
+	margin-left: 0.5rem;
+	color: var(--shade-6);
+}
+.auth-info-roles {
+	margin: 0 0 1rem;
+}
+.auth-flag-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.5rem;
+}
+.auth-flag {
+	display: flex;
+	flex-direction: column;
+	cursor: help;
+}
+.auth-flag-label {
+	font-weight: 700;
+	font-size: 0.85em;
+	color: var(--color-text-secondary);
+}
+.auth-flag-value {
+	font-size: 1.1em;
+}
+@media (max-width: 720px) {
+	/* stack the status flags vertically when there is no room for a row */
+	.auth-flag-row {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+}
+
+/* --- Site Information card ------------------------------------------------ */
+
+/* Unlike the shrink-wrapped entity cards, the site-info card spans available width so its detail
+ * groups can sit side by side rather than in one tall column. */
+.site-info-card {
+	width: 100%;
+	max-width: 60rem;
+	/* the card's horizontal padding must count inside the 100% width or it overflows its parent */
+	box-sizing: border-box;
+}
+.site-info-infoline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin: 0.1rem 0 1rem;
+	color: var(--color-text-secondary);
+}
+.site-info-infoline > *:not(:last-child)::after {
+	content: "·";
+	margin-left: 0.5rem;
+	color: var(--shade-6);
+}
+/* a flex item defaults to min-width:auto, so a long unbreakable token (the build-ID UUID) cannot
+ * shrink and forces the whole card wider than a narrow viewport; allow these infoline items to shrink
+ * and break instead. Same treatment for the other flex "infoline" rows that can hold long tokens
+ * (a long email/name). */
+.site-info-infoline > *,
+.auth-info-infoline > *,
+#composer-details-infoline > * {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+/* groups flow into columns on wide screens, taking advantage of horizontal space. The min track is
+ * wrapped in min(100%, …) so a column never demands more width than the card, and the columns may
+ * shrink to 0 (min-width: 0 on the groups) so their content wraps instead of overflowing the card. */
+.site-info-details {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+	gap: 1rem 2rem;
+	align-items: start;
+}
+/* override the default grouped-section bottom margin; the grid gap handles spacing here */
+.site-info-details > div {
+	margin-bottom: 0;
+}
+.site-info-group {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	column-gap: 0.75rem;
+	row-gap: 0.25rem;
+	min-width: 0;
+}
+/* let long labels wrap (overriding the entity default nowrap) and long values break, so neither
+ * pushes past the card edge */
+.site-info-group > strong {
+	white-space: normal;
+}
+.site-info-group > span {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 /* ----------------------------------------------------------------------------
@@ -287,6 +489,8 @@ form.generic-form select {
 }
 form.generic-form textarea {
 	min-height: 5rem;
+	/* fixed-size editing surface: the manual resize grabber is disabled so the form layout stays stable */
+	resize: none;
 }
 form.generic-form button[type="submit"] {
 	margin-top: 0.5rem;
@@ -299,8 +503,149 @@ form.generic-form button[type="submit"] {
 	width: auto;
 }
 
-/* the inline name->ID lookup helper inside a fieldset */
+/* Aligned label/control grid for fieldsets that hold more than one label/control pair (e.g. the
+ * composition Publication Information and Rating groups). A shared two-column grid puts every label in a
+ * common left column sized to the widest label and starts every control at the same x, so the inputs line
+ * up with — and fill to the same width as — one another. This also keeps each label beside its own control
+ * instead of inline flow stranding a label at the end of a row while its control overflows below. The label
+ * column reads as a quiet caption: a semibold weight of the Inter variable font, no trailing colon. The
+ * control column is capped so the inputs do not stretch the full card width. Collapses to a single column
+ * (label above control) on narrow viewports, in the media block further down. */
+form.generic-form .field-grid {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 24rem);
+	column-gap: 0.85rem;
+	row-gap: 0.6rem;
+	align-items: baseline;
+}
+form.generic-form .field-grid > label {
+	margin: 0;
+	font-weight: 600;
+	justify-self: start;
+}
+/* controls fill the capped second column so their left and right edges line up; .field-control is a cell
+ * that stacks a control with its trailing help text (the URI field) yet still fills the column */
+form.generic-form .field-grid > :is(input, select, textarea),
+form.generic-form .field-grid > .field-control {
+	margin: 0;
+	width: 100%;
+	box-sizing: border-box;
+}
+form.generic-form .field-grid > .field-control {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: 0;
+}
+
+/* A single field's primary row: the control sits at the left, its short inline format help (a token such
+ * as "comma-separated IDs" or "numeric ID") immediately to the right of the control, and the PATCH
+ * "Edit this field" checkbox pushed to the fieldset's right edge (margin-left:auto) rather than crowding
+ * the control. Longer explanatory copy and warnings keep their own block below the row. A search helper,
+ * when present, follows this row (so the checkbox ends up above it). Wraps on narrow viewports. */
+form.generic-form .field-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.3rem 0.6rem;
+}
+/* the inline format-hint token: neutralize general-infohelp's block margins so it rides the row baseline
+ * directly beside its control instead of dropping below */
+form.generic-form .field-inline-help {
+	margin: 0;
+}
+/* the edit-target checkbox grouped with its label, pushed to the fieldset's right edge and kept together
+ * on one line; its label drops the default trailing margin since nothing follows it */
+form.generic-form .field-edittarget {
+	margin-left: auto;
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+form.generic-form .field-edittarget label {
+	margin-right: 0;
+}
+/* a row that carries only the right-aligned edit-target checkbox, placed under a full-width textarea so
+ * the checkbox sits below the textarea on its right side */
+form.generic-form .field-row-textarea {
+	margin-top: 0.4rem;
+}
+
+/* The required-field marker ("*" beside a required field's legend) and its footnote. Grayscale: the
+ * marker reads as bold emphasis rather than color. Rendered only on create forms, where fields are
+ * actually required (edit forms submit partial updates, so no single field is required). */
+form.generic-form .field-required {
+	font-weight: 700;
+	color: var(--color-text);
+	margin-left: 0.15rem;
+}
+form.generic-form .field-required-note {
+	font-size: 0.85em;
+	color: var(--color-text-muted);
+	margin: 0.75rem 0 0 0;
+}
+
+/* An inline validation hint shown beside the offending control (showFieldError in scripts/interface.ts).
+ * It occupies the same slot as the format-hint token, which is hidden (.field-hidden) while it shows, and
+ * reads as bold emphasis in grayscale. Inside the aligned grid it spans its own full-width row; inside the
+ * stacked URI control cell it sits under the input. */
+form.generic-form .field-error {
+	font-size: 0.85em;
+	font-weight: 700;
+	color: var(--color-text);
+	margin: 0;
+}
+form.generic-form .field-grid > .field-error {
+	grid-column: 1 / -1;
+}
+form.generic-form .field-control .field-error {
+	display: block;
+}
+/* a control flagged invalid by validation */
+form.generic-form .field-invalid {
+	outline: 2px solid var(--shade-7);
+	outline-offset: 1px;
+}
+/* a format-hint token temporarily hidden while a validation error occupies its place */
+form.generic-form .field-hidden {
+	display: none;
+}
+
+/* Responsive field stacking: when the viewport is too narrow to comfortably keep a field beside its
+ * inline label, drop the control onto its own line directly under the label so the two stay together
+ * as a unit. Scoped to labels that directly precede a control (the "Field:" style data labels); the
+ * trailing checkbox labels ("Edit this field", elevation, etc.) follow their input and are left inline.
+ * The :has() relative selector out-specifies .form-config-horizflow, so the inline-flow selects fill
+ * the line here too. */
+@media (max-width: 720px) {
+	form.generic-form label:has(+ :is(input, select, textarea)) {
+		display: block;
+		margin-right: 0;
+		margin-bottom: 0.15rem;
+	}
+	form.generic-form label:has(+ :is(input, select, textarea)) + :is(input, select, textarea) {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	/* the aligned label/control grid collapses to a single column (label stacked above its control); a
+	 * top margin on every pair after the first separates the stacked pairs */
+	form.generic-form .field-grid {
+		grid-template-columns: 1fr;
+		row-gap: 0.15rem;
+	}
+	form.generic-form .field-grid > label:not(:first-child) {
+		margin-top: 0.5rem;
+	}
+}
+
+/* the inline name->ID lookup helper inside a fieldset. The input and its Search button share a
+ * row (flex), while the intro copy and the results container break to their own full-width lines. */
 .searchhelper {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
 	margin-top: 0.5rem;
 	padding: 0.5rem 0.75rem;
 	border: 1px dashed var(--shade-5);
@@ -310,6 +655,23 @@ form.generic-form button[type="submit"] {
 }
 .searchhelper p {
 	margin: 0 0 0.35rem 0;
+}
+/* intro copy above the input and the results block below both span the full helper width */
+.searchhelper > p,
+.searchhelper > [id$="-results"] {
+	flex: 1 1 100%;
+}
+.searchhelper > label {
+	flex: 0 0 auto;
+}
+.searchhelper > input[type="text"] {
+	flex: 1 1 12rem;
+	min-width: 0;
+	padding: 0.3rem 0.5rem;
+}
+.searchhelper > button {
+	flex: 0 0 auto;
+	padding: 0.3rem 1rem;
 }
 
 /* shared form helper/warning copy (grayscale: warnings read as emphasis, not color) */
@@ -325,6 +687,94 @@ form.generic-form button[type="submit"] {
 	border-left: 3px solid var(--shade-7);
 	padding-left: 0.6rem;
 	margin: 0.35rem 0;
+}
+
+/* Page-level callouts (e.g. self-enrollment / inactive notices on the admin home). These wrap a
+ * block of .general-warning copy and need to stand out from the body more than a left rule does, so
+ * they fill a surface. In grayscale the loudest treatment is a full tone inversion (.callout-invert,
+ * used for the higher-priority enrollment notice); .callout-emphasis is a quieter filled surface for
+ * secondary notices. Both drop the child paragraphs' own left rule since the container is the frame. */
+.callout-invert,
+.callout-emphasis {
+	border-radius: 4px;
+	padding: 0.75rem 1rem;
+	margin: 1rem 0;
+}
+.callout-invert :is(p, .general-warning),
+.callout-emphasis :is(p, .general-warning) {
+	border-left: none;
+	padding-left: 0;
+	/* A callout may mix a .general-warning paragraph (0.85em, tight margins) with a plain <p> (the
+	 * enrollment notice's instruction line, which would otherwise inherit the larger user-agent font and
+	 * 1em margins). Pin both to the same size and vertical rhythm so the lines read as one evenly spaced
+	 * block that fits snugly inside the callout. */
+	font-size: 0.85em;
+	margin: 0.4rem 0;
+}
+/* Collapse the outer paragraphs' margins against the callout's own padding so the text block sits
+ * centered within the box rather than with a doubled gap at the top and bottom. */
+.callout-invert > :first-child,
+.callout-emphasis > :first-child {
+	margin-top: 0;
+}
+.callout-invert > :last-child,
+.callout-emphasis > :last-child {
+	margin-bottom: 0;
+}
+
+/* Most accented: invert the body palette so the box reads as the opposite of the page. */
+.callout-invert {
+	background: var(--color-text);
+	color: var(--color-bg);
+}
+.callout-invert :is(p, .general-warning) {
+	color: var(--color-bg);
+}
+.callout-invert a {
+	color: var(--color-bg);
+	font-weight: 700;
+	text-decoration: underline;
+}
+
+/* Secondary emphasis: a filled tonal surface with a strong border, still clearly raised but quieter
+ * than the inverted enrollment callout. */
+.callout-emphasis {
+	background: var(--shade-2);
+	color: var(--color-text);
+	border: 1px solid var(--shade-5);
+	border-left: 4px solid var(--shade-7);
+}
+
+/* A help caption (or the profile wrapper it leads) sitting directly under a heading reads as a
+ * subtitle for the content below, so pull it tight to the heading rather than leaving the heading's
+ * full trailing margin between them. */
+:is(h1, h2, h3, h4, h5, h6):has(+ .general-infohelp),
+:is(h1, h2, h3, h4, h5, h6):has(+ .profile-content) {
+	margin-bottom: 0.25rem;
+}
+:is(h1, h2, h3, h4, h5, h6) + .general-infohelp,
+.profile-content > .general-infohelp:first-child {
+	margin-top: 0;
+}
+
+/* ----------------------------------------------------------------------------
+ * Profile page layout
+ * ------------------------------------------------------------------------- */
+
+/* Align the profile's help captions and action links to the same width as the entity card below
+ * them, so the page is one tidy column instead of full-width text over a shrink-wrapped card. The
+ * wrapper shrink-wraps to the card (its widest, width-determining child); the captions and links use
+ * width:0 + min-width:100% to fill that width without contributing their own (longer) intrinsic
+ * width back to the wrapper and stretching it past the card. */
+.profile-content {
+	width: fit-content;
+	max-width: 100%;
+}
+.profile-content > .general-infohelp,
+.profile-content > .entity-result-details {
+	width: 0;
+	min-width: 100%;
+	box-sizing: border-box;
 }
 
 /* ----------------------------------------------------------------------------
@@ -376,7 +826,8 @@ form.generic-form button[type="submit"] {
 	position: relative;
 	border: 1px solid var(--shade-4);
 	border-radius: 6px;
-	padding: 0.6rem 0.85rem;
+	/* extra bottom padding reserves room for the absolutely-positioned edit link (bottom-left) */
+	padding: 0.6rem 0.85rem 2rem;
 	background: var(--shade-1);
 }
 
@@ -408,10 +859,44 @@ form.generic-form button[type="submit"] {
 .list-result-link:hover {
 	text-decoration: underline;
 }
+/* corner action: anchored to the bottom-left, mirroring the top-right ID badge */
 .list-result-edit-link {
-	display: inline-block;
-	margin-top: 0.35rem;
+	position: absolute;
+	bottom: 0.6rem;
+	left: 0.85rem;
 	font-size: 0.85em;
+}
+
+/* When a card has more than one action (the file list has Replace + Delete), they live in this row
+ * instead of each being independently bottom-left-absolute (which would stack them on top of each
+ * other). The row itself takes the absolute slot; its links revert to static flow inside it. */
+.list-result-actions {
+	position: absolute;
+	bottom: 0.6rem;
+	left: 0.85rem;
+	right: 0.85rem;
+	display: flex;
+	gap: 1rem;
+}
+.list-result-actions .list-result-edit-link {
+	position: static;
+}
+
+/* file list: small square preview thumbnail above the key, and a muted meta line beneath it */
+.list-result-thumb {
+	display: block;
+	width: 48px;
+	height: 48px;
+	object-fit: cover;
+	border-radius: 4px;
+	margin-bottom: 0.4rem;
+	background: var(--shade-2);
+}
+.list-result-meta {
+	display: block;
+	margin-top: 0.15rem;
+	font-size: 0.8em;
+	color: var(--color-text-muted);
 }
 
 /* an empty result set renders a single message paragraph, not a card grid */
@@ -431,6 +916,69 @@ form.generic-form button[type="submit"] {
 	.entity-result-image-container {
 		max-width: 320px;
 	}
+
+	/* Composition & composer: the content column holds the title/ID header *and* the detail groups, so
+	 * the default stack would push the image below every detail. Dissolve the content wrapper
+	 * (display: contents) so the header, details, and image become direct flex items of the infocard,
+	 * then stack them in a column and order the image to sit directly beneath the title/ID header,
+	 * above the details. The header keeps the title and ID grouped as one item so the column gap does
+	 * not separate them. */
+	#generic-result-composition .entity-result-infocard,
+	#generic-result-composer .entity-result-infocard {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	#generic-result-composition .entity-result-infocard-content,
+	#generic-result-composer .entity-result-infocard-content {
+		display: contents;
+	}
+	#generic-result-composition #composition-image-container,
+	#generic-result-composer #composer-image-container {
+		order: 1;
+	}
+	#generic-result-composition #composition-details,
+	#generic-result-composer #composer-details {
+		order: 2;
+	}
+}
+
+@media (max-width: 720px) {
+	/* Read (Info) detail grids: stack the label above its value (single column) so the max-content
+	 * label track can no longer squeeze the value into a one-character-per-line sliver. Mirrors the
+	 * data-entry form label/control stacking above. */
+	#composition-details-composer,
+	#composition-details-workprop,
+	#composition-details-characteristics,
+	#composition-details-ratings,
+	#composition-details-publisher,
+	#composition-details-contribution,
+	#composition-details-tags,
+	.site-info-group {
+		grid-template-columns: 1fr;
+	}
+	/* the wide sections (and the side-by-side notes) collapse to a single column on narrow screens */
+	.entity-result-details-wide,
+	#composition-details-notes {
+		grid-template-columns: 1fr;
+	}
+	/* once a label owns the full row width, let it wrap (overriding the entity default nowrap) */
+	.entity-result-details strong {
+		white-space: normal;
+	}
+
+	/* Corner ID badges reserve fixed horizontal space (padding-right) for the absolutely-positioned
+	 * badge; on narrow screens that crowds the heading/link. Drop the badge into normal flow (it
+	 * precedes the name/link in the DOM, so it lands just above) and reclaim the reserved space. */
+	.auth-info-card .entity-result-name,
+	.list-result-id + .list-result-link {
+		padding-right: 0;
+	}
+	.auth-info-card .list-result-id,
+	.list-result-container .list-result-id {
+		position: static;
+		display: block;
+		margin-bottom: 0.25rem;
+	}
 }
 
 /* ----------------------------------------------------------------------------
@@ -439,4 +987,14 @@ form.generic-form button[type="submit"] {
 
 textarea {
 	width: 100%;
+}
+
+/* Admin tool pages wrap their content in a <main class="admin-main"> landmark. The global stylesheet
+ * constrains a bare <main> to a centered 720px reading column (intended for the Markdown prose pages
+ * rendered through AdminDocument.astro); the interactive tool pages need the full content width, so the
+ * .admin-main variant neutralizes that. Scoped via the class so the prose pages keep their reading column. */
+main.admin-main {
+	width: auto;
+	max-width: 100%;
+	margin: 0;
 }

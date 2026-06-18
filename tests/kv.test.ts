@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest"
-import { env } from "cloudflare:test"
+import { env } from "cloudflare:workers"
 
 import { getKey, setKey, deleteKey, listKeys } from "../src/lib/api/kv.ts"
 

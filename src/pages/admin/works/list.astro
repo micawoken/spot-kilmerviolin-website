@@ -8,18 +8,31 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 // list is rendered server-side
 import { attachCompositionNames, listCompositions } from "../../../lib/api/database"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
 export const prerender = false
 
-// pull the list
-const compositions = await listCompositions(Astro.locals.cfContext)
-if (!compositions) {
-    throw new Error("Failed to fetch compositions list")
+// authorize before the direct (API-bypassing) database read below
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
 }
-console.log("Fetched compositions list:", compositions)
 
-// resolve composer names so each entry identifies its composer, which is otherwise only a numeric id
-const enhanced_compositions = await attachCompositionNames(Astro.locals.cfContext, compositions)
+// pull the list; a missing compositions table surfaces the missing-table fallback page rather than a raw 500
+const compositions = await guardedRead(() => listCompositions(Astro.locals.cfContext))
+if (compositions instanceof Response) {
+    return compositions
+}
+if (!compositions) {
+    throw new Error("Failed to fetch the compositions list from the database")
+}
+
+// resolve composer names so each entry identifies its composer, which is otherwise only a numeric id;
+// a missing composers/contributors table here also surfaces the missing-table fallback page
+const enhanced_compositions = await guardedRead(() => attachCompositionNames(Astro.locals.cfContext, compositions))
+if (enhanced_compositions instanceof Response) {
+    return enhanced_compositions
+}
 
 // NOTE: ListResults builds /admin/{noun}s/... links, so the URL noun is "work";
 // the client-side interface noun for compositions remains "composition"
@@ -37,8 +50,10 @@ const formatted_compositions = enhanced_compositions.map(({ object, names }) => 
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>List Compositions</h2>
     <ListResults noun="work" enviro="admin" results={formatted_compositions} />
+    </main>
     <AdminFooter />
 </body>
 </html>

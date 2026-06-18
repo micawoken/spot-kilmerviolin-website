@@ -59,7 +59,9 @@ export const contributor_interface_full: Record<string, FieldPair> = {
     "major": ["string", true],
     "bio": ["string", true],
     "public_email": ["string", true],
-    "identity_email": ["string", false],
+    // identity_email maps to a NOT NULL UNIQUE column, but a blank submission is allowed: the server
+    // fills it with a generated fallback address (see lib/api/fallback.ts), so it is optional here
+    "identity_email": ["string", true],
     "image": ["string", true],
     "phases": ["number[]?", true],
     "roles": ["string[]", true],
@@ -74,7 +76,9 @@ export const contributor_interface_partial: Record<string, FieldPair> = {
     "major": ["string", true],
     "bio": ["string", true],
     "public_email": ["string", true],
-    "identity_email": ["string", false],
+    // identity_email maps to a NOT NULL UNIQUE column, but a blank submission is allowed: the server
+    // fills it with a generated fallback address (see lib/api/fallback.ts), so it is optional here
+    "identity_email": ["string", true],
     "image": ["string", true],
     "phases": ["number[]?", true],
     "tags": ["string[]", true],

@@ -7,10 +7,9 @@
 
 import type { APIRoute } from "astro"
 import { auth_check } from "../../../lib/public/authservice"
-import { constructResponse } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import verinfo from "../../../lib/api/verinfo"
 import rebuild from "../../../lib/api/rebuild"
-import { purgeCache } from "../../../lib/api/caching"
 import { purgeCacheAll } from "../../../lib/api/database"
 
 /**
@@ -22,8 +21,8 @@ import { purgeCacheAll } from "../../../lib/api/database"
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the worker build information, or an error message if authentication fails
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the worker build information, or an error message if authentication fails
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -32,8 +31,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const data = verinfo(request)
-    return constructResponse(request, data, 200)
+    try {
+        const data = verinfo(request)
+        return constructResponse(request, data, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to retrieve build information")
+    }
 }
 
 /**
@@ -45,8 +48,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of success message, or an error message if authentication fails
+ * @param context - the Astro API context
+ * @returns a Response object with payload of success message, or an error message if authentication fails
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -55,8 +58,12 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const data = await rebuild()
-    return constructResponse(request, data, 200)
+    try {
+        const data = await rebuild()
+        return constructResponse(request, data, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to trigger rebuild")
+    }
 }
 
 
@@ -69,8 +76,8 @@ export const POST: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: none
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of success message, or an error message if authentication fails
+ * @param context - the Astro API context
+ * @returns a Response object with payload of success message, or an error message if authentication fails
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -79,10 +86,14 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const success = await purgeCacheAll()
-    if (success) {
-        return constructResponse(request, { message: "Cache purged successfully" }, 200)
-    } else {
-        return constructResponse(request, { error: "Failed to purge cache" }, 500)
+    try {
+        const success = await purgeCacheAll()
+        if (success) {
+            return constructResponse(request, { message: "Cache purged successfully" }, 200)
+        } else {
+            return constructResponse(request, { error: "Failed to purge cache" }, 500)
+        }
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to purge cache")
     }
 }

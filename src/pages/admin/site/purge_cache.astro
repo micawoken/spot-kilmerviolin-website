@@ -15,8 +15,10 @@ export const prerender = false
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Purge the Database Cache</h2>
-    <p class="general-infohelp">Purging removes all cached database records, so visitors see database changes immediately. Until the cache repopulates, requests are served directly from the database, which is slower and consumes daily read limits.</p>
+    <p class="general-warning">Unless you encounter stale data, you should not purge the cache. The cache will automatically update within the time-to-live specified in <a href="/admin/site/verinfo">Site Management &gt; View site info</a>. Purging the cache unnecessarily will increase read operations on the database, which are subject to a daily limit.</p>
+    <p class="general-infohelp">The database cache contains temporary copies of the database to improve website performance and reduce database use. By default, the website will check the cache first. When you make an edit, it updates the database but may not update the cache. Purging the cache here deletes the cache and allows it to regenerate from the database.</p>
     <button type="button" id="site-purge-button">Purge cache</button>
     <p id="transaction-status">Your request status will show here after you press "Purge cache".</p>
     <script>
@@ -43,6 +45,7 @@ export const prerender = false
             }
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

@@ -4,7 +4,7 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
-import { emailFromParam } from "../../../lib/public/validation"
+import { emailFromParam } from "../../../lib/api/validation"
 
 export const prerender = false
 
@@ -19,40 +19,57 @@ const prefill_email = emailFromParam(Astro.url)
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Add or Remove Roles</h2>
-    <p class="general-infohelp">Modifies the roles on the contributor record associated with the given identity email. Requires administrator permissions. A user may hold at most 5 roles.</p>
+    <p class="general-infohelp">Modify the system roles for the provided identity email. This operation requires administrator permissions.</p>
     <div class="generic-form">
-        <form id="iam-form-edit" class="generic-form">
+        <form id="iam-form-edit" class="generic-form" novalidate>
             <fieldset>
-                <legend>User Identity Email</legend>
-                <input type="email" id="iam-form-edit-email" name="email" value={prefill_email} required />
+                <legend>User Identity Email<span class="field-required" aria-hidden="true">*</span></legend>
+                <div class="field-row">
+                    <input type="email" id="iam-form-edit-email" name="email" value={prefill_email} required />
+                </div>
             </fieldset>
             <fieldset>
                 <legend>Roles to Add</legend>
-                <input type="text" id="iam-form-edit-roles_add" name="roles_add" />
-                <p class="general-infohelp">Comma-separated, no spaces. Example: <code>reviewer,userenroll</code></p>
+                <div class="field-row">
+                    <input type="text" id="iam-form-edit-roles_add" name="roles_add" placeholder="reviewer,userenroll" />
+                    <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                </div>
             </fieldset>
             <fieldset>
                 <legend>Roles to Remove</legend>
-                <input type="text" id="iam-form-edit-roles_remove" name="roles_remove" />
-                <p class="general-infohelp">Comma-separated, no spaces.</p>
+                <div class="field-row">
+                    <input type="text" id="iam-form-edit-roles_remove" name="roles_remove" />
+                    <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                </div>
             </fieldset>
+            <p class="field-required-note"><span class="field-required" aria-hidden="true">*</span> indicates a required field</p>
             <button type="submit">Submit</button>
         </form>
     </div>
     <p id="transaction-status">Your request status will show here after you press "Submit".</p>
     <script>
-        import { updateIdentity } from "../../../scripts/connector"
+        import { updateRoles } from "../../../scripts/connector"
+        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
 
         const form = document.getElementById("iam-form-edit") as HTMLFormElement
         const message = getTransactionElem()
+
+        // live inline format validation (email + comma-separated role lists), mirroring the entity forms
+        attachFormValidation(form)
 
         const parseRoles = (raw: FormDataEntryValue | null): string[] =>
             String(raw ?? "").split(",").map(role => role.trim()).filter(role => role !== "")
 
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
+            // submit gate: reject malformed fields with inline hints before sending the request
+            if (!validateFormFields(form)) {
+                message.textContent = "Please correct the highlighted fields and try again."
+                return
+            }
             message.textContent = "Processing request..."
             const form_data = new FormData(form)
             disableInput(form)
@@ -66,14 +83,14 @@ const prefill_email = emailFromParam(Astro.url)
                 if (roles_add.length === 0 && roles_remove.length === 0) {
                     throw new Error("Specify at least one role to add or remove")
                 }
-                const roles_operation: Record<string, Record<string, string[]>> = {}
+                const roles_operation: { add?: Record<string, string[]>; remove?: Record<string, string[]> } = {}
                 if (roles_add.length > 0) {
-                    roles_operation["add"] = { [email]: roles_add }
+                    roles_operation.add = { [email]: roles_add }
                 }
                 if (roles_remove.length > 0) {
-                    roles_operation["remove"] = { [email]: roles_remove }
+                    roles_operation.remove = { [email]: roles_remove }
                 }
-                await updateIdentity({ roles: roles_operation })
+                await updateRoles(roles_operation)
                 message.textContent = `Request succeeded: updated roles for ${email}`
             } catch (error) {
                 message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
@@ -83,6 +100,7 @@ const prefill_email = emailFromParam(Astro.url)
             }
         })
     </script>
+    </main>
     <AdminFooter />
 </body>
 </html>

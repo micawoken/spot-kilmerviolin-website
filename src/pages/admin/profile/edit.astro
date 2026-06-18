@@ -8,8 +8,16 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { CONTRIBUTOR } from "../../../lib/api/d1"
 import { getContributor } from "../../../lib/api/database"
+import { guardPage, guardedRead } from "../../../lib/api/page_auth"
 
 export const prerender = false
+
+// the profile editor is self-service (reachable while inactive/enrollable); the read below is keyed by
+// the caller's own id, but still authorize before touching the database directly
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "any" })
+if (denied) {
+    return denied
+}
 
 // the profile editor always targets the caller's own record, read directly by the caller's contributor id
 const identity = Astro.locals.identity ?? null
@@ -17,7 +25,12 @@ const self_id = identity?.id ?? null
 
 let contributor_data: ContributorRecord | null = null
 if (self_id !== null && self_id !== undefined) {
-    contributor_data = await getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id))
+    // a missing contributors table surfaces the missing-table fallback page
+    const result = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id)))
+    if (result instanceof Response) {
+        return result
+    }
+    contributor_data = result
     if (!contributor_data) {
         console.warn(`No contributor record found for self id ${self_id}`)
     }
@@ -31,11 +44,12 @@ if (self_id !== null && self_id !== undefined) {
 </head>
 <body>
     <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Edit My Profile</h2>
     {
         contributor_data ? (
             <>
-                <p class="general-infohelp">Edit your personal information below. All fields are saved together when you submit. To change the email you sign in with, use <a href="/admin/profile/reset_login">Change sign-in email</a>; to change your roles or administrator status, contact an administrator (see <a href="/admin/iam">Identity & Access Management</a>).</p>
+                <p class="general-infohelp">Edit your personal information below. To change your sign-in email, use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
                 <ContributorForm profile={true} required={true} contributor={contributor_data} />
                 <p id="transaction-status">Your request status will show here after you press "Submit".</p>
                 <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>
@@ -70,6 +84,7 @@ if (self_id !== null && self_id !== undefined) {
             )
         )
     }
+    </main>
     <AdminFooter />
 </body>
 </html>

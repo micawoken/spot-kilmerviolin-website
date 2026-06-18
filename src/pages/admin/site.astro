@@ -8,7 +8,6 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 export const prerender = false
 
 const locals = Astro.locals
-const date = new Date()
 
 const identity = locals.identity
 ---
@@ -21,6 +20,7 @@ const identity = locals.identity
 <body>
     <!-- Header -->
     <AdminHeader identity={identity}  welcome={true}/>
+    <main class="admin-main" role="main">
     <!-- Pages for IAM, site info/mgmt, and advanced -->
     <div class="flex-container">
         <div class="column">
@@ -34,6 +34,7 @@ const identity = locals.identity
         </div>
     </div>
     <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/site" class="general-helppointer-link">Site Management</a>documentation and video.</p>
+    </main>
     <AdminFooter />
 </body>
 </html>

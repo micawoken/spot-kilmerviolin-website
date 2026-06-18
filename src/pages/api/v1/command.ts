@@ -22,8 +22,8 @@ import { exec_string } from "../../../lib/api/d1"
  * Meta: none
  * Body: required, JSON array of [command: string]
  * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the result of the SQL command, or an error message if execution fails
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the result of the SQL command, or an error message if execution fails
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context

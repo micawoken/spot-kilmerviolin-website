@@ -19,11 +19,12 @@ const enrollable = identity?.enrollable === true
 </head>
 <body>
     <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
     <h2>Self-Enrollment</h2>
     {
         enrollable ? (
             <>
-                <p class="general-infohelp">Your login is not yet linked to a contributor record. Complete the form below to create one. Your new account will have no permissions until an administrator (or a user with the user-enrollment role) activates it.</p>
+                <p class="general-infohelp">Your login is not yet linked to a contributor record. Complete the following form to create one using self-enrollment.</p>
                 <div class="generic-form">
                     <form id="advanced-form-selfenroll" class="generic-form">
                         <fieldset>
@@ -33,11 +34,12 @@ const enrollable = identity?.enrollable === true
                         <fieldset>
                             <legend>Major</legend>
                             <input type="text" id="advanced-form-selfenroll-major" name="major" />
+                            <p class="general-infohelp">The field is optional; leave blank to omit.</p>
                         </fieldset>
                         <fieldset>
                             <legend>Class Year</legend>
                             <input type="number" id="advanced-form-selfenroll-class_year" name="class_year" />
-                            <p class="general-infohelp">The major and class year are optional; leave them blank to omit.</p>
+                            <p class="general-infohelp">This field is optional; leave blank to omit.</p>
                         </fieldset>
                         <button type="submit">Submit</button>
                     </form>
@@ -80,11 +82,12 @@ const enrollable = identity?.enrollable === true
             </>
         ) : (
             <>
-                <p>Your login is not eligible for self-enrollment. Self-enrollment is only available when your login has no existing contributor record and self-enrollment is enabled for the site.</p>
-                <p class="general-infohelp">You can review your current authorization status on the <a href="/admin/iam/whoami">My Authorization Info</a> page. If you believe you should be enrollable, contact an administrator.</p>
+                <p>Your login is not eligible for self-enrollment. You may already have a contributor record, or the site configuration has disabled self-enrollment.</p>
+                <p class="general-infohelp">You can review your current authorization status in <a href="/admin/iam/whoami">My Authorization Info</a>. If you believe you should be enrollable, contact an administrator.</p>
             </>
         )
     }
+    </main>
     <AdminFooter />
 </body>
 </html>
