@@ -125,7 +125,7 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variable files
-.env
+.env*
 .env.development.local
 .env.test.local
 .env.production.local
@@ -200,3 +200,16 @@ dist
 
 ### Astro ###
 .astro/
+
+#  hard-coded SQL files in root
+*.sql
+
+#  agent configs
+.claude/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

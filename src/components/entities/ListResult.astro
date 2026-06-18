@@ -1,0 +1,31 @@
+---
+// extracts the data to render the list result
+/*
+ * noun - the entity type
+ * id - the entity's ID
+ * enviro - the list environment (admin, or something else), used to generate the pointer address
+ * name - optional, indicates the main name
+ * name2 - optional, indicates a secondary name
+ */
+const { noun, id, enviro, name, name2 } = Astro.props;
+// when a name is present it becomes the primary label and the ID is demoted to a corner badge;
+// with no name the ID is the primary label (original behavior)
+const display_name = name ? (name2 ? `${name} (${name2})` : name) : null;
+const pointer_text = display_name ?? `ID #${id}`;
+const pointer_address = (enviro === "admin") ? `/admin/${noun}s/info?id=${id}` : `/entity/${noun}/${id}`;
+---
+<div id={`list-result-${noun}-${id}`} class="list-result-container">
+    {display_name && <span class="list-result-id">ID #{id}</span>}
+    <a href={pointer_address} class="list-result-link">{pointer_text}</a>
+    {
+        enviro === "admin" ? (
+            <>
+                <a href={`/admin/${noun}s/edit?id=${id}`} class="list-result-edit-link" id={`list-result-${noun}-${id}-link`}>Edit &gt;</a>
+            </>
+        ) : (
+            <>
+
+            </>
+        )
+    }
+</div>

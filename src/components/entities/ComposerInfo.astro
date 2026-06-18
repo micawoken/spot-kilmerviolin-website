@@ -1,0 +1,68 @@
+---
+/**
+ * src/components/entities/ComposerInfo.astro
+ *
+ * Result display for a composer record
+ *
+ * Element ids follow the composer-{key} convention used by populateInfo in scripts/interface.ts
+ *
+ * Props:
+ * - composer (optional): a ComposerRecord provided by SSR, if any
+ * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
+ */
+import { NOT_PROVIDED } from "../../consts";
+import { countryCodeName } from "../../scripts/format";
+
+const composer: ComposerRecord | null = Astro.props.composer || null;
+const hidden: boolean = Astro.props.hidden || false;
+
+// renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
+// empty array, so a "not supplied" field is visually distinct from an unset/blank render
+const disp = (value: unknown, placeholder?: string): string => {
+    if (value === null || value === undefined) return (placeholder ? placeholder : NOT_PROVIDED);
+    if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : (placeholder ? placeholder : NOT_PROVIDED);
+    if (typeof value === "string" && value.trim() === "") return (placeholder ? placeholder : NOT_PROVIDED);
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    return String(value);
+};
+
+// a death_year of -1 denotes a living composer; render it as "Present" (mirrored client-side in populateInfo)
+const dispDeath = (value: number | null | undefined): string =>
+    value === -1 ? "Present" : disp(value, "(death year not provided)");
+---
+<div id="generic-result-composer" class=`entity-result-container${hidden ? " hidden" : ""}`>
+  <!-- infocard: general data (name, ID, country/role/birth-death infoline, tags) sits beside the image;
+       the longer-form bio is pulled out below so it spans the full card width instead of the left column -->
+  <div class="entity-result-infocard">
+    <div class="entity-result-infocard-content">
+    <div class="entity-result-infocard-header">
+    <h2 id="composer-name" class="entity-result-name">{composer?.name}</h2>
+    <p id="composer-id">ID #{composer?.id}</p>
+    </div>
+
+    <div id="composer-details" class="entity-result-details">
+        <div id="composer-details-infoline"> <!-- should be rendered as one line with a period separator character -->
+            <!-- data-bearing elements carry the composer-{key} id used by populateInfo; birth/death are split into
+                 their own spans (the ndash stays as static text) so each maps to a single record key -->
+            <strong><span id="composer-country">{disp(composer?.country ? countryCodeName(composer.country) : composer?.country, "(country not provided)")}</span></strong>
+            <p id="composer-role">{disp(composer?.role, "(role not provided)")}</p>
+            <p id="composer-details-infoline-birthdeath"><span id="composer-birth_year">{disp(composer?.birth_year, "(birth year not provided)")}</span>&ndash;<span id="composer-death_year">{dispDeath(composer?.death_year)}</span></p>
+        </div>
+        <div id="composer-details-tags">
+            <strong>Tags:</strong> <span id="composer-tags">{disp(composer?.tags)}</span>
+        </div>
+    </div>
+    </div>
+    <div id="composer-image-container" class="entity-result-image-container">
+        <!-- the <img> is always present (hidden when there is no image) so the client-side READ flow
+             (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
+             src is omitted when absent to avoid a broken-image request. -->
+        <img id="composer-image" class={`entity-result-image${composer?.image ? "" : " hidden"}`} src={composer?.image ?? undefined} alt={`Image of composer ${composer?.name ?? ""}`} />
+        <p id="composer-image-missing" class={`entity-result-image-missing${composer?.image ? " hidden" : ""}`}>No image available.</p>
+    </div>
+  </div>
+  <!-- bio spans the full card width below the infocard so it is not confined to the narrow left column -->
+  <div id="composer-details-bio" class="entity-result-bio">
+      <p id="composer-bio">{disp(composer?.bio, "(biography not provided)")}</p>
+  </div>
+</div>

@@ -1,0 +1,36 @@
+name: Deploy Worker to Staging
+on:
+  push:
+    branches:
+      - staging
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build Astro site
+        run: npm run build
+      
+      - name: Upload staging preview version to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Upload a non-live preview version under the "staging" alias, reachable at
+          # staging-<worker>.<subdomain>.workers.dev without taking production traffic. No secrets
+          # are set here: they are only used by the API, which is disabled on staging, and putting
+          # secrets would create a live deployment.
+          command: versions upload --preview-alias staging
+          preCommands: echo "Uploading staging preview version..."
+          postCommands: echo "Staging preview upload complete."
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

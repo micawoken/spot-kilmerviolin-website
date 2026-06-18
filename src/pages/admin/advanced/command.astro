@@ -1,0 +1,324 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Database Terminal`} description="Execute SQL commands directly on the database"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Database Terminal</h2>
+    <p class="general-warning">This terminal executes raw SQL directly on the production database, bypassing the validation performed by the regular editing pages. A malformed command can corrupt or destroy data. Requires administrator permissions.</p>
+    <p class="general-infohelp">Please refer to the <a href="https://sqlite.org/lang.html" target="_blank" rel="noopener noreferrer">SQLite language documentation</a> to learn its SQL implementation.</p>
+    <div class="generic-form">
+        <form id="advanced-form-command" class="generic-form">
+            <fieldset>
+                <legend>SQL Command</legend>
+                <textarea id="advanced-form-command-sql" name="sql" rows="6" cols="80" required></textarea>
+                <p class="general-infohelp">Press <kbd>Enter</kbd> to execute; use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.</p>
+            </fieldset>
+            <button type="submit">Execute</button>
+        </form>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Execute".</p>
+    <div id="advanced-command-output" class="command-output hidden">
+        <div class="command-view-toggle" role="group" aria-label="Response view">
+            <button type="button" id="command-view-formatted" class="command-view-button" aria-pressed="true">Formatted</button>
+            <button type="button" id="command-view-raw" class="command-view-button" aria-pressed="false">Raw JSON</button>
+        </div>
+        <p id="command-format-note" class="general-warning hidden"></p>
+        <div id="advanced-command-formatted" class="command-formatted"></div>
+        <pre id="advanced-command-raw" class="command-raw hidden"></pre>
+    </div>
+    <script>
+        import { executeCommand } from "../../../scripts/connector"
+        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+        const form = document.getElementById("advanced-form-command") as HTMLFormElement
+        const sql_input = document.getElementById("advanced-form-command-sql") as HTMLTextAreaElement
+        const output = document.getElementById("advanced-command-output")!
+        const formatted_container = document.getElementById("advanced-command-formatted")!
+        const raw_container = document.getElementById("advanced-command-raw")!
+        const format_note = document.getElementById("command-format-note")!
+        const view_formatted_btn = document.getElementById("command-view-formatted") as HTMLButtonElement
+        const view_raw_btn = document.getElementById("command-view-raw") as HTMLButtonElement
+        const message = getTransactionElem()
+
+        // Toggle between the formatted view and the raw JSON view of the most recent response.
+        function showView(view: "formatted" | "raw"): void {
+            const formatted = view === "formatted"
+            formatted_container.classList.toggle("hidden", !formatted)
+            raw_container.classList.toggle("hidden", formatted)
+            view_formatted_btn.setAttribute("aria-pressed", String(formatted))
+            view_raw_btn.setAttribute("aria-pressed", String(!formatted))
+        }
+        view_formatted_btn.addEventListener("click", () => showView("formatted"))
+        view_raw_btn.addEventListener("click", () => showView("raw"))
+
+        // Renders a single cell value as text: NULL for null, empty for undefined, JSON for nested
+        // objects/arrays, and the stringified value otherwise. Everything is set via textContent, so
+        // result data is never interpreted as HTML.
+        function cellText(value: unknown): string {
+            if (value === null) return "NULL"
+            if (value === undefined) return ""
+            if (typeof value === "object") return JSON.stringify(value)
+            return String(value)
+        }
+
+        // Appends a cell value to `parent`. SQL NULL is rendered as a lowercase, italic marker so it's
+        // visually distinct from the string "null"; every other value is appended as plain text.
+        function appendCellValue(parent: HTMLElement, value: unknown): void {
+            if (value === null) {
+                const null_marker = document.createElement("span")
+                null_marker.className = "command-null"
+                null_marker.textContent = "null"
+                parent.appendChild(null_marker)
+                return
+            }
+            parent.appendChild(document.createTextNode(cellText(value)))
+        }
+
+        // Builds the multi-column request-info block from the response's success flag and meta fields.
+        function buildRequestInfo(result: any): HTMLElement {
+            const block = document.createElement("div")
+            block.className = "command-info-block"
+            const entries: [string, unknown][] = []
+            entries.push(["success", result?.success === true ? "true" : result?.success === false ? "false" : "(unknown)"])
+            const meta = result?.meta
+            if (meta !== null && typeof meta === "object") {
+                for (const [key, value] of Object.entries(meta)) {
+                    entries.push([key, value])
+                }
+            }
+            for (const [key, value] of entries) {
+                // Each entry is one inline span that flows horizontally with the others. The key is a
+                // nested (bolded) span and the ": value" is appended after it, so the separator is part
+                // of the content itself rather than a CSS pseudo-element.
+                const item = document.createElement("span")
+                item.className = "command-info-item"
+                const label = document.createElement("span")
+                label.className = "command-info-key"
+                label.textContent = key
+                item.appendChild(label)
+                item.appendChild(document.createTextNode(": "))
+                appendCellValue(item, value)
+                block.appendChild(item)
+            }
+            return block
+        }
+
+        // Builds a results table whose headers are the union of the result objects' property names.
+        function buildResultsTable(rows: Record<string, unknown>[]): HTMLElement {
+            const headers: string[] = []
+            const seen = new Set<string>()
+            for (const row of rows) {
+                for (const key of Object.keys(row)) {
+                    if (!seen.has(key)) {
+                        seen.add(key)
+                        headers.push(key)
+                    }
+                }
+            }
+            const table = document.createElement("table")
+            table.className = "command-results-table"
+            const thead = document.createElement("thead")
+            const header_row = document.createElement("tr")
+            for (const header of headers) {
+                const th = document.createElement("th")
+                th.textContent = header
+                header_row.appendChild(th)
+            }
+            thead.appendChild(header_row)
+            table.appendChild(thead)
+            const tbody = document.createElement("tbody")
+            for (const row of rows) {
+                const tr = document.createElement("tr")
+                for (const header of headers) {
+                    const td = document.createElement("td")
+                    appendCellValue(td, row[header])
+                    tr.appendChild(td)
+                }
+                tbody.appendChild(tr)
+            }
+            table.appendChild(tbody)
+            // Wrap the table so a wide result set scrolls horizontally within this container instead of
+            // forcing the page layout wider than the viewport.
+            const scroll = document.createElement("div")
+            scroll.className = "command-table-scroll"
+            scroll.appendChild(table)
+            return scroll
+        }
+
+        // Builds the full formatted view: the request-info block followed by the result set, rendered as a
+        // table when the rows are objects, a list for primitive rows, a note when empty/absent, or a JSON
+        // dump for any other shape.
+        function buildFormatted(result: any): HTMLElement {
+            const container = document.createElement("div")
+            container.appendChild(buildRequestInfo(result))
+            const section = document.createElement("div")
+            section.className = "command-results-section"
+            const results = result?.results
+            if (Array.isArray(results)) {
+                if (results.length === 0) {
+                    const note = document.createElement("p")
+                    note.textContent = "No rows returned."
+                    section.appendChild(note)
+                } else if (results.every((row: unknown) => row !== null && typeof row === "object" && !Array.isArray(row))) {
+                    section.appendChild(buildResultsTable(results as Record<string, unknown>[]))
+                } else {
+                    // an array of primitives (or mixed values) is rendered as a single-column list
+                    const list = document.createElement("ul")
+                    for (const item of results) {
+                        const li = document.createElement("li")
+                        appendCellValue(li, item)
+                        list.appendChild(li)
+                    }
+                    section.appendChild(list)
+                }
+            } else if (results === undefined) {
+                const note = document.createElement("p")
+                note.textContent = "No result set returned."
+                section.appendChild(note)
+            } else {
+                // not a tabular result (e.g. a scalar or object payload): show it as formatted JSON
+                const pre = document.createElement("pre")
+                pre.textContent = typeof results === "object" ? JSON.stringify(results, null, 2) : String(results)
+                section.appendChild(pre)
+            }
+            container.appendChild(section)
+            return container
+        }
+
+        async function runCommand(): Promise<void> {
+            const form_data = new FormData(form)
+            const sql = String(form_data.get("sql") ?? "").trim()
+            if (!sql) {
+                message.textContent = "Error: a SQL command is required"
+                return
+            }
+            if (!confirm("Are you sure you want to execute this SQL command on the production database?")) {
+                return
+            }
+            message.textContent = "Processing request..."
+            output.classList.add("hidden")
+            formatted_container.replaceChildren()
+            raw_container.textContent = ""
+            format_note.classList.add("hidden")
+            format_note.textContent = ""
+            disableInput(form)
+            try {
+                const result = await executeCommand(sql)
+                message.textContent = "Request succeeded: command executed"
+                // the raw JSON view is always available as a fallback
+                raw_container.textContent = JSON.stringify(result, null, 2)
+                // attempt the formatted view; if rendering fails, fall back to raw and explain why
+                let default_view: "formatted" | "raw" = "formatted"
+                try {
+                    formatted_container.appendChild(buildFormatted(result))
+                } catch (format_error) {
+                    const reason = format_error instanceof Error ? format_error.message : String(format_error)
+                    format_note.textContent = `Could not render the formatted view (${reason}); showing the raw JSON response instead.`
+                    format_note.classList.remove("hidden")
+                    default_view = "raw"
+                    console.error("Failed to format command response:", format_error)
+                }
+                output.classList.remove("hidden")
+                showView(default_view)
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                enableInput(form)
+            }
+        }
+
+        form.addEventListener("submit", (evt: Event) => {
+            evt.preventDefault()
+            runCommand()
+        })
+
+        // submit on Enter; Shift+Enter (and the modifier combos) insert a newline for multi-line commands
+        sql_input.addEventListener("keydown", (evt: KeyboardEvent) => {
+            if (evt.key === "Enter" && !evt.shiftKey && !evt.ctrlKey && !evt.altKey && !evt.metaKey && !evt.isComposing) {
+                evt.preventDefault()
+                form.requestSubmit()
+            }
+        })
+    </script>
+    <style>
+        .command-output {
+            margin-block: 1rem;
+        }
+        .command-view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-block-end: 0.75rem;
+        }
+        /* the inactive view button is de-emphasized; the active one (aria-pressed) is highlighted */
+        .command-view-button[aria-pressed="true"] {
+            font-weight: 600;
+            text-decoration: underline;
+        }
+        .command-view-button[aria-pressed="false"] {
+            opacity: 0.6;
+        }
+        .command-raw {
+            overflow-x: auto;
+        }
+        /* The formatted view's subtree is styled in the global block below — it's built in client
+           script, so its elements never receive Astro's scoped-style marker and scoped rules can't
+           reach them. */
+    </style>
+    <style is:global>
+        /* These rules are global but rooted at #advanced-command-formatted so they only affect the
+           dynamically generated formatted-response subtree, not the rest of the page. */
+
+        /* request-info block: success + meta fields as horizontal wrapping "key: value" spans */
+        #advanced-command-formatted .command-info-block {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 1.25rem;
+            margin-block-end: 1rem;
+        }
+        #advanced-command-formatted .command-info-item {
+            overflow-wrap: anywhere;
+        }
+        #advanced-command-formatted .command-info-key {
+            font-weight: 600;
+        }
+        /* SQL NULL marker: lowercase + italic so it reads as "absent value", not the string "null" */
+        #advanced-command-formatted .command-null {
+            font-style: italic;
+            opacity: 0.75;
+        }
+        /* wide result sets scroll horizontally within this container rather than widening the page */
+        #advanced-command-formatted .command-table-scroll {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        #advanced-command-formatted .command-results-table {
+            border-collapse: collapse;
+            width: max-content;
+        }
+        #advanced-command-formatted .command-results-table th,
+        #advanced-command-formatted .command-results-table td {
+            border: 1px solid currentColor;
+            text-align: left;
+            padding: 0.25rem 0.5rem;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+    </style>
+    </main>
+    <AdminFooter />
+</body>
+</html>
