@@ -1,0 +1,115 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+
+// the middleware has already resolved the caller's identity; the sign-in email is the Access claim email
+const identity = Astro.locals.identity ?? null
+const current_email = identity?.email ?? ""
+const has_record = identity?.id !== undefined && identity?.id !== null
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Change Sign-In Email`} description="Change the email you use to sign in"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Change Sign-In Email</h2>
+    {
+        has_record ? (
+            <>
+                <p class="general-infohelp">This changes the email you use to sign in (your identity email), updating both your contributor record and the access policy. It does not change your public email — edit that under <a href="/admin/profile/edit">Edit my profile</a>.</p>
+                <p class="general-warning">After this change, you must sign in with the new email. Do not make a mistake — you will lose access if you enter an incorrect email.</p>
+                <div class="generic-form">
+                    <form id="profile-form-reset_login" class="generic-form" data-current-email={current_email}>
+                        <fieldset>
+                            <legend>Current Sign-In Email</legend>
+                            <p class="profile-current-email-line">Your current sign-in email is <strong id="profile-current-email">{current_email || "(unknown)"}</strong>.</p>
+                            <label for="profile-form-reset_login-old_email">Re-enter your current email to confirm:</label>
+                            <input type="email" id="profile-form-reset_login-old_email" name="old_email" required />
+                        </fieldset>
+                        <fieldset>
+                            <legend>New Sign-In Email</legend>
+                            <label for="profile-form-reset_login-new_email">New email:</label>
+                            <input type="email" id="profile-form-reset_login-new_email" name="new_email" required />
+
+                            <label for="profile-form-reset_login-confirm_email">Confirm new email:</label>
+                            <input type="email" id="profile-form-reset_login-confirm_email" name="confirm_email" required />
+                        </fieldset>
+                        <button type="submit">Submit</button>
+                    </form>
+                </div>
+                <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+                <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>
+                <script>
+                    import { updateSelfLogin } from "../../../scripts/connector"
+                    import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+                    // Astro hoists this bundled script, so it also runs on the fallback render where the form
+                    // is absent; guard against that before wiring up the submit handler
+                    const form = document.getElementById("profile-form-reset_login")
+                    if (form instanceof HTMLFormElement) {
+                        const message = getTransactionElem()
+                        // the sign-in email known server-side; used to confirm the user typed their current email correctly
+                        const current_email = form.dataset.currentEmail ?? ""
+
+                        form.addEventListener("submit", async (evt: Event) => {
+                            evt.preventDefault()
+                            message.textContent = "Processing request..."
+                            const form_data = new FormData(form)
+                            disableInput(form)
+                            try {
+                                const old_email = String(form_data.get("old_email") ?? "").trim()
+                                const new_email = String(form_data.get("new_email") ?? "").trim()
+                                const confirm_email = String(form_data.get("confirm_email") ?? "").trim()
+                                // confirm the user knows their current email (client-side guard; the server changes
+                                // the caller's own record regardless of what is typed here)
+                                if (current_email && old_email.toLowerCase() !== current_email.toLowerCase()) {
+                                    throw new Error("The current email you entered does not match your sign-in email.")
+                                }
+                                if (!new_email) {
+                                    throw new Error("A new email address is required.")
+                                }
+                                if (new_email !== confirm_email) {
+                                    throw new Error("The new email addresses do not match.")
+                                }
+                                if (current_email && new_email.toLowerCase() === current_email.toLowerCase()) {
+                                    throw new Error("The new email is the same as your current sign-in email.")
+                                }
+                                await updateSelfLogin(new_email)
+                                message.textContent = "Request succeeded: your sign-in email has been updated. You will be prompted to sign-in when you leave this page."
+                            } catch (error) {
+                                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                                console.error(error)
+                                enableInput(form)
+                            }
+                        })
+                    }
+                </script>
+            </>
+        ) : (
+            identity ? (
+                <p class="general-warning">Your login is not yet linked to a contributor record, so there is no sign-in email to change here. Complete <a href="/admin/advanced/selfenroll">self-enrollment</a> first.</p>
+            ) : (
+                <p>No identity information is available, so there is no sign-in email to change here. You may be browsing without authentication (such as in local development).</p>
+            )
+        )
+    }
+    </main>
+    <AdminFooter />
+    <style>
+        /* the legend already labels this field; pull the current-email line up tight under it rather than
+           leaving the default paragraph top margin, which read as an excessive gap */
+        .profile-current-email-line {
+            margin-top: 0.25rem;
+        }
+    </style>
+</body>
+</html>

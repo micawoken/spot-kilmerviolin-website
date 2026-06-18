@@ -1,0 +1,34 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ContributorForm from "../../../components/entities/ContributorForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Contributor`} description="Add a new contributor to the database"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Add a New Contributor</h2>
+    <p class="general-warning">This operation only creates a contributor record - this user will not be able to sign in. Use <a href="/admin/iam/add">Identity & Access Management &gt; Add new user</a> to provide login authorization. This operation requires administrator permissions.</p>
+    <p class="general-infohelp">You may prefer to use the auto-enrollment feature in <a href="/admin/iam/add">Identity & Access Management &gt; Add new user</a> instead.</p>
+    <ContributorForm required={true} show_auth={true} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const create_form = getForm("contributor_full", APIOpCode.CREATE)
+        create_form.addEventListener("submit", genHandler(create_form, getTransactionElem(), APIOpCode.CREATE, "contributor_full"))
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

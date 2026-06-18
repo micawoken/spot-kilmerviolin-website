@@ -1,0 +1,70 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete User`} description="Remove a user from the access policy"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Delete a User</h2>
+    <p class="general-warning">Removing a user revokes their ability to log in. By default, their contributor record is also deactivated (but not deleted).</p>
+    <div class="generic-form">
+        <form id="iam-form-remove" class="generic-form">
+            <fieldset>
+                <legend>User Email</legend>
+                <input type="email" id="iam-form-remove-email" name="email" required />
+            </fieldset>
+            <fieldset>
+                <legend>Auto-Deactivation</legend>
+                <input type="checkbox" id="iam-form-remove-autodeactivation" name="autodeactivation" checked />
+                <label for="iam-form-remove-autodeactivation">Deactivate the associated contributor record</label>
+            </fieldset>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { deleteIdentity } from "../../../scripts/connector"
+        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+        const form = document.getElementById("iam-form-remove") as HTMLFormElement
+        const message = getTransactionElem()
+
+        form.addEventListener("submit", async (evt: Event) => {
+            evt.preventDefault()
+            const form_data = new FormData(form)
+            const email = String(form_data.get("email") ?? "")
+            if (!confirm(`Are you sure you want to remove access for ${email}?`)) {
+                return
+            }
+            message.textContent = "Processing request..."
+            disableInput(form)
+            try {
+                if (!email) {
+                    throw new Error("An email address is required")
+                }
+                const autodeactivation = form_data.get("autodeactivation") === "on"
+                await deleteIdentity(email, autodeactivation)
+                message.textContent = `Request succeeded: removed user ${email}`
+            } catch (error) {
+                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                console.error(error)
+            } finally {
+                enableInput(form)
+            }
+        })
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

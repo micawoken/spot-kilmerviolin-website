@@ -1,0 +1,30 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ComposerForm from "../../../components/entities/ComposerForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Composer`} description="Add a new composer to the database"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Add a New Composer</h2>
+    <ComposerForm required={true} />
+    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+    <script>
+        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+        import { APIOpCode } from "../../../scripts/connector"
+        const form_or_button = getForm("composer", APIOpCode.CREATE)
+        form_or_button.addEventListener((form_or_button instanceof HTMLFormElement) ? "submit" : "click", genHandler(form_or_button, getTransactionElem(), APIOpCode.CREATE, "composer"))
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

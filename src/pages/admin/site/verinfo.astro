@@ -1,0 +1,95 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+// version info is rendered server-side (the GET /api/v1/site endpoint serves API consumers)
+import verinfo from "../../../lib/api/verinfo"
+import { guardPage } from "../../../lib/api/page_auth"
+
+export const prerender = false
+
+// authorize before rendering build/environment info, mirroring GET /api/v1/site (active callers)
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
+
+const info = verinfo(Astro.request)
+
+// build timestamp arrives as an ISO string; render it in a readable local form while keeping the raw
+// ISO value as the <time datetime> for fidelity. Falls back to the raw value if it is not parseable.
+const buildDate = info.timestamp ? new Date(info.timestamp) : null
+const buildTimestampDisplay = buildDate && !isNaN(buildDate.getTime())
+    ? buildDate.toLocaleString("en-US", {
+        year: "numeric", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", timeZoneName: "short",
+    })
+    : (info.timestamp ?? "(unknown)")
+
+// render a TTL (in seconds) as a human-readable duration: "1 hour", "1 hour 30 minutes", "45 minutes",
+// "30 seconds". null/undefined render as "(not set)". The raw seconds are shown alongside by the caller.
+const pl = (n: number, unit: string): string => `${n} ${unit}${n === 1 ? "" : "s"}`
+const formatTtl = (seconds: number | null | undefined): string => {
+    if (seconds === null || seconds === undefined) return "(not set)"
+    if (seconds === 0) return "0 seconds"
+    const parts: string[] = []
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    if (hours) parts.push(pl(hours, "hour"))
+    if (minutes) parts.push(pl(minutes, "minute"))
+    if (secs) parts.push(pl(secs, "second"))
+    return parts.join(" ")
+}
+// "<human> (<n> s)", or just the human form when there is no raw value to show
+const ttlWithRaw = (seconds: number | null | undefined): string =>
+    (seconds === null || seconds === undefined) ? formatTtl(seconds) : `${formatTtl(seconds)} (${seconds} s)`
+
+const yesno = (value: boolean): string => value ? "Yes" : "No"
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Info`} description="View site build and environment information"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Site Information</h2>
+    <div class="entity-result-container site-info-card">
+        <h3 class="entity-result-name">Site Information</h3>
+        <div id="site-info-infoline" class="site-info-infoline">
+            <strong>{info.environment.name}</strong>
+            <span>Build {info.build_id}</span>
+            <span>Tag {info.tag ? info.tag : "(none)"}</span>
+        </div>
+        <div class="site-info-details entity-result-details">
+            <div class="site-info-group">
+                <strong>Build timestamp:</strong>
+                <span>{buildDate && !isNaN(buildDate.getTime())
+                    ? <time datetime={buildDate.toISOString()}>{buildTimestampDisplay}</time>
+                    : buildTimestampDisplay}</span>
+                <strong>Build ID:</strong> <span>{info.build_id}</span>
+                <strong>Tag:</strong> <span>{info.tag ? info.tag : "(none)"}</span>
+            </div>
+            <div class="site-info-group">
+                <strong>Self-enrollment enabled:</strong> <span>{yesno(info.settings.selfenroll)}</span>
+                <strong>Rich error descriptions:</strong> <span>{yesno(info.settings.errordesc)}</span>
+            </div>
+            <div class="site-info-group">
+                <strong>Authentication service enabled:</strong> <span>{yesno(info.environment.authservice)}</span>
+                <strong>Database writable:</strong> <span>{yesno(info.environment.db_writable)}</span>
+                <strong>Cache API TTL (default):</strong> <span>{ttlWithRaw(info.environment.ttls.cacheApi.default)}</span>
+                <strong>Cache API TTL (long):</strong> <span>{ttlWithRaw(info.environment.ttls.cacheApi.long)}</span>
+                <strong>KV cache TTL (default):</strong> <span>{ttlWithRaw(info.environment.ttls.kv.default)}</span>
+            </div>
+        </div>
+    </div>
+    </main>
+    <AdminFooter />
+</body>
+</html>

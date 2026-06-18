@@ -1,0 +1,112 @@
+---
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { getStorageUsage } from "../../../lib/api/files"
+
+export const prerender = false
+
+// the key being replaced may be supplied via ?id=
+const key = Astro.url.searchParams.get("id") ?? ""
+
+// current usage seeds the live storage estimate (the client projects usage after the chosen file,
+// discounting the size of the file being replaced)
+const usage = await getStorageUsage(Astro.locals.cfContext)
+const used_gb = (usage.used / (1024 * 1024 * 1024)).toFixed(2)
+const max_gb = (usage.max / (1024 * 1024 * 1024)).toFixed(2)
+const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Replace File`} description="Replace an existing file in the file store"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Replace a File</h2>
+    <p class="general-infohelp">Replacing a file keeps its key (and therefore any references to it) but swaps in new bytes. Images are re-optimized on replacement.</p>
+    <div class="generic-form">
+        <form id="file-replace-form" class="generic-form" novalidate>
+            <fieldset>
+                <legend>File key<span class="field-required" aria-hidden="true">*</span></legend>
+                <div class="field-row">
+                    <input type="text" id="file-replace-key" name="key" value={key} placeholder="e.g. composer-portrait.jpg" required />
+                </div>
+                <div class="searchhelper" id="file-search">
+                    <label for="file-search-input"><strong>Search for file:</strong></label>
+                    <input type="text" id="file-search-input" />
+                    <button type="button" id="file-search-button">Search</button>
+                    <div id="file-search-results">
+                        <p>Results will display here when searched.</p>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Replacement file<span class="field-required" aria-hidden="true">*</span></legend>
+                <div class="field-row">
+                    <input type="file" id="file-replace-input" name="file" required />
+                </div>
+            </fieldset>
+            <!-- live storage figure (mirrors /admin/files); updates with a projection once a file is chosen,
+                 discounting the replaced file's current size. used/max bytes are carried in data attributes
+                 for the client estimate (a define:vars script cannot also use module imports). -->
+            <p id="file-storage-usage" class="general-infohelp" data-used={usage.used} data-max={usage.max}>Storage used: {used_gb} GB of {max_gb} GB ({percent}%).</p>
+            <p class="field-required-note"><span class="field-required" aria-hidden="true">*</span> indicates a required field</p>
+            <button type="submit" id="file-replace-button">Upload</button>
+        </form>
+    </div>
+    <p id="transaction-status">Your request status will show here after you press "Upload".</p>
+    <script>
+        import { replaceFile } from "../../../scripts/connector"
+        import { attachFileSearchInline, attachStorageEstimate } from "../../../scripts/file_picker"
+        const form = document.getElementById("file-replace-form")
+        const status = document.getElementById("transaction-status")
+        const key_input = document.getElementById("file-replace-key")
+        const file_input = document.getElementById("file-replace-input")
+        const usage_elem = document.getElementById("file-storage-usage")
+
+        // live search: selecting a hit fills its key into the key field instead of navigating
+        attachFileSearchInline("file-search-input", "file-search-button", "file-search-results", (key: string) => {
+            if (key_input instanceof HTMLInputElement) {
+                key_input.value = key
+                // re-run the storage estimate for the newly selected key
+                key_input.dispatchEvent(new Event("input", { bubbles: true }))
+            }
+        })
+
+        // live storage estimate: shows current usage and projects how much will remain after the replacement
+        if (usage_elem) {
+            const used = Number(usage_elem.dataset.used ?? "0")
+            const max = Number(usage_elem.dataset.max ?? "0")
+            attachStorageEstimate(used, max, "file-replace-input", "file-storage-usage", "file-replace-key")
+        }
+
+        if (form instanceof HTMLFormElement && status && key_input instanceof HTMLInputElement && file_input instanceof HTMLInputElement) {
+            form.addEventListener("submit", async (evt: Event) => {
+                evt.preventDefault()
+                const key = key_input.value.trim()
+                const file = file_input.files?.[0]
+                if (!key || !file) {
+                    status.textContent = "Please provide both a file key and a replacement file."
+                    return
+                }
+                status.textContent = "Replacing..."
+                try {
+                    await replaceFile(key, file)
+                    status.innerHTML = `Replacement complete. <a href="/admin/files/info?id=${encodeURIComponent(key)}">View file info &gt;</a>`
+                } catch (error) {
+                    status.textContent = `Replacement failed: ${error instanceof Error ? error.message : String(error)}`
+                    console.error(error)
+                }
+            })
+        }
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>
