@@ -40,47 +40,90 @@ body {
  * Entity result (Info) views
  * ------------------------------------------------------------------------- */
 
+/* Shared card shell: every Info card (record entities, file, whoami) uses the same border, padding,
+ * background, and unified width. box-sizing keeps the padding + border inside width:100% so the card
+ * never overflows the content area. */
 .entity-result-container {
 	border: 1px solid var(--shade-4);
 	border-radius: 8px;
 	padding: 1.25rem 1.5rem;
 	margin-bottom: 1.5rem;
 	background: var(--shade-1);
-	/* shrink-wrap the card to its content so a small/portrait image leaves no excess space to its
-	 * right; still bounded by the page width so wide content does not overflow */
-	width: fit-content;
-	max-width: 100%;
+	box-sizing: border-box;
+	/* all Info cards share one width: fill the content area up to a readable cap, then stop growing */
+	width: 100%;
+	max-width: 64rem;
 }
 
 .entity-result-name {
 	margin-bottom: 0.1rem;
 }
 
-/* the "ID #<n>" line sits just under the name; it now lives inside the infocard content column */
+/* the "ID #<n>" line sits just under the name */
 .entity-result-container p[id$="-id"] {
 	margin-top: 0;
 	color: var(--color-text-muted);
 	font-size: 0.9em;
 }
 
-/* Infocard layout (all entity Info views): textual content on the left, image on the right half */
-.entity-result-infocard {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	gap: 1.5rem;
+/* ---- Standardized record-Info layout --------------------------------------
+ * The record entity cards (contributor, composer, composition, file) lay their content out as a "head"
+ * region — identifying info groups beside a top-right image — followed by full-width regions (the bio,
+ * and the composition notes). The info groups flow into as many set-width columns as fit and wrap; the
+ * image is the right-most element on wide viewports and floats inline on the left on narrow ones. */
+
+/* head: on wide viewports a two-column grid — the identifying header and the columnar detail groups
+ * stack in the left column while the image occupies the right column, spanning both rows so it reads
+ * as "top-right". Source order is header → image → groups, so that when the grid collapses on narrow
+ * viewports (see the media block below) the image stacks directly beneath the title. */
+.entity-result-head {
+	display: grid;
+	/* the image column is a definite 20rem (not auto): an auto track combined with the image
+	 * container's min-width:0 collapses to min-content, which shrank the image to almost nothing */
+	grid-template-columns: minmax(0, 1fr) 20rem;
+	/* the header row is sized to its own content (min-content) and the groups row is flexible (1fr). The
+	 * image spans both rows; when it is taller than header+groups, that excess height is distributed as
+	 * grid free space, which targets the flexible 1fr track only — so the overflow lands entirely *below*
+	 * the groups rather than inflating the header row and pushing a short groups item (e.g. the composer
+	 * bio) down beneath it. (An `auto` second track splits the excess across both rows instead, which
+	 * reintroduced the gap.) */
+	grid-template-rows: min-content 1fr;
+	grid-template-areas:
+		"header image"
+		"groups image";
+	column-gap: 1.5rem;
+	align-items: start;
 }
-.entity-result-infocard-content {
-	flex: 1 1 48%;
+/* the identifying header (name + ID + primary identifying line) sits top-left, above the columnar
+ * detail groups, so a long name is never squeezed into a single narrow column */
+.entity-result-header {
+	grid-area: header;
+}
+/* the detail groups flow into set-width columns (wrapping to new rows) in the left column beneath the
+ * header; min-width:0 lets a column shrink so its content wraps instead of forcing the card wider */
+.entity-result-groups {
+	grid-area: groups;
+	min-width: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: 1rem 1.5rem;
+	align-items: start;
+}
+/* one labelled block of fields; min-width:0 lets long values wrap rather than widen the column */
+.entity-result-group {
 	min-width: 0;
 }
+/* the image occupies the right column, spanning both grid rows so it pins to the top-right beside the
+ * header and groups. The 40vh cap and the 4:5 placeholder footprint are defined just below. */
 .entity-result-image-container {
-	flex: 1 1 48%;
-	min-width: 0;
-	max-width: 50%;
+	grid-area: image;
+	align-self: start;
+	/* fill the definite 20rem image column; the <img> inside keeps width:auto so a smaller image is
+	 * not upscaled past its intrinsic size */
+	width: 100%;
 }
 /* When this container is showing the "no image" placeholder (rather than a real <img>), it carries the
- * 4:3 footprint and the 40vh cap itself, and the placeholder fills it (height:100%). The shape has to
+ * 4:5 footprint and the 40vh cap itself, and the placeholder fills it (height:100%). The shape has to
  * live on the container — not the placeholder — because in the narrow/stacked layout the container is a
  * column flex item whose main size is height: the flex algorithm sizes it from the placeholder's
  * (text) min-content height and ignores an aspect-ratio set on the placeholder, so a placeholder that
@@ -88,7 +131,7 @@ body {
  * details below it. A real <img> doesn't hit this (its intrinsic height is known), so the rule is
  * scoped via :has() to the placeholder case only. */
 .entity-result-image-container:has(> .entity-result-image-missing:not(.hidden)) {
-	aspect-ratio: 4 / 3;
+	aspect-ratio: 4 / 5;
 	max-height: 40vh;
 }
 
@@ -114,7 +157,7 @@ body {
 	align-items: center;
 	justify-content: center;
 	text-align: center;
-	/* fill the container, which owns the 4:3 footprint and 40vh cap (see the :has() rule above); this
+	/* fill the container, which owns the 4:5 footprint and 40vh cap (see the :has() rule above); this
 	 * keeps the placeholder from ever exceeding its container and overlapping the details below it */
 	width: 100%;
 	height: 100%;
@@ -133,17 +176,44 @@ body {
 	display: none;
 }
 
-/* Grouped detail sections share consistent vertical rhythm */
-.entity-result-details > div {
-	margin-bottom: 1rem;
+/* Detail groups: a vertical stack of label/value field pairs. Each pair (.entity-field) is a flex row
+ * whose value sits beside its label when there is room and drops onto its own line — taking the full
+ * group width — when the space left beside the label is too small (flex-basis 9rem is the threshold),
+ * so a long label never squeezes its value into a sliver. */
+.entity-result-details {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
 }
-.entity-result-details > div:last-child {
-	margin-bottom: 0;
+.entity-field {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: 0.5rem;
+	row-gap: 0.1rem;
+}
+.entity-field > strong {
+	flex: 0 0 auto;
+}
+.entity-field > span {
+	flex: 1 1 9rem;
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
+/* biography wrapper — used both as a head group (contributor) and as a full-width region; purely
+ * typographic so it reads the same in either position */
 .entity-result-bio {
-	margin: 1rem 0;
+	margin: 1.25rem 0 0;
 	line-height: 1.6;
+}
+.entity-result-bio > p {
+	margin: 0;
+}
+
+/* a detail region pulled below the head to span the full card width (e.g. composer tags) */
+.entity-result-fullwidth {
+	margin-top: 1.25rem;
 }
 
 /* --- Composer: single-line "infoline" (country · role · birth–death) ------ */
@@ -161,6 +231,25 @@ body {
 }
 /* period/middle-dot separator between the infoline parts */
 #composer-details-infoline > *:not(:last-child)::after {
+	content: "·";
+	margin-left: 0.5rem;
+	color: var(--shade-6);
+}
+
+/* --- Composition: single-line "infobar" (ID · type · part) ---------------- */
+/* mirrors the composer infoline (flex row with a middle-dot separator between parts) */
+#composition-details-infoline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+	color: var(--color-text-secondary);
+}
+#composition-details-infoline p {
+	margin: 0;
+}
+#composition-details-infoline > *:not(:last-child)::after {
 	content: "·";
 	margin-left: 0.5rem;
 	color: var(--shade-6);
@@ -187,56 +276,20 @@ body {
 	color: var(--shade-6);
 }
 
-/* --- Composition / File: label/value detail groups ------------------------ */
-
-#composition-details-composer,
-#composition-details-workprop,
-#composition-details-characteristics,
-#composition-details-ratings,
-#composition-details-publisher,
-#composition-details-contribution,
-#composition-details-tags,
-#file-details-image,
-#file-details-provenance {
+/* Composition notes: a full-width region below the head. The three sub-notes sit side by side when
+ * there is room and collapse to a single column when narrow; grid gaps own the spacing, so the per-div
+ * margins are zeroed. The grouping divs carry no visible label, so one is added via ::before. */
+.entity-result-notes-group {
+	margin-top: 1.25rem;
+	/* a fixed three-column track (one per note) so the three notes fill the first row and the trailing
+	 * tags cell wraps to the second row's first column — directly beneath the historical notes */
 	display: grid;
-	grid-template-columns: max-content 1fr;
-	column-gap: 0.75rem;
-	row-gap: 0.25rem;
-}
-#file-details-image > span,
-#file-details-provenance > span {
-	min-width: 0;
-	overflow-wrap: anywhere;
-}
-.entity-result-details strong {
-	white-space: nowrap;
-}
-/* let long composition values (URIs, names, ID lists) wrap inside their column rather than forcing the
- * grid to overflow horizontally; min-width:0 lets the value track shrink below its content's intrinsic
- * width so the wrapping actually takes effect */
-#composition-details-composer > span,
-#composition-details-workprop > span,
-#composition-details-characteristics > span,
-#composition-details-ratings > span,
-#composition-details-publisher > span,
-#composition-details-contribution > span,
-#composition-details-tags > span {
-	min-width: 0;
-	overflow-wrap: anywhere;
-}
-
-/* Composition notes: the grouping divs carry no visible label, so add one. The notes section spans the
- * full width of the wide-details row and lays its three sub-notes side by side when there is room
- * (collapsing to a single column on narrow screens); grid row/column gaps handle the spacing, so the
- * per-div margins are zeroed. */
-#composition-details-notes {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 	column-gap: 2rem;
 	row-gap: 1rem;
 	align-items: start;
 }
-#composition-details-notes > div {
+.entity-result-notes-group > div {
 	margin-bottom: 0;
 }
 #composition-details-notes-historical::before,
@@ -261,34 +314,11 @@ body {
 	white-space: pre-wrap;
 }
 
-/* --- Wide detail sections (below the infocard) ---------------------------- */
-
-/* Detail sections that live BELOW the infocard rather than inside its left content column, so they span
- * the full card width instead of being squeezed beside the image. On wide viewports the groups flow into
- * as many columns as fit (each at least ~22rem) to use the available horizontal space; they collapse to a
- * single column as the card narrows. align-items:start keeps groups top-aligned rather than stretched. */
-.entity-result-details-wide {
-	margin-top: 1.25rem;
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-	column-gap: 2rem;
-	row-gap: 1rem;
-	align-items: start;
-}
-/* grid row-gap owns the vertical rhythm here, so cancel the generic .entity-result-details > div margin */
-.entity-result-details-wide > div {
-	margin-bottom: 0;
-}
-/* notes are text-heavy: give them the full row (the small label/value groups share the remaining grid) */
-.entity-result-details-wide > #composition-details-notes {
-	grid-column: 1 / -1;
-}
-
-/* --- Contributor: infocard-specific detail rows (shared image layout above) --- */
+/* --- Contributor: identity-group detail rows ----------------------------- */
 
 /* ID # and public email share one line */
-#contributor-infocard-content > #contributor-id,
-#contributor-infocard-content > #contributor-public_email {
+#contributor-id,
+#contributor-public_email {
 	display: inline;
 	margin: 0;
 }
@@ -318,12 +348,22 @@ body {
 	color: var(--shade-6);
 }
 
-#contributor-infocard-phases {
-	margin: 0.25rem 0;
-	color: var(--color-text-secondary);
+/* Authorization fields lay out in a two-column grid so they pair up (2×2) rather than stacking in a
+ * single tall column; the leading help caption spans both columns so it does not occupy a field cell
+ * and shift the pairing (the fields stay aligned to each other regardless of the caption). */
+#contributor-authinfo {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	column-gap: 1.25rem;
+	row-gap: 0.3rem;
+	align-content: start;
 }
-#contributor-infocard-phases p {
+#contributor-authinfo > p {
 	margin: 0;
+}
+#contributor-authinfo > .general-infohelp {
+	grid-column: 1 / -1;
+	margin: 0 0 0.25rem;
 }
 
 /* --- Auth-info (whoami) card --------------------------------------------- */
@@ -524,18 +564,32 @@ form.generic-form .field-grid > label {
 	justify-self: start;
 }
 /* controls fill the capped second column so their left and right edges line up; .field-control is a cell
- * that stacks a control with its trailing help text (the URI field) yet still fills the column */
+ * that pairs a control with its trailing help text (the URI field) yet still fills the column */
 form.generic-form .field-grid > :is(input, select, textarea),
 form.generic-form .field-grid > .field-control {
 	margin: 0;
 	width: 100%;
 	box-sizing: border-box;
 }
+/* the URI control cell lays its input and format help on one row so the help rides to the right of the
+ * input (matching the inline format hints elsewhere) rather than stacking beneath it; it only wraps below
+ * when the row genuinely runs out of width */
 form.generic-form .field-grid > .field-control {
 	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: 0.5rem;
+	row-gap: 0.25rem;
 	min-width: 0;
+}
+form.generic-form .field-control > input {
+	flex: 1 1 10rem;
+	min-width: 0;
+}
+form.generic-form .field-control > .general-infohelp {
+	flex: 0 1 auto;
+	margin: 0;
 }
 
 /* A single field's primary row: the control sits at the left, its short inline format help (a token such
@@ -587,7 +641,7 @@ form.generic-form .field-required-note {
 /* An inline validation hint shown beside the offending control (showFieldError in scripts/interface.ts).
  * It occupies the same slot as the format-hint token, which is hidden (.field-hidden) while it shows, and
  * reads as bold emphasis in grayscale. Inside the aligned grid it spans its own full-width row; inside the
- * stacked URI control cell it sits under the input. */
+ * URI control cell it breaks to its own line under the input. */
 form.generic-form .field-error {
 	font-size: 0.85em;
 	font-weight: 700;
@@ -597,13 +651,126 @@ form.generic-form .field-error {
 form.generic-form .field-grid > .field-error {
 	grid-column: 1 / -1;
 }
-form.generic-form .field-control .field-error {
-	display: block;
+form.generic-form .field-control > .field-error {
+	flex: 1 1 100%;
 }
 /* a control flagged invalid by validation */
 form.generic-form .field-invalid {
 	outline: 2px solid var(--shade-7);
 	outline-offset: 1px;
+}
+/* A non-blocking caution shown in the same inline slot as .field-error (e.g. a too-small image that will
+ * be upscaled). Unlike the grayscale errors this is deliberately colored (and bold) so it draws the eye
+ * without reading as a hard validation failure that blocks submission. */
+form.generic-form .field-warning {
+	font-size: 0.85em;
+	font-weight: 700;
+	color: var(--color-warning);
+	margin: 0;
+}
+form.generic-form .field-grid > .field-warning {
+	grid-column: 1 / -1;
+}
+
+/* A page-level caution (colored + bold accent) for the file add/replace pages, shown only in local
+ * development to flag that the Cloudflare Images crop/optimize step is skipped under local emulation. */
+.admin-dev-warning {
+	color: var(--color-warning);
+	border: 1px solid var(--color-warning);
+	border-radius: 4px;
+	padding: 0.5rem 0.75rem;
+	margin: 0.5rem 0 1rem;
+	font-size: 0.9em;
+}
+
+/* ---- image crop interface (components/ImageCrop.astro, used on the add/replace file pages) ---- */
+.image-crop {
+	margin: 0.75rem 0 1rem;
+}
+/* too-small caution: the colored warning text plus a shortcut that resets to the largest centered crop.
+ * Sits just under the file input (the slot the field warning would occupy) and only shows while the
+ * selected region would be upscaled. Inherits .field-warning's color/weight for the text. */
+.image-crop-warning {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+.image-crop-standard {
+	font: inherit;
+	font-weight: 400;
+	padding: 0.2rem 0.6rem;
+	background: var(--shade-2);
+	color: var(--color-text);
+	border: 1px solid var(--color-warning);
+	border-radius: 4px;
+	cursor: pointer;
+}
+.image-crop-controls {
+	display: flex;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+.image-crop-controls button {
+	font: inherit;
+	padding: 0.3rem 0.7rem;
+	background: var(--shade-2);
+	color: var(--color-text);
+	border: 1px solid var(--shade-4);
+	border-radius: 4px;
+	cursor: pointer;
+}
+/* the chosen orientation reads as a filled, emphasized control */
+.image-crop-controls button.is-active {
+	background: var(--color-text);
+	color: var(--color-bg);
+	border-color: var(--color-text);
+}
+/* the stage clips the crop box's dimming overlay (a large spread box-shadow) to the image bounds */
+.image-crop-stage {
+	position: relative;
+	display: inline-block;
+	max-width: 100%;
+	overflow: hidden;
+	line-height: 0;
+	touch-action: none;
+	user-select: none;
+}
+.image-crop-img {
+	display: block;
+	max-width: 100%;
+	max-height: 50vh;
+	height: auto;
+}
+.image-crop-box {
+	position: absolute;
+	box-sizing: border-box;
+	border: 2px solid var(--color-link);
+	/* dim everything outside the crop box so the kept region stands out */
+	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+	cursor: move;
+	touch-action: none;
+}
+/* when the framed region is below its canonical canvas (and will be upscaled), recolor the box to the
+ * warning accent so the caution text and the box read as one signal */
+.image-crop-box.is-warning {
+	border-color: var(--color-warning);
+}
+.image-crop-handle {
+	position: absolute;
+	right: -8px;
+	bottom: -8px;
+	width: 16px;
+	height: 16px;
+	background: var(--color-link);
+	border: 2px solid var(--color-bg);
+	border-radius: 3px;
+	cursor: nwse-resize;
+	touch-action: none;
+}
+.image-crop-box.is-warning .image-crop-handle {
+	background: var(--color-warning);
 }
 /* a format-hint token temporarily hidden while a validation error occupies its place */
 form.generic-form .field-hidden {
@@ -907,63 +1074,48 @@ form.generic-form .field-hidden {
 }
 
 @media (max-width: 720px) {
-	/* stack the infocard: content above, image (or placeholder) below at full width */
-	.entity-result-infocard-content,
-	.entity-result-image-container {
-		flex: 1 1 100%;
-		max-width: 100%;
+	/* On narrow viewports the head's two-column grid collapses: header, image, and groups stack in
+	 * source order, so the image renders directly beneath the title as a block (no text wrapping around
+	 * it) and the detail groups follow below it. */
+	.entity-result-head {
+		display: block;
+	}
+	.entity-result-groups {
+		display: block;
+	}
+	/* grid gap no longer applies once the groups stack as blocks, so restore vertical rhythm between the
+	 * stacked entity groups (composer, contributor, characteristics, …) with a bottom margin */
+	.entity-result-groups > .entity-result-group {
+		margin-bottom: 1rem;
+	}
+	.entity-result-groups > .entity-result-group:last-child {
+		margin-bottom: 0;
 	}
 	.entity-result-image-container {
-		max-width: 320px;
+		width: auto;
+		max-width: min(20rem, 70%);
+		margin: 0.5rem 0 0.75rem;
 	}
-
-	/* Composition & composer: the content column holds the title/ID header *and* the detail groups, so
-	 * the default stack would push the image below every detail. Dissolve the content wrapper
-	 * (display: contents) so the header, details, and image become direct flex items of the infocard,
-	 * then stack them in a column and order the image to sit directly beneath the title/ID header,
-	 * above the details. The header keeps the title and ID grouped as one item so the column gap does
-	 * not separate them. */
-	#generic-result-composition .entity-result-infocard,
-	#generic-result-composer .entity-result-infocard {
-		flex-direction: column;
-		align-items: stretch;
-	}
-	#generic-result-composition .entity-result-infocard-content,
-	#generic-result-composer .entity-result-infocard-content {
-		display: contents;
-	}
-	#generic-result-composition #composition-image-container,
-	#generic-result-composer #composer-image-container {
-		order: 1;
-	}
-	#generic-result-composition #composition-details,
-	#generic-result-composer #composer-details {
-		order: 2;
+	/* the file info card stacks just two detail blocks (dimensions/optimized, then uploaded/etag);
+	 * widen the gap beyond the default 1rem so the two text blocks read as clearly separate sections */
+	#file-details-image {
+		margin-bottom: 2rem;
 	}
 }
 
 @media (max-width: 720px) {
-	/* Read (Info) detail grids: stack the label above its value (single column) so the max-content
-	 * label track can no longer squeeze the value into a one-character-per-line sliver. Mirrors the
-	 * data-entry form label/control stacking above. */
-	#composition-details-composer,
-	#composition-details-workprop,
-	#composition-details-characteristics,
-	#composition-details-ratings,
-	#composition-details-publisher,
-	#composition-details-contribution,
-	#composition-details-tags,
+	/* the site-info label/value grid stacks the label above its value (single column) on narrow
+	 * screens so the max-content label track can no longer squeeze the value into a sliver */
 	.site-info-group {
 		grid-template-columns: 1fr;
 	}
-	/* the wide sections (and the side-by-side notes) collapse to a single column on narrow screens */
-	.entity-result-details-wide,
-	#composition-details-notes {
+	/* the side-by-side notes collapse to a single column on narrow screens */
+	.entity-result-notes-group {
 		grid-template-columns: 1fr;
 	}
-	/* once a label owns the full row width, let it wrap (overriding the entity default nowrap) */
-	.entity-result-details strong {
-		white-space: normal;
+	/* the 2×2 authorization fields stack into a single column (four rows) when space is low */
+	#contributor-authinfo {
+		grid-template-columns: 1fr;
 	}
 
 	/* Corner ID badges reserve fixed horizontal space (padding-right) for the absolutely-positioned

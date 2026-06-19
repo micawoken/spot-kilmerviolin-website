@@ -26,15 +26,12 @@ export type RuntimeEnvironment = "development" | "staging" | "production"
 
 /**
  * The URL of the request currently being served, recorded once per request by the requestContext
- * middleware. This lets modules that don't receive the Request directly (notably the D1 write gate
- * in lib/api/d1.ts) still resolve the runtime environment. A single Worker isolate only ever serves
- * one hostname, so this shared module-level value is safe under concurrent requests for the
- * hostname-based checks below.
+ * middleware.
  */
 let activeRequestUrl: string | null = null
 
 /**
- * Records the URL of the request currently being served. Called by the requestContext middleware.
+ * Records the URL of the request currently being served
  *
  * @param {string} url - the value of context.request.url for the in-flight request
  */
@@ -95,14 +92,6 @@ export function richErrors(request: Request): boolean {
     return detectEnvironment(request) === "development"
 }
 
-
-/**
- * Whether the database primitives are allowed to perform write operations; false during staging since the API and admin are disabled
- *
- * @param {Request} [request] - the original Request object; when omitted, the request URL recorded by
- *   the requestContext middleware is used, which is how the D1 write gate resolves the environment
- * @returns {boolean} true on development and production, false on staging
- */
 /**
  * Whether the currently active request (as recorded by the requestContext middleware) is a local
  * development request. Intended for code paths that cannot receive a Request directly, such as
@@ -119,6 +108,14 @@ export function isActiveRequestDev(): boolean {
     }
 }
 
+
+/**
+ * Whether the database primitives are allowed to perform write operations; false during staging since the API and admin are disabled
+ *
+ * @param {Request} [request] - the original Request object; when omitted, the request URL recorded by
+ *   the requestContext middleware is used, which is how the D1 write gate resolves the environment
+ * @returns {boolean} true on development and production, false on staging
+ */
 export function dbWriteEnabled(request?: Request): boolean {
     const url = request?.url ?? activeRequestUrl
     // Without a request context (e.g. unit tests, or a write issued outside the request lifecycle)

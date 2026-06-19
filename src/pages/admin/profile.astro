@@ -8,7 +8,8 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 
 import { CONTRIBUTOR } from "../../lib/api/d1"
 import { getContributor } from "../../lib/api/database"
-import { guardPage, guardedRead } from "../../lib/api/page_auth"
+import { guardPage } from "../../lib/api/page_auth"
+import { guardedRead } from "../../lib/api/http"
 
 export const prerender = false
 
@@ -52,11 +53,6 @@ if (self_id !== null && self_id !== undefined) {
             <div class="profile-content">
                 <p class="general-infohelp">This is your user profile, connected to your contributor record. The non-protected information of your record displayed here will be published to the website. To change your personal information, use <a href="/admin/profile/edit">Edit my profile</a>. To change the email you sign in with (the identity email), use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
                 <ContributorInfo contributor={contributor_data} />
-                {
-                    contributor_data.image ? (
-                        <p class="general-infohelp">Image URL: <a href={contributor_data.image} id="profile-image-url">{contributor_data.image}</a></p>
-                    ) : null
-                }
                 <div class="entity-result-details">
                     <span><a href="/admin/profile/edit" class="col-item-link">Edit my profile &gt;</a> | <a href="/admin/profile/reset_login" class="col-item-link">Change sign-in email &gt;</a> | <a href="/admin/profile/deactivate" class="col-item-link">Deactivate my account &gt;</a></span>
                 </div>

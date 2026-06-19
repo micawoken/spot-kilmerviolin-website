@@ -66,7 +66,9 @@ const patch: boolean = Astro.props.patch || false;
                 <legend>Country{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
                 <div class="field-row">
                     <input type="text" id="form-composers-country" name="country" required={required} value={composer?.country ?? ""} />
-                    <small class="general-infohelp field-inline-help"><a href="https://www.iso.org/obp/ui" target="_blank">ISO 3166-1 Alpha-2 code</a></small>
+                    <!-- filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
+                         guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised -->
+                    <small id="form-composers-country-help" class="general-infohelp field-inline-help">ISO 3166-1 alpha-2 code or country name</small>
                     {
                         patch ? (
                             <span class="field-edittarget">
@@ -131,6 +133,7 @@ const patch: boolean = Astro.props.patch || false;
                 <legend>Image URL</legend>
                 <div class="field-row">
                     <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
+                    <small class="general-infohelp field-inline-help">Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.</small>
                     {
                         patch ? (
                             <span class="field-edittarget">
@@ -180,12 +183,14 @@ const patch: boolean = Astro.props.patch || false;
     // a no-op on create pages, which render no edit-target checkboxes)
     import { enableEditTargetOnChange } from "../../scripts/common"
     import { attachFilePicker } from "../../scripts/file_picker"
-    import { attachFormValidation } from "../../scripts/form_validate"
+    import { attachFormValidation, attachCountryFeedback } from "../../scripts/form_validate"
     const composer_form = document.getElementById("generic-form-composers")
     if (composer_form instanceof HTMLFormElement) {
         enableEditTargetOnChange(composer_form)
-        // live inline format validation (email, country, image URL, etc.)
+        // live inline format validation (year, image URL, etc.)
         attachFormValidation(composer_form)
+        // the country field resolves its code to a country name (and carries the ISO link in its error)
+        attachCountryFeedback(composer_form)
     }
     // image picker: fill the image URL field from uploaded (R2) or bundled (src/files) images
     attachFilePicker("form-composers-imagepicker-input", "form-composers-imagepicker-button", "form-composers-imagepicker-results", "form-composers-image")

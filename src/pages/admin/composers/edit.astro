@@ -9,7 +9,8 @@ import IDEntryForm from "../../../components/entities/IDEntryForm.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 import { getComposer } from "../../../lib/api/database"
 import { COMPOSER } from "../../../lib/api/d1"
-import { guardPage, guardedRead } from "../../../lib/api/page_auth"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
 
 export const prerender = false
 

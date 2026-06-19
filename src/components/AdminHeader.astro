@@ -13,7 +13,7 @@ const name_defined = identity?.userinfo?.ok || identity?.email;
 ---
 
 <header role="banner">
-    <h1>Administrative Services</h1>
+    <h1><a href="/admin" style="text-decoration: none; color: inherit; outline: none;">Administrative Services</a></h1>
     {
         welcome ? (
             <p>Welcome, {display_name}! <a href="/admin/profile" class="col-item-link">View your profile &gt;</a> &middot; <a href="/admin/logout" class="col-item-link">Logout &gt;</a></p>

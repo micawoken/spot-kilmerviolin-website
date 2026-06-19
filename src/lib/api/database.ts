@@ -526,10 +526,12 @@ async function _updatePrimitive(ctx: ExecutionContext, schema: D1Schema, id: num
  * @param schema the D1Schema of the record being updated
  * @param id the ID of the record being updated
  * @param record the updated record, as a partial Contributor, Composition, or Composer type; only provided fields will be updated
+ * @param allowProtected whether the caller has authorized writing schema.protected columns (e.g. roles/admin/
+ *   identity_email); defaults to false so a caller that omits its own elevation check cannot mass-assign them
  * @returns null
- * @throws an error if the record is invalid or if the schema is invalid
+ * @throws an error if the record is invalid, if the schema is invalid, or if it writes a protected column without authorization
  */
-async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, id: number, record: Partial<Contributor | Composition | Composer>): Promise<null> {
+async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, id: number, record: Partial<Contributor | Composition | Composer>, allowProtected: boolean = false): Promise<null> {
     const stmt = new SQLStatement(schema, "UPDATE", schema.name)
 
     let entry
@@ -547,6 +549,16 @@ async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, 
             throw new Error("Invalid schema")
     }
     const cleanEntry = Object.fromEntries(Object.entries(entry).filter(([_, value]) => value !== undefined)) as Record<string, string | number | null>
+    // defense in depth: protected columns carry authorization state (roles/admin/identity_email) and must
+    // never be written through a generic partial update unless the caller explicitly authorized it after its
+    // own permission/elevation check. A caller that forgets that check trips this guard (a loud failure)
+    // rather than silently mass-assigning privileged fields.
+    if (!allowProtected && schema.protected) {
+        const blocked = schema.protected.filter(col => col in cleanEntry)
+        if (blocked.length > 0) {
+            throw new Error(`Refusing to update protected column(s) [${blocked.join(", ")}] without explicit authorization`)
+        }
+    }
     const update_columns = Object.keys(cleanEntry).filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))
     if (update_columns.length === 0) {
         // nothing to update; running a SET-less UPDATE would be invalid SQL, so treat as a no-op
@@ -660,7 +672,7 @@ async function _listWrapper(schema: D1Schema, result: Record<string, string | nu
  * Get a contributor record based on a unique param
  * 
  * @param ctx the Cloudflare Worker ExecutionContext
- * @param param the unique column being queried on
+ * @param param the unique column being queried on (from D1Schema.index, i.e. the D1 types, not API types)
  * @param value the value of the unique column being queried
  * @returns the contributor record matching the query, or null if not found
  * @throws an error if the param is not a unique column
@@ -703,11 +715,13 @@ export async function updateContributor(ctx: ExecutionContext, id: number, recor
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated contributor record; only provided fields will be updated
+ * @param allowProtected whether the caller has authorized writing protected columns (roles/admin/
+ *   identity_email); the caller must perform its own elevation/permission check before passing true
  * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
+ * @throws an error if the record is invalid, if the id does not exist, or if it writes a protected column without authorization
  */
-export async function updateContributorPartial(ctx: ExecutionContext, id: number, record: Partial<Contributor>): Promise<null> {
-    return await _updatePrimitivePartial(ctx, CONTRIBUTOR, id, record)
+export async function updateContributorPartial(ctx: ExecutionContext, id: number, record: Partial<Contributor>, allowProtected: boolean = false): Promise<null> {
+    return await _updatePrimitivePartial(ctx, CONTRIBUTOR, id, record, allowProtected)
 }
 
 /**

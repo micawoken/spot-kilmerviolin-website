@@ -44,7 +44,6 @@ const identity = Astro.locals.identity ?? null
                         <span id="identity-enrollable" class="auth-flag-value">{identity.enrollable ? "Yes" : "No"}</span>
                     </div>
                 </div>
-                <p class="general-infohelp">Hover each status above for what it means.</p>
             </div>
         ) : (
             <p>No identity information is available. You may be browsing without authentication (such as in local development).</p>

@@ -7,7 +7,8 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { getFileMeta } from "../../../lib/api/files"
 import { getContributor } from "../../../lib/api/database"
-import { guardedRead } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
+import { CONTRIBUTOR } from "../../../lib/api/d1"
 
 export const prerender = false
 
@@ -24,9 +25,9 @@ const use_key = file !== null
 let uploader_name: string | null = null
 if (file?.uploader) {
     // capture into a const so the non-null narrowing survives into the guardedRead closure (file is a let)
-    const uploader_id = file.uploader
+    const uploader_id = file.uploader // the id is the contributor id
     // a missing contributors table surfaces the missing-table fallback page rather than a raw 500
-    const uploader_record = await guardedRead(() => getContributor(Astro.locals.cfContext, "id", uploader_id))
+    const uploader_record = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, uploader_id))
     if (uploader_record instanceof Response) {
         return uploader_record
     }
@@ -55,32 +56,32 @@ function formatBytes(bytes: number): string {
         use_key && file ? (
             <>
             <div class="entity-result-container">
-                <!-- infocard: the key is the card title, with the type/size/location infoline and the
-                     by-type detail groups beside the preview image (mirrors the entity Info cards) -->
-                <div class="entity-result-infocard">
-                    <div class="entity-result-infocard-content">
-                        <div class="entity-result-infocard-header">
-                            <h2 class="entity-result-name">{file.key}</h2>
-                        </div>
+                <!-- head: the key is the card title with the type/size/location infoline (top-left), the
+                     by-type detail groups flow in columns beneath it, and the preview image occupies the
+                     top-right (mirrors the entity Info cards). Source order is header → image → groups so
+                     the image stacks directly below the title on narrow viewports. -->
+                <div class="entity-result-head">
+                    <div class="entity-result-header">
+                        <h2 class="entity-result-name">{file.key}</h2>
                         <div id="file-details-infoline">
                             <p>{file.content_type}</p>
                             <p>{formatBytes(file.size)}</p>
                             <p><code>/api/v1/files/{file.key}</code></p>
                         </div>
-                        <div id="file-details" class="entity-result-details">
-                            <div id="file-details-image">
-                                <strong>Dimensions:</strong> <span>{file.width && file.height ? `${file.width}×${file.height}` : "(not an image)"}</span>
-                                <strong>Optimized:</strong> <span>{file.optimized ? "Yes" : "No"}</span>
-                            </div>
-                            <div id="file-details-provenance">
-                                <strong>Uploaded by:</strong> <span>{uploader_display}</span>
-                                <strong>Uploaded:</strong> <span>{file.uploaded}</span>
-                                <strong>ETag:</strong> <span>{file.etag}</span>
-                            </div>
-                        </div>
                     </div>
                     <div class="entity-result-image-container">
-                        <img class="entity-result-image" src={`/api/v1/files/${file.key}`} alt={`Preview of ${file.key}`} />
+                        <img class="entity-result-image" src={`/api/v1/files/${file.key}`} alt={`Preview of ${file.key}`} title={`Preview of ${file.key}`} />
+                    </div>
+                    <div class="entity-result-groups">
+                        <div id="file-details-image" class="entity-result-group entity-result-details">
+                            <div class="entity-field"><strong>Dimensions:</strong> <span>{file.width && file.height ? `${file.width}×${file.height}` : "(not an image)"}</span></div>
+                            <div class="entity-field"><strong>Optimized:</strong> <span>{file.optimized ? "Yes" : "No"}</span></div>
+                        </div>
+                        <div id="file-details-provenance" class="entity-result-group entity-result-details">
+                            <div class="entity-field"><strong>Uploaded by:</strong> <span>{uploader_display}</span></div>
+                            <div class="entity-field"><strong>Uploaded:</strong> <span>{file.uploaded}</span></div>
+                            <div class="entity-field"><strong>ETag:</strong> <span>{file.etag}</span></div>
+                        </div>
                     </div>
                 </div>
             </div>

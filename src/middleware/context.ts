@@ -1,9 +1,7 @@
 /**
  * src/middleware/context.ts
  *
- * Records per-request context that modules outside the Astro request lifecycle need to read.
- * Currently this captures the request URL so the D1 write gate (lib/api/d1.ts, via dbWriteEnabled)
- * can resolve the runtime environment without the Request being threaded through the database layer.
+ * Stores the request URL isolate-wide so it can be used by callers/modules without the Astro context
  *
  */
 

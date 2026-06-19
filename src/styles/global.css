@@ -13,6 +13,10 @@
 	--color-link: light-dark(#2337ff, #ff9e5e);
 	--color-link-hover: light-dark(#000d8a, #ffb784);
 
+	/* Warning accent (amber): used sparingly to flag a non-blocking caution the operator should notice,
+	 * e.g. a too-small image that will be upscaled. Deliberately colored, unlike the grayscale form errors. */
+	--color-warning: light-dark(#b45309, #fbbf24);
+
 	/* Neutral gradations, lightest (--shade-1) to strongest (--shade-7). The
 	 * dark-scheme column inverts the ramp so "light" surfaces become dark
 	 * surfaces while borders/separators keep comparable relative contrast. */

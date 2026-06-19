@@ -7,6 +7,7 @@
 
 import type { APIRoute } from "astro"
 import { deleteFile, deriveFileKey, readFileBytes, replaceFile } from "../../../../lib/api/files"
+import { parseCropFromForm } from "../../../../lib/api/images"
 import { R2CapacityError } from "../../../../lib/api/r2"
 import { auth_check } from "../../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook, constructFileResponse } from "../../../../lib/api/http"
@@ -75,10 +76,15 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     }
     const content_type = file.type || "application/octet-stream"
     const uploader = locals.identity ? String(locals.identity.id) : null
+    // optional crop instruction carried in the multipart fields (absent = centered portrait)
+    const crop = parseCropFromForm(form)
+    if (crop instanceof Error) {
+        return constructResponse(request, null, 400, crop.message)
+    }
     try {
         // reading the upload's bytes can throw if the client aborts mid-stream; keep it inside the try
         const bytes = await file.arrayBuffer()
-        await replaceFile(context.locals.cfContext, key, bytes, content_type, uploader)
+        await replaceFile(context.locals.cfContext, key, bytes, content_type, uploader, crop)
         return constructResponse(request, null, 204)
     } catch (error) {
         if (error instanceof R2CapacityError) {

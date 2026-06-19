@@ -180,7 +180,7 @@ export async function deactivateUser(ctx: ExecutionContext, id: number): Promise
  * @param {number} id The id of the user to be elevated
  */
 export async function elevateUser(ctx: ExecutionContext, id: number): Promise<void> {
-    await updateContributorPartial(ctx, id, { admin: true })
+    await updateContributorPartial(ctx, id, { admin: true }, true)
 }
 
 /**
@@ -191,7 +191,7 @@ export async function elevateUser(ctx: ExecutionContext, id: number): Promise<vo
  * @param {number} id The id of the user to be demoted
  */
 export async function demoteUser(ctx: ExecutionContext, id: number): Promise<void> {
-    await updateContributorPartial(ctx, id, { admin: false })
+    await updateContributorPartial(ctx, id, { admin: false }, true)
 }
 
 /**
@@ -227,7 +227,7 @@ export async function assignRole(ctx: ExecutionContext, id: number, role: string
         return
     }
     current_roles.push(role)
-    await updateContributorPartial(ctx, id, { roles: current_roles })
+    await updateContributorPartial(ctx, id, { roles: current_roles }, true)
 }
 
 /**
@@ -244,12 +244,12 @@ export async function removeRole(ctx: ExecutionContext, id: number, role: string
         return
     }
     const new_roles = record.roles.filter(r => r !== role)
-    await updateContributorPartial(ctx, id, { roles: new_roles })
+    await updateContributorPartial(ctx, id, { roles: new_roles }, true)
 }
 
 export async function _changeLoginEmail(ctx: ExecutionContext, id: number, old_email: string, new_email: string): Promise<void> {
     // update contributor data
-    await updateContributorPartial(ctx, id, { identity_email: new_email })
+    await updateContributorPartial(ctx, id, { identity_email: new_email }, true)
     // update access
     await add_user(new_email)
     await remove_user(old_email)
@@ -278,20 +278,11 @@ export async function changeLoginEmail(ctx: ExecutionContext, id: number, new_em
  * @param {string[]} roles The complete list of roles the user should have
  */
 export async function setRoles(ctx: ExecutionContext, id: number, roles: string[]): Promise<void> {
-    await updateContributorPartial(ctx, id, { roles: roles })
+    await updateContributorPartial(ctx, id, { roles: roles }, true)
 }
 
 /**
- * Reports whether a Contributor property may be written through changeProperty, deriving the answer
- * from the CONTRIBUTOR schema (lib/api/d1.ts) rather than a separate hardcoded allowlist so the two
- * cannot drift. A property is writable when it is a real table column that is not the primary key, not a
- * representation-only column (repr_exclude, e.g. entry_date), and not a protected authentication/
- * authorization column (CONTRIBUTOR.protected: roles, admin, identity_email).
- *
- * `active` is additionally reserved here: it gates whether a credential can be used (an authorization
- * concern) and has dedicated activateUser/deactivateUser entry points, but it is intentionally not part
- * of CONTRIBUTOR.protected (which would also hide it from readers and gate it behind elevation), so it is
- * excluded at this layer without modifying the schema.
+ * Reports whether a Contributor property may be written through changeProperty (not primary key, not hidden, not protected, and not "active")
  *
  * @param {string} property the candidate Contributor property name
  * @returns {boolean} true if the property is a writable, non-auth column

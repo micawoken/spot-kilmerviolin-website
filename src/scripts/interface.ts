@@ -190,6 +190,8 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
             const has_image = !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""))
             if (has_image) {
                 elem.src = String(value)
+                // mirror the alt text into the hover tooltip (the SSR markup does the same)
+                elem.title = elem.alt
                 elem.classList.remove("hidden")
                 missing?.classList.add("hidden")
             } else {
@@ -571,15 +573,16 @@ export function genHandler(form: HTMLFormElement, message: Element, exec_mode: A
  */
 export async function submitProfileEdit(form: HTMLFormElement, message: Element, self_id: number): Promise<void> {
     message.textContent = "Processing request..."
-    disableInput(form)
     try {
         // client-side format validation with inline hints, before generating and sending the update
         if (!validateFormFields(form, false)) {
             message.textContent = "Please correct the highlighted fields and try again."
-            enableInput(form)
             return
         }
+        // snapshot the form values before disabling its inputs: disabled controls are omitted from
+        // FormData, so disabling first would drop every field (the required `name` throws first)
         const form_data = new FormData(form)
+        disableInput(form)
         // generate in non-patch mode: every profile field is present in the form and is sent on save
         const data = generateObjectForm(form_data, interface_data["contributor_profile"].interface, false, [], false)
         await updateContributor(self_id, data as Partial<Contributor>)

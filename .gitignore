@@ -213,3 +213,5 @@ dist
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+.playwright*
+.playwright/*

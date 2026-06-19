@@ -11,12 +11,13 @@
  *  - file bytes are cached in the Cache API per key, so repeat reads do not hit R2.
  * Writes (add/replace/delete) invalidate the affected caches.
  *
- * Dependent on r2.ts and images.ts.
+ * 
+ * 
  */
 
 import { env } from "cloudflare:workers"
-import { computeUsage, deleteObject, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
-import { optimizeImage } from "./images.ts"
+import { deleteObject, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
+import { optimizeImage, type CropInstruction } from "./images.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 import { getKey, setKey, deleteKey } from "./kv.ts"
 
@@ -38,8 +39,7 @@ function _blobKey(key: string): string {
  * Derives a safe object key from a user-supplied file name
  *
  * Strips any path components, collapses whitespace to hyphens, and removes characters outside a
- * conservative filename set so the key is safe to embed in a URL path segment. The key is the file's
- * identity; note that an image's stored content type may differ from its extension once optimized.
+ * conservative filename set so the key is safe to embed in a URL path segment.
  *
  * @param {string} name - the raw file name (e.g. from the upload's filename or a provided name field)
  * @returns {string} the sanitized key, or an empty string if nothing usable remains
@@ -200,11 +200,12 @@ function _buildCustomMetadata(content_type: string, uploader: string | null, wid
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
  * @param {number} usage_budget - bytes already used to count this write against (excludes the key when replacing)
+ * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
  */
-async function _writeFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, usage_budget: number): Promise<FileMeta> {
-    const optimized = await optimizeImage(bytes, content_type)
+async function _writeFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, usage_budget: number, crop?: CropInstruction): Promise<FileMeta> {
+    const optimized = await optimizeImage(bytes, content_type, crop)
     const custom = _buildCustomMetadata(optimized.content_type, uploader, optimized.width, optimized.height, optimized.optimized)
     const stored = await putObject(key, optimized.bytes, optimized.content_type, custom, usage_budget)
     _invalidate(ctx, key)
@@ -219,17 +220,18 @@ async function _writeFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer
  * @param {ArrayBuffer | Uint8Array} bytes - the original file bytes
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
+ * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {Error} if a file already exists at the key (caller should map to 409)
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
  */
-export async function addFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null): Promise<FileMeta> {
+export async function addFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, crop?: CropInstruction): Promise<FileMeta> {
     const files = await listFiles(ctx)
     if (files.some(file => file.key === key)) {
         throw new Error(`A file already exists at key "${key}"`)
     }
     const used = files.reduce((total, file) => total + file.size, 0)
-    return await _writeFile(ctx, key, bytes, content_type, uploader, used)
+    return await _writeFile(ctx, key, bytes, content_type, uploader, used, crop)
 }
 
 /**
@@ -240,11 +242,12 @@ export async function addFile(ctx: ExecutionContext, key: string, bytes: ArrayBu
  * @param {ArrayBuffer | Uint8Array} bytes - the new file bytes
  * @param {string} content_type - the new MIME type
  * @param {string | null} uploader - the contributor id performing the replacement, or null
+ * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {Error} if no file exists at the key (caller should map to 404)
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
  */
-export async function replaceFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null): Promise<FileMeta> {
+export async function replaceFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, crop?: CropInstruction): Promise<FileMeta> {
     const files = await listFiles(ctx)
     const existing = files.find(file => file.key === key)
     if (existing === undefined) {
@@ -252,7 +255,7 @@ export async function replaceFile(ctx: ExecutionContext, key: string, bytes: Arr
     }
     // count this write against current usage minus the object being overwritten
     const used = files.reduce((total, file) => total + file.size, 0) - existing.size
-    return await _writeFile(ctx, key, bytes, content_type, uploader, used)
+    return await _writeFile(ctx, key, bytes, content_type, uploader, used, crop)
 }
 
 /**
@@ -270,8 +273,6 @@ export async function deleteFile(ctx: ExecutionContext, key: string): Promise<vo
 /**
  * Reports current and maximum storage usage for the bucket
  *
- * Usage is summed from the cached listing to avoid a fresh R2 scan on the request path.
- *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @returns {Promise<{ used: number, max: number }>} bytes used and the configured ceiling
  */
@@ -280,5 +281,27 @@ export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: nu
     return { used: files.reduce((total, file) => total + file.size, 0), max: MAX_R2_STORAGE_BYTES }
 }
 
-// computeUsage is re-exported for the build process, which may scan the bucket directly out-of-band
-export { computeUsage }
+/**
+ * Computes current bucket usage from a fresh R2 scan, refreshing the cached listing as it goes
+ *
+ * This is not a storage primitive: it builds on the r2.ts list operation rather than touching the bucket
+ * directly. Unlike getStorageUsage (which sums the possibly-cached listing), computeUsage always performs
+ * the Class A list scan so the figure can never be stale, and it repopulates the file-listing caches
+ * (Cache API + KV) with the freshly scanned records — so the scan's result is itself cached and
+ * subsequent listFiles/getFileMeta calls are served from cache rather than triggering another scan.
+ *
+ * Because it is authoritative and comparatively expensive, reserve it for paths that must not act on a
+ * stale figure (e.g. an out-of-band reconciliation at build time); request-path callers that only need
+ * to display usage should prefer getStorageUsage.
+ *
+ * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext, used to schedule cache writes
+ * @returns {Promise<number>} the total number of bytes stored in the bucket
+ */
+export async function computeUsage(ctx: ExecutionContext): Promise<number> {
+    // always scan R2 directly (never cache-first) so the usage figure reflects the bucket's true state
+    const records = await _listFromR2()
+    // refresh the faster cache layers with what we just scanned, so the result is cached for later reads
+    ctx.waitUntil(putCache(FILES_CACHE_STORE, FILES_LIST_KEY, records, "", true))
+    ctx.waitUntil(setKey(FILES_LIST_KEY, records, "json"))
+    return records.reduce((total, file) => total + file.size, 0)
+}

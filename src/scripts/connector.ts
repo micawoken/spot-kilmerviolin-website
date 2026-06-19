@@ -21,6 +21,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { CropSelection } from "./image_crop"
+
 // API REQUEST GENERATION
 
 /**
@@ -521,19 +523,40 @@ export async function listFiles(full?: boolean): Promise<string[] | FileMeta[] |
 }
 
 /**
+ * Appends an optional crop selection to a file upload's form body as the crop_* fields the API expects
+ * (see parseCropFromForm in lib/api/images.ts). A null/undefined crop is omitted, so the server applies
+ * its default centered portrait crop.
+ *
+ * @param body the FormData being assembled for the upload
+ * @param crop the normalized crop selection (aspect plus a 0..1 region), or null/undefined to omit
+ */
+function appendCrop(body: FormData, crop?: CropSelection | null): void {
+    if (!crop) {
+        return
+    }
+    body.append("crop_aspect", crop.aspect)
+    body.append("crop_x", String(crop.x))
+    body.append("crop_y", String(crop.y))
+    body.append("crop_w", String(crop.w))
+    body.append("crop_h", String(crop.h))
+}
+
+/**
  * POST /api/v1/files
  * Uploads a new file (multipart/form-data), returning the stored key
  *
  * @param file the file to upload
  * @param [name] an optional name to derive the key from; defaults to the file's own name
+ * @param [crop] an optional crop selection; images are cropped to a canonical shape (default centered portrait)
  * @return the stored file key
  */
-export async function uploadFile(file: File, name?: string): Promise<string> {
+export async function uploadFile(file: File, name?: string, crop?: CropSelection | null): Promise<string> {
     const body = new FormData()
     body.append("file", file)
     if (name) {
         body.append("name", name)
     }
+    appendCrop(body, crop)
     const payload = await requestPayload(composeUrl("files"), { method: "POST", body: body }, "Location")
     // the 201 body carries the stored FileMeta (with its key); fall back to the Location header
     if (payload && typeof payload === "object" && typeof (payload as FileMeta).key === "string") {
@@ -552,11 +575,13 @@ export async function uploadFile(file: File, name?: string): Promise<string> {
  *
  * @param key the file key to replace
  * @param file the replacement file
- * @return 
+ * @param [crop] an optional crop selection; images are cropped to a canonical shape (default centered portrait)
+ * @return
  */
-export async function replaceFile(key: string, file: File): Promise<void> {
+export async function replaceFile(key: string, file: File, crop?: CropSelection | null): Promise<void> {
     const body = new FormData()
     body.append("file", file)
+    appendCrop(body, crop)
     return requestVoid("file replace", composeUrl("files", key), { method: "PUT", body: body })
 }
 

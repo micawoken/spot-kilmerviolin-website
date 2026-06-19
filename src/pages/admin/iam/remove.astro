@@ -19,10 +19,12 @@ export const prerender = false
     <h2>Delete a User</h2>
     <p class="general-warning">Removing a user revokes their ability to log in. By default, their contributor record is also deactivated (but not deleted).</p>
     <div class="generic-form">
-        <form id="iam-form-remove" class="generic-form">
+        <form id="iam-form-remove" class="generic-form" novalidate>
             <fieldset>
                 <legend>User Email</legend>
-                <input type="email" id="iam-form-remove-email" name="email" required />
+                <div class="field-row">
+                    <input type="email" id="iam-form-remove-email" name="email" required />
+                </div>
             </fieldset>
             <fieldset>
                 <legend>Auto-Deactivation</legend>
@@ -36,12 +38,21 @@ export const prerender = false
     <script>
         import { deleteIdentity } from "../../../scripts/connector"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
         const form = document.getElementById("iam-form-remove") as HTMLFormElement
         const message = getTransactionElem()
 
+        // live inline email validation, mirroring the entity forms
+        attachFormValidation(form)
+
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
+            // submit gate: reject a malformed email with an inline hint before confirming or sending
+            if (!validateFormFields(form)) {
+                message.textContent = "Please correct the highlighted fields and try again."
+                return
+            }
             const form_data = new FormData(form)
             const email = String(form_data.get("email") ?? "")
             if (!confirm(`Are you sure you want to remove access for ${email}?`)) {

@@ -26,6 +26,15 @@ export const prerender = false
                 <textarea id="advanced-form-command-sql" name="sql" rows="6" cols="80" required></textarea>
                 <p class="general-infohelp">Press <kbd>Enter</kbd> to execute; use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.</p>
             </fieldset>
+            <div id="advanced-command-danger" class="command-danger hidden">
+                    <!-- Shown only when the command appears to contain a destructive operation (see detectDangerousSql);
+                    the user must acknowledge before the command can be sent. -->
+                <p class="general-warning" id="advanced-command-danger-text"></p>
+                <label class="command-danger-ack">
+                    <input type="checkbox" id="advanced-command-danger-ack" name="danger_ack" />
+                    I understand this command may irreversibly modify or destroy data, and I want to run it anyway.
+                </label>
+            </div>
             <button type="submit">Execute</button>
         </form>
     </div>
@@ -45,6 +54,9 @@ export const prerender = false
 
         const form = document.getElementById("advanced-form-command") as HTMLFormElement
         const sql_input = document.getElementById("advanced-form-command-sql") as HTMLTextAreaElement
+        const danger_block = document.getElementById("advanced-command-danger")!
+        const danger_text = document.getElementById("advanced-command-danger-text")!
+        const danger_ack = document.getElementById("advanced-command-danger-ack") as HTMLInputElement
         const output = document.getElementById("advanced-command-output")!
         const formatted_container = document.getElementById("advanced-command-formatted")!
         const raw_container = document.getElementById("advanced-command-raw")!
@@ -53,7 +65,39 @@ export const prerender = false
         const view_raw_btn = document.getElementById("command-view-raw") as HTMLButtonElement
         const message = getTransactionElem()
 
-        // Toggle between the formatted view and the raw JSON view of the most recent response.
+        // regex to detect potentially destructive SQL operations, matched by keyword (may trigger false positives, but should never have a false negative)
+        const DANGEROUS_SQL: { pattern: RegExp; label: string }[] = [
+            { pattern: /\bDROP\b/i, label: "DROP" },
+            { pattern: /\bALTER\b/i, label: "ALTER" },
+            { pattern: /\bTRUNCATE\b/i, label: "TRUNCATE" },
+            { pattern: /\bDELETE\b/i, label: "DELETE" },
+            { pattern: /\bREPLACE\b/i, label: "REPLACE" },
+            { pattern: /\bATTACH\b/i, label: "ATTACH" },
+            { pattern: /\bDETACH\b/i, label: "DETACH" },
+            { pattern: /\bVACUUM\b/i, label: "VACUUM" },
+            { pattern: /\bREINDEX\b/i, label: "REINDEX" },
+        ]
+
+        // Returns the distinct destructive keywords found in the given SQL (empty when none are present)
+        function detectDangerousSql(sql: string): string[] {
+            return DANGEROUS_SQL.filter(op => op.pattern.test(sql)).map(op => op.label)
+        }
+
+        // Run a check on the entered command, and if any potentially destructive operations are detected, reveal the acknowledgement block and require user ACK
+        function refreshDangerState(): boolean {
+            const detected = detectDangerousSql(sql_input.value)
+            if (detected.length === 0) {
+                danger_block.classList.add("hidden")
+                danger_ack.checked = false
+                return false
+            }
+            danger_text.textContent = `This command contains a potentially destructive operation (${detected.join(", ")}). It may irreversibly modify or delete data. Confirm you understand before executing.`
+            danger_block.classList.remove("hidden")
+            return true
+        }
+        sql_input.addEventListener("input", refreshDangerState)
+
+        // Toggle between formatted view and raw JSON view
         function showView(view: "formatted" | "raw"): void {
             const formatted = view === "formatted"
             formatted_container.classList.toggle("hidden", !formatted)
@@ -205,6 +249,12 @@ export const prerender = false
                 message.textContent = "Error: a SQL command is required"
                 return
             }
+            // destructive-operation gate: a flagged command cannot be sent until the acknowledgement is checked
+            if (refreshDangerState() && !danger_ack.checked) {
+                message.textContent = "Error: this command may be destructive — check the acknowledgement box below the command to proceed."
+                danger_ack.focus()
+                return
+            }
             if (!confirm("Are you sure you want to execute this SQL command on the production database?")) {
                 return
             }
@@ -255,6 +305,25 @@ export const prerender = false
         })
     </script>
     <style>
+        /* destructive-operation acknowledgement: a bordered callout between the command box and the Execute
+           button, revealed only when a destructive keyword is detected */
+        .command-danger {
+            border: 1px solid var(--shade-5);
+            border-left: 4px solid var(--shade-7);
+            border-radius: 6px;
+            background: var(--shade-2);
+            padding: 0.75rem 1rem;
+            margin-block: 0.75rem;
+        }
+        .command-danger > .general-warning {
+            margin-block-start: 0;
+        }
+        .command-danger-ack {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-weight: 600;
+        }
         .command-output {
             margin-block: 1rem;
         }
