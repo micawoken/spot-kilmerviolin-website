@@ -9,9 +9,8 @@
  * (zoom), and a Portrait/Landscape toggle that re-locks the box. The static markup lives here; the scoped
  * script below wires the behaviour.
  *
- * It is self-contained: it owns the too-small warning (shown, with a "use standard crop" shortcut, when
- * the selected region is smaller than its canonical canvas and would be upscaled) and recolours the crop
- * box to match. It reports the current selection by dispatching an `imagecrop:change` CustomEvent (detail:
+ * It is self-contained: it owns the too-small warning (shown when the selected region is smaller than its
+ * canonical canvas and would be upscaled) and recolours the crop box to match. It reports the current selection by dispatching an `imagecrop:change` CustomEvent (detail:
  * ImageCropChangeDetail) on its root element, which the host page caches to forward on submit.
  */
 interface Props {
@@ -24,10 +23,9 @@ const { inputId, id = "image-crop" } = Astro.props
 ---
 <div class="image-crop" id={id} data-input-id={inputId} hidden>
     <!-- too-small caution: occupies the slot just under the file input, mirroring the field warning it
-         replaces; the button resets the box to the largest centered crop (the least upscaling). -->
+         replaces; shown only while the selected region would be upscaled. -->
     <div class="image-crop-warning field-warning" role="status" hidden>
         <span class="image-crop-warning-text"></span>
-        <button type="button" class="image-crop-standard">Use standard crop</button>
     </div>
     <div class="image-crop-controls">
         <button type="button" class="image-crop-aspect is-active" data-aspect="portrait">Portrait 4:5</button>
@@ -60,9 +58,8 @@ const { inputId, id = "image-crop" } = Astro.props
         const btn_landscape = root.querySelector<HTMLButtonElement>('.image-crop-aspect[data-aspect="landscape"]')
         const warning = root.querySelector<HTMLElement>(".image-crop-warning")
         const warning_text = root.querySelector<HTMLElement>(".image-crop-warning-text")
-        const btn_standard = root.querySelector<HTMLButtonElement>(".image-crop-standard")
         if (!(file_input instanceof HTMLInputElement) || !(img instanceof HTMLImageElement) || !(box instanceof HTMLElement)
-            || !(handle instanceof HTMLElement) || !btn_portrait || !btn_landscape || !warning || !warning_text || !btn_standard) {
+            || !(handle instanceof HTMLElement) || !btn_portrait || !btn_landscape || !warning || !warning_text) {
             console.warn("ImageCrop: missing expected elements", { input_id })
             return
         }
@@ -180,12 +177,6 @@ const { inputId, id = "image-crop" } = Astro.props
         file_input.addEventListener("change", () => loadFile(file_input.files?.[0]))
         btn_portrait.addEventListener("click", () => setAspect("portrait"))
         btn_landscape.addEventListener("click", () => setAspect("landscape"))
-        // "use standard crop": reset to the largest centered frame of the current aspect (least upscaling)
-        btn_standard.addEventListener("click", () => {
-            if (!natural) return
-            fitCentered(0.5, 0.5)
-            sync()
-        })
 
         // --- drag (pan) and resize (zoom), both pointer-driven and clamped within the image ---
         let mode: "drag" | "resize" | null = null

@@ -296,6 +296,69 @@ export async function exec_string(command: string, params: unknown[] = []): Prom
 }
 
 /**
+ * Execute several raw SQL command strings in a single atomic batch.
+ *
+ * The statements are prepared and handed to D1's batch() API, which wraps them in an implicit
+ * transaction: they run sequentially in the order supplied, and if any statement fails the entire
+ * batch is rolled back (no partial application). Parameter binding is not exposed here since these
+ * commands originate from the admin terminal as complete literal SQL.
+ *
+ * @param commands the SQL command strings to execute, in order (must be non-empty)
+ * @returns an array of D1Result objects, one per command, in the same order
+ * @throws an error if any statement fails to prepare or execute, or if the batch does not succeed
+ */
+export async function exec_string_batch(commands: string[]): Promise<D1Result[]> {
+    if (commands.length === 0) {
+        throw new Error("No SQL commands supplied for batch execution")
+    }
+    const prepared: D1PreparedStatement[] = []
+    for (const command of commands) {
+        try {
+            prepared.push(env.DB_MAIN.prepare(command))
+        } catch (error) {
+            // mirror _exec's preparation error so the offending statement and any SQLITE_ code survive
+            throw new Error(`Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+        }
+    }
+
+    let results: D1Result[]
+    try {
+        results = await env.DB_MAIN.batch(prepared)
+    } catch (error) {
+        // a batch failure rolls back every statement; surface the original message for the error hook
+        throw new Error(`Failed to execute SQL batch: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+    }
+
+    // batch() resolves only when the transaction commits, but guard against a result flagged unsuccessful
+    if (results.some(result => !result.success)) {
+        throw new Error("SQL execution did not succeed for one or more statements in the batch")
+    }
+    return results
+}
+
+/**
+ * Execute several raw SQL command strings sequentially, each as its own statement.
+ *
+ * Unlike {@link exec_string_batch}, the statements are NOT wrapped in a transaction: each runs and
+ * commits independently, so a failure leaves the already-executed statements applied. Execution stops
+ * at the first failure (the error from _exec propagates), and only the results up to that point are lost.
+ *
+ * @param commands the SQL command strings to execute, in order (must be non-empty)
+ * @returns an array of D1Result objects, one per command, in the same order
+ * @throws an error if any statement fails to prepare or execute
+ */
+export async function exec_string_sequential(commands: string[]): Promise<D1Result[]> {
+    if (commands.length === 0) {
+        throw new Error("No SQL commands supplied for execution")
+    }
+    const results: D1Result[] = []
+    for (const command of commands) {
+        results.push(await _exec(command, []))
+    }
+    return results
+}
+
+/**
  * Perform a simple lookup by primary key (without caching or SQLStatement abstraction)
  * @param schema the D1Schema of the record being queried
  * @param id the primary key value of the record being queried

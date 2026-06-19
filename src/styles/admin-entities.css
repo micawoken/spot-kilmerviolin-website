@@ -687,25 +687,16 @@ form.generic-form .field-grid > .field-warning {
 .image-crop {
 	margin: 0.75rem 0 1rem;
 }
-/* too-small caution: the colored warning text plus a shortcut that resets to the largest centered crop.
- * Sits just under the file input (the slot the field warning would occupy) and only shows while the
- * selected region would be upscaled. Inherits .field-warning's color/weight for the text. */
-.image-crop-warning {
+/* too-small caution: the colored warning text. Sits just under the file input (the slot the field
+ * warning would occupy) and only shows while the selected region would be upscaled. Inherits
+ * .field-warning's color/weight for the text. The :not([hidden]) scope keeps the flex display from
+ * overriding the `hidden` attribute, so the warning truly disappears once the crop meets minimum size. */
+.image-crop-warning:not([hidden]) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.5rem;
 	margin-bottom: 0.5rem;
-}
-.image-crop-standard {
-	font: inherit;
-	font-weight: 400;
-	padding: 0.2rem 0.6rem;
-	background: var(--shade-2);
-	color: var(--color-text);
-	border: 1px solid var(--color-warning);
-	border-radius: 4px;
-	cursor: pointer;
 }
 .image-crop-controls {
 	display: flex;
