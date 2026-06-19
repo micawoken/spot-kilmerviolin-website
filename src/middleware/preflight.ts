@@ -15,7 +15,7 @@ export const preflight: MiddlewareHandler = async (context, next) => {
         return constructPreflightResponse(request)
     } else if (request.method === "OPTIONS") {
         // the request is OPTIONS, but not CORS preflight
-        return constructOptionsResponse()
+        return constructOptionsResponse(request)
     }
     // the request is not OPTIONS
     return next()

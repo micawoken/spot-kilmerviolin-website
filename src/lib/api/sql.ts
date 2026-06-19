@@ -739,10 +739,10 @@ export class VirtualSQLTable {
         switch (type_hint) {
             case "number":
                 if (Array.isArray(value)) {
-                    return value.map(v => typeof v === "string" ? parseInt(v) : v)
+                    return value.map(v => typeof v === "string" ? parseInt(v, 10) : v)
                 } else {
-                    return parseInt(value)
-                } 
+                    return parseInt(value, 10)
+                }
             case "string":
                 return value
             case "null":

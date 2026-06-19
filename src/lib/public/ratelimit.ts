@@ -20,10 +20,6 @@ export enum RLScope {
      */
     IP_GLOBAL,
     /**
-     * Applies to public endpoints (i.e., those related to search)
-     */
-    ENDPOINT_API_PUBLIC,
-    /**
      * Applies to all admin API endpoints (everything behind Access)
      */
     ENDPOINT_API_ADMIN_GLOBAL,
@@ -56,7 +52,6 @@ export enum RLScope {
  */
 const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit, keyType: "ip" | "user" }> = {
     [RLScope.IP_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "ip" },
-    [RLScope.ENDPOINT_API_PUBLIC]: { binding: () => env.RL_FREQ, keyType: "user" },
     [RLScope.ENDPOINT_API_ADMIN_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "user" },
     [RLScope.ENDPOINT_API_ADMIN_USER]: { binding: () => env.RL_FREQ, keyType: "user" },
     [RLScope.ENDPOINT_PAGERENDER_ADMIN]: { binding: () => env.RL_FREQ, keyType: "user" },

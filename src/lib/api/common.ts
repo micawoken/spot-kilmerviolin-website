@@ -285,7 +285,7 @@ function splitAndFilterItems(value: string): string[] {
 }
 
 function splitAndFilterNumbers(value: string): number[] {
-    return splitAndFilterItems(value).map(item => parseInt(item))
+    return splitAndFilterItems(value).map(item => parseInt(item, 10))
 }
 
 function joinAndFilterItems(values: Array<string | number>): string {
@@ -657,17 +657,25 @@ export function errorAPIPayload(comment: string): APIResponse {
 export async function parseAPIRequest(request: Request, meta_expect_keys?: string[]): Promise<APIRequest | Error> {
     // parses the body of an API request into an APIRequest object
     const content_type = request.headers.get("Content-Type")
-    if (content_type !== null && !content_type.toLowerCase().includes("application/json")) {
+    const is_json_content_type = content_type !== null && content_type.toLowerCase().includes("application/json")
+    if (content_type !== null && !is_json_content_type) {
         return new Error("Invalid content type: expected application/json")
     }
     let data: { payload: unknown, meta?: Record<string, string | boolean | number | null> }
     try {
         const body_text = await request.text()
         if (body_text.trim() === "") {
+            // a bodiless request (e.g. a GET that carries only a meta header) is allowed without a
+            // Content-Type, since there is nothing to interpret
             data = {
                 payload: null
             }
         } else {
+            // a non-empty body must declare application/json; a missing Content-Type is no longer assumed
+            // to be JSON, so an untyped payload is rejected rather than parsed on faith
+            if (!is_json_content_type) {
+                return new Error("Invalid content type: expected application/json for a request body")
+            }
             data = {
                 payload: JSON.parse(body_text)
             }

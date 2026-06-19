@@ -24,14 +24,6 @@ export const rateLimit: MiddlewareHandler = async (context, next) => {
         return next()
     }
 
-    if (path_components[0] === "api" || path_components[0] === "admin" || path_components[0] === "services") {
-        if (path_components[0] === "services" && path_components.length < 2) {
-            return next()
-        } else if (path_components[0] === "services" && path_components[1] !== "search") {
-            return next()
-        }
-    }
-
     // determine the appropriate rate limit scope
     let scopes: RLScope[] = []
     if (path_components[0] === "api") {
@@ -47,8 +39,6 @@ export const rateLimit: MiddlewareHandler = async (context, next) => {
         }
     } else if (path_components[0] === "admin") {
         scopes.push(RLScope.ENDPOINT_PAGERENDER_ADMIN)
-    } else if (path_components[0] === "services" && path_components[1] === "search") {
-        scopes.push(RLScope.ENDPOINT_API_PUBLIC)
     }
     if (scopes.length === 0) {
         return next()

@@ -89,13 +89,20 @@ function constructMeta(objects: object | null | undefined): Record<string, strin
  * 
  */
 function stripAPILocation(location: string): number | null {
+    // a leading slash yields an empty first component, so "/api/v1/{noun}/{id}" splits into exactly five
+    // segments: ["", "api", "v{ver}", "{noun}", "{id}"]. Require the id segment to be present (length >= 5,
+    // not just >= 4 where components[4] is undefined) and validate the api/v# prefix by component.
     const components = location.split("/")
-    const validate = location.startsWith("/api/v") && components.length >= 4 && components[4] !== ""
+    const validate = components.length >= 5
+        && components[1] === "api"
+        && /^v\d+$/.test(components[2])
+        && components[3] !== ""
+        && components[4] !== ""
     if (!validate) {
         console.warn(`Invalid Location header format: ${location}`)
         return null
     }
-    const id_component = parseInt(components[4])
+    const id_component = parseInt(components[4], 10)
     if (isNaN(id_component)) {
         console.warn(`ID component of Location header is not a valid number: ${components[4]}`)
         return null
