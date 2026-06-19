@@ -197,8 +197,30 @@ export const COMPOSITION: D1Schema = {
 }
 
 /**
+ * Strips a schema's protected properties (schema.protected) from a record before it leaves the server
+ *
+ * Read wrappers (getContributor/listContributors) intentionally return full records for server-side use;
+ * client-facing read endpoints must redact protected columns from records the requester is not entitled
+ * to see in full. Centralizing that here gives one tested chokepoint instead of an ad-hoc inline filter
+ * duplicated per endpoint, so a future endpoint is less likely to forget to redact.
+ *
+ * @param schema - the D1Schema whose `protected` list names the columns to remove (no-op when absent)
+ * @param record - the record to redact
+ * @returns a shallow copy of the record with protected properties removed
+ */
+export function redactProtected(schema: D1Schema, record: object): Record<string, unknown> {
+    const protectedKeys = schema.protected
+    if (!protectedKeys || protectedKeys.length === 0) {
+        return { ...record }
+    }
+    return Object.fromEntries(
+        Object.entries(record).filter(([key]) => !protectedKeys.includes(key))
+    )
+}
+
+/**
  * Internal function to prepare and execute a SQL command with supplied parameters
- * 
+ *
  * @param command the SQL command to execute, with parameter placeholders
  * @param params the parameters to bind to the command, in order
  * @returns a D1Result object containing the results of the command execution

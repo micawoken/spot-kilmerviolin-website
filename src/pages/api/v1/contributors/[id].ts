@@ -10,7 +10,7 @@ import { formatContribFromD1, parseAPIRequest } from "../../../../lib/api/common
 import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import { deleteContributor, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
-import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
+import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor, redactProtected } from "../../../../lib/api/d1"
 import { authEnabled } from "../../../../lib/api/environment"
 import { generateFallbackEmail, resolveIdentityEmail } from "../../../../lib/api/fallback"
 import { extractUploadedFileKey, getFileMeta } from "../../../../lib/api/files"
@@ -64,7 +64,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (locals.identity?.id !== state_id && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
             // identity is not self, and either elevate is false or user is not admin
             // filter out protected properties from the record before returning
-            const filtered_record = Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
+            const filtered_record = redactProtected(CONTRIBUTOR, record)
             return constructResponse(request, filtered_record, 200, undefined, last_modified)
         }
         // return full record
