@@ -70,7 +70,9 @@ import { env } from "cloudflare:workers";
 const cache_host = "https://spot-kilmer-violin-website.mwmsc.workers.dev"
 
 function generateCacheKey(key: string): string {
-    return `${cache_host}/cache/${key}`
+    // keys are constants today (table names / fixed identifiers), but encode defensively so a key carrying
+    // reserved URL characters cannot alter the cache address path (a one-time miss as constant keys re-derive)
+    return `${cache_host}/cache/${encodeURIComponent(key)}`
 }
 
 function constructResponse(payload: any[] | null, comment: string, long: boolean): Response {
@@ -127,11 +129,4 @@ export async function deleteCache(ctx: ExecutionContext, store_name: string, key
 export async function deleteCacheKey(store_name: string, key: string): Promise<boolean> {
     const cache_store = await caches.open(store_name)
     return await cache_store.delete(generateCacheKey(key))
-}
-
-export async function purgeCache(_store_name: string): Promise<boolean> {
-    // re-implement later
-    
-    return true
-    //return await caches.delete(store_name)
 }

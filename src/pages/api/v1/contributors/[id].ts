@@ -6,11 +6,11 @@
  */
 
 import type { APIRoute } from "astro"
-import { formatContribFromD1, parseAPIRequest } from "../../../../lib/api/common"
+import { parseAPIRequest } from "../../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
-import { deleteContributor, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
-import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor, redactProtected } from "../../../../lib/api/d1"
+import { deleteContributor, getContributor, updateContributor, updateContributorPartial } from "../../../../lib/api/database"
+import { _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor, redactProtected } from "../../../../lib/api/d1"
 import { authEnabled } from "../../../../lib/api/environment"
 import { generateFallbackEmail, resolveIdentityEmail } from "../../../../lib/api/fallback"
 import { extractUploadedFileKey, getFileMeta } from "../../../../lib/api/files"
@@ -48,13 +48,13 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid contributor ID: must be a number")
     }
     try {
-        const d1_result = await getRecord(CONTRIBUTOR, state_id)
-        if (d1_result.results.length === 0) {
+        // read through the cached whole-table layer (database.ts) rather than a direct D1 row read;
+        // contributor writes invalidate this cache, so the served record is current. getContributor
+        // already returns the API record shape, so no formatContribFromD1 conversion is needed.
+        const record = await getContributor(context.locals.cfContext, CONTRIBUTOR.primary_key, state_id.toString())
+        if (record === null) {
             return constructResponse(request, null, 404)
         }
-        const d1_record = d1_result.results[0] as D1Contributor
-        // convert the record type
-        const record = formatContribFromD1(d1_record)
 
         // change_date carries the record's last-modified time; surface it as the Last-Modified header
         // (change_date is not a protected property, so it survives the redaction below)
@@ -164,9 +164,12 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid contributor ID: must be a number")
     }
     try {
-        const d1_record = await getRecord(CONTRIBUTOR, state_id)
+        // read the current record through the cached whole-table layer (writes invalidate it, so it is
+        // current); used only for existence and the fallback-email name slug below, neither of which gates
+        // authorization (that is driven by locals.identity)
+        const existing_record = await getContributor(context.locals.cfContext, CONTRIBUTOR.primary_key, state_id.toString())
         const auth_enabled: boolean = authEnabled(request)
-        if (d1_record.results.length === 0) {
+        if (existing_record === null) {
             return constructResponse(request, null, 404)
         }
         // validate self identity
@@ -181,8 +184,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         // is a protected property, so this edit is still gated by the elevation check below.
         const raw = api_request.payload[0]
         if (raw !== null && typeof raw === "object" && "identity_email" in raw && (raw.identity_email === null || raw.identity_email === "")) {
-            const existing = d1_record.results[0] as D1Contributor
-            const slug_name = typeof raw.name === "string" && raw.name.trim() !== "" ? raw.name : existing.name
+            const slug_name = typeof raw.name === "string" && raw.name.trim() !== "" ? raw.name : existing_record.name
             raw.identity_email = generateFallbackEmail(slug_name)
         }
         // validate request body as partial contributor record

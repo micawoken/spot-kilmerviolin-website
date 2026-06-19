@@ -33,7 +33,7 @@ import { formatContribToD1, formatContribToD1Partial, formatCompToD1, formatWork
 import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpecificProp, exec_string, recordTypeAssertComplete } from "./d1.ts"
 import { SQLStatement, VirtualSQLTable } from "./sql.ts"
 import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
-import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
+import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 
 // in general, authorization is managed by the API endpoint, so no identity checks are made in this module
 
@@ -144,12 +144,12 @@ async function purgeKV(fixed: boolean = true): Promise<void> {
  * @returns {boolean} Whether the Cache API purge succeeded
  */
 export async function purgeCacheAll(kv_fixed: boolean = true): Promise<boolean> {
-    const outcome = await purgeCache("db_cache")
-    // purgeCache cannot enumerate or drop the whole store on Workers, so evict the known per-table entries directly
+    // the Workers Cache API has no store-wide purge, so evict the known per-table entries directly
     const known_keys = ["composers", "contributors", "compositions"]
     await Promise.all(known_keys.map(key => deleteCacheKey("db_cache", key)))
     await purgeKV(kv_fixed) // KV deletion succeeds whether the key exists or not
-    return outcome
+    // a thrown eviction would propagate; reaching here means the per-key purge + KV purge completed
+    return true
 }
 
 /**
@@ -318,11 +318,11 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
         // limit here propagates because the change genuinely cannot be persisted anywhere else.
         const output = await exec_stmt(stmt)
         // the write succeeded, so the now-stale caches are invalidated best-effort (a failed eviction must
-        // not fail the write; the entries will also expire on their own via TTL)
-        _backfill(ctx, () => purgeCache("db_cache"))
+        // not fail the write; the entries will also expire on their own via TTL). The Workers Cache API has
+        // no store-wide purge, so invalidation is per-key against the affected table.
         if (stmt.from) {
             // invalidate the KV backing store and the per-table Cache API entry so a simple SELECT is not
-            // repopulated from, or kept serving, stale data (the Cache API has no store-wide purge)
+            // repopulated from, or kept serving, stale data
             _backfill(ctx, () => deleteKey(stmt.from!))
             _backfill(ctx, () => deleteCacheKey("db_cache", stmt.from!))
         }
