@@ -215,6 +215,12 @@ const http_codes = {
         comment: "The request could not be completed due to a conflict with the current state of the resource",
         body: true
     },
+    413: {
+        success: false,
+        statusText: "Content Too Large",
+        comment: "The uploaded file exceeds the maximum permitted size",
+        body: true
+    },
     429: {
         success: false,
         statusText: "Too Many Requests",

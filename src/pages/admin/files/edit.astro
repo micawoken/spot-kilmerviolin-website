@@ -35,7 +35,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Replace a File</h2>
-    <p class="general-infohelp">Replacing a file keeps its key (and therefore any references to it) but swaps in new bytes. Only images may be uploaded here; they are re-optimized and cropped to a portrait (4:5) or landscape (5:4) shape on replacement.</p>
+    <p class="general-infohelp">Replace a file to change what image shows while maintaining its file key.</p>
     {isDev && <p class="admin-dev-warning" role="status"><strong>Local development:</strong> image cropping and optimization are <strong>skipped here</strong> — the local Cloudflare Images emulation cannot crop, so the file is stored unchanged. You can still frame the crop below; it is applied in production.</p>}
     <div class="generic-form">
         <form id="file-replace-form" class="generic-form" novalidate>

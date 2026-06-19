@@ -23,8 +23,7 @@ const prefill_email = emailFromParam(Astro.url)
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Demote a User from Administrator</h2>
-    <p class="general-warning">Demotion removes the user's administrator permissions, but does not deactivate their account or remove any roles they possess. To perform this operation, you must be an administrator.</p>
-    <p class="general-infohelp">The reverse also holds — marking an administrator's account inactive does <strong>not</strong> strip their administrator permissions. An inactive administrator retains full authorization across the API and admin pages. To revoke administrator access, you must demote the user here; deactivation alone is not sufficient.</p>
+    <p class="general-warning">Demotion removes the user's administrator permissions, but does not deactivate their account or remove any roles they possess. This operation requires administrator permissions.</p>
     <div class="generic-form">
         <form id="user-form-demote" class="generic-form" data-self-email={self_email} novalidate>
             <fieldset>

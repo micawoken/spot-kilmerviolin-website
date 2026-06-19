@@ -23,6 +23,15 @@ import { env } from "cloudflare:workers"
 export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
 
 /**
+ * The maximum size, in bytes, of a single uploaded file
+ *
+ * Enforced by the upload endpoints before the body is read into memory, so a client cannot exhaust
+ * worker memory or storage with one oversized upload. Images are optimized down after upload, but the
+ * cap applies to the original bytes the client sends.
+ */
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024 // 25 MiB
+
+/**
  * Thrown by putObject when a write would exceed MAX_R2_STORAGE_BYTES; endpoints map this to 507
  */
 export class R2CapacityError extends Error {

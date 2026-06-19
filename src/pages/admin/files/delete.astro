@@ -20,7 +20,7 @@ const key = Astro.url.searchParams.get("id") ?? ""
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Delete a File</h2>
-    <p class="general-warning">Deletion is permanent. Records still referencing this file's URL will show a broken image.</p>
+    <p class="general-warning">Deletion does not delete references to this file. Any record still using it will show a broken image.</p>
     <div class="generic-form">
         <form id="file-delete-form" class="generic-form">
             <fieldset>

@@ -25,8 +25,8 @@ const has_record = identity?.id !== undefined && identity?.id !== null
     {
         has_record ? (
             <>
-                <p class="general-infohelp">This changes the email you use to sign in (your identity email), updating both your contributor record and the access policy. It does not change your public email — edit that under <a href="/admin/profile/edit">Edit my profile</a>.</p>
-                <p class="general-warning">After this change, you must sign in with the new email. Do not make a mistake — you will lose access if you enter an incorrect email.</p>
+                <p class="general-infohelp">This changes the email you use to sign in (your identity email). It does not change your public email; edit that under <a href="/admin/profile/edit">Edit my profile</a>.</p>
+                <p class="general-warning">After this change, you must sign in with the new email. Do not make a mistake: you will lose access if you enter an incorrect email.</p>
                 <div class="generic-form">
                     <form id="profile-form-reset_login" class="generic-form" data-current-email={current_email}>
                         <fieldset>

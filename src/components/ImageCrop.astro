@@ -122,7 +122,7 @@ const { inputId, id = "image-crop" } = Astro.props
                 const canon = CLIENT_CANON[aspect]
                 const rw = Math.round(sel.w * natural.width)
                 const rh = Math.round(sel.h * natural.height)
-                warning_text.textContent = `This crop (${rw}×${rh}) is smaller than ${canon.w}×${canon.h} and may look pixelated after upscaling. It will be sharpened automatically.`
+                warning_text.textContent = `This crop (${rw}x${rh}) is smaller than ${canon.w}x${canon.h}. The system will apply sharpening, but the image may still look blurry or pixelated.`
             }
 
             const detail: ImageCropChangeDetail = { crop: currentCrop(), natural, tooSmall: too_small }

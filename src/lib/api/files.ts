@@ -50,6 +50,35 @@ export function deriveFileKey(name: string): string {
 }
 
 /**
+ * Pattern matching an uploaded-file image reference (/api/v#/files/<key>); the bundled-asset form
+ * (/files/<name>) and external URLs deliberately do not match
+ */
+const UPLOADED_FILE_PATTERN = /^\/api\/v\d+\/files\/(.+)$/
+
+/**
+ * Extracts the object key from an uploaded-file image reference
+ *
+ * Returns the key only when the value is an uploaded-file path (/api/v#/files/<key>); bundled assets
+ * (/files/<name>) and external http(s) URLs return null, since those have no R2 object to attribute to
+ * an uploader. The key is URL-decoded to match how it is stored (see _blobKey).
+ *
+ * @param {string} image - a contributor image reference
+ * @returns {string | null} the uploaded file's key, or null when the value is not an uploaded-file path
+ */
+export function extractUploadedFileKey(image: string): string | null {
+    const match = UPLOADED_FILE_PATTERN.exec(image.trim())
+    if (match === null) {
+        return null
+    }
+    try {
+        return decodeURIComponent(match[1])
+    } catch {
+        // a malformed percent-encoding cannot correspond to any stored key
+        return null
+    }
+}
+
+/**
  * Converts an R2 object (from a listing or head) into the API file metadata representation
  */
 function _toMeta(object: R2Object): FileMeta {
