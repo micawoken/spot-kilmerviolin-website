@@ -56,6 +56,9 @@ export default async function rebuild() {
     const response = await fetch(deploy_hook, {
         method: "POST"})
     if (!response.ok) {
+        // throw so the endpoint surfaces a 5xx; a non-ok deploy-hook response means the rebuild did not
+        // start, and silently returning undefined would let the caller report success
         console.error("Failed to trigger rebuild:", response.statusText)
+        throw new Error(`Deploy hook responded ${response.status} ${response.statusText}`)
     }
 }

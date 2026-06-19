@@ -453,14 +453,23 @@ export function constructPreflightResponse(request: Request): Response {
 /**
  * Constructs the 204 response for a bare OPTIONS request that is not a CORS preflight
  *
+ * The advertised Allow set is selected by route, mirroring constructPreflightResponse: API routes accept the
+ * full method set, everything else is read-only. This stays a superset of any individual endpoint's verbs
+ * (e.g. /api/v1/site is GET/POST/DELETE) rather than claiming GET-only for write-capable API routes.
+ *
+ * @param {Request} request - the original OPTIONS request, used to resolve the route
  * @returns {Response} a 204 No Content response advertising the allowed methods
  */
-export function constructOptionsResponse(): Response {
+export function constructOptionsResponse(request: Request): Response {
+    const path_components = new URL(request.url).pathname.split("/").filter(component => component.length > 0)
+    const allow = path_components.length > 0 && path_components[0] === "api"
+        ? "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        : "GET, OPTIONS"
     return new Response(null, {
         status: 204,
         statusText: "No Content",
         headers: {
-            "Allow": "GET, OPTIONS"
+            "Allow": allow
         }
     })
 }
