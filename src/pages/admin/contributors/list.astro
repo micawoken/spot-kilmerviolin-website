@@ -8,7 +8,8 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 // list is rendered server-side
 import { listContributors } from "../../../lib/api/database"
-import { guardPage, guardedRead } from "../../../lib/api/page_auth"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
 
 export const prerender = false
 

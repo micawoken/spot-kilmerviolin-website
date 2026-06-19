@@ -23,10 +23,12 @@ const prefill_email = emailFromParam(Astro.url)
     <h2>Add a New User</h2>
     <p class="general-infohelp">Allow a user to log onto the system. Optionally, automatically create a contributor record. This operation requires the userenroll role or administrator permissions.</p>
     <div class="generic-form">
-        <form id="iam-form-add" class="generic-form">
+        <form id="iam-form-add" class="generic-form" novalidate>
             <fieldset>
                 <legend>User Email</legend>
-                <input type="email" id="iam-form-add-email" name="email" value={prefill_email} required />
+                <div class="field-row">
+                    <input type="email" id="iam-form-add-email" name="email" value={prefill_email} required />
+                </div>
             </fieldset>
             <fieldset>
                 <legend>Auto-Enrollment</legend>
@@ -55,9 +57,13 @@ const prefill_email = emailFromParam(Astro.url)
     <script>
         import { addIdentity } from "../../../scripts/connector"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
         const form = document.getElementById("iam-form-add") as HTMLFormElement
         const message = getTransactionElem()
+
+        // live inline email (and class-year) validation, mirroring the entity forms
+        attachFormValidation(form)
 
         // reveal the auto-enrollment fields only when requested
         const autoenroll_checkbox = document.getElementById("iam-form-add-autoenrollment") as HTMLInputElement
@@ -68,6 +74,11 @@ const prefill_email = emailFromParam(Astro.url)
 
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
+            // submit gate: reject a malformed email (or class year) with an inline hint before sending
+            if (!validateFormFields(form)) {
+                message.textContent = "Please correct the highlighted fields and try again."
+                return
+            }
             message.textContent = "Processing request..."
             const form_data = new FormData(form)
             disableInput(form)

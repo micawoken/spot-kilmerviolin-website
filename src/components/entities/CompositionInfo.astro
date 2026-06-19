@@ -36,86 +36,87 @@ const disp = (value: unknown, placeholder?: string): string => {
     return String(value);
 };
 ---
-<div id="generic-result-composition" class=`entity-result-container${hidden ? " hidden" : ""}`>
-  <!-- infocard: identifying data (name, ID, composer, work properties, characteristics) sits beside the
-       image; the bulkier sections (notes, ratings, publisher, contribution, tags) are pulled out below so
-       they span the full card width and flow into multiple columns when the viewport can accommodate it -->
-  <div class="entity-result-infocard">
-    <div class="entity-result-infocard-content">
-    <div class="entity-result-infocard-header">
-    <h2 id="composition-name" class="entity-result-name">{composition?.name}</h2>
-    <p id="composition-id">ID #{composition?.id}</p>
-    </div>
-
-    <div id="composition-details" class="entity-result-details">
-        <div id="composition-details-composer">
-            <!-- the composer name and secondary-author names link to their composer info pages; the link
-                 target is the corresponding composer id. Mirrored client-side in interface.ts. -->
-            <strong>Composer:</strong> <span id="composition-composer_name" set:html={renderComposerNameLink(composition?.composer_id, names?.composer_name, "(error in composer name)")}></span>
-            <strong>Composer ID:</strong> <span id="composition-composer_id">{disp(composition?.composer_id)}</span>
-            <strong>Secondary Authors:</strong> <span id="composition-author_secondary_names" set:html={renderComposerNameLinks(composition?.author_secondary, names?.author_secondary_names, "(no secondary authors)")}></span>
-            <strong>Secondary Author IDs:</strong> <span id="composition-author_secondary">{disp(composition?.author_secondary, "(no secondary author IDs)")}</span>
+<div id="generic-result-composition" class={`entity-result-container${hidden ? " hidden" : ""}`}>
+  <!-- head: the name/ID header sits top-left, the detail groups (composer, work properties,
+       characteristics, ratings, publisher, contribution, tags) flow into columns beneath it, and the
+       image occupies the top-right; the bulkier notes span the full card width below. Source order is
+       header → image → groups so the image stacks directly below the title on narrow viewports. -->
+  <div class="entity-result-head">
+    <div class="entity-result-header">
+        <h2 id="composition-name" class="entity-result-name">{composition?.name}</h2>
+        <!-- infobar: the ID leads a middot-separated line that also carries the work type and part (the
+             standalone type/part group is folded in here). Each datum keeps its own composition-{key} id
+             so populateInfo can still fill it. -->
+        <div id="composition-details-infoline">
+            <p id="composition-id">ID #{composition?.id}</p>
+            <p id="composition-type">{disp(composition?.type, "(no type specified)")}</p>
+            <p id="composition-part">{disp(composition?.part, "(no part specified)")}</p>
         </div>
-        <div id="composition-details-workprop">
-            <strong>Type:</strong> <span id="composition-type">{disp(composition?.type, "(no type specified)")}</span>
-            <strong>Part:</strong> <span id="composition-part">{disp(composition?.part, "(no part specified)")}</span>
-        </div>
-        <div id="composition-details-characteristics">
-            <strong>Key:</strong> <span id="composition-key">{disp(composition?.key, "(no key specified)")}</span>
-            <strong>Range:</strong> <span id="composition-range">{disp(composition?.range, "(no range specified)")}</span>
-            <strong>Highest Position:</strong> <span id="composition-position_highest">{disp(composition?.position_highest, "(no position specified)")}</span>
-        </div>
-        <div id="composition-details-tags">
-            <strong>Tags:</strong> <span id="composition-tags">{disp(composition?.tags)}</span>
-        </div>
-    </div>
     </div>
     <div id="composition-image-container" class="entity-result-image-container">
         <!-- the <img> is always present (hidden when there is no image) so the client-side READ flow
              (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
              src is omitted when absent to avoid a broken-image request. -->
-        <img id="composition-image" class={`entity-result-image${composition?.image ? "" : " hidden"}`} src={composition?.image ?? undefined} alt={`Image for composition ${composition?.name ?? ""}`} />
+        <img id="composition-image" class={`entity-result-image${composition?.image ? "" : " hidden"}`} src={composition?.image ?? undefined} alt={`Image for composition ${composition?.name ?? ""}`} title={`Image for composition ${composition?.name ?? ""}`} />
         <p id="composition-image-missing" class={`entity-result-image-missing${composition?.image ? " hidden" : ""}`}>No image available.</p>
     </div>
-  </div>
-  <!-- full-width detail sections (below the infocard, no longer trapped in the left column) -->
-  <div id="composition-details-wide" class="entity-result-details entity-result-details-wide">
-        <div id="composition-details-notes">
-            <div id="composition-details-notes-historical">
-                <p id="composition-notes_historical" class="entity-result-notes">{disp(composition?.notes_historical, "(no historical notes)")}</p>
-            </div>
-            <div id="composition-details-notes-pedagogical">
-                <p id="composition-notes_pedagogical" class="entity-result-notes">{disp(composition?.notes_pedagogical, "(no pedagogical notes)")}</p>
-            </div>
-            <div id="composition-details-notes-other">
-                <p id="composition-notes_other" class="entity-result-notes">{disp(composition?.notes_other, "(no other notes)")}</p>
-            </div>
+    <div class="entity-result-groups">
+        <div id="composition-details-composer" class="entity-result-group entity-result-details">
+            <!-- the composer name and secondary-author names link to their composer info pages; the link
+                 target is the corresponding composer id. Mirrored client-side in interface.ts. -->
+            <div class="entity-field"><strong>Composer:</strong> <span id="composition-composer_name" set:html={renderComposerNameLink(composition?.composer_id, names?.composer_name, "(error in composer name)")}></span></div>
+            <div class="entity-field"><strong>Composer ID:</strong> <span id="composition-composer_id">{disp(composition?.composer_id)}</span></div>
+            <div class="entity-field"><strong>Secondary Authors:</strong> <span id="composition-author_secondary_names" set:html={renderComposerNameLinks(composition?.author_secondary, names?.author_secondary_names, "(no secondary authors)")}></span></div>
+            <div class="entity-field"><strong>Secondary Author IDs:</strong> <span id="composition-author_secondary">{disp(composition?.author_secondary, "(no secondary author IDs)")}</span></div>
         </div>
-        <div id="composition-details-ratings">
-            <strong>Suzuki Rating:</strong> <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span>
-            <strong>NYSSMA Rating:</strong> <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span>
+        <div id="composition-details-contribution" class="entity-result-group entity-result-details">
+            <!-- contribution sits beside the composer group (same row when there is room); contributor
+                 references render inline as "id (name)" links to each contributor's info page; the names
+                 come from the resolved CompositionNames (see attachCompositionNames) and are mirrored
+                 client-side in interface.ts -->
+            <div class="entity-field"><strong>Primary Contributor ID:</strong> <span id="composition-contrib_primary_1" set:html={renderContributorRefLink(composition?.contrib_primary_1, names?.contrib_primary_1_name, NOT_PROVIDED)}></span></div>
+            <div class="entity-field"><strong>Additional Primary Contributor ID:</strong> <span id="composition-contrib_primary_2" set:html={renderContributorRefLink(composition?.contrib_primary_2, names?.contrib_primary_2_name, "(no additional primary contributor specified)")}></span></div>
+            <div class="entity-field"><strong>Additional Contributor IDs:</strong> <span id="composition-contrib_addl" set:html={renderContributorRefLinks(composition?.contrib_addl, names?.contrib_addl_names, "(no additional contributors specified)")}></span></div>
+            <div class="entity-field"><strong>Phases:</strong> <span id="composition-phases">{disp(composition?.phases, "(no phases specified)")}</span></div>
         </div>
-        <div id="composition-details-publisher">
-            <strong>Publisher Name:</strong> <span id="composition-publication_info-name">{disp(composition?.publication_info?.name, "(no publisher name specified)")}</span>
-            <strong>Publication Location:</strong> <span id="composition-publication_info-location">{disp(composition?.publication_info?.location, "(no publication location specified)")}</span>
-            <strong>Publication Year:</strong> <span id="composition-publication_info-year">{disp(composition?.publication_info?.year, "(no publication year specified)")}</span>
+        <div id="composition-details-characteristics" class="entity-result-group entity-result-details">
+            <div class="entity-field"><strong>Key:</strong> <span id="composition-key">{disp(composition?.key, "(no key specified)")}</span></div>
+            <div class="entity-field"><strong>Range:</strong> <span id="composition-range">{disp(composition?.range, "(no range specified)")}</span></div>
+            <div class="entity-field"><strong>Highest Position:</strong> <span id="composition-position_highest">{disp(composition?.position_highest, "(no position specified)")}</span></div>
+        </div>
+        <div id="composition-details-ratings" class="entity-result-group entity-result-details">
+            <div class="entity-field"><strong>Suzuki Rating:</strong> <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span></div>
+            <div class="entity-field"><strong>NYSSMA Rating:</strong> <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span></div>
+        </div>
+        <div id="composition-details-publisher" class="entity-result-group entity-result-details">
+            <div class="entity-field"><strong>Publisher Name:</strong> <span id="composition-publication_info-name">{disp(composition?.publication_info?.name, "(no publisher name specified)")}</span></div>
+            <div class="entity-field"><strong>Publication Location:</strong> <span id="composition-publication_info-location">{disp(composition?.publication_info?.location, "(no publication location specified)")}</span></div>
+            <div class="entity-field"><strong>Publication Year:</strong> <span id="composition-publication_info-year">{disp(composition?.publication_info?.year, "(no publication year specified)")}</span></div>
             <!-- the publication URI is rendered according to its declared uri_type (the type is authoritative):
                  a clickable link for https, the literal "isbn:{value}" text for isbn, and the bare DOI linked to
                  its doi.org resolver for doi. renderPublicationUri returns markup-safe HTML (every value is
                  escapeHtml-encoded), so it is emitted via set:html rather than the auto-escaped `{}`. The
                  separate URI-type field is intentionally omitted here since the type is conveyed by the render
                  itself. Mirrored client-side in populateInfo. -->
-            <strong>Publication URI:</strong> <span id="composition-publication_info-uri" set:html={renderPublicationUri(composition?.publication_info?.uri_type, composition?.publication_info?.uri, "(no publication URI specified)")}></span>
+            <div class="entity-field"><strong>Publication URI:</strong> <span id="composition-publication_info-uri" set:html={renderPublicationUri(composition?.publication_info?.uri_type, composition?.publication_info?.uri, "(no publication URI specified)")}></span></div>
+        </div>
+    </div>
+  </div>
+  <!-- notes span the full card width below the head and lay their three sub-notes side by side when there
+       is room (stacking when narrow). The tags follow the notes as a fourth grid cell so they land in the
+       first column, directly beneath the historical notes. -->
+  <div id="composition-details-notes" class="entity-result-notes-group">
+        <div id="composition-details-notes-historical">
+            <p id="composition-notes_historical" class="entity-result-notes">{disp(composition?.notes_historical, "(no historical notes)")}</p>
+        </div>
+        <div id="composition-details-notes-pedagogical">
+            <p id="composition-notes_pedagogical" class="entity-result-notes">{disp(composition?.notes_pedagogical, "(no pedagogical notes)")}</p>
+        </div>
+        <div id="composition-details-notes-other">
+            <p id="composition-notes_other" class="entity-result-notes">{disp(composition?.notes_other, "(no other notes)")}</p>
+        </div>
+        <div id="composition-details-tags" class="entity-result-details">
+            <div class="entity-field"><strong>Tags:</strong> <span id="composition-tags">{disp(composition?.tags)}</span></div>
         </div>
   </div>
-  <br />
-  <div id="composition-details-contribution" class="entity-result-details">
-        <!-- contributor references render inline as "id (name)" links to each contributor's info page; the
-                names come from the resolved CompositionNames (see attachCompositionNames) and are mirrored
-                client-side in interface.ts -->
-        <strong>Primary Contributor ID:</strong> <span id="composition-contrib_primary_1" set:html={renderContributorRefLink(composition?.contrib_primary_1, names?.contrib_primary_1_name, NOT_PROVIDED)}></span>
-        <strong>Additional Primary Contributor ID:</strong> <span id="composition-contrib_primary_2" set:html={renderContributorRefLink(composition?.contrib_primary_2, names?.contrib_primary_2_name, "(no additional primary contributor specified)")}></span>
-        <strong>Additional Contributor IDs:</strong> <span id="composition-contrib_addl" set:html={renderContributorRefLinks(composition?.contrib_addl, names?.contrib_addl_names, "(no additional contributors specified)")}></span>
-        <strong>Phases:</strong> <span id="composition-phases">{disp(composition?.phases, "(no phases specified)")}</span>
-    </div>
 </div>

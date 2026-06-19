@@ -417,6 +417,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <legend>Image URL</legend>
                 <div class="field-row">
                     <input type="url" id="form-composition-image" name="image" value={composition?.image ?? ""} />
+                    <small class="general-infohelp field-inline-help">Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.</small>
                     {
                         patch ? (
                             <span class="field-edittarget">

@@ -1,13 +1,10 @@
 /**
  * src/lib/api/search.ts
  *
- * Keyword search over the three entity tables, powered by MiniSearch.
+ * Keyword search over the three entity tables using MiniSearch
  *
- * Each table is indexed with its own field set and per-field boost map, so that hits on the most
- * meaningful columns (name, composer name, tags, bio, the three note varieties) rank above hits on
- * incidental columns. Indexes are built per call from the (cached) record lists; the dataset is
- * small, so this is cheap and avoids any index-staleness concerns. The functions here are pure
- * (no I/O), which keeps them unit-testable without the worker/D1 pool.
+ * Search prioritizes specific columns (such as name, composer name, tags, bio, and notes)
+ * 
  */
 
 import MiniSearch from "minisearch"
@@ -72,7 +69,7 @@ const COMPOSER_FIELDS = ["name", "bio", "country", "role", "tags"]
 const COMPOSER_BOOST: Record<string, number> = { name: 5, bio: 3, tags: 3, country: 1, role: 1 }
 
 /**
- * Searches the composers table by keyword.
+ * Searches the composers table by keyword
  */
 export function searchComposers(records: ComposerRecord[], query: string): SearchResult[] {
     const docs: SearchDoc[] = records.map(record => ({
@@ -93,8 +90,7 @@ const CONTRIBUTOR_FIELDS = ["name", "bio", "major", "roles", "tags"]
 const CONTRIBUTOR_BOOST: Record<string, number> = { name: 5, bio: 3, tags: 3, major: 1, roles: 1 }
 
 /**
- * Searches the contributors table by keyword. Only non-protected columns are indexed, and only the
- * id and name are returned, so no row-level-protected data is exposed.
+ * Searches the contributors table by keyword (excludes protected columns)
  */
 export function searchContributors(records: ContributorRecord[], query: string): SearchResult[] {
     const docs: SearchDoc[] = records.map(record => ({
@@ -123,9 +119,7 @@ const COMPOSITION_BOOST: Record<string, number> = {
 }
 
 /**
- * Searches the compositions table by keyword. The composer's name is resolved from the supplied map
- * (so it is both searchable and shown in the result), and each hit's display name is formatted as
- * "{composer}: {composition}".
+ * Searches the compositions table by keyword
  *
  * @param {CompositionRecord[]} records the composition records to search
  * @param {Map<number, string>} composer_names map of composer id -> composer name

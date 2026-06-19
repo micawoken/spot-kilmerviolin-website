@@ -424,6 +424,11 @@ export class SQLStatement {
                 const set_clauses: string[] = []
                 this.values.forEach(group => {
                     Object.entries(group).forEach(([param, value]) => {
+                        // the SET column name is interpolated, not bound, so it must be a known schema
+                        // column (the SELECT column list and WHERE params above are validated the same way)
+                        if (!this.schema.columns.includes(param)) {
+                            throw new Error(`Invalid column '${param}' for table '${this.from}'`)
+                        }
                         set_clauses.push(`${param} = ?`)
                         params.push(value)
                     })

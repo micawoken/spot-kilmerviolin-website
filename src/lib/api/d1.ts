@@ -13,6 +13,7 @@ import { Key, WorkType } from "./common.ts"
 import { SQLStatement } from "./sql.ts"
 import { dbWriteEnabled } from "./environment.ts"
 import {
+    isDeathYearConsistent,
     isValidCountryCode,
     isValidEmail,
     isValidImageUrl,
@@ -294,6 +295,12 @@ export async function getRecord(schema: D1Schema, id: number): Promise<D1Result>
  */
 export async function getRecordSpecificProp(schema: D1Schema, param: string, value: string): Promise<D1Result> {
     // mainly used in authorization mechanism to query
+    // the value is bound, but `param` is interpolated into the column position, so it must be constrained
+    // to a known schema column (mirrors SQLStatement.finish()'s allow-list); a caller that ever forwards a
+    // user-supplied column name therefore cannot inject SQL through the identifier position
+    if (!schema.columns.includes(param)) {
+        throw new Error(`Invalid column '${param}' for table '${schema.name}'`)
+    }
     const statement = `SELECT * FROM ${schema.name} WHERE ${param} = ?;`
     return _exec(statement, [value])
 }
@@ -536,6 +543,24 @@ export function _stateTypeAssertPartialContributor(record: unknown, expect_id: b
 }
 
 /**
+ * Cross-field consistency check for composer years: a composer's death_year must fall on or after their
+ * birth_year, unless it is the -1 "still living" sentinel. Only enforced when both years are present as
+ * numbers (so a partial update touching only one year is not rejected against an absent counterpart);
+ * the per-field shape of each year is already validated by COMPOSER_SPEC before this runs.
+ *
+ * @param record the (already per-field validated) composer record or partial record
+ * @returns true if the years are consistent, otherwise a string error message
+ */
+function composerYearsConsistent(record: { [key: string]: any }): true | string {
+    const birth = record.birth_year
+    const death = record.death_year
+    if (typeof birth === "number" && typeof death === "number" && !isDeathYearConsistent(birth, death)) {
+        return "Record has invalid death_year (must be greater than or equal to birth_year, or -1 if living)"
+    }
+    return true
+}
+
+/**
  * Given an unknown object from JSON, determine if it is a complete Composer record and perform a type assertion
  *
  * @param record the record to check and assert
@@ -543,7 +568,11 @@ export function _stateTypeAssertPartialContributor(record: unknown, expect_id: b
  */
 export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boolean = true): Composer | string {
     const result = assertRecordBySpec(record, COMPOSER_SPEC, false, expect_id)
-    return result === true ? record as Composer : result
+    if (result !== true) {
+        return result
+    }
+    const consistency = composerYearsConsistent(record as { [key: string]: any })
+    return consistency === true ? record as Composer : consistency
 }
 
 /**
@@ -554,7 +583,11 @@ export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boo
  */
 export function _stateTypeAssertPartialComposer(record: unknown, expect_id: boolean = true): Partial<Composer> | string {
     const result = assertRecordBySpec(record, COMPOSER_SPEC, true, expect_id)
-    return result === true ? record as Partial<Composer> : result
+    if (result !== true) {
+        return result
+    }
+    const consistency = composerYearsConsistent(record as { [key: string]: any })
+    return consistency === true ? record as Partial<Composer> : consistency
 }
 
 /**

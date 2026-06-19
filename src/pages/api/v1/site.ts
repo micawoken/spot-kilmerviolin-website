@@ -9,8 +9,9 @@ import type { APIRoute } from "astro"
 import { auth_check } from "../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import verinfo from "../../../lib/api/verinfo"
-import rebuild from "../../../lib/api/rebuild"
+import rebuild, { RebuildCooldownError } from "../../../lib/api/rebuild"
 import { purgeCacheAll } from "../../../lib/api/database"
+import { detectEnvironment } from "../../../lib/api/environment"
 
 /**
  * GET /api/v1/site
@@ -58,10 +59,20 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
+    // rebuilds redeploy the live Worker, which is meaningless from a local development build
+    if (detectEnvironment(request) === "development") {
+        return constructResponse(request, null, 403, "Site rebuild is disabled in the development environment")
+    }
     try {
         const data = await rebuild()
         return constructResponse(request, data, 200)
     } catch (error) {
+        // a rebuild requested too soon after the last build is rejected as 429, surfacing the wait time
+        if (error instanceof RebuildCooldownError) {
+            return constructResponse(request, { retry_after_sec: error.retry_after_sec }, 429, error.message, {
+                "Retry-After": error.retry_after_sec.toString()
+            })
+        }
         return constructResponseErrorHook(request, error, 500, "Failed to trigger rebuild")
     }
 }

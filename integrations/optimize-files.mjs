@@ -9,17 +9,22 @@
 // record references them.
 //
 // The optimization parameters mirror lib/api/images.ts so bundled assets and uploaded assets are
-// optimized consistently. The IMAGES binding used for uploads is a runtime-only Worker API and is not
-// available during this Node build step, so sharp is used here instead.
+// optimized consistently. Like uploads, each raster image is cropped and scaled to exactly one of the two
+// canonical shapes (portrait 1280x1600 or landscape 1600x1280); the closest shape to the source aspect is
+// chosen, and a warning is emitted when the source is not already that ratio (since it will be cropped).
+// The IMAGES binding used for uploads is a runtime-only Worker API and is not available during this Node
+// build step, so sharp is used here instead.
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import sharp from "sharp"
 
-// keep these in sync with the exports of src/lib/api/images.ts
-const MAX_IMAGE_WIDTH = 1600
+// keep these in sync with the exports of src/lib/api/images.ts (CANON_PORTRAIT / CANON_LANDSCAPE)
 const TARGET_QUALITY = 82
+const CANON = { portrait: { w: 1280, h: 1600 }, landscape: { w: 1600, h: 1280 } }
+const PORTRAIT_RATIO = CANON.portrait.w / CANON.portrait.h // 0.8
+const LANDSCAPE_RATIO = CANON.landscape.w / CANON.landscape.h // 1.25
 
 const SRC_DIR = "src/files"
 const OUT_SUBDIR = "files"
@@ -50,15 +55,25 @@ export default function optimizeFiles() {
                     const ext = path.extname(name).toLowerCase()
                     const input = await fs.readFile(path.join(src_root, name))
                     if (RASTER_EXT.has(ext)) {
-                        // optimize: width-capped (never enlarged) WebP, matching the upload pipeline
-                        const out_bytes = await sharp(input)
-                            .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
-                            .webp({ quality: TARGET_QUALITY })
-                            .toBuffer()
-                        const meta = await sharp(out_bytes).metadata()
+                        // crop+scale to the closest canonical shape, matching the upload pipeline (optimizeImage)
+                        const meta = await sharp(input).metadata()
+                        const ratio = meta.width && meta.height ? meta.width / meta.height : PORTRAIT_RATIO
+                        const aspect = Math.abs(ratio - PORTRAIT_RATIO) <= Math.abs(ratio - LANDSCAPE_RATIO) ? "portrait" : "landscape"
+                        const target = CANON[aspect]
+                        // warn when the source isn't already the canonical ratio, since it will be center-cropped
+                        if (Math.abs(ratio - target.w / target.h) > 1e-3) {
+                            logger.warn(`${name}: aspect ${ratio.toFixed(3)} is neither 4:5 nor 5:4; after downscaling it will be center-cropped to ${aspect} (${target.w}x${target.h})`)
+                        }
+                        // enlarge a smaller source to fill the canvas (fit: cover) and sharpen to limit pixelation
+                        const upscaling = (meta.width ?? 0) < target.w || (meta.height ?? 0) < target.h
+                        let pipe = sharp(input).resize({ width: target.w, height: target.h, fit: "cover", position: "centre", withoutEnlargement: false })
+                        if (upscaling) {
+                            pipe = pipe.sharpen()
+                        }
+                        const out_bytes = await pipe.webp({ quality: TARGET_QUALITY }).toBuffer()
                         const out_name = `${name.slice(0, name.length - ext.length)}.webp`
                         await fs.writeFile(path.join(out_dir, out_name), out_bytes)
-                        manifest.push({ name, url: `/${OUT_SUBDIR}/${out_name}`, w: meta.width ?? null, h: meta.height ?? null })
+                        manifest.push({ name, url: `/${OUT_SUBDIR}/${out_name}`, w: target.w, h: target.h })
                     } else {
                         // SVGs and non-images are published verbatim
                         await fs.writeFile(path.join(out_dir, name), input)

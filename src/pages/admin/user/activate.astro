@@ -23,10 +23,12 @@ const prefill_email = emailFromParam(Astro.url)
     <h2>Activate a User Account</h2>
     <p class="general-infohelp">Activates a given contributor record with the provided identity email. This operation requires the <code>userenroll</code> role (or administrator permissions).</p>
     <div class="generic-form">
-        <form id="user-form-activate" class="generic-form">
+        <form id="user-form-activate" class="generic-form" novalidate>
             <fieldset>
                 <legend>User Identity Email</legend>
-                <input type="email" id="user-form-activate-email" name="email" value={prefill_email} required />
+                <div class="field-row">
+                    <input type="email" id="user-form-activate-email" name="email" value={prefill_email} required />
+                </div>
             </fieldset>
             <button type="submit">Submit</button>
         </form>
@@ -35,12 +37,21 @@ const prefill_email = emailFromParam(Astro.url)
     <script>
         import { activateIdentity } from "../../../scripts/connector"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
         const form = document.getElementById("user-form-activate") as HTMLFormElement
         const message = getTransactionElem()
 
+        // live inline email validation, mirroring the entity forms
+        attachFormValidation(form)
+
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
+            // submit gate: reject a malformed email with an inline hint before sending the request
+            if (!validateFormFields(form)) {
+                message.textContent = "Please correct the highlighted fields and try again."
+                return
+            }
             message.textContent = "Processing request..."
             const form_data = new FormData(form)
             disableInput(form)

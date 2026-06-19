@@ -21,6 +21,7 @@ const identity = locals.identity
     <!-- Header -->
     <AdminHeader identity={identity}  welcome={true}/>
     <main class="admin-main" role="main">
+    <p class="general-infohelp">Advanced Options gathers infrequently used actions that don't fit the other sections, such as the raw database terminal and the self-enrollment flow. Take care here — these tools can disrupt the service if misused.</p>
     <!-- Pages for IAM, site info/mgmt, and advanced -->
     <div class="flex-container">
         <div class="column">
@@ -31,6 +32,7 @@ const identity = locals.identity
             </ul>
         </div>
     </div>
+    <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/advanced" class="general-helppointer-link">Advanced Options</a> documentation and video.</p>
     </main>
     <AdminFooter />
 </body>

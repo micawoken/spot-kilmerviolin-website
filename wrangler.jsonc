@@ -31,7 +31,8 @@
 		"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283", // the account ID for contact@michaelwongmusic.com
 		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // the aud for the Access policy to validate the JWT against
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
-		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com" // the domain for the Access policy to validate the JWT against
+		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // the domain for the Access policy to validate the JWT against
+		"REBUILD_COOLDOWN_SEC": 900 // 15 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
 		// DB write gating is now determined dynamically by the runtime environment (see dbWriteEnabled in src/lib/api/environment.ts)
 	},
 

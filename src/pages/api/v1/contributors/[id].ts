@@ -194,8 +194,9 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             // record includes protected properties, and either elevate is false or user is not admin
             return constructResponse(request, null, 403, "Request includes protected properties that require elevate permission")
         }
-        // perform update
-        await updateContributorPartial(context.locals.cfContext, state_id, record)
+        // perform update; protected properties have already been gated by the elevate + admin check above,
+        // so authorize the data layer to write them (allowProtected)
+        await updateContributorPartial(context.locals.cfContext, state_id, record, true)
         return constructResponse(request, null, 204)
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Failed to update contributor")

@@ -65,12 +65,9 @@ export function auth_check(request: Request, identity: Identity | undefined, req
 
 /**
  * Resolves the authorization outcome for an inactive credential (identity.active === false), the most
- * branch-heavy path of {@link auth_check}. Returns a Response to reject, or null to allow the request
- * to proceed. Behavior is unchanged from the previously-inlined logic:
- *  - admins with an allowable (non-enrollable) record keep full access outside enroll mode
- *  - non-enrollable credentials are rejected unless the mode is selfmgmt, where an allowable,
- *    permissionless request is permitted
- *  - enrollable credentials are only accepted in enroll mode
+ * branch-heavy path of {@link auth_check}
+ * 
+ * Returns a Response to reject, or null to allow the request to proceed
  */
 function _checkInactiveCredential(request: Request, identity: Identity, required_perms: (keyof RoleProfile)[], mode: "default" | "selfmgmt" | "enroll"): Response | null {
     // the toggle state between allowable and enrollable is enforced by authorize.ts and by the identity middleware - if enrollable is True, then allowed is always False; the reverse is not necessarily true

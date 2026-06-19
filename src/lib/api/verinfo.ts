@@ -16,7 +16,10 @@ export default function verinfo(request: Request) {
         tag: data.tag,
         settings: {
             selfenroll: env.API_USER_SELFENROLL,
-            errordesc: richErrors(request)
+            errordesc: richErrors(request),
+            // minimum wait (seconds) after this build before another rebuild may be triggered; the client
+            // uses it together with the build timestamp above to block early rebuild requests
+            rebuild_cooldown_sec: Number(env.REBUILD_COOLDOWN_SEC)
         },
         environment: {
             name: detectEnvironment(request),

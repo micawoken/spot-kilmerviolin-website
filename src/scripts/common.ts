@@ -8,7 +8,8 @@
 import type { FieldPair } from "./types"
 import { custom_object_parsers } from "./types"
 import { isValidCountryCode, normalizeCountryCode } from "../lib/api/validation"
-import { hasStrayCommaSegments, isPositiveIntegerString, isValidEmail, isValidImageUrl, isValidPitchRange, isValidPosition, SUPPORTED_URI_TYPES, validateURIForType } from "../lib/api/validation"
+import { hasStrayCommaSegments, isDeathYearConsistent, isPositiveIntegerString, isValidEmail, isValidImageUrl, isValidPitchRange, isValidPosition, SUPPORTED_URI_TYPES, validateURIForType } from "../lib/api/validation"
+import { countryNameToCode } from "./format"
 
 
 // PARSERS
@@ -45,10 +46,16 @@ export function argParse(param: string, type: string, raw_value: string): string
             // countries are standardized to ISO 3166-1 alpha-2 codes; normalize and reject anything the
             // runtime cannot resolve to a region (mirrored server-side in the composer type assertions)
             const normalized = normalizeCountryCode(raw_value)
-            if (!isValidCountryCode(normalized)) {
-                throw new Error(`Invalid country for parameter ${param}: "${raw_value}" (must be an ISO 3166-1 alpha-2 country code)`)
+            if (isValidCountryCode(normalized)) {
+                return normalized
             }
-            return normalized
+            // as a convenience the field also accepts a country's common English name (e.g. "France"); it is
+            // converted to the ISO code here so the request body still carries the code the API requires
+            const from_name = countryNameToCode(raw_value)
+            if (from_name) {
+                return from_name
+            }
+            throw new Error(`Invalid country for parameter ${param}: "${raw_value}" (must be an ISO 3166-1 alpha-2 country code or a recognized country name)`)
         }
         case "number":
             // numeric fields (including all ID fields) are integers and are enforced as such
@@ -253,6 +260,26 @@ export function validateYear(allow_living: boolean): FieldValidator {
     }
 }
 
+/**
+ * Validates a composer death year: blank, the -1 "still living" sentinel, or a positive whole-number year
+ * that — when a birth year is also entered — falls on or after it. The birth-year cross-check mirrors the
+ * server-side composer record validation (isDeathYearConsistent), so an out-of-order pair is flagged in
+ * place before submission.
+ */
+export const validateDeathYear: FieldValidator = (raw, form) => {
+    const trimmed = raw.trim()
+    if (trimmed === "") return null
+    if (trimmed === "-1") return null
+    if (!isPositiveIntegerString(trimmed)) return "enter a year, or -1 if living"
+    const birth = form.querySelector('[name="birth_year"]')
+    if (birth instanceof HTMLInputElement && isPositiveIntegerString(birth.value)) {
+        if (!isDeathYearConsistent(parseInt(birth.value, 10), parseInt(trimmed, 10))) {
+            return "must be on or after the birth year"
+        }
+    }
+    return null
+}
+
 /** Validates a rating level against an inclusive range. */
 export function validateRatingLevel(min: number, max: number): FieldValidator {
     return (raw) => {
@@ -273,9 +300,6 @@ export const validateEmailField: FieldValidator = (raw) =>
 export const validateImageField: FieldValidator = (raw) =>
     (raw.trim() === "" || isValidImageUrl(raw)) ? null : "enter a valid URL or pick an uploaded image"
 
-export const validateCountryField: FieldValidator = (raw) =>
-    (raw.trim() === "" || isValidCountryCode(normalizeCountryCode(raw))) ? null : "use an ISO 3166-1 alpha-2 code"
-
 export const validateRangeField: FieldValidator = (raw) =>
     (raw.trim() === "" || isValidPitchRange(raw)) ? null : "use note-note, e.g. G3-A5"
 
@@ -293,9 +317,8 @@ export const validateUriField: FieldValidator = (raw, form) => {
 
 /** Maps a field's name (the input's name attribute) to its validator. Unlisted fields are not validated. */
 export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
-    country: validateCountryField,
     birth_year: validateYear(false),
-    death_year: validateYear(true),
+    death_year: validateDeathYear,
     publish_year: validateYear(false),
     class_year: validateYear(false),
     public_email: validateEmailField,

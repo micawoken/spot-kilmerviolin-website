@@ -9,7 +9,8 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { CONTRIBUTOR } from "../../../lib/api/d1"
 import { getContributor } from "../../../lib/api/database"
-import { guardPage, guardedRead } from "../../../lib/api/page_auth"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
 
 export const prerender = false
 

@@ -13,8 +13,6 @@ const database = env.KV_DB_CACHE
 /**
  * KV guarantees eventual consistency, so it's suitable for caching D1 query results
  * Entries are keyed by the SQL statement
- * 
- * 
  */
 
 /**

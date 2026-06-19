@@ -7,8 +7,9 @@
 
 import { createAPIPayload } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
-import { richErrors } from "./environment"
+import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
+
 // the generic HTTP error page lives in its own file (error.html) and is inlined as a raw string at
 // build time; the {errorCode}/{errorName}/{errorDescription} tokens are filled in middlewareErrorResponder
 import error_http from "../templates/error.html?raw"
@@ -73,11 +74,6 @@ export const preflight_headers = {
     "Access-Control-Max-Age": "86400",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-MWMSC-Request-Meta",
     "Vary": "Origin"
-    /**
-     * CORS preflight is implemented in middleware/preflight.ts and activates on calls to 
-     * 
-     * 
-     */
 }
 
 
@@ -130,13 +126,32 @@ export const API_headers = {
 }
 
 /**
+ * Content types that are safe to serve inline (rendered by the browser on direct navigation and embedded
+ * via <img>). Restricted to raster image formats: these cannot carry executable script, so an attacker who
+ * uploads one cannot achieve same-origin script execution against a viewer. Every other type — notably
+ * image/svg+xml and text/html, which can carry <script> — is served as an attachment instead. The set
+ * mirrors isOptimizableImage's re-encoded formats (images.ts); SVG is deliberately absent from both.
+ */
+export const INLINE_SAFE_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
+
+/**
  * Header template for raw (non-JSON) body responses, such as a file served from the store.
  * Mirrors the credentialed CORS posture of API_headers but carries the body's own content type and a
  * cacheable directive; the undefined values are filled per-request by constructFileResponse.
+ *
+ * The fixed security headers below harden the store against a contributor uploading an active-content file
+ * (SVG/HTML) that, served on the app origin, would execute script against a viewing admin:
+ *  - X-Content-Type-Options: nosniff stops the browser from MIME-sniffing an upload into an executable type
+ *  - Content-Security-Policy: sandbox neutralizes any script even if the body is rendered as a document
+ *    (sandbox does not affect <img>-embedded raster images, so legitimate inline previews still render)
+ * Content-Disposition is resolved per-request by constructFileResponse (inline only for raster images).
  */
 export const file_headers = {
     "Content-Type": undefined,
+    "Content-Disposition": undefined,
     "Cache-Control": undefined,
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "sandbox",
     "Access-Control-Allow-Origin": undefined,
     "Access-Control-Allow-Credentials": "true",
     "Vary": "Origin"
@@ -254,12 +269,6 @@ export function _constructHeaders(template: Record<string, string | undefined>, 
 /**
  * Recursively collects the change_date timestamps (as epoch milliseconds) carried by an API payload.
  *
- * The payload may be a single entity record, an array of records, a CompositionWithNames wrapper
- * ({ object, names }) — where the record lives under "object" — or an array of those wrappers. Each
- * entity record carries change_date as an ISO 8601 string (a hidden, business-logic-managed last-modified
- * marker; see database.ts). Anything without a parseable change_date (e.g. an ID-only list of numbers)
- * contributes nothing.
- *
  * @param {unknown} value - the payload (or a nested fragment of it) to scan
  * @param {number[]} out - accumulator of parsed epoch-millisecond timestamps
  */
@@ -287,14 +296,7 @@ function collectChangeDates(value: unknown, out: number[]): void {
 }
 
 /**
- * Builds a Last-Modified header from the entity record(s) in an API payload, using the most recent
- * change_date among them. change_date is the hidden last-modified marker stamped by the business logic
- * on every insert/update (see database.ts), so the latest one represents when the returned data last
- * changed.
- *
- * The result is intended to be spread into the headers_addl argument of constructResponse; when the
- * payload carries no usable change_date (for example an ID-only list), an empty object is returned so
- * callers can spread it unconditionally without emitting a misleading header.
+ * Builds a Last-Modified header from the entity record(s) in an API payload using the change_date
  *
  * @param {unknown} payload - the API payload being returned (a record, array of records, or names wrapper)
  * @returns {Record<string, string>} a { "Last-Modified": <HTTP-date> } header, or {} when none applies
@@ -346,10 +348,6 @@ export function constructResponse(request: Request, payload: any, code: (keyof t
 /**
  * Constructs a 200 Response carrying a raw (non-JSON) body, such as a file's bytes served from the store
  *
- * Unlike constructResponse, the body is sent verbatim with its own content type rather than wrapped in a
- * JSON API envelope, but the credentialed CORS headers are still resolved from the request's origin so
- * file responses stay consistent with the rest of the API.
- *
  * @param {Request} request - the original Request object, used to generate CORS headers
  * @param {BodyInit} body - the raw response body (e.g. the file bytes)
  * @param {string} content_type - the Content-Type to advertise for the body
@@ -358,8 +356,13 @@ export function constructResponse(request: Request, payload: any, code: (keyof t
  * @returns {Response} a 200 Response carrying the raw body
  */
 export function constructFileResponse(request: Request, body: BodyInit, content_type: string, cache_ttl: number, headers_addl?: Record<string, string>): Response {
+    // serve inline only for raster image types (safe to render); anything else (SVG, HTML, octet-stream)
+    // is forced to download so a viewer's browser never renders attacker-supplied active content on-origin
+    const base_type = content_type.split(";")[0].trim().toLowerCase()
+    const disposition = INLINE_SAFE_CONTENT_TYPES.includes(base_type) ? "inline" : "attachment"
     const headers = _constructHeaders(file_headers, {
         "Content-Type": content_type,
+        "Content-Disposition": disposition,
         "Cache-Control": `private, max-age=${cache_ttl}, must-understand`,
         "Access-Control-Allow-Origin": resolveAllowedOrigin(request)
         },
@@ -414,9 +417,7 @@ export function middlewareErrorResponder(_request: Request, code: keyof typeof h
  * Constructs the 204 CORS preflight response for an OPTIONS request, selecting the policy by route
  *
  * The full CORS policy (all methods + custom headers) is released on API routes, the limited
- * credentialed policy applies to admin routes, and everything else defaults closed. The allowed origin
- * is echoed only when the request's Origin is on the allowlist; otherwise the non-matching fallback is
- * sent, which the browser rejects for cross-origin use. Used by the preflight middleware.
+ * credentialed policy applies to admin routes, and everything else defaults closed
  *
  * @param {Request} request - the original OPTIONS request, used to resolve the allowed origin
  * @returns {Response} a 204 No Content response carrying the appropriate CORS headers
@@ -676,9 +677,7 @@ function processConstraintGeneric(error_message: string): [boolean, number, stri
 }
 
 /**
- * Parser for the primary SQLITE_ERROR code, which covers the generic failures D1 reports without a more
- * specific extended code: a missing table, a missing column, or a malformed query. These name the
- * offending object in the message, so each is surfaced with a description that identifies it.
+ * Parser for the primary SQLITE_ERROR code, which covers generic failures
  *
  * @param {string} error_message - the error message, from Error.message
  * @returns {[boolean, number, string]} [whether the error was processed, the HTTP status code, the message]
@@ -701,8 +700,7 @@ function processGenericError(error_message: string): [boolean, number, string] {
 }
 
 /**
- * Extracts the table name from a SQLite "no such table" error message, or null when the message is not a
- * missing-table error. D1 surfaces it as e.g. "D1_ERROR: no such table: contributors: SQLITE_ERROR".
+ * Extracts the table name from a SQLite "no such table" error message
  *
  * @param {string} message - the error message to inspect
  * @returns {string | null} the missing table name, or null
@@ -713,9 +711,7 @@ function parseMissingTable(message: string): string | null {
 }
 
 /**
- * Returns the missing table name when the given error is a SQLite "no such table" error, otherwise null.
- * Used by server-rendered pages (and any caller) to detect that a table critical to the operation does
- * not exist and to render the missing-table fallback instead of a generic failure.
+ * Returns the missing table name when the given error is a SQLite "no such table" error
  *
  * @param {unknown} error - the thrown value to inspect
  * @returns {string | null} the missing table name, or null when the error is not a missing-table error
@@ -738,9 +734,7 @@ export function isMissingTableError(error: unknown): boolean {
 }
 
 /**
- * Builds an HTML fallback error page for a code, reusing the generic error template. Intended for
- * server-rendered (non-API) routes such as the admin pages, which return HTML rather than the JSON API
- * envelope.
+ * Builds the HTML error fallback page with an HTTP status code
  *
  * @param {keyof typeof http_codes} code - the HTTP status code for the page
  * @param {string} [force_comment] - a description to show instead of the code's default comment
@@ -759,8 +753,7 @@ export function constructErrorPage(code: keyof typeof http_codes, force_comment?
 }
 
 /**
- * Builds the HTML fallback page shown when a database table critical for a server-rendered page does not
- * exist. The page reports the situation as a 503 and, when known, names the missing table.
+ * Builds a simple fallback page in case a critical database table is missing.
  *
  * @param {unknown} error - the missing-table error (used to name the table when available)
  * @returns {Response} an HTML 503 Response describing the missing table
@@ -775,8 +768,7 @@ export function missingTableErrorPage(error: unknown): Response {
 
 /**
  * Builds the HTML fallback page shown when a page attempts to read live data (database, R2, KV)
- * in local development where Cloudflare bindings are not available. Use "npm run preview" to test
- * pages that require live data.
+ * in local development
  *
  * @returns {Response} an HTML 503 Response with a dev-mode-specific explanation
  */
@@ -824,4 +816,37 @@ export function hookSQLiteError(request: Request, error: Error): Response {
     } else {
         return constructResponse(request, null, code, message)
     }
-} 
+}
+
+/**
+ * Wraps a server-side database read performed directly by an admin page. When the read fails because a
+ * table critical to the operation does not exist, it resolves to the missing-table fallback page instead
+ * of letting the error bubble up as an unhandled 500; any other error propagates unchanged.
+ *
+ * The caller distinguishes the two outcomes with an `instanceof Response` check: a Response is a
+ * ready-to-return fallback page, while anything else is the read's resolved value.
+ *
+ * This lives in http.ts (alongside the error-page constructors it returns) rather than page_auth.ts
+ * because it concerns HTTP error handling for a read, not page authorization.
+ *
+ * Usage from an Astro page's frontmatter:
+ *   const composers = await guardedRead(() => listComposers(Astro.locals.cfContext))
+ *   if (composers instanceof Response) return composers
+ *
+ * @param {() => Promise<T>} read - the database read to perform
+ * @returns {Promise<T | Response>} the read's value, or the missing-table fallback page
+ */
+export async function guardedRead<T>(read: () => Promise<T>): Promise<T | Response> {
+    try {
+        return await read()
+    } catch (error) {
+        if (isMissingTableError(error)) {
+            return missingTableErrorPage(error)
+        }
+        if (isActiveRequestDev()) {
+            return devModeUnavailablePage()
+        }
+        console.log(error)
+        throw error
+    }
+}

@@ -24,10 +24,12 @@ const prefill_email = emailFromParam(Astro.url)
     <p class="general-infohelp">Deactivates the contributor record with the provided identity email. This operation requires administrator permissions.</p>
     <p class="general-warning">This does not revoke the user's ability to log in. To also remove login access, use <a href="/admin/iam/remove">Delete user</a>.</p>
     <div class="generic-form">
-        <form id="user-form-deactivate" class="generic-form">
+        <form id="user-form-deactivate" class="generic-form" novalidate>
             <fieldset>
                 <legend>User Identity Email</legend>
-                <input type="email" id="user-form-deactivate-email" name="email" value={prefill_email} required />
+                <div class="field-row">
+                    <input type="email" id="user-form-deactivate-email" name="email" value={prefill_email} required />
+                </div>
             </fieldset>
             <button type="submit">Submit</button>
         </form>
@@ -36,12 +38,21 @@ const prefill_email = emailFromParam(Astro.url)
     <script>
         import { deactivateIdentity } from "../../../scripts/connector"
         import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
         const form = document.getElementById("user-form-deactivate") as HTMLFormElement
         const message = getTransactionElem()
 
+        // live inline email validation, mirroring the entity forms
+        attachFormValidation(form)
+
         form.addEventListener("submit", async (evt: Event) => {
             evt.preventDefault()
+            // submit gate: reject a malformed email with an inline hint before confirming or sending
+            if (!validateFormFields(form)) {
+                message.textContent = "Please correct the highlighted fields and try again."
+                return
+            }
             const form_data = new FormData(form)
             const email = String(form_data.get("email") ?? "")
             if (!confirm(`Are you sure you want to deactivate the account for ${email}?`)) {

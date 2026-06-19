@@ -3,11 +3,17 @@ import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
+import ImageCrop from "../../../components/ImageCrop.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { getStorageUsage } from "../../../lib/api/files"
+import { authEnabled } from "../../../lib/api/environment"
 
 export const prerender = false
+
+// In local dev the Cloudflare Images emulation cannot crop/resize (see optimizeImage), so the upload is
+// stored unchanged; warn the operator. Dev is the same localhost rule that disables auth.
+const isDev = !authEnabled(Astro.request)
 
 // the key being replaced may be supplied via ?id=
 const key = Astro.url.searchParams.get("id") ?? ""
@@ -29,7 +35,8 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Replace a File</h2>
-    <p class="general-infohelp">Replacing a file keeps its key (and therefore any references to it) but swaps in new bytes. Images are re-optimized on replacement.</p>
+    <p class="general-infohelp">Replacing a file keeps its key (and therefore any references to it) but swaps in new bytes. Only images may be uploaded here; they are re-optimized and cropped to a portrait (4:5) or landscape (5:4) shape on replacement.</p>
+    {isDev && <p class="admin-dev-warning" role="status"><strong>Local development:</strong> image cropping and optimization are <strong>skipped here</strong> — the local Cloudflare Images emulation cannot crop, so the file is stored unchanged. You can still frame the crop below; it is applied in production.</p>}
     <div class="generic-form">
         <form id="file-replace-form" class="generic-form" novalidate>
             <fieldset>
@@ -49,8 +56,10 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
             <fieldset>
                 <legend>Replacement file<span class="field-required" aria-hidden="true">*</span></legend>
                 <div class="field-row">
-                    <input type="file" id="file-replace-input" name="file" required />
+                    <input type="file" id="file-replace-input" name="file" accept="image/*" required />
                 </div>
+                <!-- crop interface: appears once an image is chosen; lets the operator pick orientation and frame -->
+                <ImageCrop inputId="file-replace-input" id="image-crop" />
             </fieldset>
             <!-- live storage figure (mirrors /admin/files); updates with a projection once a file is chosen,
                  discounting the replaced file's current size. used/max bytes are carried in data attributes
@@ -64,11 +73,17 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     <script>
         import { replaceFile } from "../../../scripts/connector"
         import { attachFileSearchInline, attachStorageEstimate } from "../../../scripts/file_picker"
+        import type { CropSelection, ImageCropChangeDetail } from "../../../scripts/image_crop"
+        import { showFieldError, clearFieldError } from "../../../scripts/form_validate"
+        import { isImageMimeType } from "../../../lib/api/validation"
         const form = document.getElementById("file-replace-form")
         const status = document.getElementById("transaction-status")
         const key_input = document.getElementById("file-replace-key")
         const file_input = document.getElementById("file-replace-input")
         const usage_elem = document.getElementById("file-storage-usage")
+        const crop_elem = document.getElementById("image-crop")
+
+        const IMAGE_ONLY_MESSAGE = "Please choose an image file (JPEG, PNG, WebP, GIF, AVIF)."
 
         // live search: selecting a hit fills its key into the key field instead of navigating
         attachFileSearchInline("file-search-input", "file-search-button", "file-search-results", (key: string) => {
@@ -87,18 +102,43 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
         }
 
         if (form instanceof HTMLFormElement && status && key_input instanceof HTMLInputElement && file_input instanceof HTMLInputElement) {
+            const input = file_input
+
+            // the ImageCrop component owns the crop UI and its too-small warning; cache its reported
+            // selection to forward on submit. The image-only hard error stays the page's concern.
+            let crop: CropSelection | null = null
+            crop_elem?.addEventListener("imagecrop:change", evt => {
+                crop = (evt as CustomEvent<ImageCropChangeDetail>).detail.crop
+            })
+
+            // live image-only feedback as soon as a file is chosen
+            input.addEventListener("change", () => {
+                const file = input.files?.[0]
+                if (file && !isImageMimeType(file.type)) showFieldError(input, IMAGE_ONLY_MESSAGE)
+                else clearFieldError(input)
+            })
+
             form.addEventListener("submit", async (evt: Event) => {
                 evt.preventDefault()
                 const key = key_input.value.trim()
-                const file = file_input.files?.[0]
+                const file = input.files?.[0]
                 if (!key || !file) {
                     status.textContent = "Please provide both a file key and a replacement file."
                     return
                 }
+                // reject non-images before submit
+                if (!isImageMimeType(file.type)) {
+                    showFieldError(input, IMAGE_ONLY_MESSAGE)
+                    status.textContent = IMAGE_ONLY_MESSAGE
+                    return
+                }
                 status.textContent = "Replacing..."
                 try {
-                    await replaceFile(key, file)
+                    await replaceFile(key, file, crop)
                     status.innerHTML = `Replacement complete. <a href="/admin/files/info?id=${encodeURIComponent(key)}">View file info &gt;</a>`
+                    form.reset()
+                    // form.reset() does not fire change; nudge the crop component to clear its preview
+                    input.dispatchEvent(new Event("change"))
                 } catch (error) {
                     status.textContent = `Replacement failed: ${error instanceof Error ? error.message : String(error)}`
                     console.error(error)
