@@ -64,6 +64,20 @@ const IDENTITY_CACHE_TTL_MS = 45_000
 const _identityCache = new Map<string, { record: D1Contributor | null, expires: number }>()
 
 /**
+ * Drops every entry from the per-isolate identity cache. Called by the data layer when a contributor
+ * record is written (see database.ts `_exec_wrap`): a contributor mutation can change an entry's
+ * authorization-relevant fields (roles/admin/active) or remap an identity_email, and the cache is keyed
+ * by email — not by the contributor id a write carries — so it cannot be evicted per row. Contributor
+ * writes are rare relative to the authenticated reads this cache serves and the map is bounded by the
+ * org's enrolled users, so clearing it wholesale is cheap; the cleared entries simply re-read from D1 on
+ * their next request. Invalidation is per-isolate only (like the cache itself), so a write in one isolate
+ * does not evict another's copy — {@link IDENTITY_CACHE_TTL_MS} remains the cross-isolate staleness bound.
+ */
+export function invalidateIdentityCache(): void {
+    _identityCache.clear()
+}
+
+/**
  * Returns the contributor record associated with the BaseIdentity, or null if no such record exists
  *
  * The lookup is the most frequent D1 read in the system, so a confirmed result (a found record or a

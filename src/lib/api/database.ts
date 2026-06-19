@@ -34,6 +34,7 @@ import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpec
 import { SQLStatement, VirtualSQLTable } from "./sql.ts"
 import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
+import { invalidateIdentityCache } from "./authorize.ts"
 
 // in general, authorization is managed by the API endpoint, so no identity checks are made in this module
 
@@ -325,6 +326,13 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
             // repopulated from, or kept serving, stale data
             _backfill(ctx, () => deleteKey(stmt.from!))
             _backfill(ctx, () => deleteCacheKey("db_cache", stmt.from!))
+            if (stmt.from === CONTRIBUTOR.name) {
+                // a contributor write may change authorization-relevant fields or the identity_email
+                // mapping, so also drop authorize.ts's per-isolate identity cache. This is a synchronous
+                // in-memory Map clear (not best-effort like the cache evictions above) so it takes effect
+                // before the response; see invalidateIdentityCache for why it clears wholesale.
+                invalidateIdentityCache()
+            }
         }
         return {
             data: output.results as Record<string, string | number | null>[],

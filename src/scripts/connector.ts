@@ -744,13 +744,23 @@ export async function purgeSite(): Promise<any | null> {
 
 /**
  * POST /api/v1/command
- * Execute SQL command on server
+ * Execute one or more SQL commands on the server
  *
- * @param command the SQL string to execute
- * @returns execution result
+ * A single command yields a single D1Result; multiple commands yield an array of D1Results (one per
+ * command, in order). When more than one command is supplied and `batch` is true (the default), the
+ * server runs them as a single atomic transaction so any failure rolls back the whole set; passing
+ * `batch` as false runs them sequentially as independent statements (no rollback).
+ *
+ * @param commands the SQL command string(s) to execute, in order
+ * @param batch whether multiple commands should run as an atomic batch (default true)
+ * @returns execution result (a single D1Result, or an array of D1Results for multiple commands)
  */
-export async function executeCommand(command: string): Promise<any> {
-    return requestPayload(composeUrl("command"), jsonInit("POST", command))
+export async function executeCommand(commands: string[], batch: boolean = true): Promise<any> {
+    // the body is the command list itself (not the single-item array convention), so it is serialized
+    // directly rather than through jsonInit; the batch flag travels in the request-meta header
+    const headers: Record<string, string> = { "Content-Type": "application/json", ...constructMeta({ batch }) }
+    const init: RequestInit = { method: "POST", headers, body: JSON.stringify(commands) }
+    return requestPayload(composeUrl("command"), init)
 }
 
 /**
