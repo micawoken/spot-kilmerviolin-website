@@ -8,7 +8,7 @@
 import type { APIRoute } from "astro"
 import { deleteFile, deriveFileKey, readFileBytes, replaceFile } from "../../../../lib/api/files"
 import { parseCropFromForm } from "../../../../lib/api/images"
-import { R2CapacityError } from "../../../../lib/api/r2"
+import { MAX_UPLOAD_BYTES, R2CapacityError } from "../../../../lib/api/r2"
 import { auth_check } from "../../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook, constructFileResponse } from "../../../../lib/api/http"
 import { env } from "cloudflare:workers"
@@ -30,8 +30,13 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
+    // validate the key before touching the (metered) store
+    const get_key = deriveFileKey(params.id!)
+    if (get_key === "") {
+        return constructResponse(request, null, 400, "Invalid file key")
+    }
     try {
-        const data = await readFileBytes(params.id!)
+        const data = await readFileBytes(get_key)
         if (data === null) {
             return constructResponse(request, null, 404)
         }
@@ -68,6 +73,10 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     const file = form.get("file")
     if (!(file instanceof File)) {
         return constructResponse(request, null, 400, "Invalid request body: missing 'file' part")
+    }
+    // reject oversized uploads before reading the body into memory
+    if (file.size > MAX_UPLOAD_BYTES) {
+        return constructResponse(request, null, 413)
     }
     // the key is fixed by the URL; the upload's own filename is ignored on replace
     const key = deriveFileKey(params.id!)
@@ -114,8 +123,13 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
+    // validate the key before touching the (metered) store
+    const key = deriveFileKey(params.id!)
+    if (key === "") {
+        return constructResponse(request, null, 400, "Invalid file key")
+    }
     try {
-        await deleteFile(context.locals.cfContext, params.id!)
+        await deleteFile(context.locals.cfContext, key)
         return constructResponse(request, null, 204)
     } catch (error) {
         console.error(error)

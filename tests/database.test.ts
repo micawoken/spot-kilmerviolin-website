@@ -225,7 +225,11 @@ describe("contributor boolean and array round-tripping", () => {
         const id = await withCtx(ctx => addContributor(ctx, makeContributor("Activated Contributor", "act@example.com")))
 
         await withCtx(ctx => updateContributorPartial(ctx, id, { active: true }))
-        await withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] }))
+        // roles is a protected column: the data layer refuses to write it unless the caller authorizes it
+        // (the usermgmt role/admin functions pass allowProtected after their own admin check)
+        await expect(withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] })))
+            .rejects.toThrow(/protected column/)
+        await withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] }, true))
 
         const record = await withCtx(ctx => getContributor(ctx, "contributor_id", String(id)))
         expect(record!.active).toBe(true)

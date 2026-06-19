@@ -17,7 +17,7 @@ export const prerender = false
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Database Terminal</h2>
-    <p class="general-warning">This terminal executes raw SQL directly on the production database, bypassing the validation performed by the regular editing pages. A malformed command can corrupt or destroy data. Requires administrator permissions.</p>
+    <p class="general-warning">The terminal runs a command directly on the D1 SQLite database with no validation. A malformed or dangerous command could corrupt or destroy data. This operation requires administrator permissions.</p>
     <p class="general-infohelp">Please refer to the <a href="https://sqlite.org/lang.html" target="_blank" rel="noopener noreferrer">SQLite language documentation</a> to learn its SQL implementation.</p>
     <div class="generic-form">
         <form id="advanced-form-command" class="generic-form">

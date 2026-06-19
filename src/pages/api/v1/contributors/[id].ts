@@ -13,6 +13,7 @@ import { deleteContributor, updateContributor, updateContributorPartial } from "
 import { getRecord, _stateTypeAssertCompleteContributor, CONTRIBUTOR, _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
 import { authEnabled } from "../../../../lib/api/environment"
 import { generateFallbackEmail, resolveIdentityEmail } from "../../../../lib/api/fallback"
+import { extractUploadedFileKey, getFileMeta } from "../../../../lib/api/files"
 
 /**
  * GET /api/v1/contributors/[id]
@@ -193,6 +194,19 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         if (CONTRIBUTOR.protected!.some(prop => prop in record) && !(api_request.meta?.elevate === true && locals.identity?.admin) && auth_enabled) {
             // record includes protected properties, and either elevate is false or user is not admin
             return constructResponse(request, null, 403, "Request includes protected properties that require elevate permission")
+        }
+        // a non-admin setting their own image to an uploaded file may only reference a file they uploaded
+        // themselves (portraits are personal). Bundled assets (/files/<name>) and external URLs are not
+        // uploaded files, so extractUploadedFileKey returns null for them and they are unaffected. Admins
+        // bypass RLS and may attach any file to any contributor, so this guard does not apply to them.
+        if (auth_enabled && !locals.identity?.admin && "image" in record && typeof record.image === "string") {
+            const file_key = extractUploadedFileKey(record.image)
+            if (file_key !== null) {
+                const meta = await getFileMeta(context.locals.cfContext, file_key)
+                if (meta?.uploader !== String(locals.identity?.id)) {
+                    return constructResponse(request, null, 403, "The referenced file was not uploaded by you")
+                }
+            }
         }
         // perform update; protected properties have already been gated by the elevate + admin check above,
         // so authorize the data layer to write them (allowProtected)

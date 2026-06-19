@@ -21,7 +21,7 @@ const prefill_email = emailFromParam(Astro.url)
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Promote a User to Administrator</h2>
-    <p class="general-warning">Administrators have full control over the database, user access, and site management, including this page. Only promote users you fully trust. Requires administrator permissions.</p>
+    <p class="general-warning">Administrators have full control over the database and user management. This operation requires administrator permissions.</p>
     <div class="generic-form">
         <form id="user-form-elevate" class="generic-form" novalidate>
             <fieldset>

@@ -17,8 +17,8 @@ export const prerender = false
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Rebuild the Site</h2>
-    <p class="general-warning">Website rebuilds use cloud compute minutes on Worker Builds. Each month, you have 2000 minutes of server time to rebuild the site, and each rebuild takes about 1-2 minutes. Do not rebuild the website until you are done with editing so we can conserve resources.</p>
-    <p class="general-infohelp">When you update the database, it does not update the static contributor/composer/composition records. To update it, trigger a website rebuild here.</p>
+    <p class="general-warning">Website rebuilds use cloud compute minutes on Worker Builds. Do not rebuild the website until you are done with editing so we can conserve resources.</p>
+    <p class="general-infohelp">Rebuilds are used to publish changes you make to the database to the website. Any changes you make will not be made public until you rebuild.</p>
     <button type="button" id="site-rebuild-button">Rebuild site</button>
     <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
     <script>

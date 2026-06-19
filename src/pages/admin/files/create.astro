@@ -31,7 +31,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
     <main class="admin-main" role="main">
     <h2>Add a New File</h2>
-    <p class="general-infohelp">Only images may be uploaded here. They are optimized to an efficient web format and cropped to a portrait (4:5) or landscape (5:4) shape on upload. The optional name sets the file's key; if omitted, the uploaded file's own name is used.</p>
+    <p class="general-infohelp">Upload a portrait (4:5, 1280x1600) or landscape (5:4, 1600x1280) image. You may set an optional name to use as the key when searching for this file.</p>
     {isDev && <p class="admin-dev-warning" role="status"><strong>Local development:</strong> image cropping and optimization are <strong>skipped here</strong> — the local Cloudflare Images emulation cannot crop, so the file is stored unchanged. You can still frame the crop below; it is applied in production.</p>}
     <div class="generic-form">
         <form id="file-upload-form" class="generic-form" novalidate>
