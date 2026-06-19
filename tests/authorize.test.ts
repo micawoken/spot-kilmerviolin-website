@@ -68,7 +68,7 @@ function makeIdentity(overrides: Partial<Identity> = {}): Identity {
         roles: [],
         id: 1,
         admin: false,
-        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: "" },
+        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: "", class_year: null, major: null, bio: null, public_email: null, image: null, change_date: "" },
         ...overrides,
     }
 }
