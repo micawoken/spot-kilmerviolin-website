@@ -687,16 +687,21 @@ form.generic-form .field-grid > .field-warning {
 .image-crop {
 	margin: 0.75rem 0 1rem;
 }
-/* too-small caution: the colored warning text. Sits just under the file input (the slot the field
- * warning would occupy) and only shows while the selected region would be upscaled. Inherits
- * .field-warning's color/weight for the text. The :not([hidden]) scope keeps the flex display from
- * overriding the `hidden` attribute, so the warning truly disappears once the crop meets minimum size. */
-.image-crop-warning:not([hidden]) {
+/* the stage and the too-small caution sit side by side, top-aligned, so the caution lines up with the
+ * top of the image; the warning appearing never reflows the stage. On narrow screens they wrap and the
+ * caution drops below. */
+.image-crop-body {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.5rem;
-	margin-bottom: 0.5rem;
+	align-items: flex-start;
+	gap: 1rem;
+}
+/* too-small caution: the colored warning text, in a right-hand column. Only shows while the selected
+ * region would be upscaled; the plain `hidden` attribute removes it (and its flex slot) so the stage
+ * stays put. Inherits .field-warning's color/weight for the text. */
+.image-crop-warning {
+	flex: 0 1 14rem;
+	margin: 0;
 }
 .image-crop-controls {
 	display: flex;
