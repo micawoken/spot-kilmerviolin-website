@@ -59,6 +59,13 @@ describe("resolveIdentityEmail", () => {
         expect(resolveIdentityEmail("person@example.com", "First Last")).toBe("person@example.com")
     })
 
+    it("normalizes a supplied email to lowercase (matching the case-insensitive Access address)", () => {
+        // a mixed-case address must persist lowercased so it matches the lowercased JWT email used at
+        // identity lookup; otherwise a User@Example.com login would miss its own contributor record
+        expect(resolveIdentityEmail("User@Example.com", "First Last")).toBe("user@example.com")
+        expect(resolveIdentityEmail("  Mixed.Case@Domain.COM  ", "First Last")).toBe("mixed.case@domain.com")
+    })
+
     it("generates a fallback when the email is blank, whitespace, null, or omitted", () => {
         expect(isFallbackEmail(resolveIdentityEmail("", "First Last"))).toBe(true)
         expect(isFallbackEmail(resolveIdentityEmail("   ", "First Last"))).toBe(true)

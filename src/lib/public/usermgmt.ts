@@ -248,10 +248,13 @@ export async function removeRole(ctx: ExecutionContext, id: number, role: string
 }
 
 export async function _changeLoginEmail(ctx: ExecutionContext, id: number, old_email: string, new_email: string): Promise<void> {
+    // normalize to lowercase so the stored identity_email matches the lowercased JWT email used for
+    // identity lookups (Cloudflare Access is case-insensitive)
+    const normalized_new = new_email.trim().toLowerCase()
     // update contributor data
-    await updateContributorPartial(ctx, id, { identity_email: new_email }, true)
+    await updateContributorPartial(ctx, id, { identity_email: normalized_new }, true)
     // update access
-    await add_user(new_email)
+    await add_user(normalized_new)
     await remove_user(old_email)
 }
 

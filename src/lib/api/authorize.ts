@@ -55,8 +55,11 @@ export const roles: Record<string, RoleProfile> = {
  * 
  */
 async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor | null> {
-    // returns the contributor record whose identity email aligns with the BaseIdentity email
-    const identity_email = identity.email
+    // returns the contributor record whose identity email aligns with the BaseIdentity email;
+    // normalize to lowercase to match how identity_email is stored (Cloudflare Access is
+    // case-insensitive). The email is already lowercased at JWT extraction, so this is defensive
+    // against any other path that constructs a BaseIdentity.
+    const identity_email = identity.email.toLowerCase()
     try {
         const response = await getRecordSpecificProp(CONTRIBUTOR, "identity_email", identity_email)
         if (!response.success || response.results.length === 0) {
