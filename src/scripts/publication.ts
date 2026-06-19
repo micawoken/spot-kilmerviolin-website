@@ -16,6 +16,21 @@
  */
 import { escapeHtml } from "./escape"
 
+/**
+ * Whether a URI carries a web scheme safe to place in an href. Entity-encoding a value does not stop a
+ * javascript:/data: URI from executing when clicked, so the scheme must be checked before linking; a
+ * value that fails this is rendered as inert escaped text instead.
+ */
+function isLinkableHttpUri(uri: string): boolean {
+    let parsed: URL
+    try {
+        parsed = new URL(uri)
+    } catch {
+        return false
+    }
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+}
+
 export function renderPublicationUri(uri_type: string | null | undefined, uri: string | null | undefined, placeholder: string): string {
     if (uri === null || uri === undefined || uri.trim() === "") {
         return escapeHtml(placeholder)
@@ -23,6 +38,11 @@ export function renderPublicationUri(uri_type: string | null | undefined, uri: s
     const safe = escapeHtml(uri.trim())
     switch (uri_type) {
         case "https":
+            // defense-in-depth: only emit an anchor when the stored value is actually an http(s) URL; a
+            // value that bypassed write-time validation (e.g. javascript:) renders as inert escaped text
+            if (!isLinkableHttpUri(uri.trim())) {
+                return safe
+            }
             return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`
         case "doi":
             return `<a href="https://doi.org/${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`

@@ -19,7 +19,7 @@ import { parseAPIRequest } from "../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
 import { addContributor, listContributors } from "../../../lib/api/database"
-import { _stateTypeAssertCompleteContributor, CONTRIBUTOR } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteContributor, CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
 import { authEnabled } from "../../../lib/api/environment"
 import { resolveIdentityEmail } from "../../../lib/api/fallback"
 
@@ -78,7 +78,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                 const redacted = data.map(record =>
                     record.id === self_id
                         ? record
-                        : Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
+                        : redactProtected(CONTRIBUTOR, record)
                 )
                 return constructResponse(request, redacted, 200, undefined, last_modified)
             case false:

@@ -170,12 +170,23 @@ interface SQLiteErrorMsgPrimitive {
 
 /**
  * Displays general user information
- * 
+ *
+ * Carries the acting user's non-authorization contributor fields, stashed by the authorization primitive
+ * (see buildIdentity in lib/api/authorize.ts) so self-service flows can read the caller's own profile from
+ * the identity without a second contributor lookup. Authorization state (roles/admin/active/id and the
+ * sign-in identity_email) is excluded and lives on the Identity proper.
+ *
  * @property {boolean} ok - whether the user information can be used
  * @property {string} name - the user's name
  * @property {string[]} tags - tags associated with the user
  * @property {number[]} phases - the phases the user is involved in
  * @property {string} entry_date - the date the user was registered, as ISO 8601
+ * @property {number | null} class_year - the user's class year, or null if omitted
+ * @property {string | null} major - the user's major, or null if omitted
+ * @property {string | null} bio - the user's biography, or null if omitted
+ * @property {string | null} public_email - the user's public-facing email, or null if omitted
+ * @property {string | null} image - the user's image reference, or null if omitted
+ * @property {string} change_date - the record's last-modified date as ISO 8601, or "" when no record
  */
 interface UserInfo {
     ok: boolean;
@@ -183,6 +194,12 @@ interface UserInfo {
     tags: string[];
     phases: number[];
     entry_date: string;
+    class_year: number | null;
+    major: string | null;
+    bio: string | null;
+    public_email: string | null;
+    image: string | null;
+    change_date: string;
 }
 
 // BaseIdentity is returned by the authentication library

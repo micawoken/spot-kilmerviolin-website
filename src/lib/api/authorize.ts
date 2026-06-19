@@ -48,11 +48,32 @@ export const roles: Record<string, RoleProfile> = {
 }
 
 /**
+ * The identity-record cache TTL, in milliseconds. The contributor record backing an Identity is read on
+ * every authenticated request (the identity middleware authorizes before the endpoint runs), so caching
+ * it for a short window collapses repeated reads from the same caller to a single D1 query. The window is
+ * deliberately small: it is the upper bound on how long an authorization change (a role/admin/active edit,
+ * or a deactivation) can take to take effect, so it is kept to seconds rather than minutes.
+ */
+const IDENTITY_CACHE_TTL_MS = 45_000
+
+/**
+ * Per-isolate cache of contributor records keyed by (lowercased) identity email. There is no cross-isolate
+ * invalidation, so {@link IDENTITY_CACHE_TTL_MS} is the only bound on staleness; the email key derives from
+ * a verified Access JWT, so its cardinality is bounded by the org's enrolled users.
+ */
+const _identityCache = new Map<string, { record: D1Contributor | null, expires: number }>()
+
+/**
  * Returns the contributor record associated with the BaseIdentity, or null if no such record exists
- * 
+ *
+ * The lookup is the most frequent D1 read in the system, so a confirmed result (a found record or a
+ * confirmed-absent one) is cached per isolate for {@link IDENTITY_CACHE_TTL_MS}. A thrown D1 error is left
+ * uncached so a transient failure is retried on the next request rather than pinned (as not-enrolled) for
+ * the whole TTL.
+ *
  * @param identity - the BaseIdentity object to find a matching contributor record for
  * @returns - a promise that resolves to the matching contributor record, or null if no match is found
- * 
+ *
  */
 async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor | null> {
     // returns the contributor record whose identity email aligns with the BaseIdentity email;
@@ -60,12 +81,22 @@ async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor
     // case-insensitive). The email is already lowercased at JWT extraction, so this is defensive
     // against any other path that constructs a BaseIdentity.
     const identity_email = identity.email.toLowerCase()
+    const now = Date.now()
+    const cached = _identityCache.get(identity_email)
+    if (cached !== undefined && cached.expires > now) {
+        return cached.record
+    }
     try {
         const response = await getRecordSpecificProp(CONTRIBUTOR, "identity_email", identity_email)
-        if (!response.success || response.results.length === 0) {
+        if (!response.success) {
+            // an unsuccessful (but non-throwing) response is treated as no match and left uncached
             return null
         }
-        return recordTypeAssertComplete(CONTRIBUTOR, response.results[0] as Record<string, string | number | null>) as D1Contributor
+        const record = response.results.length === 0
+            ? null
+            : recordTypeAssertComplete(CONTRIBUTOR, response.results[0] as Record<string, string | number | null>) as D1Contributor
+        _identityCache.set(identity_email, { record, expires: now + IDENTITY_CACHE_TTL_MS })
+        return record
     } catch (error) {
         return null
     }
@@ -94,6 +125,16 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
         tags: record && record.tags ? record.tags.split(",").map((t: string) => t.trim()) : [],
         phases: record && record.phases ? record.phases.split(",").map((p: string) => parseInt(p.trim())).filter((p: number) => !isNaN(p)) : [],
         entry_date: record ? record.entry_date : "",
+        // the remaining non-authorization profile fields are stashed here so self-service flows can read
+        // the acting user's own record straight from the identity rather than issuing a second lookup
+        // (authorization state — roles/admin/active/id and the sign-in identity_email — is excluded; it
+        // lives on the Identity proper). Nullable columns default to null, change_date to "" when no record.
+        class_year: record ? record.class_year : null,
+        major: record ? record.major : null,
+        bio: record ? record.bio : null,
+        public_email: record ? record.public_email : null,
+        image: record ? record.image : null,
+        change_date: record ? record.change_date : "",
         ok: record !== null
     }
     return {
