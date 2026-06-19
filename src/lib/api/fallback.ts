@@ -70,7 +70,9 @@ export function generateFallbackEmail(name: string): string {
  */
 export function resolveIdentityEmail(email: unknown, name: string): string {
     if (typeof email === "string" && email.trim() !== "") {
-        return email
+        // store lowercased so it matches the (case-insensitive) Cloudflare Access address and the
+        // lowercased JWT email used for identity lookups
+        return email.trim().toLowerCase()
     }
     return generateFallbackEmail(name)
 }
