@@ -11,24 +11,30 @@ import { CONTRIBUTOR } from "../../../lib/api/d1"
 import { getContributor } from "../../../lib/api/database"
 import { guardPage } from "../../../lib/api/page_auth"
 import { guardedRead } from "../../../lib/api/http"
+import { authEnabled } from "../../../lib/api/environment"
 
 export const prerender = false
 
-// authorize before any direct (API-bypassing) database read; the SSR prefill below is further
-// restricted to admins so protected properties are never leaked to a non-admin active caller
+// authorize before any direct (API-bypassing) database read; the SSR prefill below is restricted to the
+// caller's own record (and any record for admins), so it never prefills a record the caller cannot edit
 const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
 if (denied) {
     return denied
 }
 
 const is_admin = Astro.locals.identity?.admin === true
+const self_id = Astro.locals.identity?.id ?? null
+const auth_enabled = authEnabled(Astro.request)
 
-// SSR prefill via the id query param is admin-only:
-// the direct database read is unfiltered and would leak protected properties to non-admins
+// A non-admin may only edit their own contributor record (the API PATCH allows self-edits and rejects
+// edits to other records), so SSR prefill via the id query param is limited to admins and to the caller
+// editing their own record. Auth-disabled local dev constructs no identity, so prefill is unrestricted there.
 const id = Astro.url.searchParams.get("id")
+const is_self = id !== null && self_id !== null && self_id === Number(id)
+const may_prefill = is_admin || is_self || !auth_enabled
 let use_id: boolean = false
 let contributor_data: ContributorRecord | null = null
-if (id && is_admin) {
+if (id && may_prefill) {
     // a missing contributors table surfaces the missing-table fallback page
     const result = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, id))
     if (result instanceof Response) {
@@ -43,10 +49,13 @@ if (id && is_admin) {
 }
 
 const hidden_form = use_id && contributor_data ? true : false
-// an id was supplied via the URL but no record could be loaded for it (it does not exist, or the caller
-// is not an admin — SSR prefill is admin-only): the edit form could not be prefilled, so surface that
-// clearly rather than silently dropping back to the ID entry form
-const prefill_failed = Boolean(id) && !use_id
+// a non-admin supplied another contributor's id via the URL: they are not authorized to edit it, so the
+// prefill was skipped above. Surface the authorization failure explicitly rather than silently dropping
+// back to the ID entry form (which would look like the record simply wasn't found).
+const unauthorized_prefill = Boolean(id) && auth_enabled && !is_admin && !is_self
+// an id was supplied and the caller was allowed to prefill it, but no record could be loaded (it does not
+// exist): a genuine not-found, distinct from the authorization case above
+const prefill_failed = Boolean(id) && may_prefill && !use_id
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +68,8 @@ const prefill_failed = Boolean(id) && !use_id
     <main class="admin-main" role="main">
     <h2>Edit a Contributor</h2>
     <p class="general-infohelp">To edit your own contributor record, you should use <a href="/admin/profile/edit">My Profile &gt; Edit</a>. You may also do so here. This operation requires administrator permissions if you are editing other records or protected properties.</p>
-    { prefill_failed ? <p class="general-warning">No contributor record could be loaded for ID #{id}, so the edit form could not be prefilled. It may not exist, or you may not have permission to prefill it from a direct link. Enter an ID below to try again.</p> : null }
+    { unauthorized_prefill ? <p class="general-warning">You are not authorized to edit contributor #{id}. You may only edit your own contributor record from a direct link; administrators may edit any record. To edit your own profile, use <a href="/admin/profile/edit">My Profile &gt; Edit</a>.</p> : null }
+    { prefill_failed ? <p class="general-warning">No contributor record exists for ID #{id}, so the edit form could not be prefilled. Enter an ID below to try again.</p> : null }
     <IDEntryForm output_div={"generic-form-contributors"} hidden={hidden_form} search={true} />
     <ContributorForm required={false} hidden={!hidden_form} contributor={use_id ? contributor_data : null} patch={true} show_auth={true} show_elevate={is_admin} />
     <p id="transaction-status">Your request status will show here after you press "Submit".</p>
@@ -78,6 +88,18 @@ const prefill_failed = Boolean(id) && !use_id
                 const record = await retrieveObjectFromIDEntry(id_entry_form, "contributor_partial") as Partial<ContributorRecord> | null
                 if (!record) {
                     throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
+                }
+                // client-side edit-permission gate: a non-admin may only load their own record into the
+                // edit form. The server remains the authority (PATCH rejects a non-self, non-elevated
+                // edit); this is an earlier, clearer block that also keeps another user's record from ever
+                // being loaded into the form. The acting user's id and admin status are read from the
+                // form's dataset (data-self-id / data-is-admin, set by ContributorForm.astro); a blank
+                // self id means no identity was constructed (auth-disabled local dev), so the gate is skipped.
+                const contributor_form = document.getElementById("generic-form-contributors")
+                const acting_is_admin = contributor_form instanceof HTMLElement && contributor_form.dataset.isAdmin === "true"
+                const acting_self_id = contributor_form instanceof HTMLElement ? (contributor_form.dataset.selfId ?? "") : ""
+                if (!acting_is_admin && acting_self_id !== "" && String(record.id) !== acting_self_id) {
+                    throw new Error(`You are not authorized to edit contributor #${record.id}. You may only edit your own contributor record.`)
                 }
                 // populate the fields, and hide the input form
                 prefillForm("contributor_partial", record)

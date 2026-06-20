@@ -12,5 +12,8 @@ import { requestContext } from "./context"
 import { preflight } from "./preflight"
 import { identity } from "./identity"
 import { rateLimit } from "./ratelimit"
+import { securityHeaders } from "./headers"
 
-export const onRequest = sequence(requestContext, preflight, identity, rateLimit)
+// securityHeaders runs first so it wraps the chain and can stamp its headers onto the final response —
+// including the auth error pages identity returns — for admin routes.
+export const onRequest = sequence(securityHeaders, requestContext, preflight, identity, rateLimit)
