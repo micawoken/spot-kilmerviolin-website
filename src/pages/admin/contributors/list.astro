@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/contributors/list.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -30,6 +50,10 @@ if (!contributors) {
     throw new Error("Failed to fetch the contributors list from the database")
 }
 
+// the caller's own contributor id, used to flag their row in the listing (mirrors the "(you)" marker
+// on the user list); identity.id is the contributor id stored on the identity record
+const self_id = Astro.locals.identity?.id
+
 // name, major, and class_year are not protected properties (CONTRIBUTOR.protected covers roles, admin,
 // and identity_email only), so every active caller — not just admins — may see them in the listing
 const formatted_contributors = contributors.map((contributor) => ({
@@ -38,7 +62,8 @@ const formatted_contributors = contributors.map((contributor) => ({
     // major and class_year are nullable; omit whichever is null instead of rendering "null"
     name2: [contributor.major, contributor.class_year !== null ? `${contributor.class_year}` : null]
         .filter((part) => part !== null)
-        .join(" ")
+        .join(" "),
+    is_self: contributor.id === self_id
 }))
 ---
 

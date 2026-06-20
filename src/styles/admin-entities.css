@@ -1006,6 +1006,17 @@ form.generic-form .field-hidden {
 	border-color: var(--shade-7);
 }
 
+/* the viewing user's own card: a slightly tinted background distinguishes it at a glance */
+.list-result-container.list-result-self {
+	background: var(--shade-2);
+}
+
+/* de-emphasized "(you)" marker shown beside the name on the caller's own card */
+.list-result-self-tag {
+	color: var(--color-text-muted);
+	font-weight: 400;
+}
+
 
 .list-result-link {
 	font-weight: 700;
