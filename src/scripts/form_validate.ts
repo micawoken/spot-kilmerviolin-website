@@ -1,13 +1,16 @@
 /**
- * 
- * 
+ * scripts/form_validate.ts
+ *
+ * Client-side validation wiring for the admin entity forms. Attaches the live feedback that mirrors the
+ * shared validators in lib/public/validation.ts: per-field format hints and error/warning slots, the
+ * URI-type help text (attachUriTypeHelp), and the country field's code-to-name resolution
+ * (attachCountryFeedback). validateFormFields runs the same checks as a submit gate, so a form cannot be
+ * sent while a field is in an invalid state.
  */
 
 import { FIELD_VALIDATORS, validateUriField, VALIDATION_GROUP_MAP, type FormControl } from "./common"
 import { isValidCountryCode, normalizeCountryCode } from "../lib/api/validation"
 import { countryCodeName, countryNameToCode } from "./format"
-
-
 
 /**
  * Format guidance shown under the composition URI input, keyed by the selected uri_type. Mirrors the
@@ -15,9 +18,9 @@ import { countryCodeName, countryNameToCode } from "./format"
  * enforces the type/URI pairing in lib/api/d1.ts.
  */
 export const uri_type_help: Record<string, string> = {
-    "https": "Enter a full link beginning with https://",
-    "isbn": "Enter the ISBN number only, without dashes or spaces.",
-    "doi": "Enter the DOI number (beginning with 10.), not a full URL."
+    https: "Enter a full link beginning with https://",
+    isbn: "Enter the ISBN number only, without dashes or spaces.",
+    doi: "Enter the DOI number (beginning with 10.), not a full URL."
 }
 
 /**
@@ -34,11 +37,12 @@ export function attachUriTypeHelp(form: HTMLFormElement): void {
     if (!(select instanceof HTMLSelectElement) || !(help instanceof HTMLElement)) {
         return
     }
-    const update = () => { help.textContent = uri_type_help[select.value] ?? "" }
+    const update = () => {
+        help.textContent = uri_type_help[select.value] ?? ""
+    }
     update()
     select.addEventListener("change", update)
 }
-
 
 // the ISO 3166-1 reference, surfaced in the country field's validation hint so the user can look up a
 // code when their entry is not recognised
@@ -130,7 +134,9 @@ export function attachCountryFeedback(form: HTMLFormElement): void {
     if (!(input instanceof HTMLInputElement) || !(help instanceof HTMLElement)) {
         return
     }
-    const update = () => { renderCountryFeedback(input, help) }
+    const update = () => {
+        renderCountryFeedback(input, help)
+    }
     update()
     input.addEventListener("input", update)
     input.addEventListener("blur", update)
@@ -233,8 +239,15 @@ export function clearFieldError(control: FormControl): void {
  * @param {HTMLFormElement} form the form whose fields should validate live
  */
 export function attachFormValidation(form: HTMLFormElement): void {
-    form.querySelectorAll("input, select, textarea").forEach(control => {
-        if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)) return
+    form.querySelectorAll("input, select, textarea").forEach((control) => {
+        if (
+            !(
+                control instanceof HTMLInputElement ||
+                control instanceof HTMLSelectElement ||
+                control instanceof HTMLTextAreaElement
+            )
+        )
+            return
         const validator = FIELD_VALIDATORS[control.name]
         if (!validator) return
         const run = () => {
@@ -288,8 +301,15 @@ export function attachFormValidation(form: HTMLFormElement): void {
  */
 export function validateFormFields(form: HTMLFormElement, patch: boolean = false): boolean {
     let valid = true
-    form.querySelectorAll("input, select, textarea").forEach(control => {
-        if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)) return
+    form.querySelectorAll("input, select, textarea").forEach((control) => {
+        if (
+            !(
+                control instanceof HTMLInputElement ||
+                control instanceof HTMLSelectElement ||
+                control instanceof HTMLTextAreaElement
+            )
+        )
+            return
         const validator = FIELD_VALIDATORS[control.name]
         if (!validator) return
         if (patch) {

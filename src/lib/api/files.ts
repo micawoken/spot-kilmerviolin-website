@@ -11,8 +11,8 @@
  *  - file bytes are cached in the Cache API per key, so repeat reads do not hit R2.
  * Writes (add/replace/delete) invalidate the affected caches.
  *
- * 
- * 
+ *
+ *
  */
 
 import { env } from "cloudflare:workers"
@@ -46,7 +46,12 @@ function _blobKey(key: string): string {
  */
 export function deriveFileKey(name: string): string {
     const base = name.split(/[\\/]/).pop() ?? name
-    return base.trim().replace(/\s+/g, "-").replace(/[^A-Za-z0-9._-]/g, "").replace(/^\.+/, "").slice(0, 255)
+    return base
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^A-Za-z0-9._-]/g, "")
+        .replace(/^\.+/, "")
+        .slice(0, 255)
 }
 
 /**
@@ -147,7 +152,7 @@ function _invalidate(ctx: ExecutionContext, key?: string): void {
     ctx.waitUntil(deleteCacheKey(FILES_CACHE_STORE, FILES_LIST_KEY))
     ctx.waitUntil(deleteKey(FILES_LIST_KEY))
     if (key !== undefined) {
-        ctx.waitUntil(caches.open(FILES_BLOB_STORE).then(store => store.delete(_blobKey(key))))
+        ctx.waitUntil(caches.open(FILES_BLOB_STORE).then((store) => store.delete(_blobKey(key))))
     }
 }
 
@@ -162,7 +167,7 @@ function _invalidate(ctx: ExecutionContext, key?: string): void {
  */
 export async function getFileMeta(ctx: ExecutionContext, key: string): Promise<FileMeta | null> {
     const files = await listFiles(ctx)
-    return files.find(file => file.key === key) ?? null
+    return files.find((file) => file.key === key) ?? null
 }
 
 /**
@@ -174,7 +179,7 @@ export async function getFileMeta(ctx: ExecutionContext, key: string): Promise<F
  * @param {string} key - the file key
  * @returns {Promise<{ bytes: ArrayBuffer, content_type: string } | null>} the body and type, or null if not found
  */
-export async function readFileBytes(key: string): Promise<{ bytes: ArrayBuffer, content_type: string } | null> {
+export async function readFileBytes(key: string): Promise<{ bytes: ArrayBuffer; content_type: string } | null> {
     const blob_store = await caches.open(FILES_BLOB_STORE)
     const cached = await blob_store.match(_blobKey(key))
     if (cached) {
@@ -191,19 +196,28 @@ export async function readFileBytes(key: string): Promise<{ bytes: ArrayBuffer, 
     const content_type = object.httpMetadata?.contentType ?? "application/octet-stream"
     // cache the body for subsequent reads (private to the worker cache, long-lived)
     const ttl = env.CACHE_API_TTL_LONG
-    await blob_store.put(_blobKey(key), new Response(bytes, {
-        headers: {
-            "Content-Type": content_type,
-            "Cache-Control": `public, max-age=${ttl}, stale-while-revalidate=${ttl * 2}`
-        }
-    }))
+    await blob_store.put(
+        _blobKey(key),
+        new Response(bytes, {
+            headers: {
+                "Content-Type": content_type,
+                "Cache-Control": `public, max-age=${ttl}, stale-while-revalidate=${ttl * 2}`
+            }
+        })
+    )
     return { bytes, content_type }
 }
 
 /**
  * Builds the customMetadata stored alongside a file's bytes in R2
  */
-function _buildCustomMetadata(content_type: string, uploader: string | null, width: number | null, height: number | null, optimized: boolean): Record<string, string> {
+function _buildCustomMetadata(
+    content_type: string,
+    uploader: string | null,
+    width: number | null,
+    height: number | null,
+    optimized: boolean
+): Record<string, string> {
     const metadata: Record<string, string> = {
         content_type,
         optimized: optimized ? "true" : "false"
@@ -233,9 +247,23 @@ function _buildCustomMetadata(content_type: string, uploader: string | null, wid
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
  */
-async function _writeFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, usage_budget: number, crop?: CropInstruction): Promise<FileMeta> {
+async function _writeFile(
+    ctx: ExecutionContext,
+    key: string,
+    bytes: ArrayBuffer | Uint8Array,
+    content_type: string,
+    uploader: string | null,
+    usage_budget: number,
+    crop?: CropInstruction
+): Promise<FileMeta> {
     const optimized = await optimizeImage(bytes, content_type, crop)
-    const custom = _buildCustomMetadata(optimized.content_type, uploader, optimized.width, optimized.height, optimized.optimized)
+    const custom = _buildCustomMetadata(
+        optimized.content_type,
+        uploader,
+        optimized.width,
+        optimized.height,
+        optimized.optimized
+    )
     const stored = await putObject(key, optimized.bytes, optimized.content_type, custom, usage_budget)
     _invalidate(ctx, key)
     return _toMeta(stored)
@@ -254,9 +282,16 @@ async function _writeFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer
  * @throws {Error} if a file already exists at the key (caller should map to 409)
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
  */
-export async function addFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, crop?: CropInstruction): Promise<FileMeta> {
+export async function addFile(
+    ctx: ExecutionContext,
+    key: string,
+    bytes: ArrayBuffer | Uint8Array,
+    content_type: string,
+    uploader: string | null,
+    crop?: CropInstruction
+): Promise<FileMeta> {
     const files = await listFiles(ctx)
-    if (files.some(file => file.key === key)) {
+    if (files.some((file) => file.key === key)) {
         throw new Error(`A file already exists at key "${key}"`)
     }
     const used = files.reduce((total, file) => total + file.size, 0)
@@ -276,9 +311,16 @@ export async function addFile(ctx: ExecutionContext, key: string, bytes: ArrayBu
  * @throws {Error} if no file exists at the key (caller should map to 404)
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
  */
-export async function replaceFile(ctx: ExecutionContext, key: string, bytes: ArrayBuffer | Uint8Array, content_type: string, uploader: string | null, crop?: CropInstruction): Promise<FileMeta> {
+export async function replaceFile(
+    ctx: ExecutionContext,
+    key: string,
+    bytes: ArrayBuffer | Uint8Array,
+    content_type: string,
+    uploader: string | null,
+    crop?: CropInstruction
+): Promise<FileMeta> {
     const files = await listFiles(ctx)
-    const existing = files.find(file => file.key === key)
+    const existing = files.find((file) => file.key === key)
     if (existing === undefined) {
         throw new Error(`No file exists at key "${key}"`)
     }
@@ -305,7 +347,7 @@ export async function deleteFile(ctx: ExecutionContext, key: string): Promise<vo
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @returns {Promise<{ used: number, max: number }>} bytes used and the configured ceiling
  */
-export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: number, max: number }> {
+export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: number; max: number }> {
     const files = await listFiles(ctx)
     return { used: files.reduce((total, file) => total + file.size, 0), max: MAX_R2_STORAGE_BYTES }
 }

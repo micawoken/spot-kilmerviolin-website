@@ -1,15 +1,26 @@
 /**
  * /pages/api/v1/works/[id].ts
- * 
+ *
  * Manages specific work records
- * 
+ *
  */
 
 import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
+import {
+    _constructHeaders,
+    constructResponse,
+    constructResponseErrorHook,
+    lastModifiedHeader
+} from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
-import { attachCompositionNames, deleteComposition, getComposition, updateComposition, updateCompositionPartial } from "../../../../lib/api/database"
+import {
+    attachCompositionNames,
+    deleteComposition,
+    getComposition,
+    updateComposition,
+    updateCompositionPartial
+} from "../../../../lib/api/database"
 import { _stateTypeAssertCompleteComposition, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
 import { canAct, canModify, withActingContributor } from "../../../../lib/api/authorize"
 import { authEnabled } from "../../../../lib/api/environment"
@@ -17,7 +28,7 @@ import { authEnabled } from "../../../../lib/api/environment"
 /**
  * GET /api/v1/works/[id]
  * Returns the composition record for the specified ID
- * 
+ *
  * Permissions required: none
  *
  * Meta: optional
@@ -68,20 +79,19 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     }
 }
 
-
 /**
  * PUT /api/v1/works/[id]
  * Fully update the composition representation for the specified ID
- * 
+ *
  * Permissions required: none, or *admin* if not noted as contributor
- * 
+ *
  * Meta: optional
  * Meta fields:
  *  - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
  *  - direct_contrib: {boolean} if true, the caller is managing contributors directly; the editor is not auto-added to contrib_addl
  *
  * Body: required, shape of Composition
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with payload of the updated composition record
  */
@@ -117,11 +127,21 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         // verify acting identity is authorized to modify
         if (auth_enabled) {
             if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
-                return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+                return constructResponse(
+                    request,
+                    null,
+                    403,
+                    "Forbidden: user is not a primary contributor on this object"
+                )
             }
             // verify acting identity is authorized to apply proposed update
             if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
-                return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+                return constructResponse(
+                    request,
+                    null,
+                    403,
+                    "Forbidden: user is not authorized to apply the proposed changes to this object"
+                )
             }
         }
         // record the editor as an additional contributor unless they are managing contributors directly
@@ -140,20 +160,19 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     }
 }
 
-
 /**
  * PATCH /api/v1/works/[id]
  * Partially update the composition representation for the specified ID
- * 
+ *
  * Permissions required: none, or *admin* if not noted as contributor
- * 
+ *
  * Meta: optional
  * Meta fields:
  * - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
  * - direct_contrib: {boolean} if true, the caller is managing contributors directly; the editor is not auto-added to contrib_addl
  *
  * Body: required, shape of Partial<Composition>
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with payload of the updated composition record
  */
@@ -187,10 +206,20 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         }
         if (auth_enabled) {
             if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
-                return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+                return constructResponse(
+                    request,
+                    null,
+                    403,
+                    "Forbidden: user is not a primary contributor on this object"
+                )
             }
             if (!canAct(current_record, record, locals.identity!, api_request.meta?.elevate === true)) {
-                return constructResponse(request, null, 403, "Forbidden: user is not authorized to apply the proposed changes to this object")
+                return constructResponse(
+                    request,
+                    null,
+                    403,
+                    "Forbidden: user is not authorized to apply the proposed changes to this object"
+                )
             }
         }
         // record the editor as an additional contributor unless they are managing contributors directly
@@ -212,15 +241,15 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
 /**
  * DELETE /api/v1/works/[id]
  * Deletes the composition record for the specified ID
- * 
+ *
  * Permissions required: none, or *admin* if not noted as contributor
- * 
+ *
  * Meta: optional
  * Meta fields:
  *  - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
- * 
+ *
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with no payload
  */
@@ -245,7 +274,12 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         }
         if (auth_enabled) {
             if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
-                return constructResponse(request, null, 403, "Forbidden: user is not a primary contributor on this object")
+                return constructResponse(
+                    request,
+                    null,
+                    403,
+                    "Forbidden: user is not a primary contributor on this object"
+                )
             }
         }
         // perform delete

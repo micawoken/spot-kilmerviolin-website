@@ -1,8 +1,8 @@
 /**
  * /pages/api/v1/site.ts
- * 
+ *
  * Provides several endpoints for the site's machinery
- * 
+ *
  */
 
 import type { APIRoute } from "astro"
@@ -16,12 +16,12 @@ import { detectEnvironment } from "../../../lib/api/environment"
 /**
  * GET /api/v1/site
  * Returns information about the current worker build, including build timestamp, build ID, and git tag (if available)
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with payload of the worker build information, or an error message if authentication fails
  */
@@ -43,12 +43,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * POST /api/v1/site
  * Triggers a rebuild on Worker Builds using the deploy hook
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with payload of success message, or an error message if authentication fails
  */
@@ -77,16 +77,15 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     }
 }
 
-
 /**
  * DELETE /api/v1/site
  * Purge the database cache for the site
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with payload of success message, or an error message if authentication fails
  */

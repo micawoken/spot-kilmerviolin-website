@@ -1,16 +1,24 @@
 /**
- * 
- * 
- * 
+ *
+ *
+ *
  */
-
 
 import type { FieldPair } from "./types"
 import { custom_object_parsers } from "./types"
 import { isValidCountryCode, normalizeCountryCode } from "../lib/api/validation"
-import { hasStrayCommaSegments, isDeathYearConsistent, isPositiveIntegerString, isValidEmail, isValidImageUrl, isValidPitchRange, isValidPosition, SUPPORTED_URI_TYPES, validateURIForType } from "../lib/api/validation"
+import {
+    hasStrayCommaSegments,
+    isDeathYearConsistent,
+    isPositiveIntegerString,
+    isValidEmail,
+    isValidImageUrl,
+    isValidPitchRange,
+    isValidPosition,
+    SUPPORTED_URI_TYPES,
+    validateURIForType
+} from "../lib/api/validation"
 import { countryNameToCode } from "./format"
-
 
 // PARSERS
 
@@ -38,7 +46,11 @@ export function parseIntegerStrict(raw: string, param: string): number {
     return num
 }
 
-export function argParse(param: string, type: string, raw_value: string): string | string[] | number | number[] | boolean | undefined {
+export function argParse(
+    param: string,
+    type: string,
+    raw_value: string
+): string | string[] | number | number[] | boolean | undefined {
     switch (type) {
         case "string":
             return raw_value
@@ -55,7 +67,9 @@ export function argParse(param: string, type: string, raw_value: string): string
             if (from_name) {
                 return from_name
             }
-            throw new Error(`Invalid country for parameter ${param}: "${raw_value}" (must be an ISO 3166-1 alpha-2 country code or a recognized country name)`)
+            throw new Error(
+                `Invalid country for parameter ${param}: "${raw_value}" (must be an ISO 3166-1 alpha-2 country code or a recognized country name)`
+            )
         }
         case "number":
             // numeric fields (including all ID fields) are integers and are enforced as such
@@ -64,45 +78,65 @@ export function argParse(param: string, type: string, raw_value: string): string
             return raw_value.toLowerCase() === "true"
         case "string[]":
             // empty segments (e.g. from a trailing comma) are dropped rather than sent as empty strings
-            return raw_value.split(",").map(s => s.trim()).filter(s => s !== "")
+            return raw_value
+                .split(",")
+                .map((s) => s.trim())
+                .filter((s) => s !== "")
         case "number[]":
         case "number[]?": // nullable array: parses like number[]; empty inputs become null instead of [] (handled in generateObjectForm)
             // number arrays (e.g. secondary author / additional contributor ID lists) are integer lists
-            return raw_value.split(",").map(s => s.trim()).filter(s => s !== "").map(s => parseIntegerStrict(s, param))
+            return raw_value
+                .split(",")
+                .map((s) => s.trim())
+                .filter((s) => s !== "")
+                .map((s) => parseIntegerStrict(s, param))
         default:
             if (type.startsWith("X-")) {
-                throw new Error(`Custom object ${type} should be passed in the custom_objects parameter, not as a type in the type_data mapping`)
+                throw new Error(
+                    `Custom object ${type} should be passed in the custom_objects parameter, not as a type in the type_data mapping`
+                )
             }
             console.warn(`Unsupported type ${type} for parameter ${param}`)
-            return;
+            return
     }
 }
 
-export function customObjectParse(custom_object_type: keyof typeof custom_object_parsers, form_data: FormData, allow_omit: boolean, nullable: boolean): {
-    output: any,
-    exclude: string
-} | undefined {
+export function customObjectParse(
+    custom_object_type: keyof typeof custom_object_parsers,
+    form_data: FormData,
+    allow_omit: boolean,
+    nullable: boolean
+):
+    | {
+          output: any
+          exclude: string
+      }
+    | undefined {
     const data = custom_object_parsers[custom_object_type]
     const type_name = data[0]
     const constructor = data[1]
     const params = data[2]
     // missing entries and empty inputs are both passed to the constructor as null,
     // letting constructors map blank inputs onto nullable columns
-    const values = params.map(param => {
+    const values = params.map((param) => {
         const raw = form_data.get(param)
-        return (raw === null || raw === "") ? null : raw
+        return raw === null || raw === "" ? null : raw
     })
     const output = constructor(...values)
     if (!output) {
-        if (values.every(value => value === null)) {
+        if (values.every((value) => value === null)) {
             // the whole group was left blank or is not rendered by this form
             if (!allow_omit && !nullable) {
-                throw new Error(`Form data is missing required parameters for custom object ${custom_object_type}: ${params.join(", ")}`)
+                throw new Error(
+                    `Form data is missing required parameters for custom object ${custom_object_type}: ${params.join(", ")}`
+                )
             }
-            return;
+            return
         }
         // inputs were provided but rejected; surface the problem instead of silently dropping them
-        throw new Error(`Invalid input for custom object ${custom_object_type}. Inputs: ${params.map((param, i) => `${param}=${values[i] ?? ""}`).join(", ")}`)
+        throw new Error(
+            `Invalid input for custom object ${custom_object_type}. Inputs: ${params.map((param, i) => `${param}=${values[i] ?? ""}`).join(", ")}`
+        )
     }
     return {
         output: output,
@@ -113,9 +147,15 @@ export function customObjectParse(custom_object_type: keyof typeof custom_object
 /**
  * Given a FormData object and a type mapping, generates the object representation
  * (performs the same task as generateObject, but with a specified form object instead of DOM IDs)
- * 
+ *
  */
-export function generateObjectForm(form_data: FormData, type_data: Record<string, FieldPair>, allow_omit: boolean = false, custom_objects: (keyof typeof custom_object_parsers)[] = [], patch: boolean = false): Record<string, any> {
+export function generateObjectForm(
+    form_data: FormData,
+    type_data: Record<string, FieldPair>,
+    allow_omit: boolean = false,
+    custom_objects: (keyof typeof custom_object_parsers)[] = [],
+    patch: boolean = false
+): Record<string, any> {
     let result: Record<string, any> = {}
     let exclude = new Set<string>() // excludes type_data properties that were created by the custom object constructor
     // manage custom objects
@@ -170,7 +210,10 @@ export function generateObjectForm(form_data: FormData, type_data: Record<string
             if (!allow_omit && !is_optional) {
                 throw new Error(`Form data for parameter ${param} is not a string`)
             }
-            console.warn(`Form data for parameter ${param} is not a string, ignoring parameter.`, `allow_omit is ${allow_omit}.`)
+            console.warn(
+                `Form data for parameter ${param} is not a string, ignoring parameter.`,
+                `allow_omit is ${allow_omit}.`
+            )
             continue
         }
         if (raw_value === "") {
@@ -187,7 +230,8 @@ export function generateObjectForm(form_data: FormData, type_data: Record<string
             throw new Error(`Failed to parse form data for parameter ${param} with value ${raw_value} and type ${type}`)
         }
         // nullable arrays that parse to no elements (e.g. an input of only commas) are sent as null, not []
-        result[param] = (type === "number[]?" && Array.isArray(parsed_value) && parsed_value.length === 0) ? null : parsed_value
+        result[param] =
+            type === "number[]?" && Array.isArray(parsed_value) && parsed_value.length === 0 ? null : parsed_value
     }
     return result
 }
@@ -202,7 +246,6 @@ export function singleParse(form_data: FormData): string {
     }
     return id
 }
-
 
 // VALIDATORS
 
@@ -225,13 +268,13 @@ export type FormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaEle
 // custom-object group members share one group-level edit-target checkbox (mirrors enableEditTargetOnChange),
 // so in patch mode validation keys off the group's checkbox to decide whether to validate the member
 export const VALIDATION_GROUP_MAP: Record<string, string> = {
-    "rating_suzuki": "rating",
-    "rating_nyssma": "rating",
-    "publish_name": "publication_info",
-    "publish_location": "publication_info",
-    "publish_year": "publication_info",
-    "uri_type": "publication_info",
-    "uri": "publication_info"
+    rating_suzuki: "rating",
+    rating_nyssma: "rating",
+    publish_name: "publication_info",
+    publish_location: "publication_info",
+    publish_year: "publication_info",
+    uri_type: "publication_info",
+    uri: "publication_info"
 }
 
 /** Validates a comma-separated list: no stray (empty) entries, and — when numeric — positive integers. */
@@ -240,7 +283,10 @@ export function validateList(numeric: boolean): FieldValidator {
         if (raw.trim() === "") return null
         if (hasStrayCommaSegments(raw)) return "remove the empty entry (stray comma)"
         if (numeric) {
-            const segments = raw.split(",").map(s => s.trim()).filter(s => s !== "")
+            const segments = raw
+                .split(",")
+                .map((s) => s.trim())
+                .filter((s) => s !== "")
             if (!segments.every(isPositiveIntegerString)) return "use positive whole numbers only"
         }
         return null
@@ -286,31 +332,31 @@ export function validateRatingLevel(min: number, max: number): FieldValidator {
         if (raw.trim() === "") return null
         if (!isPositiveIntegerString(raw)) return `whole number ${min}–${max}`
         const value = parseInt(raw.trim(), 10)
-        return (value >= min && value <= max) ? null : `must be ${min}–${max}`
+        return value >= min && value <= max ? null : `must be ${min}–${max}`
     }
 }
 
 /** Validates a single positive-integer id reference. */
 export const validateIdField: FieldValidator = (raw) =>
-    (raw.trim() === "" || isPositiveIntegerString(raw)) ? null : "enter a numeric id"
+    raw.trim() === "" || isPositiveIntegerString(raw) ? null : "enter a numeric id"
 
 export const validateEmailField: FieldValidator = (raw) =>
-    (raw.trim() === "" || isValidEmail(raw)) ? null : "enter a valid email address"
+    raw.trim() === "" || isValidEmail(raw) ? null : "enter a valid email address"
 
 export const validateImageField: FieldValidator = (raw) =>
-    (raw.trim() === "" || isValidImageUrl(raw)) ? null : "enter a valid URL or pick an uploaded image"
+    raw.trim() === "" || isValidImageUrl(raw) ? null : "enter a valid URL or pick an uploaded image"
 
 export const validateRangeField: FieldValidator = (raw) =>
-    (raw.trim() === "" || isValidPitchRange(raw)) ? null : "use note-note, e.g. G3-A5"
+    raw.trim() === "" || isValidPitchRange(raw) ? null : "use note-note, e.g. G3-A5"
 
 export const validatePositionField: FieldValidator = (raw) =>
-    (raw.trim() === "" || isValidPosition(raw)) ? null : "use a Roman numeral or number, e.g. VII or 7"
+    raw.trim() === "" || isValidPosition(raw) ? null : "use a Roman numeral or number, e.g. VII or 7"
 
 // the URI's required shape depends on the selected URI Type (https/isbn/doi), so this reads the sibling selector
 export const validateUriField: FieldValidator = (raw, form) => {
     if (raw.trim() === "") return null
     const type_elem = form.querySelector("#form-composition-uri_type")
-    const uri_type = (type_elem instanceof HTMLSelectElement) ? type_elem.value : "https"
+    const uri_type = type_elem instanceof HTMLSelectElement ? type_elem.value : "https"
     if (!SUPPORTED_URI_TYPES.includes(uri_type)) return null
     return validateURIForType(uri_type, raw) ? null : `does not match the selected ${uri_type.toUpperCase()} format`
 }
@@ -360,26 +406,37 @@ export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
  * @param {Record<string, any>} data the (partial) record being submitted
  * @throws {Error} if the acting user lacks permission for the requested edit
  */
-export function assertCanEditContributor(form: HTMLFormElement, record_id: number, elevate: boolean, data: Record<string, any>): void {
+export function assertCanEditContributor(
+    form: HTMLFormElement,
+    record_id: number,
+    elevate: boolean,
+    data: Record<string, any>
+): void {
     const self_raw = form.dataset.selfId ?? ""
     const self_id = self_raw === "" ? null : parseInt(self_raw)
     const is_admin = form.dataset.isAdmin === "true"
-    const protected_fields = (form.dataset.protectedFields ?? "").split(",").map(s => s.trim()).filter(s => s !== "")
+    const protected_fields = (form.dataset.protectedFields ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "")
     // editing another record, or any protected property, both require an elevated (admin + elevate) request
     const elevated = is_admin && elevate
     const is_self = self_id !== null && !isNaN(self_id) && self_id === record_id
 
     if (!is_self && !elevated) {
-        throw new Error("You do not have permission to edit this contributor record. You may only edit your own record; editing another contributor requires administrator escalation.")
+        throw new Error(
+            "You do not have permission to edit this contributor record. You may only edit your own record; editing another contributor requires administrator escalation."
+        )
     }
-    const edited_protected = protected_fields.filter(field => field in data)
+    const edited_protected = protected_fields.filter((field) => field in data)
     if (edited_protected.length > 0 && !elevated) {
-        throw new Error(`Editing protected ${edited_protected.length === 1 ? "property" : "properties"} (${edited_protected.join(", ")}) requires administrator escalation.`)
+        throw new Error(
+            `Editing protected ${edited_protected.length === 1 ? "property" : "properties"} (${edited_protected.join(", ")}) requires administrator escalation.`
+        )
     }
 }
 
-// 
-
+//
 
 /**
  * Sets the inner HTML of a result element by id, for fields rendered as markup-safe HTML the generic
@@ -398,7 +455,6 @@ export function setInfoHtml(elem_id: string, html: string): void {
     }
     elem.innerHTML = html
 }
-
 
 /**
  * Wires a search box's text input so that pressing Enter triggers its own search button instead of
@@ -421,7 +477,6 @@ export function submitOnEnter(input: HTMLInputElement, button: HTMLElement): voi
         button.click()
     })
 }
-
 
 /**
  * Normalizes a caught value into a displayable message string (Error.message, or String() of anything else).
@@ -470,17 +525,23 @@ export function renderSearchProgress(target: HTMLElement): void {
 export function enableEditTargetOnChange(form: HTMLFormElement): void {
     // custom-object group fields share a single group-level edit-target checkbox
     const group_map: Record<string, string> = {
-        "rating_suzuki": "rating",
-        "rating_nyssma": "rating",
-        "publish_name": "publication_info",
-        "publish_location": "publication_info",
-        "publish_year": "publication_info",
-        "uri_type": "publication_info",
-        "uri": "publication_info",
+        rating_suzuki: "rating",
+        rating_nyssma: "rating",
+        publish_name: "publication_info",
+        publish_location: "publication_info",
+        publish_year: "publication_info",
+        uri_type: "publication_info",
+        uri: "publication_info"
     }
     const inputs = form.querySelectorAll("input, textarea, select")
-    inputs.forEach(input => {
-        if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement)) {
+    inputs.forEach((input) => {
+        if (
+            !(
+                input instanceof HTMLInputElement ||
+                input instanceof HTMLTextAreaElement ||
+                input instanceof HTMLSelectElement
+            )
+        ) {
             return
         }
         const name = input.name
@@ -493,7 +554,9 @@ export function enableEditTargetOnChange(form: HTMLFormElement): void {
         if (!(checkbox instanceof HTMLInputElement)) {
             return
         }
-        const mark = () => { checkbox.checked = true }
+        const mark = () => {
+            checkbox.checked = true
+        }
         // "input" covers typing; "change" covers selects and other commit-style edits
         input.addEventListener("input", mark)
         input.addEventListener("change", mark)

@@ -1,33 +1,32 @@
 /**
  * lib/api/caching.ts
- * 
+ *
  * Provides services enabling data storage and eviction using the Cache API
- * 
+ *
  * Data storage items include:
  * - database records,
  * - API responses, and
  * - HTTP responses
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-import { env } from "cloudflare:workers";
+import { env } from "cloudflare:workers"
 
 /**
  * Caching policy:
@@ -39,7 +38,7 @@ import { env } from "cloudflare:workers";
  *    - Check if the Cache API has the full database cached; if so, execute the command on the virtualized database
  *    - Check if KV has the full database cached; if so, execute the command on the virtualized database
  *    - Query D1 for the entire database, store it in cache, and execute it on the virtualized database
- * 
+ *
  * Methodology:
  * The main bottlenecks in this Worker are (1) D1 read limits and (2) KV read/write limits. D1 read limits are at 5 million
  * rows read per day, and KV is limited to 100,000 reads per day (1,000 writes and lists per day). Assuming the worst scenario
@@ -49,23 +48,22 @@ import { env } from "cloudflare:workers";
  * expected from clients - the virtual SQL representation can execute most commands (right now, only commands containing ORDER BY or
  * LIMIT are not "simple"), so no hits to D1 are necessary once KV contains the database representation. The Cache API is used to
  * reduce local requests to KV by caching recent queries to the short cache TTL and by caching the table to the long cache TTL.
- * 
+ *
  * A concern with this access pattern is that the KV read pool could be exhausted (as the flip side of the worst case scenario).
  * In this case, functions in the KV module will return no data, and queries will then hit D1 and globally use the long cache policy on
  * the Cache API. Once D1 is exhausted, queries will depend on the cache until it is evicted, after which point no output will be returned.
  * This scenario, however, is very unlikely since if KV and D1 are exhausted, then the Worker invocation limit will have been hit.
- * 
+ *
  * Long-term, I intend on making the virtual table able to execute all SQL commands that the SQL statement object can represent so
  * that queries to D1 are minimized as much as possible. However, that isn't a current priority.
- * 
+ *
  */
-
 
 /**
  * The hostname to construct the caching address from
- * 
+ *
  * Cloudflare recommends that this be a valid domain name since DNS resolution may occur, so this is being used for now
- * 
+ *
  */
 const cache_host = "https://spot-kilmer-violin-website.mwmsc.workers.dev"
 
@@ -94,7 +92,13 @@ export async function _putCache(store_name: string, cache_key: string, response:
     return cache_store.put(cache_key, response.clone())
 }
 
-export async function putCache(store_name: string, key: string, payload: any[] | null, comment: string, long: boolean): Promise<void> {
+export async function putCache(
+    store_name: string,
+    key: string,
+    payload: any[] | null,
+    comment: string,
+    long: boolean
+): Promise<void> {
     const response = constructResponse(payload, comment, long)
     await _putCache(store_name, generateCacheKey(key), response)
 }
@@ -109,7 +113,7 @@ export async function getCache(store_name: string, key: string): Promise<any[] |
     if (!cached_response) {
         return null
     }
-    const cached_data = await cached_response.json() as CacheRecord
+    const cached_data = (await cached_response.json()) as CacheRecord
     return cached_data.payload
 }
 

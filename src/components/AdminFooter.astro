@@ -1,45 +1,65 @@
 ---
-const today = new Date();
-const locals = Astro.locals;
-const identity = locals.identity ?? null;
+const today = new Date()
+const locals = Astro.locals
+const identity = locals.identity ?? null
 
 // Cloudflare attaches the visitor's IANA timezone to the request's cf object (Astro.request.cf). Use it
 // to render the time in the visitor's local zone while keeping this server-side rendered, falling back to
 // UTC when the timezone is unavailable (e.g. local development without the Cloudflare runtime, or an
 // unrecognized zone string).
-const request_cf = (Astro.request as any).cf as { timezone?: string } | undefined;
-const tz: string | undefined = request_cf?.timezone;
-let time_display: string;
+const request_cf = (Astro.request as any).cf as { timezone?: string } | undefined
+const tz: string | undefined = request_cf?.timezone
+let time_display: string
 try {
-    time_display = today.toLocaleString("en-US", { timeZone: tz || "UTC",
-                                                   weekday: "long",
-                                                   day: "2-digit",
-                                                   month: "long",
-                                                   year: "numeric",
-                                                   hour: "2-digit",
-                                                   minute: "2-digit",
-                                                   second: "2-digit",
-                                                   timeZoneName: "short"
-    });
+    time_display = today.toLocaleString("en-US", {
+        timeZone: tz || "UTC",
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short"
+    })
 } catch {
-    time_display = today.toLocaleString("en-US", { timeZone: "UTC" });
+    time_display = today.toLocaleString("en-US", { timeZone: "UTC" })
 }
-const tz_label: string = tz || "UTC";
+const tz_label: string = tz || "UTC"
 ---
+
 <footer role="contentinfo">
     <nav role="navigation" aria-label="Administrative footer">
-        <p><a href="/admin" id="admin-footer-back">Back</a> | <a href="/admin" rel="home">Admin Home</a> | <a href="/admin/docs" rel="help">Help Docs</a> | <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a> | <a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a> | <a href="/admin/security-policy" rel="security-policy">Security Policy</a></p>
+        <p>
+            <a href="/admin" id="admin-footer-back">Back</a> | <a href="/admin" rel="home">Admin Home</a> | <a
+                href="/admin/docs"
+                rel="help">Help Docs</a
+            > | <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a> | <a
+                href="/admin/privacy-policy"
+                rel="privacy-policy">Privacy Policy</a
+            > | <a href="/admin/security-policy" rel="security-policy">Security Policy</a>
+        </p>
     </nav>
     <p>
         You are accessing this service
-        {identity?.email ? (
-            <> under email <a href={`mailto:${identity.email}`}>{identity.email}</a>.</>
-        ) : (
-            <> as an unauthenticated user.</>
-        )}
+        {
+            identity?.email ? (
+                <>
+                    {" "}
+                    under email <a href={`mailto:${identity.email}`}>{identity.email}</a>.
+                </>
+            ) : (
+                <> as an unauthenticated user.</>
+            )
+        }
         The time is {time_display} ({tz_label}).
     </p>
-    <p>Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()} <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU GPLv3 and additional terms</a>.</p>
+    <p>
+        Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()}
+        <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license"
+            >GNU GPLv3 and additional terms</a
+        >.
+    </p>
 </footer>
 
 <script>
@@ -57,10 +77,12 @@ const tz_label: string = tz || "UTC";
     }
 </script>
 
-{/* Sticky footer: make the admin <body> a full-height flex column so the footer can be pushed to the
+{
+    /* Sticky footer: make the admin <body> a full-height flex column so the footer can be pushed to the
     bottom of the viewport when the page content is too short to fill it, while still flowing naturally
     below the content on longer pages. Scoped to the body element via is:global because <body> is rendered
-    by each page, not by this component. */}
+    by each page, not by this component. */
+}
 <style is:global>
     body {
         display: flex;

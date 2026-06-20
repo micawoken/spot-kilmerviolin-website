@@ -61,7 +61,7 @@ export function isValidYear(value: unknown, allow_living: boolean = false): bool
 
 /**
  * Whether the birth year is consistent with the death year (birth year before death year)
- * 
+ *
  * If the death year is -1, birth year check is skipped since they're still living
  *
  * @param {number} birth_year - the composer's birth year
@@ -94,7 +94,7 @@ export function isValidPitchRange(value: string): boolean {
 
 /**
  * Uppercases only the leading note letter, leaving the accidental (b/#) and octave untouched.
- * 
+ *
  * @param {string} note - a pitch range note (e.g. "Bb3")
  * @returns {string} the normalized note
  */
@@ -104,7 +104,7 @@ function normalizeNote(note: string): string {
 
 /**
  * Normalizes a (pre-validated) pitch range to its canonical stored form
- * 
+ *
  * Format: uppercase note letters, accidental and octave unchanged, separated by a dash with no spaces (e.g. "Bb3-C6")
  *
  * @param {string} value - a valid pitch range
@@ -144,7 +144,16 @@ export function isValidPosition(value: string): boolean {
  * @returns {string} - the Roman numeral
  */
 export function integerToRoman(value: number): string {
-    const table: [number, string][] = [[90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]
+    const table: [number, string][] = [
+        [90, "XC"],
+        [50, "L"],
+        [40, "XL"],
+        [10, "X"],
+        [9, "IX"],
+        [5, "V"],
+        [4, "IV"],
+        [1, "I"]
+    ]
     let remaining = value
     let out = ""
     for (const [magnitude, symbol] of table) {
@@ -214,11 +223,10 @@ export function isImageMimeType(type: string): boolean {
     return type.trim().toLowerCase().startsWith("image/")
 }
 
-
 /**
  * Whether a comma-separated input contains stray (empty) segments — a leading, trailing, or
  * doubled comma that yields a blank entry
- * 
+ *
  * Used client-side to validate input responses (the server has separate logic that removes blank entries automatically)
  *
  * @param {string} value - the raw comma-separated input
@@ -228,9 +236,8 @@ export function hasStrayCommaSegments(value: string): boolean {
     if (value.trim() === "") {
         return false
     }
-    return value.split(",").some(segment => segment.trim() === "")
+    return value.split(",").some((segment) => segment.trim() === "")
 }
-
 
 /**
  * Supported URI types for composer/contributor external links, used to determine validation mode
@@ -267,7 +274,7 @@ export function isValidISBN(value: string): boolean {
 
 /**
  * Validates that a publication URI matches its declared uri_type (the type is authoritative)
- * 
+ *
  * URI Types:
  *   https -> must parse as a URL with the https scheme
  *   isbn  -> must be a checksum-valid ISBN-10 or ISBN-13
@@ -297,7 +304,6 @@ export function validateURIForType(uri_type: string, uri: string): boolean {
             return false
     }
 }
-
 
 /**
  * Intl.DisplayNames instance configured to resolve ISO 3166-1 alpha-2 region codes to country names

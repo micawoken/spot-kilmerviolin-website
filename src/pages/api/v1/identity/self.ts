@@ -1,11 +1,11 @@
 /**
  * pages/api/v1/identity/self.ts
- * 
+ *
  * Provides endpoints related to self-identity management, including identity info, self-enrollment, and other features
- * 
+ *
  */
 
-import type { APIRoute } from "astro";
+import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../../lib/api/common"
 import { auth_check } from "../../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
@@ -15,12 +15,12 @@ import { _stateTypeAssertPartialContributor } from "../../../../lib/api/d1"
 /**
  * GET /api/v1/identity/self
  * Returns information about the authenticated user's identity, including email and any pending self-enrollment status
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object containing the Identity object
  */
@@ -38,12 +38,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * POST /api/v1/identity/self
  * Perform self-enrollment for the authenticated user and construct a Contributor record; if successful, returns the contributor ID
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: required, JSON array containing one partial Contributor record with properties: name (required), major, class_year (optional; omitted or null values are stored as null)
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object containing the contributor ID if enrollment is successful, or an error message if enrollment fails
  */
@@ -78,16 +78,32 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     }
     // perform self-enrollment
     try {
-        const contributor_id = await finishUser(locals.cfContext, locals.identity!.email, record.name, record.major ?? null, record.class_year ?? null)
+        const contributor_id = await finishUser(
+            locals.cfContext,
+            locals.identity!.email,
+            record.name,
+            record.major ?? null,
+            record.class_year ?? null
+        )
         if (contributor_id === null) {
             // should be imposible
-            return constructResponse(request, null, 500, "Failed to finish user enrollment: user is missing from access list but has a contributor record")
+            return constructResponse(
+                request,
+                null,
+                500,
+                "Failed to finish user enrollment: user is missing from access list but has a contributor record"
+            )
         } else if (contributor_id === undefined) {
             // error - either is fully enrolled, or does not exist
-            return constructResponse(request, null, 500, "Failed to finish user enrollment: user is either fully enrolled or does not exist in the database")
+            return constructResponse(
+                request,
+                null,
+                500,
+                "Failed to finish user enrollment: user is either fully enrolled or does not exist in the database"
+            )
         } else {
             return constructResponse(request, null, 201, undefined, {
-                "Location": `/api/v1/contributors/${contributor_id}`
+                Location: `/api/v1/contributors/${contributor_id}`
             })
         }
     } catch (error) {
@@ -132,7 +148,12 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     // validate the new email
     const new_email = api_request.payload[0]
     if (typeof new_email !== "string" || new_email.trim() === "" || !new_email.includes("@")) {
-        return constructResponse(request, null, 400, "Invalid request body: new identity email must be a valid email string")
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid request body: new identity email must be a valid email string"
+        )
     }
     // the change targets the caller's own record; selfmgmt guarantees an allowed (non-enrollable) identity,
     // but guard the id explicitly (e.g. when authentication is disabled in local development, identity is absent)

@@ -1,13 +1,18 @@
 /**
  * /pages/api/v1/composers/[id].ts
- * 
+ *
  * Manipulates specific composer records
- * 
+ *
  */
 
 import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../../lib/api/http"
+import {
+    _constructHeaders,
+    constructResponse,
+    constructResponseErrorHook,
+    lastModifiedHeader
+} from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../../../../lib/api/d1"
 import { deleteComposer, getComposer, updateComposer, updateComposerPartial } from "../../../../lib/api/database"
@@ -15,14 +20,14 @@ import { deleteComposer, getComposer, updateComposer, updateComposerPartial } fr
 /**
  * GET /api/v1/composers/[id]
  * Returns the composer record for the specified composer ID
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
+ *
  * @param context - the Astro API context
- * @returns a Response object with the composer record if found 
+ * @returns a Response object with the composer record if found
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { params, request, locals } = context
@@ -53,12 +58,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * PUT /api/v1/composers/[id]
  * Update the full composer representation
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: required, complete Composer object
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with status of the update operation
  */
@@ -101,12 +106,12 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
 /**
  * PATCH /api/v1/composers/[id]
  * Update a composer record with a partial representation; only provided properties will be updated
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: required, partial Composer object
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with status of the update operation
  */
@@ -148,15 +153,15 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
 /**
  * DELETE /api/v1/composers/[id]
  * Deletes the composer record with the specified ID
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
+ *
  * Note: composer IDs and names are used as foreign keys in composition records; attempting
  * to delete a composer record referenced by at least one composition record will fail
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with status of the delete operation
  */
@@ -177,6 +182,11 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         await deleteComposer(context.locals.cfContext, state_id)
         return constructResponse(request, null, 204)
     } catch (error) {
-        return constructResponseErrorHook(request, error, 409, "Operation failed; verify the composer record is not used by any composition")
+        return constructResponseErrorHook(
+            request,
+            error,
+            409,
+            "Operation failed; verify the composer record is not used by any composition"
+        )
     }
 }

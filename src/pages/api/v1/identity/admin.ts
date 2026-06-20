@@ -63,7 +63,12 @@ async function _processAdmin(context: APIContext, request: Request, elevate: boo
             }
         }
     } catch (error) {
-        const response = constructResponseErrorHook(request, error, 500, "Failed to update administrator status; previous transactions may have succeeded")
+        const response = constructResponseErrorHook(
+            request,
+            error,
+            500,
+            "Failed to update administrator status; previous transactions may have succeeded"
+        )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }

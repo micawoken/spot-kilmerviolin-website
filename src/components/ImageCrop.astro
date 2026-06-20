@@ -21,6 +21,7 @@ interface Props {
 }
 const { inputId, id = "image-crop" } = Astro.props
 ---
+
 <div class="image-crop" id={id} data-input-id={inputId} hidden>
     <div class="image-crop-controls">
         <button type="button" class="image-crop-aspect is-active" data-aspect="portrait">Portrait 4:5</button>
@@ -61,8 +62,16 @@ const { inputId, id = "image-crop" } = Astro.props
         const btn_landscape = root.querySelector<HTMLButtonElement>('.image-crop-aspect[data-aspect="landscape"]')
         const warning = root.querySelector<HTMLElement>(".image-crop-warning")
         const warning_text = root.querySelector<HTMLElement>(".image-crop-warning-text")
-        if (!(file_input instanceof HTMLInputElement) || !(img instanceof HTMLImageElement) || !(box instanceof HTMLElement)
-            || !(handle instanceof HTMLElement) || !btn_portrait || !btn_landscape || !warning || !warning_text) {
+        if (
+            !(file_input instanceof HTMLInputElement) ||
+            !(img instanceof HTMLImageElement) ||
+            !(box instanceof HTMLElement) ||
+            !(handle instanceof HTMLElement) ||
+            !btn_portrait ||
+            !btn_landscape ||
+            !warning ||
+            !warning_text
+        ) {
             console.warn("ImageCrop: missing expected elements", { input_id })
             return
         }
@@ -87,7 +96,7 @@ const { inputId, id = "image-crop" } = Astro.props
         const widthForHeight = (h: number): number => {
             if (!natural) return h
             // invert h = w * (W/H) / RATIO ⇒ w = h * RATIO * (H/W)
-            return (h * CLIENT_RATIO[aspect] * (natural.height / natural.width))
+            return h * CLIENT_RATIO[aspect] * (natural.height / natural.width)
         }
 
         /** Largest crop box of the current aspect, centered on (cx, cy) and clamped inside the image. */
@@ -202,13 +211,13 @@ const { inputId, id = "image-crop" } = Astro.props
             ;(evt.target as Element).setPointerCapture?.(evt.pointerId)
         }
 
-        box.addEventListener("pointerdown", evt => {
+        box.addEventListener("pointerdown", (evt) => {
             // the corner handle resizes; the rest of the box pans
             if (evt.target === handle) beginDrag(evt, "resize")
             else beginDrag(evt, "drag")
         })
 
-        box.addEventListener("pointermove", evt => {
+        box.addEventListener("pointermove", (evt) => {
             if (!mode || !natural) return
             const r = rendered()
             if (r.w === 0 || r.h === 0) return
@@ -241,7 +250,9 @@ const { inputId, id = "image-crop" } = Astro.props
 
         // keep the box correct when the rendered image size changes (responsive layout)
         if (typeof ResizeObserver !== "undefined") {
-            new ResizeObserver(() => { if (natural) sync() }).observe(img)
+            new ResizeObserver(() => {
+                if (natural) sync()
+            }).observe(img)
         }
     }
 

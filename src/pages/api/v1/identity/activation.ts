@@ -63,7 +63,12 @@ async function _processActivation(context: APIContext, request: Request, activat
             }
         }
     } catch (error) {
-        const response = constructResponseErrorHook(request, error, 500, "Failed to update activation state; previous transactions may have succeeded")
+        const response = constructResponseErrorHook(
+            request,
+            error,
+            500,
+            "Failed to update activation state; previous transactions may have succeeded"
+        )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }
@@ -86,7 +91,7 @@ async function _processActivation(context: APIContext, request: Request, activat
  */
 export const PUT: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
-    const auth_response = auth_check(request, locals.identity, [ "user_activation" ])
+    const auth_response = auth_check(request, locals.identity, ["user_activation"])
     if (auth_response !== null) {
         return auth_response
     }

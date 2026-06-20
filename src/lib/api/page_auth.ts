@@ -9,7 +9,8 @@ import { authEnabled } from "./environment"
 import { requires } from "./authorize"
 import { middlewareErrorResponder } from "./http"
 
-export const comment_401 = "You have not provided valid credentials to access this resource. Please log in and try again."
+export const comment_401 =
+    "You have not provided valid credentials to access this resource. Please log in and try again."
 export const comment_403 = "Your user account is not authorized to access this resource."
 
 /**
@@ -48,7 +49,7 @@ export function satisfiesAccess(access: AdminAccess, identity: Identity): boolea
             return false
         case "role":
             // an active caller holding one of the accepted role permissions satisfies the requirement
-            return identity.active && access.roles.some(role => requires(role, identity))
+            return identity.active && access.roles.some((role) => requires(role, identity))
         case "active":
             return identity.active
         case "any":
@@ -58,7 +59,7 @@ export function satisfiesAccess(access: AdminAccess, identity: Identity): boolea
 
 /**
  * Authorization guard for SSR admin pages
- * 
+ *
  * Returns an error response if not authorized; null if authorized
  *
  *

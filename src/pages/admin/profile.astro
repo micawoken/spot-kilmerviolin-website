@@ -28,7 +28,9 @@ const self_id = identity?.id ?? null
 let contributor_data: ContributorRecord | null = null
 if (self_id !== null && self_id !== undefined) {
     // a missing contributors table surfaces the missing-table fallback page
-    const result = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id)))
+    const result = await guardedRead(() =>
+        getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id))
+    )
     if (result instanceof Response) {
         return result
     }
@@ -38,34 +40,57 @@ if (self_id !== null && self_id !== undefined) {
     }
 }
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}My Profile`} description="View and manage your profile"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>My Profile</h2>
-    {
-        contributor_data ? (
-            <div class="profile-content">
-                <p class="general-infohelp">This is your user profile, connected to your contributor record. The non-protected information of your record displayed here will be published to the website. To change your personal information, use <a href="/admin/profile/edit">Edit my profile</a>. To change the email you sign in with (the identity email), use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
-                <ContributorInfo contributor={contributor_data} />
-                <div class="entity-result-details">
-                    <span><a href="/admin/profile/edit" class="col-item-link">Edit my profile &gt;</a> | <a href="/admin/profile/reset_login" class="col-item-link">Change sign-in email &gt;</a> | <a href="/admin/profile/deactivate" class="col-item-link">Deactivate my account &gt;</a></span>
-                </div>
-            </div>
-        ) : (
-            identity?.enrollable ? (
-                <p class="general-warning">Your login is not yet linked to a contributor record, so you have no profile to display. Complete <a href="/admin/advanced/selfenroll">self-enrollment</a> first.</p>
-            ) : (
-                <p>No profile information is available. You may be browsing without authentication (such as in local development), or your login has no associated contributor record.</p>
-            )
-        )
-    }
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}My Profile`} description="View and manage your profile" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>My Profile</h2>
+            {
+                contributor_data ? (
+                    <div class="profile-content">
+                        <p class="general-infohelp">
+                            This is your user profile, connected to your contributor record. The non-protected
+                            information of your record displayed here will be published to the website. To change your
+                            personal information, use <a href="/admin/profile/edit">Edit my profile</a>. To change the
+                            email you sign in with (the identity email), use{" "}
+                            <a href="/admin/profile/reset_login">Change sign-in email</a>.
+                        </p>
+                        <ContributorInfo contributor={contributor_data} />
+                        <div class="entity-result-details">
+                            <span>
+                                <a href="/admin/profile/edit" class="col-item-link">
+                                    Edit my profile &gt;
+                                </a>{" "}
+                                |{" "}
+                                <a href="/admin/profile/reset_login" class="col-item-link">
+                                    Change sign-in email &gt;
+                                </a>{" "}
+                                |{" "}
+                                <a href="/admin/profile/deactivate" class="col-item-link">
+                                    Deactivate my account &gt;
+                                </a>
+                            </span>
+                        </div>
+                    </div>
+                ) : identity?.enrollable ? (
+                    <p class="general-warning">
+                        Your login is not yet linked to a contributor record, so you have no profile to display.
+                        Complete <a href="/admin/advanced/selfenroll">self-enrollment</a> first.
+                    </p>
+                ) : (
+                    <p>
+                        No profile information is available. You may be browsing without authentication (such as in
+                        local development), or your login has no associated contributor record.
+                    </p>
+                )
+            }
+        </main>
+        <AdminFooter />
+    </body>
 </html>

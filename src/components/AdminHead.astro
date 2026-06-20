@@ -1,6 +1,6 @@
 ---
 /**
- * src/components/AdminHead.astro
+ * components/AdminHead.astro
  *
  * Drop-in for the <head> of admin pages that render the entity components (Info / Form / List views
  * and the search boxes). It:
@@ -11,7 +11,8 @@
  * Kept separate from BaseHead (and from the body-rendered AdminHeader) so this loads from the document
  * head and the public site does not ship the admin entity styles.
  */
-import "../styles/admin-entities.css";
+import "../styles/admin-entities.css"
 ---
+
 <meta name="robots" content="noindex" />
 <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />

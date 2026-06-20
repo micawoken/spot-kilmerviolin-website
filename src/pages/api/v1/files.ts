@@ -48,7 +48,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             case false:
             case undefined:
                 // return file keys only
-                return constructResponse(request, data.map(file => file.key), 200)
+                return constructResponse(
+                    request,
+                    data.map((file) => file.key),
+                    200
+                )
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }
@@ -83,7 +87,12 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     try {
         form = await request.formData()
     } catch {
-        return constructResponse(request, null, 400, "Invalid request body: expected multipart/form-data with a 'file' part")
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid request body: expected multipart/form-data with a 'file' part"
+        )
     }
     const file = form.get("file")
     if (!(file instanceof File)) {
@@ -97,7 +106,12 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     const raw_name = typeof provided_name === "string" && provided_name.trim() !== "" ? provided_name : file.name
     const key = deriveFileKey(raw_name)
     if (key === "") {
-        return constructResponse(request, null, 400, "Invalid file name: no usable characters remain after sanitization")
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid file name: no usable characters remain after sanitization"
+        )
     }
     const content_type = file.type || "application/octet-stream"
     const uploader = locals.identity ? String(locals.identity.id) : null

@@ -47,50 +47,72 @@ if (id) {
     } else {
         // an admin (or the caller viewing their own record) sees the full record; everyone else has the
         // protected properties stripped. Auth-disabled local dev never redacts (it constructs no identity).
-        contributor_data = (auth_enabled && !is_admin && !is_self)
-            ? redactProtected(CONTRIBUTOR, result) as Partial<ContributorRecord>
-            : result
+        contributor_data =
+            auth_enabled && !is_admin && !is_self
+                ? (redactProtected(CONTRIBUTOR, result) as Partial<ContributorRecord>)
+                : result
         use_id = true
     }
 }
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Contributor`} description="View a contributor"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>View a Contributor</h2>
-    <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
-    <ContributorInfo contributor={use_id ? contributor_data : null} hidden={!use_id} />
-    <p id="transaction-status">{use_id ? "Contributor data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
-    {
-        // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
-        // record (only when the caller may edit it), or return to the ID-entry view to look up another
-        // (the path without the id query param)
-        use_id ? (
-            <p>
-                {may_edit ? <Fragment><a href={`/admin/contributors/edit?id=${id}`}>Edit this contributor &gt;</a> | </Fragment> : null}<a href={Astro.url.pathname}>View another contributor &gt;</a>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Contributor`} description="View a contributor" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>View a Contributor</h2>
+            <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
+            <ContributorInfo contributor={use_id ? contributor_data : null} hidden={!use_id} />
+            <p id="transaction-status">
+                {
+                    use_id
+                        ? "Contributor data loaded from URL."
+                        : 'Your request status will show here after you press "Submit".'
+                }
             </p>
-        ) : null
-    }
-    <script>
-        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
-        const read_form = getForm("contributor_partial", APIOpCode.READ)
-        read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "contributor_partial"))
-        // keyword lookup scoped to contributors; selecting a hit loads it on-page via the same READ flow as the ID entry form
-        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "contributors", (result) => {
-            const id_input = document.getElementById("form-id-entry-id")
-            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
-            read_form.requestSubmit()
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+            {
+                // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
+                // record (only when the caller may edit it), or return to the ID-entry view to look up another
+                // (the path without the id query param)
+                use_id ? (
+                    <p>
+                        {may_edit ? (
+                            <Fragment>
+                                <a href={`/admin/contributors/edit?id=${id}`}>Edit this contributor &gt;</a> |{" "}
+                            </Fragment>
+                        ) : null}
+                        <a href={Astro.url.pathname}>View another contributor &gt;</a>
+                    </p>
+                ) : null
+            }
+            <script>
+                import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                const read_form = getForm("contributor_partial", APIOpCode.READ)
+                read_form.addEventListener(
+                    "submit",
+                    genHandler(read_form, getTransactionElem(), APIOpCode.READ, "contributor_partial")
+                )
+                // keyword lookup scoped to contributors; selecting a hit loads it on-page via the same READ flow as the ID entry form
+                attachKeywordSearchInline(
+                    "form-id-entry-search-input",
+                    "form-id-entry-search-button",
+                    "form-id-entry-search-results",
+                    () => "contributors",
+                    (result) => {
+                        const id_input = document.getElementById("form-id-entry-id")
+                        if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+                        read_form.requestSubmit()
+                    }
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

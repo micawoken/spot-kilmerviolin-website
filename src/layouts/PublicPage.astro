@@ -1,6 +1,6 @@
 ---
 /**
- * src/layouts/PublicPage.astro
+ * layouts/PublicPage.astro
  *
  * Base layout for public-facing pages, the public analog of AdminDocument. It renders the shared
  * public chrome (PublicHead in the document head, PublicHeader and PublicFooter around the body)
@@ -10,29 +10,30 @@
  * search indexes on the staging preview. Public pages are server-rendered (output: "server"); leave
  * them un-prerendered so the environment is resolved per request.
  */
-import PublicHead from "../components/PublicHead.astro";
-import PublicHeader from "../components/PublicHeader.astro";
-import PublicFooter from "../components/PublicFooter.astro";
-import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+import PublicHead from "../components/PublicHead.astro"
+import PublicHeader from "../components/PublicHeader.astro"
+import PublicFooter from "../components/PublicFooter.astro"
+import { SITE_TITLE, SITE_DESCRIPTION } from "../consts"
 
 interface Props {
-    title?: string;
-    description?: string;
-    image?: string;
+    title?: string
+    description?: string
+    image?: string
 }
 
-const { title = SITE_TITLE, description = SITE_DESCRIPTION, image } = Astro.props;
+const { title = SITE_TITLE, description = SITE_DESCRIPTION, image } = Astro.props
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <PublicHead title={title} description={description} image={image} />
-</head>
-<body>
-    <PublicHeader />
-    <main>
-        <slot />
-    </main>
-    <PublicFooter />
-</body>
+    <head>
+        <PublicHead title={title} description={description} image={image} />
+    </head>
+    <body>
+        <PublicHeader />
+        <main>
+            <slot />
+        </main>
+        <PublicFooter />
+    </body>
 </html>

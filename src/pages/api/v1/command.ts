@@ -1,9 +1,9 @@
 /**
  * pages/api/v1/command.ts
- * 
+ *
  * Provides administrators a direct connection to the sqlite database
- * 
- * 
+ *
+ *
  */
 
 import type { APIRoute } from "astro"
@@ -11,7 +11,6 @@ import { parseAPIRequest } from "../../../lib/api/common"
 import { auth_check } from "../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import { exec_string, exec_string_batch, exec_string_sequential } from "../../../lib/api/d1"
-
 
 /**
  * POST /api/v1/command
@@ -41,8 +40,16 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, { error: api_request.message }, 400)
     }
-    if (api_request.payload === null || api_request.payload.length < 1 || !api_request.payload.every(command => typeof command === "string")) {
-        return constructResponse(request, { error: "Bad request: payload must be a non-empty list of SQL command strings" }, 400)
+    if (
+        api_request.payload === null ||
+        api_request.payload.length < 1 ||
+        !api_request.payload.every((command) => typeof command === "string")
+    ) {
+        return constructResponse(
+            request,
+            { error: "Bad request: payload must be a non-empty list of SQL command strings" },
+            400
+        )
     }
     const commands = api_request.payload as string[]
     // batch defaults to true; only an explicit false disables the atomic-transaction behavior
@@ -54,9 +61,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             const exec_result = await exec_string(commands[0])
             return constructResponse(request, exec_result, 200)
         }
-        const exec_results = batch
-            ? await exec_string_batch(commands)
-            : await exec_string_sequential(commands)
+        const exec_results = batch ? await exec_string_batch(commands) : await exec_string_sequential(commands)
         return constructResponse(request, exec_results, 200)
     } catch (error) {
         return constructResponseErrorHook(request, error, 400, "Failed to execute SQL command")

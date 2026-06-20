@@ -1,5 +1,5 @@
 /**
- * src/middleware/headers.ts
+ * middleware/headers.ts
  *
  * Applies security response headers to the admin UI. The admin pages emit dynamic record data through a
  * number of HTML sinks (set:html / innerHTML, all routed through escapeHtml), so a Content-Security-Policy
@@ -34,7 +34,7 @@ const ADMIN_CSP = [
     "img-src 'self' https: data: blob:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self'"
 ].join("; ")
 
 export const securityHeaders: MiddlewareHandler = async (context, next) => {

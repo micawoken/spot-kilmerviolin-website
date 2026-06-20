@@ -1,22 +1,22 @@
 ---
-import { getEntry, render } from 'astro:content';
-import DocInfo from '../../../layouts/DocInfo.astro';
+import { getEntry, render } from "astro:content"
+import DocInfo from "../../../layouts/DocInfo.astro"
 
 // Server-rendered (not prerendered) like every other /admin route: the identity middleware
 // (src/middleware/identity.ts) only runs for on-demand routes, and DocInfo needs the resolved
 // caller on Astro.locals to render the admin header. Resolve the requested doc by its collection
 // id (the file path under src/content/docs without extension, e.g. "works") at request time
 // instead of enumerating paths with getStaticPaths, which would force prerendering.
-export const prerender = false;
+export const prerender = false
 
-const { slug } = Astro.params;
+const { slug } = Astro.params
 
-const doc = slug ? await getEntry('docs', slug) : undefined;
+const doc = slug ? await getEntry("docs", slug) : undefined
 if (!doc) {
-    return new Response(null, { status: 404, statusText: 'Not Found' });
+    return new Response(null, { status: 404, statusText: "Not Found" })
 }
 
-const { Content } = await render(doc);
+const { Content } = await render(doc)
 ---
 
 <DocInfo {...doc.data}>

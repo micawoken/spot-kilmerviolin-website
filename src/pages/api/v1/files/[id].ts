@@ -68,7 +68,12 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     try {
         form = await request.formData()
     } catch {
-        return constructResponse(request, null, 400, "Invalid request body: expected multipart/form-data with a 'file' part")
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid request body: expected multipart/form-data with a 'file' part"
+        )
     }
     const file = form.get("file")
     if (!(file instanceof File)) {

@@ -11,33 +11,47 @@ const locals = Astro.locals
 
 const identity = locals.identity
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Contributors`} description="Maintain contributor information"/>
-    <AdminHead />
-</head>
-<body>
-    <!-- Header -->
-    <AdminHeader identity={identity}  welcome={true}/>
-    <main class="admin-main" role="main">
-    <p class="general-infohelp">Contributors are the individuals credited for work on the project. Each record stores their contributor information and also maintains their identity and authorization details for login.</p>
-    <!-- links to database management pages -->
-    <div class="flex-container">
-        <div class="column">
-            <h2><a href="/admin/contributors" class="col-header-link">Contributors</a></h2>
-            <ul>
-                <li><a href="/admin/contributors/create" class="col-item-link">Add new contributor</a></li>
-                <li><a href="/admin/contributors/info" class="col-item-link">View contributor info</a></li>
-                <li><a href="/admin/contributors/edit" class="col-item-link">Edit existing contributor</a></li>
-                <li><a href="/admin/contributors/delete" class="col-item-link">Delete contributor</a></li>
-                <li><a href="/admin/contributors/list" class="col-item-link">List contributors</a></li>
-            </ul>
-        </div>
-    </div>
-    <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/contributors" class="general-helppointer-link">Database Management - Contributors</a> documentation and video.</p>
-    <p class="general-helpinfo">Looking for user identity management options? Those options are in <a href="/admin/iam" class="general-helpinfo-link">Identity & Access Management</a>.</p>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Contributors`} description="Maintain contributor information" />
+        <AdminHead />
+    </head>
+    <body>
+        <!-- Header -->
+        <AdminHeader identity={identity} welcome={true} />
+        <main class="admin-main" role="main">
+            <p class="general-infohelp">
+                Contributors are the individuals credited for work on the project. Each record stores their contributor
+                information and also maintains their identity and authorization details for login.
+            </p>
+            <!-- links to database management pages -->
+            <div class="flex-container">
+                <div class="column">
+                    <h2><a href="/admin/contributors" class="col-header-link">Contributors</a></h2>
+                    <ul>
+                        <li><a href="/admin/contributors/create" class="col-item-link">Add new contributor</a></li>
+                        <li><a href="/admin/contributors/info" class="col-item-link">View contributor info</a></li>
+                        <li><a href="/admin/contributors/edit" class="col-item-link">Edit existing contributor</a></li>
+                        <li><a href="/admin/contributors/delete" class="col-item-link">Delete contributor</a></li>
+                        <li><a href="/admin/contributors/list" class="col-item-link">List contributors</a></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="general-helppointer">
+                For help with these options, please review the <a
+                    href="/admin/docs/contributors"
+                    class="general-helppointer-link">Database Management - Contributors</a
+                > documentation and video.
+            </p>
+            <p class="general-helpinfo">
+                Looking for user identity management options? Those options are in <a
+                    href="/admin/iam"
+                    class="general-helpinfo-link">Identity & Access Management</a
+                >.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

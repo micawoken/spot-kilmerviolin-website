@@ -32,25 +32,31 @@ if (!contributors) {
 
 // name, major, and class_year are not protected properties (CONTRIBUTOR.protected covers roles, admin,
 // and identity_email only), so every active caller — not just admins — may see them in the listing
-const formatted_contributors = contributors.map(contributor => ({
+const formatted_contributors = contributors.map((contributor) => ({
     id: contributor.id,
     name: contributor.name,
     // major and class_year are nullable; omit whichever is null instead of rendering "null"
-    name2: [contributor.major, contributor.class_year !== null ? `${contributor.class_year}` : null].filter(part => part !== null).join(" "),
+    name2: [contributor.major, contributor.class_year !== null ? `${contributor.class_year}` : null]
+        .filter((part) => part !== null)
+        .join(" ")
 }))
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Contributors`} description="View the list of contributors in the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>List Contributors</h2>
-    <ListResults noun="contributor" enviro="admin" results={formatted_contributors} />
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}List Contributors`}
+            description="View the list of contributors in the database"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>List Contributors</h2>
+            <ListResults noun="contributor" enviro="admin" results={formatted_contributors} />
+        </main>
+        <AdminFooter />
+    </body>
 </html>
