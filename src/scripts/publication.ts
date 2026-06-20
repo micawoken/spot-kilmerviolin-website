@@ -19,7 +19,9 @@ import { escapeHtml } from "./escape"
 /**
  * Whether a URI carries a web scheme safe to place in an href. Entity-encoding a value does not stop a
  * javascript:/data: URI from executing when clicked, so the scheme must be checked before linking; a
- * value that fails this is rendered as inert escaped text instead.
+ * value that fails this is rendered as inert escaped text instead. Only https is linkable: the "https"
+ * URI type is, by definition, an https address, and constraining the scheme keeps a plaintext http link
+ * from ever being emitted (mirrors the https-only image policy in lib/api/validation.ts).
  */
 function isLinkableHttpUri(uri: string): boolean {
     let parsed: URL
@@ -28,7 +30,7 @@ function isLinkableHttpUri(uri: string): boolean {
     } catch {
         return false
     }
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
+    return parsed.protocol === "https:"
 }
 
 export function renderPublicationUri(uri_type: string | null | undefined, uri: string | null | undefined, placeholder: string): string {

@@ -40,9 +40,31 @@ export function attachUriTypeHelp(form: HTMLFormElement): void {
 }
 
 
-// the ISO 3166-1 reference link, surfaced in the country field's validation hint so the user can look up
-// a code when their entry is not recognised
-const COUNTRY_ISO_LINK = '<a href="https://www.iso.org/obp/ui" target="_blank" rel="noopener">ISO 3166-1 alpha-2</a>'
+// the ISO 3166-1 reference, surfaced in the country field's validation hint so the user can look up a
+// code when their entry is not recognised
+const COUNTRY_ISO_URL = "https://www.iso.org/obp/ui"
+const COUNTRY_ISO_LABEL = "ISO 3166-1 alpha-2"
+
+/**
+ * Builds the unrecognised-country error ("Enter a valid <ISO 3166-1 alpha-2 link> code") as a DOM
+ * subtree rather than an HTML string. The link is constructed element-by-element so no markup is ever
+ * parsed from a string here — keeping this off the innerHTML path so the error slot can never become an
+ * injection sink if the surrounding text is later changed to include a dynamic value.
+ */
+function buildCountryError(): HTMLElement {
+    const error = document.createElement("small")
+    error.className = "field-error"
+    error.setAttribute("role", "alert")
+    error.appendChild(document.createTextNode("Enter a valid "))
+    const link = document.createElement("a")
+    link.href = COUNTRY_ISO_URL
+    link.target = "_blank"
+    link.rel = "noopener"
+    link.textContent = COUNTRY_ISO_LABEL
+    error.appendChild(link)
+    error.appendChild(document.createTextNode(" code"))
+    return error
+}
 
 /**
  * Renders the composer country field's feedback and reports whether the current value is acceptable.
@@ -89,11 +111,7 @@ function renderCountryFeedback(input: HTMLInputElement, help: HTMLElement): bool
     // unrecognised: hide the help token and flag the field, carrying the ISO link in the error text
     help.classList.add("field-hidden")
     input.classList.add("field-invalid")
-    const error = document.createElement("small")
-    error.className = "field-error"
-    error.setAttribute("role", "alert")
-    error.innerHTML = `Enter a valid ${COUNTRY_ISO_LINK} code`
-    input.insertAdjacentElement("afterend", error)
+    input.insertAdjacentElement("afterend", buildCountryError())
     return false
 }
 

@@ -7,7 +7,7 @@
 
 import { env } from "cloudflare:workers"
 import type { MiddlewareHandler } from "astro"
-import { middlewareErrorResponder } from "../lib/api/http"
+import { middlewareErrorResponder, failsCsrfOriginCheck } from "../lib/api/http"
 import { parseJWT, retrieveCredential } from "../lib/api/authenticate"
 import { authEnabled, detectEnvironment } from "../lib/api/environment"
 import authorize from "../lib/api/authorize"
@@ -143,6 +143,14 @@ export const identity: MiddlewareHandler = async (context, next) => {
         if (credential_data === null) {
             // no credential, unauthorized
             return middlewareErrorResponder(context.request, 401, comment_401)
+        }
+        // CSRF defense for the ambient cookie credential: the CF_Authorization cookie is attached by the
+        // browser to any request to this origin, so a cookie-authenticated state-changing request must
+        // prove a same-origin initiator (see failsCsrfOriginCheck). Header/Bearer credentials are not
+        // ambient — a cross-site page cannot set those headers — so they are exempt. The app's own admin
+        // UI issues same-origin calls whose Origin is allowlisted, so legitimate writes are unaffected.
+        if (credential_data[0] === "cookie" && failsCsrfOriginCheck(context.request)) {
+            return middlewareErrorResponder(context.request, 403, "Cross-origin request rejected.")
         }
 
         const validation: BaseIdentity | null | undefined = await parseJWT(credential_data[1], env.CF_ACCESS_AUD)

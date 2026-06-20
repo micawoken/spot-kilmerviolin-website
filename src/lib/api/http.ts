@@ -30,6 +30,21 @@ export const static_headers = {
     "Vary": "Origin"
 }
 
+/**
+ * Header template for raw (non-JSON) body responses, intended for file delivery
+ */
+export const file_headers = {
+    "Content-Type": undefined,
+    "Content-Disposition": undefined,
+    "Cache-Control": undefined,
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "sandbox",
+    "Access-Control-Allow-Origin": undefined,
+    "Access-Control-Allow-Credentials": "true",
+    "Vary": "Origin"
+}
+
+
 export const error_headers = {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-store, must-understand",
@@ -80,19 +95,10 @@ export const preflight_headers = {
 /**
  * A fallback origin to use for CORS headers when a request does not include an allowed "Origin"
  */
-export const cors_fallback_origin = "localhost" // temporary
+export const cors_fallback_origin = "https://spot-kilmer-violin-website.mwmsc.workers.dev" // temporary, workers.dev domain
 
 /**
  * Resolves the value to send in Access-Control-Allow-Origin for a request.
- *
- * Because API responses set Access-Control-Allow-Credentials: true, the allowed origin must never be a
- * blanket reflection of the request's Origin header — doing so would let any site make credentialed
- * cross-origin calls and read the responses. Instead, the request Origin is echoed back only when the
- * full origin (scheme://host[:port], serialized via the URL parser to normalize away any trailing
- * slash or default port) exactly matches an entry on the ALLOWED_ORIGINS allowlist (see src/consts.ts);
- * matching the full origin rather than just the hostname keeps the scheme and port constrained. Any
- * other (or absent/malformed) Origin yields the non-matching fallback, which the browser will reject
- * for cross-origin use.
  *
  * @param {Request} request - the original Request object
  * @returns {string} the Origin to echo (when allowlisted) or the fallback origin
@@ -112,6 +118,46 @@ export function resolveAllowedOrigin(request: Request): string {
 }
 
 /**
+ * Safe HTTP methods (cannot modify server state, do not need CSRF protection)
+ */
+const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
+
+/**
+ * Whether a state-changing request fails the same-origin (CSRF) check
+ * 
+ * Runs whenever a cookie (specifically, the CF_Authorization cookie) is used to authenticate with the system
+ * 
+ * Checks the fetch metadata to see if the request's initiator is cross-site or if the Origin header is not allowlisted
+ *
+ * NOTE: CSRF protection is origin-wide (not site-wide); mixing www and non-www versions will cause this check to fail
+ *
+ * @param {Request} request - the original Request object
+ * @returns {boolean} true if the request should be rejected as a cross-site (CSRF) attempt
+ */
+export function failsCsrfOriginCheck(request: Request): boolean {
+    if (CSRF_SAFE_METHODS.has(request.method)) {
+        return false
+    }
+    const fetch_site = request.headers.get("Sec-Fetch-Site")
+    // an explicit cross-site (or same-site-but-cross-origin) initiator is rejected outright
+    if (fetch_site === "cross-site" || fetch_site === "same-site") {
+        return true
+    }
+    const origin = request.headers.get("Origin")
+    if (origin === null) {
+        // no Origin on a state-changing request: accept only when Fetch Metadata attests same-origin,
+        // otherwise treat the absence as suspect (a same-origin browser write always sends an Origin)
+        return fetch_site !== "same-origin"
+    }
+    try {
+        return !ALLOWED_ORIGINS.includes(new URL(origin).origin)
+    } catch {
+        // malformed Origin header
+        return true
+    }
+}
+
+/**
  * The default headers applied to API responses, with some undefined values that must be generated per-request
  */
 export const API_headers = {
@@ -126,36 +172,9 @@ export const API_headers = {
 }
 
 /**
- * Content types that are safe to serve inline (rendered by the browser on direct navigation and embedded
- * via <img>). Restricted to raster image formats: these cannot carry executable script, so an attacker who
- * uploads one cannot achieve same-origin script execution against a viewer. Every other type — notably
- * image/svg+xml and text/html, which can carry <script> — is served as an attachment instead. The set
- * mirrors isOptimizableImage's re-encoded formats (images.ts); SVG is deliberately absent from both.
+ * Content types that are safe to serve inline (everything else is downloaded)
  */
 export const INLINE_SAFE_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
-
-/**
- * Header template for raw (non-JSON) body responses, such as a file served from the store.
- * Mirrors the credentialed CORS posture of API_headers but carries the body's own content type and a
- * cacheable directive; the undefined values are filled per-request by constructFileResponse.
- *
- * The fixed security headers below harden the store against a contributor uploading an active-content file
- * (SVG/HTML) that, served on the app origin, would execute script against a viewing admin:
- *  - X-Content-Type-Options: nosniff stops the browser from MIME-sniffing an upload into an executable type
- *  - Content-Security-Policy: sandbox neutralizes any script even if the body is rendered as a document
- *    (sandbox does not affect <img>-embedded raster images, so legitimate inline previews still render)
- * Content-Disposition is resolved per-request by constructFileResponse (inline only for raster images).
- */
-export const file_headers = {
-    "Content-Type": undefined,
-    "Content-Disposition": undefined,
-    "Cache-Control": undefined,
-    "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "sandbox",
-    "Access-Control-Allow-Origin": undefined,
-    "Access-Control-Allow-Credentials": "true",
-    "Vary": "Origin"
-}
 
 /**
  * HTTP status codes used in constructResponse()

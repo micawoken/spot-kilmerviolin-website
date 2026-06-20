@@ -28,7 +28,7 @@ const tz_label: string = tz || "UTC";
 ---
 <footer role="contentinfo">
     <nav role="navigation" aria-label="Administrative footer">
-        <p><a href="/admin" onclick="history.back(); return false;">Back</a> | <a href="/admin" rel="home">Admin Home</a> | <a href="/admin/docs" rel="help">Help Docs</a> | <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a> | <a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a> | <a href="/admin/security-policy" rel="security-policy">Security Policy</a></p>
+        <p><a href="/admin" id="admin-footer-back">Back</a> | <a href="/admin" rel="home">Admin Home</a> | <a href="/admin/docs" rel="help">Help Docs</a> | <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a> | <a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a> | <a href="/admin/security-policy" rel="security-policy">Security Policy</a></p>
     </nav>
     <p>
         You are accessing this service
@@ -41,6 +41,21 @@ const tz_label: string = tz || "UTC";
     </p>
     <p>Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()} <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU GPLv3 and additional terms</a>.</p>
 </footer>
+
+<script>
+    // "Back" goes to the previous page in history; wired here (not as an inline onclick) so the admin
+    // Content-Security-Policy can keep script-src 'self' with no inline-script allowance. The anchor's
+    // href="/admin" remains the no-JS fallback, so this only overrides navigation when history exists.
+    const back_link = document.getElementById("admin-footer-back")
+    if (back_link) {
+        back_link.addEventListener("click", (event) => {
+            if (window.history.length > 1) {
+                event.preventDefault()
+                window.history.back()
+            }
+        })
+    }
+</script>
 
 {/* Sticky footer: make the admin <body> a full-height flex column so the footer can be pushed to the
     bottom of the viewport when the page content is too short to fill it, while still flowing naturally
