@@ -1,4 +1,24 @@
 ---
+/**
+ * components/entities/ListResults.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import ListResult from "./ListResult.astro"
 const noun: string = Astro.props.noun
 const results: (number | Record<string, any>)[] = Astro.props.results
@@ -10,15 +30,11 @@ interface ResultObject {
     id: number
     name: string
     name2?: string
+    is_self?: boolean
 }
 
 
-console.log("Rendering ListResults with props:", { noun, results, enviro })
-
 const no_body = results.length > 0 && typeof results[0] === "number"
-
-
-console.log("length: ", results.length, "no_body: ", no_body)
 
 ---
 <div id={`list-results-${noun}`} class="list-results-container">
@@ -30,7 +46,14 @@ console.log("length: ", results.length, "no_body: ", no_body)
                 ))
             ) : (
                 (results as ResultObject[]).map((result) => (
-                    <ListResult noun={noun} id={result.id} enviro={enviro} name={result.name} name2={result.name2} />
+                    <ListResult
+                        noun={noun}
+                        id={result.id}
+                        enviro={enviro}
+                        name={result.name}
+                        name2={result.name2}
+                        is_self={result.is_self}
+                    />
                 ))
             )
         ) : (

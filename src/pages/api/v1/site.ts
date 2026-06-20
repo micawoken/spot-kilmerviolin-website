@@ -1,29 +1,45 @@
 /**
  * /pages/api/v1/site.ts
- * 
+ *
  * Provides several endpoints for the site's machinery
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
 import { auth_check } from "../../../lib/public/authservice"
-import { constructResponse } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import verinfo from "../../../lib/api/verinfo"
-import rebuild from "../../../lib/api/rebuild"
-import { purgeCache } from "../../../lib/api/caching"
+import rebuild, { RebuildCooldownError } from "../../../lib/api/rebuild"
 import { purgeCacheAll } from "../../../lib/api/database"
+import { detectEnvironment } from "../../../lib/api/environment"
 
 /**
  * GET /api/v1/site
  * Returns information about the current worker build, including build timestamp, build ID, and git tag (if available)
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of the worker build information, or an error message if authentication fails
+ *
+ * @param context - the Astro API context
+ * @returns a Response object with payload of the worker build information, or an error message if authentication fails
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -32,21 +48,25 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const data = verinfo()
-    return constructResponse(request, data, 200)
+    try {
+        const data = verinfo(request)
+        return constructResponse(request, data, 200)
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to retrieve build information")
+    }
 }
 
 /**
  * POST /api/v1/site
  * Triggers a rebuild on Worker Builds using the deploy hook
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of success message, or an error message if authentication fails
+ *
+ * @param context - the Astro API context
+ * @returns a Response object with payload of success message, or an error message if authentication fails
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -55,22 +75,35 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const data = await rebuild()
-    return constructResponse(request, data, 200)
+    // rebuilds redeploy the live Worker, which is meaningless from a local development build
+    if (detectEnvironment(request) === "development") {
+        return constructResponse(request, null, 403, "Site rebuild is disabled in the development environment")
+    }
+    try {
+        const data = await rebuild()
+        return constructResponse(request, data, 200)
+    } catch (error) {
+        // a rebuild requested too soon after the last build is rejected as 429, surfacing the wait time
+        if (error instanceof RebuildCooldownError) {
+            return constructResponse(request, { retry_after_sec: error.retry_after_sec }, 429, error.message, {
+                "Retry-After": error.retry_after_sec.toString()
+            })
+        }
+        return constructResponseErrorHook(request, error, 500, "Failed to trigger rebuild")
+    }
 }
-
 
 /**
  * DELETE /api/v1/site
  * Purge the database cache for the site
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: none
- * 
- * @param {APIContext} context - the Astro API context
- * @returns {Response} a Response object with payload of success message, or an error message if authentication fails
+ *
+ * @param context - the Astro API context
+ * @returns a Response object with payload of success message, or an error message if authentication fails
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -79,10 +112,14 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const success = await purgeCacheAll()
-    if (success) {
-        return constructResponse(request, { message: "Cache purged successfully" }, 200)
-    } else {
-        return constructResponse(request, { error: "Failed to purge cache" }, 500)
+    try {
+        const success = await purgeCacheAll()
+        if (success) {
+            return constructResponse(request, { message: "Cache purged successfully" }, 200)
+        } else {
+            return constructResponse(request, { error: "Failed to purge cache" }, 500)
+        }
+    } catch (error) {
+        return constructResponseErrorHook(request, error, 500, "Failed to purge cache")
     }
 }

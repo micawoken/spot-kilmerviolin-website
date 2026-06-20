@@ -1,0 +1,114 @@
+---
+/**
+ * pages/admin/profile/deactivate.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { guardPage } from "../../../lib/api/page_auth"
+
+export const prerender = false
+
+// self-service deactivation acts on the caller's own record; it is reachable while active, but still
+// authorize before offering the operation (mirrors the profile page's own guard)
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "any" })
+if (denied) {
+    return denied
+}
+
+const identity = Astro.locals.identity ?? null
+const has_record = identity?.id !== undefined && identity?.id !== null
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Deactivate My Account`} description="Deactivate your own account"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Deactivate My Account</h2>
+    {
+        has_record ? (
+            <>
+                <p class="general-infohelp">Deactivating your account marks your contributor record inactive. You can still sign in, but you will no longer be able to make contributions.</p>
+                <p class="general-warning">You cannot reactivate your own account once deactivated: an administrator, or a user with the <code>userenroll</code> role, must reactivate it for you.</p>
+                <div class="generic-form">
+                    <form id="profile-form-deactivate" class="generic-form">
+                        <fieldset>
+                            <legend>Confirm Deactivation</legend>
+                            <input type="checkbox" id="profile-form-deactivate-confirm" name="confirm" />
+                            <label for="profile-form-deactivate-confirm">I understand I will not be able to make contributions after deactivating my account.</label>
+                        </fieldset>
+                        <button type="submit">Deactivate my account</button>
+                    </form>
+                </div>
+                <p id="transaction-status">Your request status will show here after you press "Deactivate my account".</p>
+                <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>
+                <script>
+                    import { deactivateSelf } from "../../../scripts/connector"
+                    import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+
+                    // Astro hoists this bundled script, so it also runs on the fallback render where the form
+                    // is absent; guard against that before wiring up the submit handler
+                    const form = document.getElementById("profile-form-deactivate")
+                    if (form instanceof HTMLFormElement) {
+                        const message = getTransactionElem()
+                        const confirm_box = document.getElementById("profile-form-deactivate-confirm")
+
+                        form.addEventListener("submit", async (evt: Event) => {
+                            evt.preventDefault()
+                            // require the explicit approval checkbox before acting
+                            if (!(confirm_box instanceof HTMLInputElement) || !confirm_box.checked) {
+                                message.textContent = "Please check the box to confirm you want to deactivate your account."
+                                return
+                            }
+                            if (!confirm("Are you sure you want to deactivate your account?")) {
+                                return
+                            }
+                            message.textContent = "Processing request..."
+                            disableInput(form)
+                            try {
+                                await deactivateSelf()
+                                message.textContent = "Request succeeded: your account has been deactivated. Your access is now read-only."
+                            } catch (error) {
+                                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                                console.error(error)
+                                enableInput(form)
+                            }
+                        })
+                    }
+                </script>
+            </>
+        ) : (
+            identity ? (
+                <p class="general-warning">Your login is not yet linked to a contributor record, so there is no account to deactivate. Complete <a href="/admin/advanced/selfenroll">self-enrollment</a> first.</p>
+            ) : (
+                <p>No identity information is available, so there is no account to deactivate here. You may be browsing without authentication (such as in local development).</p>
+            )
+        )
+    }
+    </main>
+    <AdminFooter />
+</body>
+</html>

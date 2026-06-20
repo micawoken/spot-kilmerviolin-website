@@ -1,0 +1,72 @@
+---
+/**
+ * layouts/AdminDocument.astro
+ *
+ * Layout for standalone admin prose pages authored in Markdown/MDX (the policy and legal pages under
+ * pages/admin). MDX page files cannot read Astro.locals or run server-side setup the way an
+ * .astro page can, so this .astro layout is responsible for resolving the caller's identity from
+ * locals and rendering the shared admin chrome (BaseHead, AdminHead, AdminHeader, AdminFooter) around
+ * the page's content, which is projected through <slot />.
+ *
+ * Usage from an MDX page (server-rendered by default under output: "server", so the identity
+ * middleware runs and populates Astro.locals.identity):
+ *
+ *   ---
+ *   layout: ../../layouts/AdminDocument.astro
+ *   title: Privacy Policy
+ *   description: How the administrative services collect and use your data
+ *   ---
+ *
+ *   ## Privacy Policy
+ *   ...markdown content...
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import BaseHead from "../components/BaseHead.astro"
+import AdminHead from "../components/AdminHead.astro"
+import AdminHeader from "../components/AdminHeader.astro"
+import AdminFooter from "../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../consts"
+
+interface Props {
+    title: string
+    description: string
+}
+
+const { title, description } = Astro.props
+
+// the identity middleware (src/middleware/identity.ts) resolves the caller for on-demand /admin
+// routes and stores it on locals; pass it to the header so the page greets the actual signed-in user
+const identity = Astro.locals.identity ?? null
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}${title}`} description={description} />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={identity} welcome={false} />
+        <main>
+            <article>
+                <slot />
+            </article>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

@@ -1,14 +1,20 @@
 ---
 /**
- * src/components/entities/IDEntryForm.astro
+ * components/entities/IDEntryForm.astro
  * 
  * Reusable component to enter an ID, with client-side processing
  * 
  * Used for info pages when an ID is not specified in the URL param
  * 
- * Props: 
+ * Props:
  * - output_div (optional): if specified, the ID entry form will render a div with this ID to emit the output
  * - hidden (optional): if true, the form will be hidden (such as if the data is already supplied by the URL param)
+ * - search (optional): if true, renders an embedded keyword-search helper inside the Enter ID fieldset
+ *   that autofills the id input (akin to the name->ID searchhelpers on the entity forms). The page wires
+ *   its select behavior via attachKeywordSearch/attachKeywordSearchInline using these element ids:
+ *     - form-id-entry-search-input   : the keyword text input
+ *     - form-id-entry-search-button  : the search button
+ *     - form-id-entry-search-results : the results container
  * 
  * 
  * Copyright (C) 2026 Michael Wong.
@@ -36,7 +42,10 @@ const hidden = Astro.props.hidden || false;
  * Whether to render an elevation/escalation checkbox (admin operations on works/contributors)
  */
 const show_elevate: boolean = Astro.props.show_elevate || false;
-console.log("Hidden status for id entry: ", hidden)
+/**
+ * Whether to render an embedded keyword-search helper that autofills the id input
+ */
+const search: boolean = Astro.props.search || false;
 
 ---
 <div class=`generic-form id-entry${hidden ? ' hidden' : ''}` id="generic-form-id-entry-container">
@@ -44,6 +53,18 @@ console.log("Hidden status for id entry: ", hidden)
         <fieldset>
             <legend>Enter ID</legend>
             <input type="text" id="form-id-entry-id" name="id" required />
+            {
+                search ? (
+                    <div class="searchhelper" id="form-id-entry-search">
+                        <label for="form-id-entry-search-input"><strong>Search for ID by keyword</strong></label>
+                        <input type="text" id="form-id-entry-search-input" />
+                        <button type="button" id="form-id-entry-search-button">Search</button>
+                        <div id="form-id-entry-search-results">
+                            <p>Results will display here when searched.</p>
+                        </div>
+                    </div>
+                ) : null
+            }
         </fieldset>
         {
             show_elevate ? (

@@ -1,0 +1,19 @@
+node_modules
+dist
+.astro
+.wrangler
+package-lock.json
+src/lib/templates
+
+# prettier-plugin-astro (0.14.1) cannot parse TypeScript type annotations inside inline <script>
+# blocks (e.g. `(evt: Event) =>`), so it errors on these files instead of formatting them. They are
+# kept in the house style by hand until the plugin gains TS-in-script support.
+src/components/entities/ContributorForm.astro
+src/components/entities/IDEntryForm.astro
+src/components/entities/ListResult.astro
+src/components/entities/ListResults.astro
+src/pages/admin/advanced/selfenroll.astro
+src/pages/admin/files/info.astro
+src/pages/admin/profile/deactivate.astro
+src/pages/admin/profile/edit.astro
+src/pages/admin/profile/reset_login.astro

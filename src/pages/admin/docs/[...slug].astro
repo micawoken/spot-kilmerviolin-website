@@ -1,20 +1,42 @@
 ---
-import { type CollectionEntry, getCollection } from 'astro:content';
-import DocInfo from '../../../layouts/DocInfo.astro';
-import { render } from 'astro:content';
+/**
+ * pages/admin/docs/[...slug].astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
-export async function getStaticPaths() {
-    const docs = await getCollection('docs');
-    return docs.map((doc) => ({
-        params: { slug: doc.id },
-        props: doc,
-    }));
+import { getEntry, render } from "astro:content"
+import DocInfo from "../../../layouts/DocInfo.astro"
+
+// Server-rendered (not prerendered) like every other /admin route: the identity middleware
+// (src/middleware/identity.ts) only runs for on-demand routes, and DocInfo needs the resolved
+// caller on Astro.locals to render the admin header. Resolve the requested doc by its collection
+// id (the file path under src/content/docs without extension, e.g. "works") at request time
+// instead of enumerating paths with getStaticPaths, which would force prerendering.
+export const prerender = false
+
+const { slug } = Astro.params
+
+const doc = slug ? await getEntry("docs", slug) : undefined
+if (!doc) {
+    return new Response(null, { status: 404, statusText: "Not Found" })
 }
 
-type Props = CollectionEntry<'docs'>;
-
-const doc = Astro.props;
-const { Content } = await render(doc);
+const { Content } = await render(doc)
 ---
 
 <DocInfo {...doc.data}>

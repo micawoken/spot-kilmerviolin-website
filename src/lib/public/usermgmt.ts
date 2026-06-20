@@ -1,15 +1,77 @@
 /**
  * lib/public/usermgmt.ts
- * 
+ *
  * Provides functions to manage administrator accounts, including account creation, update, and delete
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { add_user, list_users, remove_user } from '../api/access_iam_mgmt';
-import { conferFrom, requires } from '../api/authorize';
-import { formatContribFromD1 } from '../api/common';
-import { CONTRIBUTOR, recordTypeAssertComplete, getRecord } from '../api/d1';
-import { addContributor, updateContributor, _getPrimitiveCacheless, updateContributorPartial, deleteContributor } from '../api/database';
+import { add_user, list_users, remove_user } from "../api/access_iam_mgmt"
+import { conferFrom, requires } from "../api/authorize"
+import { formatContribFromD1 } from "../api/common"
+import { CONTRIBUTOR, recordTypeAssertComplete, getRecord } from "../api/d1"
+import { addContributor, _getPrimitiveCacheless, updateContributorPartial } from "../api/database"
+
+/** Whether an identity email is present in the (lowercase) Cloudflare Access user list. */
+function isEmailInAccess(email: string, accessList: string[]): boolean {
+    return accessList.includes(email.toLowerCase())
+}
+
+/**
+ * Builds a Contributor record for enrollment, applying the shared defaults (public_email mirrors the
+ * identity email; bio "", no image, not an admin, null phases, empty tags). Caller supplies the
+ * fields that differ between create and finish flows (roles and active state).
+ */
+function buildContributor(
+    identity_email: string,
+    name: string,
+    major: string | null,
+    class_year: number | null,
+    roles: string[],
+    active: boolean
+): Contributor {
+    return {
+        name: name,
+        identity_email: identity_email,
+        public_email: identity_email,
+        class_year: class_year,
+        major: major,
+        bio: "",
+        image: null,
+        roles: roles,
+        active: active,
+        admin: false,
+        phases: null,
+        tags: []
+    }
+}
+
+/**
+ * Looks up the raw (uncached) Contributor primitive by identity email, returning null when the user is
+ * absent or the lookup fails. Shared by finishUser and emailToId.
+ */
+async function getContributorPrimitiveByEmail(email: string): Promise<Record<string, string | number | null> | null> {
+    try {
+        return await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", email)
+    } catch (error) {
+        return null
+    }
+}
 
 /**
  * Retrieves user information for an identity email from Cloudflare Access and the Contributor table
@@ -18,48 +80,53 @@ import { addContributor, updateContributor, _getPrimitiveCacheless, updateContri
  */
 export async function getUserInfo(identity_email: string): Promise<[ContributorRecord | null, boolean]> {
     const access_info = await list_users()
+    const in_access = isEmailInAccess(identity_email, access_info)
     try {
         const contrib_primitive = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)
         if (contrib_primitive === null) {
-            if (access_info.includes(identity_email)) {
-                return [null, true]
-            }
-            return [null, false]
+            return [null, in_access]
         }
-        const contributor = formatContribFromD1(recordTypeAssertComplete(CONTRIBUTOR, contrib_primitive, false) as D1Contributor)
+        const contributor = formatContribFromD1(
+            recordTypeAssertComplete(CONTRIBUTOR, contrib_primitive, false) as D1Contributor
+        )
         return [contributor, true]
     } catch (error) {
-        if (access_info.includes(identity_email)) {
-            return [null, true]
-        }
-        return [null, false]
+        return [null, in_access]
     }
 }
 
 /**
  * Enrolls a user in Access and creates an authorization record (eliminating the need for self-enrollment)
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {Identity} acting_identity The Identity object of the user performing createUser
  * @param {boolean} confer Whether to confer the acting identity's conferrable roles to the new user
  * @param {string} identity_email The email of the user to be created (which is used to authenticate with Access)
  * @param {string} name The name of the user to be created
- * @param {string} major The major of the user to be created
- * @param {number} class_year The class year of the user to be created
- * 
+ * @param {string | null} major The major of the user to be created, or null to omit
+ * @param {number | null} class_year The class year of the user to be created, or null to omit
+ *
  */
-export async function createUser(ctx: ExecutionContext, acting_identity: Identity, confer: boolean, identity_email: string, name: string, major: string, class_year: number): Promise<void> {
+export async function createUser(
+    ctx: ExecutionContext,
+    acting_identity: Identity,
+    confer: boolean,
+    identity_email: string,
+    name: string,
+    major: string | null,
+    class_year: number | null
+): Promise<void> {
     // verify the acting identity has permission to create users
     if (!acting_identity.admin && !requires("user_addition", acting_identity)) {
         throw new Error("Unauthorized: insufficient permissions to create user")
     }
-    
+
     // verify that the user doesn't already exist in Access or the Contributor table
     const access_info = await list_users()
-    if (access_info.includes(identity_email)) {
+    if (isEmailInAccess(identity_email, access_info)) {
         throw new Error("User already exists in Access; use finishUser()")
     }
-    if (await _getPrimitiveCacheless(CONTRIBUTOR, "email", identity_email) !== null) {
+    if ((await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)) !== null) {
         throw new Error("User already exists in Contributor table; use finishUser()")
     }
     // enable authentication
@@ -71,76 +138,52 @@ export async function createUser(ctx: ExecutionContext, acting_identity: Identit
     } else {
         new_roles = []
     }
-    const new_contributor: Contributor = {
-        name: name,
-        identity_email: identity_email,
-        public_email: identity_email,
-        class_year: class_year,
-        major: major,
-        bio: "",
-        image: null,
-        roles: new_roles,
-        active: true,
-        admin: false,
-        phases: [],
-        tags: []
-    }
+    const new_contributor = buildContributor(identity_email, name, major, class_year, new_roles, true)
     await addContributor(ctx, new_contributor)
 }
 
 /**
  * Completes enrollment of a registered user, if missing in Access or contributors
  * By default, if missing in contributors, the authorization record is permissionless and disabled
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {string} identity_email The email of the user to be finished (which is used to authenticate with Access)
  * @param {string} name The name of the user to be finished (required if the user is missing in the Contributor table)
- * @param {string} major The major of the user to be finished (required if the user is missing in the Contributor table)
- * @param {number} class_year The class year of the user to be finished (required if the user is missing in the Contributor table)
+ * @param {string | null} major The major of the user to be finished (optional; omitted values are stored as null)
+ * @param {number | null} class_year The class year of the user to be finished (optional; omitted values are stored as null)
  */
-export async function finishUser(ctx: ExecutionContext, identity_email: string, name?: string, major?: string, class_year?: number): Promise<number | null | undefined> {
+export async function finishUser(
+    ctx: ExecutionContext,
+    identity_email: string,
+    name?: string,
+    major?: string | null,
+    class_year?: number | null
+): Promise<number | null | undefined> {
     // if a user is missing an access authentication or an authorization, this function can be used to fix a user's login flow
-    
     const access_list = await list_users()
-    let d1_record: Record<string, string | number | null> | null = null
-    try {
-        d1_record = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)
-    } catch (error) {
-        // User not in D1, that's okay
-    }
-    
-    if ((d1_record === null) && !access_list.includes(identity_email)) {
+    const in_access = isEmailInAccess(identity_email, access_list)
+    const d1_record = await getContributorPrimitiveByEmail(identity_email)
+
+    if (d1_record === null && !in_access) {
         // user does not exist
         return undefined
     }
-    if ((d1_record !== null) && access_list.includes(identity_email)) {
+    if (d1_record !== null && in_access) {
         // user is fully enrolled
         return undefined
     }
 
-    if (!access_list.includes(identity_email)) {
+    if (!in_access) {
         // user is missing Access enrollment, so add them
         await add_user(identity_email)
     }
     if (d1_record === null) {
         // user is missing Contributor enrollment, so add them
-        if (name === undefined || major === undefined || class_year === undefined) {
+        // major and class_year are nullable columns; only the name is required to create the record
+        if (name === undefined) {
             throw new Error("Missing required information to finish user enrollment in Contributor table")
         }
-        const new_contributor: Contributor = {
-            name: name,
-            identity_email: identity_email,
-            public_email: identity_email,
-            class_year: class_year,
-            major: major,
-            bio: "",
-            image: null,
-            roles: [],
-            active: false,
-            admin: false,
-            phases: [],
-            tags: []
-        }
+        const new_contributor = buildContributor(identity_email, name, major ?? null, class_year ?? null, [], false)
         return await addContributor(ctx, new_contributor)
     }
     return null
@@ -149,7 +192,7 @@ export async function finishUser(ctx: ExecutionContext, identity_email: string, 
 /**
  * Activates a contributor record, authorizing add permissions and limited edit permissions
  * This does not confer Access authentication, which is required for a contributor record to be used
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user to be activated
  */
@@ -160,7 +203,7 @@ export async function activateUser(ctx: ExecutionContext, id: number): Promise<v
 /**
  * Deactivates a contributor record, removing add permissions and edit permissions
  * This does not affect Access authentication, but deactivated users will only have read permissions
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user to be deactivated
  */
@@ -171,28 +214,28 @@ export async function deactivateUser(ctx: ExecutionContext, id: number): Promise
 /**
  * Designates a user as an administrator
  * This does not confer Access authentication
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution environment
  * @param {number} id The id of the user to be elevated
  */
 export async function elevateUser(ctx: ExecutionContext, id: number): Promise<void> {
-    await updateContributorPartial(ctx, id, { admin: true })
+    await updateContributorPartial(ctx, id, { admin: true }, true)
 }
 
 /**
  * Removes a user from administrator status
  * This does not affect Access authentication
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution environment
  * @param {number} id The id of the user to be demoted
  */
 export async function demoteUser(ctx: ExecutionContext, id: number): Promise<void> {
-    await updateContributorPartial(ctx, id, { admin: false })
+    await updateContributorPartial(ctx, id, { admin: false }, true)
 }
 
 /**
  * Pulls the contributor record by ID and performs a type assertion
- * 
+ *
  * @param {number} id the id of the contributor to be fetched
  * @returns the contributor record, formatted as a ContributorRecord
  */
@@ -202,7 +245,13 @@ async function fetcher(id: number): Promise<ContributorRecord> {
         if (record_primitive.results.length === 0) {
             throw new Error("User not found")
         }
-        return formatContribFromD1(recordTypeAssertComplete(CONTRIBUTOR, record_primitive.results[0] as Record<string, string | number | null>, false) as D1Contributor)
+        return formatContribFromD1(
+            recordTypeAssertComplete(
+                CONTRIBUTOR,
+                record_primitive.results[0] as Record<string, string | number | null>,
+                false
+            ) as D1Contributor
+        )
     } catch (error) {
         throw new Error("User not found")
     }
@@ -210,7 +259,7 @@ async function fetcher(id: number): Promise<ContributorRecord> {
 
 /**
  * Assigns a role to a user, conferring permissions according to the role profile
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user to be assigned a role
  * @param {string} role The role to be assigned to the user
@@ -223,12 +272,12 @@ export async function assignRole(ctx: ExecutionContext, id: number, role: string
         return
     }
     current_roles.push(role)
-    await updateContributorPartial(ctx, id, { roles: current_roles })
+    await updateContributorPartial(ctx, id, { roles: current_roles }, true)
 }
 
 /**
  * Removes a role from a user, removing permissions according to the role profile
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user to be unassigned a role
  * @param {string} role The role to be removed from the user
@@ -239,21 +288,29 @@ export async function removeRole(ctx: ExecutionContext, id: number, role: string
         // role is not assigned
         return
     }
-    const new_roles = record.roles.filter(r => r !== role)
-    await updateContributorPartial(ctx, id, { roles: new_roles })
+    const new_roles = record.roles.filter((r) => r !== role)
+    await updateContributorPartial(ctx, id, { roles: new_roles }, true)
 }
 
-export async function _changeLoginEmail(ctx: ExecutionContext, id: number, old_email: string, new_email: string): Promise<void> {
+export async function _changeLoginEmail(
+    ctx: ExecutionContext,
+    id: number,
+    old_email: string,
+    new_email: string
+): Promise<void> {
+    // normalize to lowercase so the stored identity_email matches the lowercased JWT email used for
+    // identity lookups (Cloudflare Access is case-insensitive)
+    const normalized_new = new_email.trim().toLowerCase()
     // update contributor data
-    await updateContributorPartial(ctx, id, { identity_email: new_email })
+    await updateContributorPartial(ctx, id, { identity_email: normalized_new }, true)
     // update access
-    await add_user(new_email)
+    await add_user(normalized_new)
     await remove_user(old_email)
 }
 
 /**
  * Changes a user's identity email used to log into Access (and also updates the contributor record)
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user whose email is to be changed
  * @param {string} new_email The new email address for the user
@@ -266,15 +323,54 @@ export async function changeLoginEmail(ctx: ExecutionContext, id: number, new_em
 }
 
 /**
+ * Replaces a user's entire set of roles with the provided list (set semantics, as opposed to the
+ * incremental add/remove of assignRole/removeRole). Role validity is the caller's responsibility.
+ *
+ * @param {ExecutionContext} ctx The Cloudflare Workers execution context
+ * @param {number} id The id of the user whose roles are to be set
+ * @param {string[]} roles The complete list of roles the user should have
+ */
+export async function setRoles(ctx: ExecutionContext, id: number, roles: string[]): Promise<void> {
+    await updateContributorPartial(ctx, id, { roles: roles }, true)
+}
+
+/**
+ * Reports whether a Contributor property may be written through changeProperty (not primary key, not hidden, not protected, and not "active")
+ *
+ * @param {string} property the candidate Contributor property name
+ * @returns {boolean} true if the property is a writable, non-auth column
+ */
+function isChangeableProperty(property: string): boolean {
+    const reserved = new Set<string>([
+        CONTRIBUTOR.primary_key,
+        ...CONTRIBUTOR.repr_exclude,
+        ...(CONTRIBUTOR.protected ?? []),
+        "active"
+    ])
+    return CONTRIBUTOR.columns.includes(property) && !reserved.has(property)
+}
+
+/**
  * Changes a non-authentication, non-authorization property of a user, such as bio or public email
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param  {number} id The id of the user whose property is to be changed
  * @param {keyof Omit<Contributor, "id" | "identity_email" | "roles" | "active" | "admin">} property The property to be changed; must be a non-authentication, non-authorization property of the Contributor table
  * @param {string | number | null} value The new value for the property
+ * @throws {Error} if property is not a writable (non-authentication, non-authorization) Contributor column
  */
-export async function changeProperty(ctx: ExecutionContext, id: number, property: keyof Omit<Contributor, "id" | "identity_email" | "roles" | "active" | "admin">, value: string | number | null): Promise<void> {
+export async function changeProperty(
+    ctx: ExecutionContext,
+    id: number,
+    property: keyof Omit<Contributor, "id" | "identity_email" | "roles" | "active" | "admin">,
+    value: string | number | null
+): Promise<void> {
     // updates a non-authentication, non-authorization property of a user
+    // guard at runtime: the TS type forbids auth/authz keys, but a caller passing an unvalidated string
+    // would otherwise be able to write columns such as roles or admin through this path
+    if (!isChangeableProperty(property)) {
+        throw new Error(`Property "${property}" cannot be changed through changeProperty`)
+    }
     const update_data: Partial<Contributor> = {}
     update_data[property] = value as any
     await updateContributorPartial(ctx, id, update_data)
@@ -282,25 +378,21 @@ export async function changeProperty(ctx: ExecutionContext, id: number, property
 
 /**
  * Given an identity email, returns the corresponding contributor ID, or null if not found
- * 
+ *
  * @param {string} email the identity email of the user whose ID is to be fetched
  * @returns the contributor ID corresponding to the identity email, or null if not found
  */
 export async function emailToId(email: string): Promise<number | null> {
-    try {
-        const contrib_data = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", email)
-        if (contrib_data === null) {
-            return null
-        }
-        return contrib_data.contributor_id as number
-    } catch (error) {
+    const contrib_data = await getContributorPrimitiveByEmail(email)
+    if (contrib_data === null) {
         return null
     }
+    return contrib_data.contributor_id as number
 }
 
 /**
  * Given a contributor ID, returns the corresponding identity email, or null if not found
- * 
+ *
  * @param {number} id the contributor ID of the user whose identity email is to be fetched
  * @returns the identity email corresponding to the contributor ID, or null if not found
  */
@@ -318,7 +410,7 @@ export async function idToEmail(id: number): Promise<string | null> {
 
 /**
  * Removes a user from Access and deactivates their contributor record
- * 
+ *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution environment
  * @param {string} identity_email The email of the user to be removed (which is used to authenticate with Access)
  */

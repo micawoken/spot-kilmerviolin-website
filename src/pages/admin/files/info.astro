@@ -1,0 +1,157 @@
+---
+/**
+ * pages/admin/files/info.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { getFileMeta } from "../../../lib/api/files"
+import { getContributor } from "../../../lib/api/database"
+import { guardedRead } from "../../../lib/api/http"
+import { CONTRIBUTOR } from "../../../lib/api/d1"
+
+export const prerender = false
+
+// SSR lookup when a key is supplied via ?id=
+const key = Astro.url.searchParams.get("id")
+let file = null
+if (key) {
+    file = await getFileMeta(Astro.locals.cfContext, key)
+}
+const use_key = file !== null
+
+// resolve the uploader (a contributor id) to a display name so the card can show the name with the id;
+// an unresolvable or absent uploader falls back to "Unknown"
+let uploader_name: string | null = null
+if (file?.uploader) {
+    // capture into a const so the non-null narrowing survives into the guardedRead closure (file is a let)
+    const uploader_id = file.uploader // the id is the contributor id
+    // a missing contributors table surfaces the missing-table fallback page rather than a raw 500
+    const uploader_record = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, uploader_id))
+    if (uploader_record instanceof Response) {
+        return uploader_record
+    }
+    uploader_name = uploader_record?.name ?? null
+}
+// the uploader line shows the name first, then the contributor id in parentheses: e.g. "Jane Doe (ID #4)";
+// when a uploader is present the line links to that contributor's entry (see markup below)
+const uploader_label = file?.uploader ? `${uploader_name ?? "Unknown"} (ID #${file.uploader})` : "(unknown)"
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View File`} description="View a file in the file store"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>View a File</h2>
+    {
+        use_key && file ? (
+            <>
+            <div class="entity-result-container">
+                <!-- head: the key is the card title with the type/size/location infoline (top-left), the
+                     by-type detail groups flow in columns beneath it, and the preview image occupies the
+                     top-right (mirrors the entity Info cards). Source order is header → image → groups so
+                     the image stacks directly below the title on narrow viewports. -->
+                <div class="entity-result-head">
+                    <div class="entity-result-header">
+                        <h2 class="entity-result-name">{file.key}</h2>
+                        <div id="file-details-infoline">
+                            <p>{file.content_type}</p>
+                            <p>{formatBytes(file.size)}</p>
+                            <p><code>/api/v1/files/{file.key}</code></p>
+                        </div>
+                    </div>
+                    <div class="entity-result-image-container">
+                        <img class="entity-result-image" src={`/api/v1/files/${file.key}`} alt={`Preview of ${file.key}`} title={`Preview of ${file.key}`} />
+                    </div>
+                    <div class="entity-result-groups">
+                        <div id="file-details-image" class="entity-result-group entity-result-details">
+                            <div class="entity-field"><strong>Dimensions:</strong> <span>{file.width && file.height ? `${file.width}×${file.height}` : "(not an image)"}</span></div>
+                            <div class="entity-field"><strong>Optimized:</strong> <span>{file.optimized ? "Yes" : "No"}</span></div>
+                        </div>
+                        <div id="file-details-provenance" class="entity-result-group entity-result-details">
+                            <div class="entity-field"><strong>Uploaded by:</strong> <span>{file.uploader ? <a href={`/admin/contributors/info?id=${file.uploader}`}>{uploader_label}</a> : uploader_label}</span></div>
+                            <div class="entity-field"><strong>Uploaded:</strong> <span>{file.uploaded}</span></div>
+                            <div class="entity-field"><strong>ETag:</strong> <span>{file.etag}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- follow-up task links live below the card, per the entity Info convention -->
+            <p>
+                <a href={`/admin/files/edit?id=${file.key}`}>Replace this file &gt;</a> | <a href={`/admin/files/delete?id=${file.key}`}>Delete this file &gt;</a> | <a href={Astro.url.pathname}>View another file &gt;</a>
+            </p>
+            </>
+        ) : (
+            <div class="generic-form">
+                {key ? <p class="general-warning">No file found with key "{key}".</p> : null}
+                <form id="file-lookup-form" class="generic-form">
+                    <fieldset>
+                        <legend>File key</legend>
+                        <input type="text" id="file-lookup-input" name="key" placeholder="e.g. composer-portrait.jpg" required />
+                        <div class="searchhelper" id="file-search">
+                            <label for="file-search-input"><strong>Search for file:</strong></label>
+                            <input type="text" id="file-search-input" />
+                            <button type="button" id="file-search-button">Search</button>
+                            <div id="file-search-results">
+                                <p>Results will display here when searched.</p>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <button type="submit">View</button>
+                </form>
+            </div>
+        )
+    }
+    <script>
+        import { attachFileSearch } from "../../../scripts/file_picker"
+
+        // live search: find uploaded files by name and link each hit to its info page
+        attachFileSearch("file-search-input", "file-search-button", "file-search-results")
+
+        // exact-key form: navigate to the SSR view for the entered key
+        const form = document.getElementById("file-lookup-form")
+        const input = document.getElementById("file-lookup-input")
+        if (form instanceof HTMLFormElement && input instanceof HTMLInputElement) {
+            form.addEventListener("submit", (evt: Event) => {
+                evt.preventDefault()
+                const key = input.value.trim()
+                if (key) {
+                    window.location.href = `/admin/files/info?id=${encodeURIComponent(key)}`
+                }
+            })
+        }
+    </script>
+    </main>
+    <AdminFooter />
+</body>
+</html>

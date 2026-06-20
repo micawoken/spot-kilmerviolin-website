@@ -1,60 +1,339 @@
 ---
+/**
+ * pages/admin/iam/list.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { list_users } from "../../../lib/api/access_iam_mgmt"
+import { listContributors } from "../../../lib/api/database"
+import { isFallbackEmail } from "../../../lib/api/fallback"
+import { isMissingTableError, missingTableErrorPage } from "../../../lib/api/http"
+import { guardPage } from "../../../lib/api/page_auth"
 
 export const prerender = false
----
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Users`} description="List users in the access policy"/>
-    <meta name="robots" content="noindex" />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome="false"/>
-    <h2>List Users</h2>
-    <p class="general-infohelp">Lists the email addresses of all users in the access policy. Requires administrator or user-addition permissions.</p>
-    <button type="button" id="iam-list-load">Load user list</button>
-    <div id="iam-list-results">
-        <p>Press "Load user list" to fetch the list.</p>
-    </div>
-    <p id="transaction-status">Your request status will show here after you press "Load user list".</p>
-    <script>
-        import { listIdentity } from "../../../scripts/connector"
-        import { getTransactionElem } from "../../../scripts/interface"
 
-        const button = document.getElementById("iam-list-load") as HTMLButtonElement
-        const results = document.getElementById("iam-list-results")!
-        const message = getTransactionElem()
+// the user list joins Cloudflare Access with contributor authorization records (a privileged read that
+// bypasses the API); authorize the caller before touching the database, mirroring GET /api/v1/identity
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "role", roles: ["user_addition"] })
+if (denied) {
+    return denied
+}
 
-        button.addEventListener("click", async () => {
-            message.textContent = "Processing request..."
-            results.textContent = ""
-            try {
-                const emails = await listIdentity()
-                if (!Array.isArray(emails)) {
-                    throw new Error("No user list returned")
-                }
-                if (emails.length === 0) {
-                    results.textContent = "No users found."
-                } else {
-                    const list = document.createElement("ul")
-                    for (const email of emails) {
-                        const item = document.createElement("li")
-                        item.textContent = String(email)
-                        list.appendChild(item)
-                    }
-                    results.appendChild(list)
-                }
-                message.textContent = `Request succeeded: ${emails.length} user(s) listed`
-            } catch (error) {
-                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-                console.error(error)
+/**
+ * A single rendered row in the user table. Each modifiable column carries an optional href to the
+ * admin operation that changes its value: status and type link to the operation that *inverts* the
+ * current state, the email links to the "Change Login Email" page, and the roles link to the
+ * "Add or Remove Roles" editor. The contributor column instead links to the *view* page for the
+ * matched record (it is informational, not a modifiable property). An href of null means there is
+ * nothing to act on (e.g. the user is in Cloudflare Access but has no contributor record yet, so it
+ * has no contributor id/email/status/type/roles to surface).
+ */
+interface UserRow {
+    email: string
+    is_self: boolean
+    email_href: string | null
+    status_label: string
+    status_href: string | null
+    contributor_label: string
+    contributor_href: string | null
+    type_label: string
+    type_href: string | null
+    roles_label: string
+    roles_href: string | null
+}
+
+/**
+ * A single rendered row in the unlinked-contributors table: contributor records whose identity_email
+ * is *not* present in Cloudflare Access, so they never surfaced in the user table above. Every value
+ * originates from the contributor record itself; the name, type, and roles cells link to the
+ * contributor edit page (keyed by id), and the id cell links to the contributor view page. A fallback
+ * identity_email is a placeholder for a contributor who will never sign in, so it is shown as "Missing"
+ * rather than exposing the generated address.
+ *
+ * The email cell links to the "Add User" page (prefilled with the address) so the operator can enroll an
+ * unlinked contributor into Cloudflare Access in one click — except when the email is a fallback
+ * ("Missing"), where there is no real address to enroll, so it links to the contributor edit page (where
+ * a real identity email can be set) instead.
+ */
+interface UnlinkedRow {
+    name: string
+    id: number
+    status_label: string
+    status_href: string
+    email_label: string
+    email_href: string
+    edit_href: string
+    info_href: string
+    type_label: string
+    roles_label: string
+}
+
+// The user list is rendered server-side. Page access is already gated by the middleware
+// (admin + user_addition), mirroring the GET /api/v1/identity endpoint's own authorization.
+let rows: UserRow[] = []
+let unlinked: UnlinkedRow[] = []
+let error: string | null = null
+try {
+    // Access holds the set of login-permitted emails; contributor records hold their authorization
+    // state (active/admin/roles). Join the two by identity email to populate the per-user columns.
+    const emails = await list_users()
+    const contributors = await listContributors(Astro.locals.cfContext)
+    const records = new Map<string, ContributorRecord>()
+    for (const contributor of contributors ?? []) {
+        records.set(contributor.identity_email.toLowerCase(), contributor)
+    }
+    const withParam = (path: string, email: string): string => `${path}?identity_email=${encodeURIComponent(email)}`
+    // mark the caller's own row; list_users() emails are lowercased, so compare case-insensitively
+    const self_email = Astro.locals.identity?.email?.toLowerCase() ?? ""
+    rows = emails.map((email) => {
+        const is_self = email === self_email
+        const record = records.get(email)
+        if (!record) {
+            // present in Access but not enrolled: no contributor record to act on, so no action links
+            return {
+                email,
+                is_self,
+                email_href: null,
+                status_label: "Not enrolled",
+                status_href: null,
+                contributor_label: "—",
+                contributor_href: null,
+                type_label: "—",
+                type_href: null,
+                roles_label: "—",
+                roles_href: null
+            }
+        }
+        return {
+            email,
+            is_self,
+            // link to the change-login-email page, prefilled with the user's current email
+            email_href: withParam("/admin/iam/email", email),
+            status_label: record.active ? "Active" : "Inactive",
+            // link to the operation that flips the current status
+            status_href: withParam(record.active ? "/admin/user/deactivate" : "/admin/user/activate", email),
+            contributor_label: ` ID #${String(record.id)}`,
+            // link to the contributor view page for the matched record
+            contributor_href: `/admin/contributors/info?id=${encodeURIComponent(String(record.id))}`,
+            type_label: record.admin ? "Administrator" : "Standard",
+            // link to the operation that flips the current type
+            type_href: withParam(record.admin ? "/admin/user/demote" : "/admin/user/elevate", email),
+            roles_label: record.roles.length > 0 ? record.roles.join(", ") : "None",
+            // link to the add/remove roles editor
+            roles_href: withParam("/admin/iam/edit", email)
+        }
+    })
+    // Contributors whose identity_email is not in Access are "unlinked": they hold an authorization
+    // record but no sign-in is permitted for it, so they never appeared above. emails are lowercased,
+    // so compare against the lowercased contributor identity_email.
+    const access_emails = new Set(emails)
+    unlinked = (contributors ?? [])
+        .filter((contributor) => !access_emails.has(contributor.identity_email.toLowerCase()))
+        .map((contributor) => {
+            const is_fallback = isFallbackEmail(contributor.identity_email)
+            const edit_href = `/admin/contributors/edit?id=${encodeURIComponent(String(contributor.id))}`
+            return {
+                name: contributor.name,
+                id: contributor.id,
+                status_label: contributor.active ? "Active" : "Inactive",
+                status_href: withParam(
+                    contributor.active ? "/admin/user/deactivate" : "/admin/user/activate",
+                    contributor.identity_email
+                ),
+                // a fallback address is a placeholder; surface "Missing" instead of the generated value
+                email_label: is_fallback ? "Missing" : contributor.identity_email,
+                // a real address links to "Add User" to enroll it into Access; a fallback has no real
+                // address to enroll, so it links to the edit page where a real email can be set
+                email_href: is_fallback ? edit_href : withParam("/admin/iam/add", contributor.identity_email),
+                // the contributor edit page handles all of these properties; key it by record id
+                edit_href,
+                info_href: `/admin/contributors/info?id=${encodeURIComponent(String(contributor.id))}`,
+                type_label: contributor.admin ? "Administrator" : "Standard",
+                roles_label: contributor.roles.length > 0 ? contributor.roles.join(", ") : "None"
             }
         })
-    </script>
-    <AdminFooter />
-</body>
+} catch (e) {
+    // a missing contributors table is a service-level fault, not a per-page message: show the fallback page
+    if (isMissingTableError(e)) {
+        return missingTableErrorPage(e)
+    }
+    error = e instanceof Error ? e.message : String(e)
+    console.error("Failed to fetch user list:", e)
+}
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Users`} description="List users in the access policy" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>List Users</h2>
+            <p class="general-infohelp">To modify user properties, click the current value for that property.</p>
+            <div id="iam-list-results">
+                {
+                    error ? (
+                        <p class="general-warning">Error: {error}</p>
+                    ) : rows.length === 0 ? (
+                        <p>No users found.</p>
+                    ) : (
+                        <table class="iam-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Contributor</th>
+                                    <th>Type</th>
+                                    <th>Roles</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((row) => (
+                                    <tr>
+                                        <td>
+                                            {row.email_href ? <a href={row.email_href}>{row.email}</a> : row.email}
+                                            {row.is_self && <span class="iam-self"> (you)</span>}
+                                        </td>
+                                        <td>
+                                            {row.status_href ? (
+                                                <a href={row.status_href}>{row.status_label}</a>
+                                            ) : (
+                                                row.status_label
+                                            )}
+                                        </td>
+                                        <td>
+                                            {row.contributor_href ? (
+                                                <a href={row.contributor_href}>{row.contributor_label}</a>
+                                            ) : (
+                                                row.contributor_label
+                                            )}
+                                        </td>
+                                        <td>
+                                            {row.type_href ? (
+                                                <a href={row.type_href}>{row.type_label}</a>
+                                            ) : (
+                                                row.type_label
+                                            )}
+                                        </td>
+                                        <td>
+                                            {row.roles_href ? (
+                                                <a href={row.roles_href}>{row.roles_label}</a>
+                                            ) : (
+                                                row.roles_label
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )
+                }
+            </div>
+            <p id="transaction-status">{error ? "Failed to load the user list." : `${rows.length} user(s) listed.`}</p>
+            {
+                !error && (
+                    <>
+                        <h2>Unlinked Contributors</h2>
+                        <p class="general-infohelp">
+                            Contributor records whose identity email is not in the Cloudflare Access policy. These users
+                            are unable to log-on.
+                        </p>
+                        <div id="iam-unlinked-results">
+                            {unlinked.length === 0 ? (
+                                <p>No unlinked contributors found.</p>
+                            ) : (
+                                <table class="iam-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Identity Email</th>
+                                            <th>Status</th>
+                                            <th>Contributor</th>
+                                            <th>Type</th>
+                                            <th>Roles</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {unlinked.map((row) => (
+                                            <tr>
+                                                <td>
+                                                    <a href={row.info_href}>{row.name}</a>
+                                                </td>
+                                                <td>
+                                                    <a href={row.email_href}>{row.email_label}</a>
+                                                </td>
+                                                <td>
+                                                    {row.status_href ? (
+                                                        <a href={row.status_href}>{row.status_label}</a>
+                                                    ) : (
+                                                        row.status_label
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <a href={row.edit_href}>{` ID #${String(row.id)}`}</a>
+                                                </td>
+                                                <td>
+                                                    <a href={row.edit_href}>{row.type_label}</a>
+                                                </td>
+                                                <td>
+                                                    <a href={row.edit_href}>{row.roles_label}</a>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <p id="unlinked-status">{`${unlinked.length} unlinked contributor(s) listed.`}</p>
+                    </>
+                )
+            }
+        </main>
+        <AdminFooter />
+        <style>
+            /* invisible table: no borders or background, just aligned columns */
+            .iam-table {
+                border-collapse: collapse;
+                border: none;
+                background: transparent;
+            }
+            .iam-table th,
+            .iam-table td {
+                border: none;
+                text-align: left;
+                padding: 0.25rem 1.5rem 0.25rem 0;
+            }
+            /* links read as ordinary text (inherit color) but stay clickable */
+            .iam-table a {
+                color: inherit;
+            }
+            /* de-emphasized marker identifying the caller's own row */
+            .iam-self {
+                opacity: 0.6;
+            }
+        </style>
+    </body>
 </html>

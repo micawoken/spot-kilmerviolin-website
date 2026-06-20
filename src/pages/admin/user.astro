@@ -1,0 +1,72 @@
+---
+/**
+ * pages/admin/user.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../components/BaseHead.astro"
+import AdminHead from "../../components/AdminHead.astro"
+import AdminHeader from "../../components/AdminHeader.astro"
+import AdminFooter from "../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
+
+export const prerender = false
+
+const locals = Astro.locals
+
+const identity = locals.identity
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}User Management`}
+            description="Manage user account status and administrator access"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <!-- Header -->
+        <AdminHeader identity={identity} welcome={true} />
+        <main class="admin-main" role="main">
+            <p class="general-infohelp">
+                User Management allows you to activate or deactivate a user account and modify their account type.
+            </p>
+            <!-- Pages for user account status and administrator access -->
+            <div class="flex-container">
+                <div class="column">
+                    <h2><a href="/admin/user" class="col-header-link">User Management</a></h2>
+                    <ul>
+                        <li><a href="/admin/user/activate" class="col-item-link">Activate user account</a></li>
+                        <li><a href="/admin/user/deactivate" class="col-item-link">Deactivate user account</a></li>
+                        <li><a href="/admin/user/elevate" class="col-item-link">Promote user to administrator</a></li>
+                        <li><a href="/admin/user/demote" class="col-item-link">Demote user from administrator</a></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="general-helpinfo">
+                Looking to add, remove, or edit the roles on a user account? Those options are in <a
+                    href="/admin/iam"
+                    class="general-helpinfo-link">Identity &amp; Access Management</a
+                >.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

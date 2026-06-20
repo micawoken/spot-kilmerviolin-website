@@ -1,5 +1,26 @@
 ---
+/**
+ * pages/admin/site.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../components/BaseHead.astro"
+import AdminHead from "../../components/AdminHead.astro"
 import AdminHeader from "../../components/AdminHeader.astro"
 import AdminFooter from "../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
@@ -7,33 +28,45 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 export const prerender = false
 
 const locals = Astro.locals
-const date = new Date()
 
 const identity = locals.identity
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Management`} description="Manage site information and configuration"/>
-    <meta name="robots" content="noindex" />
-</head>
-<body>
-    <!-- Header -->
-    <h1>Administrative Services</h1>
-    <AdminHeader identity={identity} />
-    <br>
-    <!-- Pages for IAM, site info/mgmt, and advanced -->
-    <div class="flex-container">
-        <div class="column">
-            <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
-            <ul>
-                <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
-                <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
-                <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
-            </ul>
-        </div>
-    </div>
-    <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/site" class="general-helppointer-link">Site Management</a>documentation and video.</p>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Site Management`}
+            description="Manage site information and configuration"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <!-- Header -->
+        <AdminHeader identity={identity} welcome={true} />
+        <main class="admin-main" role="main">
+            <p class="general-infohelp">
+                Site Management allows you to perform various general operations related to the website.
+            </p>
+            <!-- Pages for IAM, site info/mgmt, and advanced -->
+            <div class="flex-container">
+                <div class="column">
+                    <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
+                    <ul>
+                        <li><a href="/admin/search" class="col-item-link">Search database</a></li>
+                        <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
+                        <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
+                        <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="general-helppointer">
+                For help with these options, please review the <a
+                    href="/admin/docs/site"
+                    class="general-helppointer-link">Site Management</a
+                > documentation and video.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

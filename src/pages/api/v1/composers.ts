@@ -1,36 +1,50 @@
 /**
  * pages/api/v1/composers.ts
- * 
+ *
  * Returns a list of composer records
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
-import { _stateTypeAssertCompleteComposer, getRecord } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteComposer } from "../../../lib/api/d1"
 import { addComposer, listComposers } from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
-
+import { constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
 
 /**
  * GET /api/v1/composers
  * Returns a list of composer IDs, or a list of composer records if the "full" query parameter is set to true
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: optional
  * Meta fields:
  * - full: {boolean} if true, returns full composer records; if false or not provided, returns only composer IDs
- * 
+ *
  * Body: none
- * 
- * @param {APIContext} context - the Astro API context
- * @return {Response} either a list of IDs or the full records
- * 
+ *
+ * @param context - the Astro API context
+ * @return either a list of IDs or the full records
+ *
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
-    console.log("Received request for GET /api/v1/composers")
     const { request, locals } = context
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
@@ -42,27 +56,27 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    console.log("Parsed API request:", api_request)
     try {
         const data = await listComposers(context.locals.cfContext)
         if (data === null) {
             return constructResponse(request, null, 500, "Unknown state: list composer operation returned null")
         }
-        console.log("Retrieved composer data:", data)
+        // the latest change_date across the listed records is the collection's last-modified time
+        const last_modified = lastModifiedHeader(data)
         switch (api_request.meta?.full) {
             case true:
                 // return full composer records
-                return constructResponse(request, data, 200)
+                return constructResponse(request, data, 200, undefined, last_modified)
             case false:
             case undefined:
                 // return composer IDs only
-                const ids = data.map(record => record.id)
-                return constructResponse(request, ids, 200)
+                const ids = data.map((record) => record.id)
+                return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }
     } catch (error) {
-        console.log("Error in GET /api/v1/composers:", error)
+        console.error("Error in GET /api/v1/composers:", error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
 }
@@ -70,15 +84,15 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * POST /api/v1/composers
  * Adds a new composer record, returning the location
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: required, Composer[] single item
- * 
- * @param {APIContext} context - the Astro API context
- * @return {Response} a Response object with the ID of the new record, or an error
- * 
+ *
+ * @param context - the Astro API context
+ * @return a Response object with the ID of the new record, or an error
+ *
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context

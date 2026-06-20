@@ -1,0 +1,70 @@
+---
+/**
+ * components/entities/KeywordSearchBox.astro
+ *
+ * Reusable keyword-search box. Renders a keyword input, a Search button, and a results container,
+ * with consistent element ids derived from `id_prefix` so the client can wire it via
+ * attachKeywordSearch (scripts/interface.ts). Its markup mirrors IDEntryForm (a `generic-form`
+ * container wrapping a `generic-form` <form> with fieldset/legend groups and a submit button):
+ *   - {id_prefix}-form     : the wrapping form
+ *   - {id_prefix}-input    : the keyword text input
+ *   - {id_prefix}-button   : the search (submit) button
+ *   - {id_prefix}-results  : the results container
+ *   - {id_prefix}-database : the database <select> (only when database_select is true)
+ *
+ * Props:
+ * - id_prefix (required): unique prefix for this box's element ids
+ * - label (optional): heading text shown above the input
+ * - database_select (optional): if true, renders a database scope selector (used on the search page)
+ * - hidden (optional): if true, the box is hidden (e.g. when a record is already loaded via URL param)
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
+
+const id_prefix: string = Astro.props.id_prefix
+const label: string = Astro.props.label ?? "Search by keyword"
+const database_select: boolean = Astro.props.database_select ?? false
+const hidden: boolean = Astro.props.hidden ?? false
+---
+
+<div class=`generic-form keyword-search${hidden ? ' hidden' : ''}` id={`${id_prefix}-container`}>
+    <form id={`${id_prefix}-form`} class="generic-form">
+        {
+            database_select ? (
+                <fieldset>
+                    <legend>Database</legend>
+                    <select id={`${id_prefix}-database`}>
+                        <option value="">All databases</option>
+                        <option value="compositions">Compositions</option>
+                        <option value="composers">Composers</option>
+                        <option value="contributors">Contributors</option>
+                    </select>
+                </fieldset>
+            ) : null
+        }
+        <fieldset>
+            <legend>{label}</legend>
+            <input type="text" id={`${id_prefix}-input`} name="keyword" />
+        </fieldset>
+        <button type="submit" id={`${id_prefix}-button`}>Search</button>
+    </form>
+    <div id={`${id_prefix}-results`}>
+        <p>Results will display here when searched.</p>
+    </div>
+</div>

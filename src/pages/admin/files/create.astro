@@ -1,0 +1,178 @@
+---
+/**
+ * pages/admin/files/create.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ImageCrop from "../../../components/ImageCrop.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { getStorageUsage } from "../../../lib/api/files"
+import { authEnabled } from "../../../lib/api/environment"
+
+export const prerender = false
+
+// In local dev the Cloudflare Images emulation cannot crop/resize (see optimizeImage), so the upload is
+// stored unchanged; warn the operator. Dev is the same localhost rule that disables auth.
+const isDev = !authEnabled(Astro.request)
+
+// current usage seeds the live storage estimate (the client projects usage after the chosen file)
+const usage = await getStorageUsage(Astro.locals.cfContext)
+const used_gb = (usage.used / (1024 * 1024 * 1024)).toFixed(2)
+const max_gb = (usage.max / (1024 * 1024 * 1024)).toFixed(2)
+const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add File`} description="Upload a new file to the file store" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Add a New File</h2>
+            <p class="general-infohelp">
+                Upload a portrait (4:5, 1280x1600) or landscape (5:4, 1600x1280) image. You may set an optional name to
+                use as the key when searching for this file.
+            </p>
+            {
+                isDev && (
+                    <p class="admin-dev-warning" role="status">
+                        <strong>Local development:</strong> image cropping and optimization are{" "}
+                        <strong>skipped here</strong> — the local Cloudflare Images emulation cannot crop, so the file
+                        is stored unchanged. You can still frame the crop below; it is applied in production.
+                    </p>
+                )
+            }
+            <div class="generic-form">
+                <form id="file-upload-form" class="generic-form" novalidate>
+                    <fieldset>
+                        <legend>File<span class="field-required" aria-hidden="true">*</span></legend>
+                        <div class="field-row">
+                            <input type="file" id="file-upload-input" name="file" accept="image/*" required />
+                        </div>
+                        <!-- crop interface: appears once an image is chosen; lets the operator pick orientation and frame -->
+                        <ImageCrop inputId="file-upload-input" id="image-crop" />
+                    </fieldset>
+                    <fieldset>
+                        <legend>Name</legend>
+                        <div class="field-row">
+                            <!-- optional: a blank name falls back to the uploaded file's own name (no required marker) -->
+                            <input
+                                type="text"
+                                id="file-upload-name"
+                                name="name"
+                                placeholder="e.g. composer-portrait.jpg"
+                            />
+                        </div>
+                    </fieldset>
+                    <!-- live storage figure (mirrors /admin/files); updates with a projection once a file is chosen.
+                 used/max bytes are carried in data attributes for the client estimate (a define:vars script
+                 cannot also use module imports, so the values are read from the DOM instead). -->
+                    <p id="file-storage-usage" class="general-infohelp" data-used={usage.used} data-max={usage.max}>
+                        Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
+                    </p>
+                    <p class="field-required-note">
+                        <span class="field-required" aria-hidden="true">*</span> indicates a required field
+                    </p>
+                    <button type="submit" id="file-upload-button">Upload</button>
+                </form>
+            </div>
+            <p id="transaction-status">Your request status will show here after you press "Upload".</p>
+            <script>
+                import { uploadFile } from "../../../scripts/connector"
+                import { attachStorageEstimate } from "../../../scripts/file_picker"
+                import type { CropSelection, ImageCropChangeDetail } from "../../../scripts/image_crop"
+                import { showFieldError, clearFieldError } from "../../../scripts/form_validate"
+                import { isImageMimeType } from "../../../lib/api/validation"
+                const form = document.getElementById("file-upload-form")
+                const status = document.getElementById("transaction-status")
+                const file_input = document.getElementById("file-upload-input")
+                const name_input = document.getElementById("file-upload-name")
+                const usage_elem = document.getElementById("file-storage-usage")
+                const crop_elem = document.getElementById("image-crop")
+
+                const IMAGE_ONLY_MESSAGE = "Please choose an image file (JPEG, PNG, WebP, GIF, AVIF)."
+
+                // live storage estimate: shows current usage and projects how much will remain after the upload
+                if (usage_elem) {
+                    const used = Number(usage_elem.dataset.used ?? "0")
+                    const max = Number(usage_elem.dataset.max ?? "0")
+                    attachStorageEstimate(used, max, "file-upload-input", "file-storage-usage")
+                }
+
+                if (
+                    form instanceof HTMLFormElement &&
+                    status &&
+                    file_input instanceof HTMLInputElement &&
+                    name_input instanceof HTMLInputElement
+                ) {
+                    const input = file_input
+
+                    // the ImageCrop component owns the crop UI and its too-small warning; it reports the current
+                    // selection here so we can forward it on submit. The image-only hard error stays the page's
+                    // concern (it also gates submit below).
+                    let crop: CropSelection | null = null
+                    crop_elem?.addEventListener("imagecrop:change", (evt) => {
+                        crop = (evt as CustomEvent<ImageCropChangeDetail>).detail.crop
+                    })
+
+                    // live image-only feedback as soon as a file is chosen
+                    input.addEventListener("change", () => {
+                        const file = input.files?.[0]
+                        if (file && !isImageMimeType(file.type)) showFieldError(input, IMAGE_ONLY_MESSAGE)
+                        else clearFieldError(input)
+                    })
+
+                    form.addEventListener("submit", async (evt: Event) => {
+                        evt.preventDefault()
+                        const file = input.files?.[0]
+                        if (!file) {
+                            status.textContent = "Please choose a file to upload."
+                            return
+                        }
+                        // reject non-images before submit
+                        if (!isImageMimeType(file.type)) {
+                            showFieldError(input, IMAGE_ONLY_MESSAGE)
+                            status.textContent = IMAGE_ONLY_MESSAGE
+                            return
+                        }
+                        status.textContent = "Uploading..."
+                        try {
+                            const key = await uploadFile(file, name_input.value.trim() || undefined, crop)
+                            status.innerHTML = `Upload complete. <a href="/admin/files/info?id=${encodeURIComponent(key)}">View file info &gt;</a>`
+                            form.reset()
+                            // form.reset() does not fire change; nudge the crop component to clear its preview
+                            input.dispatchEvent(new Event("change"))
+                        } catch (error) {
+                            status.textContent = `Upload failed: ${error instanceof Error ? error.message : String(error)}`
+                            console.error(error)
+                        }
+                    })
+                }
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

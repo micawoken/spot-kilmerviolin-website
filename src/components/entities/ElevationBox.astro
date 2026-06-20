@@ -1,0 +1,50 @@
+---
+/**
+ * components/entities/ElevationBox.astro
+ *
+ * Standalone administrator-elevation control. Renders the same elevation checkbox that IDEntryForm
+ * can render inline, but as its own block so a page can place it *after* the lookup dialogs (the ID
+ * entry form and the keyword search box) instead of having it wedged inside the ID entry form.
+ *
+ * The checkbox carries an HTML `form` attribute pointing at `form_id`, so it is still submitted with
+ * — and read from — that form's FormData (scripts/interface.ts reads "elevate" by name), regardless
+ * of where this box sits in the DOM. The <form class="generic-form"> wrapper exists only to inherit
+ * the shared fieldset styling; it owns no fields (the checkbox belongs to `form_id`).
+ *
+ * Props:
+ * - form_id (required): id of the form this elevation checkbox belongs to (e.g. "generic-form-id-entry")
+ * - hidden (optional): if true, the box is hidden (e.g. when a record is already loaded via URL param)
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
+
+const form_id: string = Astro.props.form_id
+const hidden: boolean = Astro.props.hidden ?? false
+---
+
+<div class=`generic-form elevation-box${hidden ? ' hidden' : ''}` id={`${form_id}-elevate-container`}>
+    <form class="generic-form">
+        <fieldset>
+            <legend>Administrator Elevation</legend>
+            <input type="checkbox" id={`${form_id}-elevate`} name="elevate" form={form_id} />
+            <label for={`${form_id}-elevate`}>Use administrator elevation for this operation</label>
+            <p class="general-warning">Elevation bypasses ownership and property protections. Proceed with caution.</p>
+        </fieldset>
+    </form>
+</div>

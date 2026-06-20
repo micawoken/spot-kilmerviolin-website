@@ -1,0 +1,111 @@
+---
+/**
+ * pages/admin/profile/edit.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ContributorForm from "../../../components/entities/ContributorForm.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { CONTRIBUTOR } from "../../../lib/api/d1"
+import { getContributor } from "../../../lib/api/database"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
+
+export const prerender = false
+
+// the profile editor is self-service (reachable while inactive/enrollable); the read below is keyed by
+// the caller's own id, but still authorize before touching the database directly
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "any" })
+if (denied) {
+    return denied
+}
+
+// the profile editor always targets the caller's own record, read directly by the caller's contributor id
+const identity = Astro.locals.identity ?? null
+const self_id = identity?.id ?? null
+
+let contributor_data: ContributorRecord | null = null
+if (self_id !== null && self_id !== undefined) {
+    // a missing contributors table surfaces the missing-table fallback page
+    const result = await guardedRead(() => getContributor(Astro.locals.cfContext, CONTRIBUTOR.primary_key, String(self_id)))
+    if (result instanceof Response) {
+        return result
+    }
+    contributor_data = result
+    if (!contributor_data) {
+        console.warn(`No contributor record found for self id ${self_id}`)
+    }
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit My Profile`} description="Edit your own profile information"/>
+    <AdminHead />
+</head>
+<body>
+    <AdminHeader identity={identity} welcome={false}/>
+    <main class="admin-main" role="main">
+    <h2>Edit My Profile</h2>
+    {
+        contributor_data ? (
+            <>
+                <p class="general-infohelp">Edit your personal information below. To change your sign-in email, use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
+                <ContributorForm profile={true} required={true} contributor={contributor_data} />
+                <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+                <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>
+                <script>
+                    import { getTransactionElem, submitProfileEdit, emitError } from "../../../scripts/interface"
+
+                    // Astro hoists this bundled script, so it also runs on the fallback render where the form
+                    // is absent; guard against that before wiring up the submit handler
+                    const form = document.getElementById("generic-form-contributors")
+                    if (form instanceof HTMLFormElement) {
+                        const message = getTransactionElem()
+                        form.addEventListener("submit", (evt: Event) => {
+                            evt.preventDefault()
+                            // the form carries the acting user's contributor id (data-self-id); the edit can only
+                            // ever target the caller's own record, so the id is never taken from form input
+                            const self_raw = form.dataset.selfId ?? ""
+                            const self_id = self_raw === "" ? NaN : parseInt(self_raw)
+                            if (isNaN(self_id)) {
+                                emitError(new Error("Could not determine your contributor id; you may be browsing without authentication."), "transaction-status")
+                                return
+                            }
+                            submitProfileEdit(form, message, self_id)
+                        })
+                    }
+                </script>
+            </>
+        ) : (
+            identity?.enrollable ? (
+                <p class="general-warning">Your login is not yet linked to a contributor record, so there is nothing to edit. Complete <a href="/admin/advanced/selfenroll">self-enrollment</a> first.</p>
+            ) : (
+                <p>No profile information is available to edit. You may be browsing without authentication (such as in local development), or your login has no associated contributor record.</p>
+            )
+        )
+    }
+    </main>
+    <AdminFooter />
+</body>
+</html>

@@ -1,5 +1,26 @@
 ---
+/**
+ * pages/admin/iam/whoami.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
@@ -9,32 +30,82 @@ export const prerender = false
 // the middleware has already resolved the caller's identity, so no API round-trip is needed
 const identity = Astro.locals.identity ?? null
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}My Authorization Info`} description="View your user authorization information"/>
-    <meta name="robots" content="noindex" />
-</head>
-<body>
-    <AdminHeader identity={identity} welcome="false"/>
-    <h2>My User Authorization Info</h2>
-    {
-        identity ? (
-            <ul class="entity-result-details">
-                <li><strong>Email:</strong> <span id="identity-email">{identity.email}</span></li>
-                <li><strong>Name:</strong> <span id="identity-name">{identity.userinfo?.name ?? "(not available)"}</span></li>
-                <li><strong>Contributor ID:</strong> <span id="identity-id">{identity.id ?? "(none)"}</span></li>
-                <li><strong>Allowed:</strong> <span id="identity-allowed">{String(identity.allowed)}</span></li>
-                <li><strong>Active:</strong> <span id="identity-active">{String(identity.active)}</span></li>
-                <li><strong>Admin:</strong> <span id="identity-admin">{String(identity.admin)}</span></li>
-                <li><strong>Enrollable:</strong> <span id="identity-enrollable">{String(identity.enrollable)}</span></li>
-                <li><strong>Roles:</strong> <span id="identity-roles">{identity.roles?.length ? identity.roles.join(", ") : "(none)"}</span></li>
-            </ul>
-        ) : (
-            <p>No identity information is available. You may be browsing without authentication (such as in local development).</p>
-        )
-    }
-    <p class="general-infohelp">If you are enrollable but not yet allowed, you can create your contributor record via <a href="/admin/advanced/selfenroll">Advanced Options &gt; View self-enrollment flow</a>.</p>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}My Authorization Info`}
+            description="View your user authorization information"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>My User Authorization Info</h2>
+            {
+                identity ? (
+                    <div class="entity-result-container auth-info-card">
+                        <p id="identity-id" class="list-result-id">
+                            {identity.id !== null && identity.id !== -1 ? `Contributor ID #${identity.id}` : ""}
+                        </p>
+                        <h3 id="identity-name" class="entity-result-name">
+                            {identity.userinfo?.name ?? "(not available)"}
+                        </h3>
+                        <div id="identity-infoline" class="auth-info-infoline">
+                            <span id="identity-email">{identity.email}</span>
+                            <span id="identity-admin">{identity.admin ? "Administrator" : "Standard"}</span>
+                        </div>
+                        <p class="auth-info-roles">
+                            <strong>Roles:</strong>{" "}
+                            <span id="identity-roles">
+                                {identity.roles?.length ? identity.roles.join(", ") : "(none)"}
+                            </span>
+                        </p>
+                        <div id="identity-status" class="auth-flag-row">
+                            <div
+                                class="auth-flag"
+                                title="If yes, your user account is connected to a contributor record and can be used to use this system. If not, you cannot use this system until, if enabled, you self-enroll."
+                            >
+                                <span class="auth-flag-label">Allowed</span>
+                                <span id="identity-allowed" class="auth-flag-value">
+                                    {identity.allowed ? "Yes" : "No"}
+                                </span>
+                            </div>
+                            <div
+                                class="auth-flag"
+                                title="If yes, your user account is connected to a contributor record and is authorized to contribute to the project. (If you are an administrator, this does not apply.) If not, you may only manage your profile and cannot contribute."
+                            >
+                                <span class="auth-flag-label">Active</span>
+                                <span id="identity-active" class="auth-flag-value">
+                                    {identity.active ? "Yes" : "No"}
+                                </span>
+                            </div>
+                            <div
+                                class="auth-flag"
+                                title="If yes, your user account is not connected to a contributor but is eligible to connect or create one. If not, you cannot self-enroll."
+                            >
+                                <span class="auth-flag-label">Enrollable</span>
+                                <span id="identity-enrollable" class="auth-flag-value">
+                                    {identity.enrollable ? "Yes" : "No"}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <p>
+                        No identity information is available. You may be browsing without authentication (such as in
+                        local development).
+                    </p>
+                )
+            }
+            <p class="general-infohelp">
+                If you are enrollable but not yet allowed, you can create your contributor record via <a
+                    href="/admin/advanced/selfenroll">Advanced Options &gt; View self-enrollment flow</a
+                >.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

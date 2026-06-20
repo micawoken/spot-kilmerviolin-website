@@ -1,0 +1,74 @@
+---
+/**
+ * components/PublicHead.astro
+ *
+ * Shared <head> fragment for the public-facing site, the public analog of AdminHead. It carries the
+ * common metadata (charset, viewport, favicon, title/description, canonical and social tags) and is
+ * the single source of the staging noindex directive: on the staging preview (served from the
+ * "staging" preview-alias URL, see src/lib/api/environment.ts) it emits robots=noindex so the preview
+ * is never indexed, while production pages remain indexable.
+ *
+ * Public pages are server-rendered (astro.config.mjs output: "server", no prerender), so the
+ * environment is resolved per request from the hostname here. Do not prerender public pages, or the
+ * directive would be baked in at build time rather than reflecting the serving environment.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import "../styles/global.css"
+import { detectEnvironment } from "../lib/api/environment"
+
+interface Props {
+    title: string
+    description: string
+    image?: string
+}
+
+const { title, description, image = "/blog-placeholder-1.jpg" } = Astro.props
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site)
+const noindex = detectEnvironment(Astro.request) === "staging"
+---
+
+<!-- Global Metadata -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+<!-- Keep the staging preview out of search indexes -->
+{noindex && <meta name="robots" content="noindex" />}
+
+<!-- Canonical URL -->
+<link rel="canonical" href={canonicalURL} />
+
+<!-- Primary Meta Tags -->
+<title>{title}</title>
+<meta name="title" content={title} />
+<meta name="description" content={description} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={new URL(image, Astro.url)} />
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={Astro.url} />
+<meta property="twitter:title" content={title} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={new URL(image, Astro.url)} />
