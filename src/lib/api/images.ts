@@ -35,27 +35,12 @@ import { env } from "cloudflare:workers"
 import { isActiveRequestDev } from "./environment.ts"
 
 /**
- * The maximum length, in pixels, of an optimized image's long edge. Both canonical shapes use this as
- * their long edge (the short edge is the 4:5 ratio of it), so it caps the larger dimension.
- */
-export const MAX_IMAGE_WIDTH = 1600
-
-/**
  * The two canonical output shapes. Every optimizable raster image is cropped+scaled to exactly one of
- * these, so stored images are always one of two dimensions. The long edge is MAX_IMAGE_WIDTH.
+ * these, so stored images are always one of two dimensions. The long edge (1600) is reported as the
+ * `MAX_IMAGE_WIDTH` wrangler var, which must be kept in sync with these dimensions.
  */
 export const CANON_PORTRAIT = { width: 1280, height: 1600 } as const
 export const CANON_LANDSCAPE = { width: 1600, height: 1280 } as const
-
-/**
- * The format every optimizable image is re-encoded to
- */
-export const TARGET_FORMAT = "image/webp"
-
-/**
- * The encode quality (0-100) used for the target format
- */
-export const TARGET_QUALITY = 82
 
 /**
  * The sharpen strength applied to the final transform when a source is smaller than the canonical canvas
@@ -308,7 +293,11 @@ export async function optimizeImage(
             gravity,
             ...(upscaling ? { sharpen: UPSCALE_SHARPEN } : {})
         })
-        .output({ format: TARGET_FORMAT, quality: TARGET_QUALITY, anim: false })
+        .output({
+            format: env.TARGET_IMAGE_FORMAT,
+            quality: Number(env.TARGET_IMAGE_QUALITY),
+            anim: false
+        })
     const out_type = result.contentType()
     const out_bytes = await new Response(result.image()).arrayBuffer()
     // output dimensions are fixed by the canonical canvas regardless of whether info() succeeded

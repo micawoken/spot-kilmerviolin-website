@@ -145,3 +145,47 @@ export function formatInfoValue(type_name: string, key: string, value: unknown, 
         return String(value)
     }
 }
+
+/**
+ * Formats a stored ISO 8601 timestamp (a record's entry_date/change_date) into a human-readable
+ * date-and-time string for display, using the same format as the admin footer (see AdminFooter.astro). A
+ * blank/missing value renders as the shared "not provided" marker, and an unparseable value falls back to
+ * the raw string so nothing is silently dropped. Shared by the metadata page's SSR view and its
+ * client-side fetch.
+ *
+ * @param {string | null | undefined} iso the ISO 8601 timestamp, or null/undefined/"" when absent
+ * @param {string} [timeZone] the IANA time zone to render in (e.g. the visitor's Cloudflare cf.timezone on
+ *   the server); when omitted, the runtime's default zone is used (the browser's local zone on the client)
+ * @returns {string} the formatted timestamp, the raw value if unparseable, or the "not provided" marker
+ */
+export function formatTimestamp(iso: string | null | undefined, timeZone?: string): string {
+    if (iso === null || iso === undefined || iso.trim() === "") {
+        return NOT_PROVIDED
+    }
+    const parsed = new Date(iso)
+    if (isNaN(parsed.getTime())) {
+        // not a valid date string; surface the raw stored value rather than an empty/incorrect render
+        return iso
+    }
+    // mirrors the date/time format the admin footer renders
+    const options: Intl.DateTimeFormatOptions = {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short"
+    }
+    if (timeZone) {
+        options.timeZone = timeZone
+    }
+    try {
+        return parsed.toLocaleString("en-US", options)
+    } catch {
+        // an unrecognized time zone string would throw; fall back to the runtime default zone
+        delete options.timeZone
+        return parsed.toLocaleString("en-US", options)
+    }
+}

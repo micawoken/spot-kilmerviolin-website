@@ -24,13 +24,11 @@
  */
 
 import MiniSearch from "minisearch"
+import { env } from "cloudflare:workers"
 import { countryCodeName } from "../../scripts/format"
 
 /** the tables the search endpoint accepts */
 export const VALID_DATABASES: SearchDatabase[] = ["composers", "compositions", "contributors"]
-
-/** maximum number of hits returned per table, to bound the response size */
-const RESULT_CAP = 50
 
 /** options shared by every per-table search: prefix and light fuzzy matching */
 const SEARCH_OPTIONS = { prefix: true, fuzzy: 0.2 }
@@ -81,9 +79,10 @@ function runSearch(
 
     const index = new MiniSearch<SearchDoc>({ fields, storeFields: ["display"], idField: "id" })
     index.addAll(docs)
+    // maximum hits returned per table, to bound the response size (SEARCH_RESULT_CAP wrangler var)
     return index
         .search(query, { ...SEARCH_OPTIONS, boost })
-        .slice(0, RESULT_CAP)
+        .slice(0, Number(env.SEARCH_RESULT_CAP))
         .map((hit) => ({ database, id: hit.id as number, name: (hit as unknown as SearchDoc).display }))
 }
 

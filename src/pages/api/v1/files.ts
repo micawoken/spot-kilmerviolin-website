@@ -24,7 +24,7 @@
 import type { APIRoute } from "astro"
 import { addFile, deriveFileKey, listFiles } from "../../../lib/api/files"
 import { parseCropFromForm } from "../../../lib/api/images"
-import { MAX_UPLOAD_BYTES, R2CapacityError } from "../../../lib/api/r2"
+import { maxUploadBytes, R2CapacityError } from "../../../lib/api/r2"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
@@ -115,7 +115,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: missing 'file' part")
     }
     // reject oversized uploads before reading the body into memory
-    if (file.size > MAX_UPLOAD_BYTES) {
+    if (file.size > maxUploadBytes()) {
         return constructResponse(request, null, 413)
     }
     const provided_name = form.get("name")

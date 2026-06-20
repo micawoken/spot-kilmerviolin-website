@@ -48,17 +48,15 @@ export const roles: Record<string, RoleProfile> = {
 }
 
 /**
- * The identity-record cache TTL, in milliseconds. The contributor record backing an Identity is read on
- * every authenticated request (the identity middleware authorizes before the endpoint runs), so caching
- * it for a short window collapses repeated reads from the same caller to a single D1 query. The window is
- * deliberately small: it is the upper bound on how long an authorization change (a role/admin/active edit,
- * or a deactivation) can take to take effect, so it is kept to seconds rather than minutes.
- */
-const IDENTITY_CACHE_TTL_MS = 45_000
-
-/**
+ * The identity-record cache TTL, in milliseconds, is sourced from the `IDENTITY_CACHE_TTL_MS` wrangler var.
+ * The contributor record backing an Identity is read on every authenticated request (the identity
+ * middleware authorizes before the endpoint runs), so caching it for a short window collapses repeated
+ * reads from the same caller to a single D1 query. The window is deliberately small: it is the upper bound
+ * on how long an authorization change (a role/admin/active edit, or a deactivation) can take to take
+ * effect, so it is kept to seconds rather than minutes.
+ *
  * Per-isolate cache of contributor records keyed by (lowercased) identity email. There is no cross-isolate
- * invalidation, so {@link IDENTITY_CACHE_TTL_MS} is the only bound on staleness; the email key derives from
+ * invalidation, so `env.IDENTITY_CACHE_TTL_MS` is the only bound on staleness; the email key derives from
  * a verified Access JWT, so its cardinality is bounded by the org's enrolled users.
  */
 const _identityCache = new Map<string, { record: D1Contributor | null; expires: number }>()
@@ -71,7 +69,7 @@ const _identityCache = new Map<string, { record: D1Contributor | null; expires: 
  * writes are rare relative to the authenticated reads this cache serves and the map is bounded by the
  * org's enrolled users, so clearing it wholesale is cheap; the cleared entries simply re-read from D1 on
  * their next request. Invalidation is per-isolate only (like the cache itself), so a write in one isolate
- * does not evict another's copy — {@link IDENTITY_CACHE_TTL_MS} remains the cross-isolate staleness bound.
+ * does not evict another's copy — `env.IDENTITY_CACHE_TTL_MS` remains the cross-isolate staleness bound.
  */
 export function invalidateIdentityCache(): void {
     _identityCache.clear()
@@ -81,7 +79,7 @@ export function invalidateIdentityCache(): void {
  * Returns the contributor record associated with the BaseIdentity, or null if no such record exists
  *
  * The lookup is the most frequent D1 read in the system, so a confirmed result (a found record or a
- * confirmed-absent one) is cached per isolate for {@link IDENTITY_CACHE_TTL_MS}. A thrown D1 error is left
+ * confirmed-absent one) is cached per isolate for `env.IDENTITY_CACHE_TTL_MS`. A thrown D1 error is left
  * uncached so a transient failure is retried on the next request rather than pinned (as not-enrolled) for
  * the whole TTL.
  *
@@ -113,7 +111,7 @@ async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor
                       CONTRIBUTOR,
                       response.results[0] as Record<string, string | number | null>
                   ) as D1Contributor)
-        _identityCache.set(identity_email, { record, expires: now + IDENTITY_CACHE_TTL_MS })
+        _identityCache.set(identity_email, { record, expires: now + Number(env.IDENTITY_CACHE_TTL_MS) })
         return record
     } catch (error) {
         return null
