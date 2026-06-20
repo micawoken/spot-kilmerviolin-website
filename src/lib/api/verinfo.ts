@@ -49,7 +49,20 @@ export default function verinfo(request: Request) {
                 kv: {
                     default: env.KV_CACHE_TTL,
                     long: null
-                }
+                },
+                // per-isolate identity-record cache TTL; sourced in milliseconds (see authorize.ts)
+                identity_ms: Number(env.IDENTITY_CACHE_TTL_MS)
+            },
+            // operational caps surfaced for visibility (see r2.ts, search.ts)
+            limits: {
+                max_upload_bytes: Number(env.MAX_UPLOAD_BYTES),
+                search_result_cap: Number(env.SEARCH_RESULT_CAP)
+            },
+            // image optimization pipeline parameters (see images.ts)
+            images: {
+                max_width: Number(env.MAX_IMAGE_WIDTH),
+                format: env.TARGET_IMAGE_FORMAT,
+                quality: Number(env.TARGET_IMAGE_QUALITY)
             }
         }
     }

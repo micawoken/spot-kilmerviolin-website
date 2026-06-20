@@ -1,0 +1,276 @@
+---
+/**
+ * pages/admin/advanced/metadata.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import KeywordSearchBox from "../../../components/entities/KeywordSearchBox.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+import { getComposer, getComposition, getContributor } from "../../../lib/api/database"
+import { guardedRead } from "../../../lib/api/http"
+import { guardPage } from "../../../lib/api/page_auth"
+import { VALID_DATABASES } from "../../../lib/api/search"
+import { formatTimestamp } from "../../../scripts/format"
+
+export const prerender = false
+
+// any active caller may view entity metadata (entry/change timestamps are non-protected on every entity,
+// so the API already exposes them to all active callers); guard the direct (API-bypassing) read below as
+// "active" to mirror that policy. Administrators always satisfy it.
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
+
+// human-readable singular label per searchable database, used in the result heading and messages
+const TYPE_LABELS: Record<SearchDatabase, string> = {
+    composers: "Composer",
+    compositions: "Composition",
+    contributors: "Contributor"
+}
+
+/** the metadata shown for a loaded entity (the identifying header plus the two timestamps) */
+interface MetadataView {
+    type: SearchDatabase
+    type_label: string
+    id: number
+    name: string
+    entry: string
+    change: string
+}
+
+// SSR path: when the page is reached with ?type=&id=, load and render that entity's metadata server-side
+// (mirrors the on-page fetch the client does when a search result is selected). Any other arrival renders
+// just the search box.
+const type_param = Astro.url.searchParams.get("type")
+const id_param = Astro.url.searchParams.get("id")
+
+// render timestamps in the visitor's local zone, sourced from the Cloudflare request like the admin footer
+// (AdminFooter.astro), falling back to UTC when unavailable (e.g. local dev without the Cloudflare runtime)
+const request_cf = (Astro.request as any).cf as { timezone?: string } | undefined
+const tz: string = request_cf?.timezone || "UTC"
+
+let metadata: MetadataView | null = null
+let load_error: string | null = null
+
+if (type_param !== null || id_param !== null) {
+    if (
+        type_param === null ||
+        id_param === null ||
+        !(VALID_DATABASES as string[]).includes(type_param) ||
+        isNaN(Number(id_param))
+    ) {
+        load_error = "Invalid metadata request: a valid entity type and numeric id are required."
+    } else {
+        const type = type_param as SearchDatabase
+        const id = id_param
+        const ctx = Astro.locals.cfContext
+        // a missing entity table surfaces the missing-table fallback page (via guardedRead)
+        const result = await guardedRead(async () => {
+            if (type === "composers") return await getComposer(ctx, "composer_id", id)
+            if (type === "compositions") return await getComposition(ctx, "composition_id", id)
+            return await getContributor(ctx, "contributor_id", id)
+        })
+        if (result instanceof Response) {
+            return result
+        }
+        if (!result) {
+            load_error = `No ${TYPE_LABELS[type].toLowerCase()} found with ID ${id}.`
+        } else {
+            metadata = {
+                type,
+                type_label: TYPE_LABELS[type],
+                id: result.id,
+                name: result.name,
+                entry: formatTimestamp(result.entry_date, tz),
+                change: formatTimestamp(result.change_date, tz)
+            }
+        }
+    }
+}
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Entity Metadata`}
+            description="View entry and change timestamps for any entity"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Entity Metadata</h2>
+            <p class="general-infohelp">
+                Search for a composer, composition, or contributor, then select a result to view its entry and
+                last-changed timestamps.
+            </p>
+            <KeywordSearchBox id_prefix="metadata-search" label="Search by keyword" database_select={true} />
+            <div id="metadata-output" class={`metadata-output${metadata ? "" : " hidden"}`}>
+                {
+                    metadata ? (
+                        <Fragment>
+                            <h3 class="metadata-heading">
+                                {metadata.type_label} ID #{metadata.id}
+                            </h3>
+                            <p class="metadata-field">
+                                <strong>Name</strong>: {metadata.name}
+                            </p>
+                            <p class="metadata-field">
+                                <strong>Created</strong>: {metadata.entry}
+                            </p>
+                            <p class="metadata-field">
+                                <strong>Modified</strong>: {metadata.change}
+                            </p>
+                        </Fragment>
+                    ) : null
+                }
+            </div>
+            <p id="transaction-status">
+                {
+                    metadata
+                        ? "Metadata loaded from URL."
+                        : load_error
+                          ? load_error
+                          : "Select a search result to view its metadata."
+                }
+            </p>
+            <script>
+                import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                import { getComposer, getWork, getContributor } from "../../../scripts/connector"
+                import { formatTimestamp } from "../../../scripts/format"
+                import { errorMessage } from "../../../scripts/common"
+
+                // singular label per database, mirroring the SSR TYPE_LABELS map (the one in keyword_search
+                // is module-private, so it is restated here)
+                const TYPE_LABELS: Record<SearchDatabase, string> = {
+                    composers: "Composer",
+                    compositions: "Composition",
+                    contributors: "Contributor"
+                }
+
+                // a record carrying the fields the metadata view reads; every entity GET returns these
+                // (entry_date/change_date are non-protected, so they survive contributor redaction)
+                interface DatedRecord {
+                    id?: number
+                    name?: string
+                    entry_date?: string
+                    change_date?: string
+                }
+
+                const database_select = document.getElementById("metadata-search-database")
+                const output = document.getElementById("metadata-output")!
+                const status = document.getElementById("transaction-status")!
+
+                // fetches the selected entity through its existing GET endpoint; the contributor record comes
+                // back with protected properties redacted for a non-self/non-admin caller, but the timestamps
+                // we display are not protected and are always present
+                async function fetchRecord(database: SearchDatabase, id: number): Promise<DatedRecord | null> {
+                    if (database === "composers") return (await getComposer(id)) as DatedRecord | null
+                    if (database === "compositions") return (await getWork(id)) as DatedRecord | null
+                    return (await getContributor(id)) as DatedRecord | null
+                }
+
+                // builds a "<strong>field</strong>: value" line, assigning the value via a text node so a
+                // record's name is never interpreted as HTML
+                function field(label: string, value: string): HTMLElement {
+                    const line = document.createElement("p")
+                    line.className = "metadata-field"
+                    const strong = document.createElement("strong")
+                    strong.textContent = label
+                    line.appendChild(strong)
+                    line.appendChild(document.createTextNode(`: ${value}`))
+                    return line
+                }
+
+                // renders the loaded entity's metadata into the output container (replacing any prior render).
+                // No time zone is passed to formatTimestamp, so timestamps render in the browser's local zone
+                // (the client-side equivalent of the visitor zone the SSR path sources from Cloudflare)
+                function renderMetadata(database: SearchDatabase, id: number, record: DatedRecord): void {
+                    const heading = document.createElement("h3")
+                    heading.className = "metadata-heading"
+                    heading.textContent = `${TYPE_LABELS[database]} ID #${id}`
+                    output.replaceChildren(
+                        heading,
+                        field("Name", record.name ?? ""),
+                        field("Created", formatTimestamp(record.entry_date)),
+                        field("Modified", formatTimestamp(record.change_date))
+                    )
+                    output.classList.remove("hidden")
+                }
+
+                // loads and displays metadata for a selected search hit, reflecting the selection into the URL
+                // so the view is shareable and reproduces via the SSR path on reload
+                async function loadMetadata(database: SearchDatabase, id: number): Promise<void> {
+                    status.textContent = "Loading metadata..."
+                    output.classList.add("hidden")
+                    try {
+                        const record = await fetchRecord(database, id)
+                        if (!record) {
+                            output.replaceChildren()
+                            status.textContent = `No ${TYPE_LABELS[database].toLowerCase()} found with ID ${id}.`
+                            return
+                        }
+                        renderMetadata(database, id, record)
+                        status.textContent = "Metadata loaded."
+                        const url = new URL(window.location.href)
+                        url.searchParams.set("type", database)
+                        url.searchParams.set("id", String(id))
+                        window.history.replaceState({}, "", url)
+                    } catch (error) {
+                        output.replaceChildren()
+                        status.textContent = `Could not load metadata: ${errorMessage(error)}`
+                        console.error(error)
+                    }
+                }
+
+                // selecting a hit loads it on-page (no navigation), scoped to the chosen database (or all three)
+                attachKeywordSearchInline(
+                    "metadata-search-input",
+                    "metadata-search-button",
+                    "metadata-search-results",
+                    () => {
+                        const value = database_select instanceof HTMLSelectElement ? database_select.value : ""
+                        return value === "" ? null : (value as SearchDatabase)
+                    },
+                    (result) => loadMetadata(result.database, result.id)
+                )
+            </script>
+            <style>
+                .metadata-output {
+                    margin-block: 1rem;
+                }
+                .metadata-heading {
+                    margin-block: 0 0.5rem;
+                    font-size: 1rem;
+                }
+                .metadata-field {
+                    margin-block: 0.25rem;
+                }
+            </style>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

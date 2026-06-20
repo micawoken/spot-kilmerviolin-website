@@ -32,8 +32,14 @@
 		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // the aud for the Access policy to validate the JWT against
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // the domain for the Access policy to validate the JWT against
-		"REBUILD_COOLDOWN_SEC": 900 // 15 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
+		"REBUILD_COOLDOWN_SEC": 900, // 15 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
 		// DB write gating is now determined dynamically by the runtime environment (see dbWriteEnabled in src/lib/api/environment.ts)
+		"IDENTITY_CACHE_TTL_MS": 45000, // 45 seconds; per-isolate identity-record cache TTL (see _getIdentityRecord in src/lib/api/authorize.ts)
+		"MAX_UPLOAD_BYTES": 26214400, // 25 MiB; maximum size of a single uploaded file (see maxUploadBytes in src/lib/api/r2.ts)
+		"SEARCH_RESULT_CAP": 50, // maximum search hits returned per table, to bound the response size (see runSearch in src/lib/api/search.ts)
+		"MAX_IMAGE_WIDTH": 1600, // informational long edge of an optimized image; must match the CANON_PORTRAIT/CANON_LANDSCAPE long edge in src/lib/api/images.ts
+		"TARGET_IMAGE_FORMAT": "image/webp", // re-encode format for optimized images (see optimizeImage in src/lib/api/images.ts)
+		"TARGET_IMAGE_QUALITY": 82 // encode quality (0-100) for the target image format; keep the build-time copy in integrations/optimize-files.mjs in sync
 	},
 
 	// secret requirements

@@ -24,7 +24,7 @@
 import type { APIRoute } from "astro"
 import { deleteFile, deriveFileKey, readFileBytes, replaceFile } from "../../../../lib/api/files"
 import { parseCropFromForm } from "../../../../lib/api/images"
-import { MAX_UPLOAD_BYTES, R2CapacityError } from "../../../../lib/api/r2"
+import { maxUploadBytes, R2CapacityError } from "../../../../lib/api/r2"
 import { auth_check } from "../../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook, constructFileResponse } from "../../../../lib/api/http"
 import { env } from "cloudflare:workers"
@@ -96,7 +96,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: missing 'file' part")
     }
     // reject oversized uploads before reading the body into memory
-    if (file.size > MAX_UPLOAD_BYTES) {
+    if (file.size > maxUploadBytes()) {
         return constructResponse(request, null, 413)
     }
     // the key is fixed by the URL; the upload's own filename is ignored on replace
