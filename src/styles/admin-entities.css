@@ -22,13 +22,18 @@
 	src: url("/fonts/InterVariable.woff2") format("woff2");
 	font-weight: 100 900;
 	font-style: normal;
-	font-display: swap;
+	/* AdminHead preloads this face, so it is ready before first paint; "optional" then renders with the
+	 * real font immediately (no fallback flash, the preload's stated goal) instead of "swap"'s fallback-
+	 * then-swap, which left the eager preload looking "unused" and triggered the browser warning. */
+	font-display: optional;
 }
 @font-face {
 	font-family: "Inter";
 	src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
 	font-weight: 100 900;
 	font-style: italic;
+	/* Italic is not preloaded, so keep "swap": it may not be ready at first paint, and "optional" would
+	 * then keep it on the fallback for the whole page load. */
 	font-display: swap;
 }
 
