@@ -92,7 +92,11 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
     },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
-    profile: { access: { kind: "any" } }
+    profile: { access: { kind: "any" } },
+    // site policy pages are always accessible
+    "terms-of-use": { access: { kind: "any" } },
+    "privacy-policy": { access: { kind: "any" } },
+    "security-policy": { access: { kind: "any" } }
 }
 
 /**

@@ -82,20 +82,14 @@ const tz_label: string = tz || "UTC"
     </p>
 </footer>
 
-<script>
-    // "Back" goes to the previous page in history; wired here (not as an inline onclick) so the admin
-    // Content-Security-Policy can keep script-src 'self' with no inline-script allowance. The anchor's
-    // href="/admin" remains the no-JS fallback, so this only overrides navigation when history exists.
-    const back_link = document.getElementById("admin-footer-back")
-    if (back_link) {
-        back_link.addEventListener("click", (event) => {
-            if (window.history.length > 1) {
-                event.preventDefault()
-                window.history.back()
-            }
-        })
-    }
-</script>
+<!--
+    "Back" navigation lives in a same-origin static file (public/js/admin-footer-back.js) loaded with
+    is:inline + src, NOT an Astro <script>: the bundler inlines small Astro scripts directly into the
+    document, which the admin Content-Security-Policy (script-src 'self', no 'unsafe-inline'/nonce/hash)
+    then blocks. An external same-origin script is covered by 'self'. defer runs it after the DOM is
+    parsed so #admin-footer-back exists; the anchor's href="/admin" remains the no-JS fallback.
+-->
+<script is:inline defer src="/js/admin-footer-back.js"></script>
 
 {
     /* Sticky footer: make the admin <body> a full-height flex column so the footer can be pushed to the
