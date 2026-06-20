@@ -103,7 +103,7 @@ export function isOptimizableImage(content_type: string): boolean {
 /**
  * Resolves the canonical output shape for a crop instruction (defaulting to portrait when absent).
  */
-function _targetFor(crop?: CropInstruction): { width: number, height: number } {
+function _targetFor(crop?: CropInstruction): { width: number; height: number } {
     return (crop?.aspect ?? "portrait") === "landscape" ? CANON_LANDSCAPE : CANON_PORTRAIT
 }
 
@@ -154,7 +154,7 @@ export function parseCropFromForm(form: FormData): CropInstruction | Error | und
         }
         fields[key] = value
     }
-    const present = Object.values(fields).filter(value => value !== undefined).length
+    const present = Object.values(fields).filter((value) => value !== undefined).length
     if (present !== 0 && present !== 4) {
         return new Error("Crop region requires all of crop_x, crop_y, crop_w, crop_h (or none)")
     }
@@ -184,7 +184,11 @@ function _toStream(bytes: ArrayBuffer | Uint8Array): ReadableStream<Uint8Array> 
  * @returns {Promise<OptimizeResult>} the bytes to store, their content type, the canonical dimensions, and whether re-encoded
  * @throws {Error} if the IMAGES binding fails to process a type that isOptimizableImage accepted
  */
-export async function optimizeImage(bytes: ArrayBuffer | Uint8Array, content_type: string, crop?: CropInstruction): Promise<OptimizeResult> {
+export async function optimizeImage(
+    bytes: ArrayBuffer | Uint8Array,
+    content_type: string,
+    crop?: CropInstruction
+): Promise<OptimizeResult> {
     if (!isOptimizableImage(content_type)) {
         // non-images and SVG are stored verbatim
         const passthrough = bytes instanceof Uint8Array ? bytes.slice().buffer : bytes
@@ -241,8 +245,8 @@ export async function optimizeImage(bytes: ArrayBuffer | Uint8Array, content_typ
     // fill the canonical canvas exactly. Requires the source dimensions to convert fractions to pixels;
     // without them we fall back to a focal-point cover below.
     const has_region = crop?.x !== undefined && crop?.y !== undefined && crop?.w !== undefined && crop?.h !== undefined
-    let trim: { left: number, top: number, right: number, bottom: number } | undefined
-    let region_px: { width: number, height: number } | null = null
+    let trim: { left: number; top: number; right: number; bottom: number } | undefined
+    let region_px: { width: number; height: number } | null = null
     if (has_region && source_width !== null && source_height !== null) {
         const rx = _clamp01(crop!.x!)
         const ry = _clamp01(crop!.y!)
@@ -264,7 +268,7 @@ export async function optimizeImage(bytes: ArrayBuffer | Uint8Array, content_typ
     // the final cover scale forces the exact canonical canvas, cropping whatever the gravity does not keep.
     // With a region the trim has already isolated the aspect-correct rectangle, so a centered cover just
     // scales it; without one we bias toward the focal point (or center).
-    let gravity: "center" | { x: number, y: number, mode: "box-center" }
+    let gravity: "center" | { x: number; y: number; mode: "box-center" }
     if (!trim && crop?.x !== undefined && crop?.y !== undefined) {
         // focal-point crop (no exact region, or dimensions unknown): bias the cover crop toward the point
         gravity = { x: _clamp01(crop.x), y: _clamp01(crop.y), mode: "box-center" }
@@ -273,18 +277,22 @@ export async function optimizeImage(bytes: ArrayBuffer | Uint8Array, content_typ
     }
     // sharpen only when enlarging (downscales do not benefit and it adds filesize). What gets enlarged is
     // the kept rectangle (the region when cropping, else the whole source), compared to the canvas.
-    const effective = region_px ?? (source_width !== null && source_height !== null ? { width: source_width, height: source_height } : null)
+    const effective =
+        region_px ??
+        (source_width !== null && source_height !== null ? { width: source_width, height: source_height } : null)
     const upscaling = effective !== null && (effective.width < target.width || effective.height < target.height)
 
     // re-encode in one transform; GIFs are flattened to a single frame so output dimensions stay predictable
-    const result = await transformer.transform({
-        ...(trim ? { trim } : {}),
-        width: target.width,
-        height: target.height,
-        fit: "cover",
-        gravity,
-        ...(upscaling ? { sharpen: UPSCALE_SHARPEN } : {})
-    }).output({ format: TARGET_FORMAT, quality: TARGET_QUALITY, anim: false })
+    const result = await transformer
+        .transform({
+            ...(trim ? { trim } : {}),
+            width: target.width,
+            height: target.height,
+            fit: "cover",
+            gravity,
+            ...(upscaling ? { sharpen: UPSCALE_SHARPEN } : {})
+        })
+        .output({ format: TARGET_FORMAT, quality: TARGET_QUALITY, anim: false })
     const out_type = result.contentType()
     const out_bytes = await new Response(result.image()).arrayBuffer()
     // output dimensions are fixed by the canonical canvas regardless of whether info() succeeded

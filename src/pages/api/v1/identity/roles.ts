@@ -29,18 +29,38 @@ import { emailToId, assignRole, removeRole, setRoles } from "../../../../lib/pub
  */
 function _validateRoleMap(value: unknown, request: Request, label: string): [string, string[]][] | Response {
     if (typeof value !== "object" || value === null) {
-        return constructResponse(request, null, 400, `Bad request: ${label} must be an object; previous transactions may have succeeded`)
+        return constructResponse(
+            request,
+            null,
+            400,
+            `Bad request: ${label} must be an object; previous transactions may have succeeded`
+        )
     }
     if (Object.keys(value).length > 5) {
-        return constructResponse(request, null, 400, `Bad request: transaction exceeds max 5 users per ${label}; previous transactions may have succeeded`)
+        return constructResponse(
+            request,
+            null,
+            400,
+            `Bad request: transaction exceeds max 5 users per ${label}; previous transactions may have succeeded`
+        )
     }
     const entries: [string, string[]][] = []
     for (const [email, role_list] of Object.entries(value)) {
         if (!Array.isArray(role_list) || !role_list.every((role: any) => role in roles)) {
-            return constructResponse(request, null, 400, `Bad request: roles for ${email} in ${label} must be valid roles; previous transactions may have succeeded`)
+            return constructResponse(
+                request,
+                null,
+                400,
+                `Bad request: roles for ${email} in ${label} must be valid roles; previous transactions may have succeeded`
+            )
         }
         if (role_list.length > 5) {
-            return constructResponse(request, null, 400, `Bad request: transaction exceeds max 5 roles per user for ${label}; previous transactions may have succeeded`)
+            return constructResponse(
+                request,
+                null,
+                400,
+                `Bad request: transaction exceeds max 5 roles per user for ${label}; previous transactions may have succeeded`
+            )
         }
         entries.push([email, role_list])
     }
@@ -115,7 +135,12 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             }
         }
     } catch (error) {
-        const response = constructResponseErrorHook(request, error, 500, "Failed to update roles; previous transactions may have succeeded")
+        const response = constructResponseErrorHook(
+            request,
+            error,
+            500,
+            "Failed to update roles; previous transactions may have succeeded"
+        )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }
@@ -174,7 +199,12 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
             await setRoles(context.locals.cfContext, id, role_list)
         }
     } catch (error) {
-        const response = constructResponseErrorHook(request, error, 500, "Failed to set roles; previous transactions may have succeeded")
+        const response = constructResponseErrorHook(
+            request,
+            error,
+            500,
+            "Failed to set roles; previous transactions may have succeeded"
+        )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }

@@ -10,70 +10,85 @@ export const prerender = false
 // the key to delete may be supplied via ?id=
 const key = Astro.url.searchParams.get("id") ?? ""
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete File`} description="Delete a file from the file store"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Delete a File</h2>
-    <p class="general-warning">Deletion does not delete references to this file. Any record still using it will show a broken image.</p>
-    <div class="generic-form">
-        <form id="file-delete-form" class="generic-form">
-            <fieldset>
-                <legend>File key</legend>
-                <input type="text" id="file-delete-key" name="key" value={key} placeholder="e.g. composer-portrait.jpg" required />
-                <div class="searchhelper" id="file-search">
-                    <label for="file-search-input"><strong>Search for file:</strong></label>
-                    <input type="text" id="file-search-input" />
-                    <button type="button" id="file-search-button">Search</button>
-                    <div id="file-search-results">
-                        <p>Results will display here when searched.</p>
-                    </div>
-                </div>
-            </fieldset>
-            <button type="submit" id="file-delete-button">Delete</button>
-        </form>
-    </div>
-    <p id="transaction-status">Your request status will show here after you press "Delete".</p>
-    <script>
-        import { deleteFile } from "../../../scripts/connector"
-        import { attachFileSearchInline } from "../../../scripts/file_picker"
-        const form = document.getElementById("file-delete-form")
-        const status = document.getElementById("transaction-status")
-        const key_input = document.getElementById("file-delete-key")
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete File`} description="Delete a file from the file store" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Delete a File</h2>
+            <p class="general-warning">
+                Deletion does not delete references to this file. Any record still using it will show a broken image.
+            </p>
+            <div class="generic-form">
+                <form id="file-delete-form" class="generic-form">
+                    <fieldset>
+                        <legend>File key</legend>
+                        <input
+                            type="text"
+                            id="file-delete-key"
+                            name="key"
+                            value={key}
+                            placeholder="e.g. composer-portrait.jpg"
+                            required
+                        />
+                        <div class="searchhelper" id="file-search">
+                            <label for="file-search-input"><strong>Search for file:</strong></label>
+                            <input type="text" id="file-search-input" />
+                            <button type="button" id="file-search-button">Search</button>
+                            <div id="file-search-results">
+                                <p>Results will display here when searched.</p>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <button type="submit" id="file-delete-button">Delete</button>
+                </form>
+            </div>
+            <p id="transaction-status">Your request status will show here after you press "Delete".</p>
+            <script>
+                import { deleteFile } from "../../../scripts/connector"
+                import { attachFileSearchInline } from "../../../scripts/file_picker"
+                const form = document.getElementById("file-delete-form")
+                const status = document.getElementById("transaction-status")
+                const key_input = document.getElementById("file-delete-key")
 
-        // live search: selecting a hit fills its key into the key field instead of navigating
-        attachFileSearchInline("file-search-input", "file-search-button", "file-search-results", (key: string) => {
-            if (key_input instanceof HTMLInputElement) key_input.value = key
-        })
+                // live search: selecting a hit fills its key into the key field instead of navigating
+                attachFileSearchInline(
+                    "file-search-input",
+                    "file-search-button",
+                    "file-search-results",
+                    (key: string) => {
+                        if (key_input instanceof HTMLInputElement) key_input.value = key
+                    }
+                )
 
-        if (form instanceof HTMLFormElement && status && key_input instanceof HTMLInputElement) {
-            form.addEventListener("submit", async (evt: Event) => {
-                evt.preventDefault()
-                const key = key_input.value.trim()
-                if (!key) {
-                    status.textContent = "Please provide a file key."
-                    return
+                if (form instanceof HTMLFormElement && status && key_input instanceof HTMLInputElement) {
+                    form.addEventListener("submit", async (evt: Event) => {
+                        evt.preventDefault()
+                        const key = key_input.value.trim()
+                        if (!key) {
+                            status.textContent = "Please provide a file key."
+                            return
+                        }
+                        if (!confirm(`Are you sure you want to permanently delete "${key}"?`)) {
+                            return
+                        }
+                        status.textContent = "Deleting..."
+                        try {
+                            await deleteFile(key)
+                            status.textContent = `Deleted "${key}".`
+                        } catch (error) {
+                            status.textContent = `Deletion failed: ${error instanceof Error ? error.message : String(error)}`
+                            console.error(error)
+                        }
+                    })
                 }
-                if (!confirm(`Are you sure you want to permanently delete "${key}"?`)) {
-                    return
-                }
-                status.textContent = "Deleting..."
-                try {
-                    await deleteFile(key)
-                    status.textContent = `Deleted "${key}".`
-                } catch (error) {
-                    status.textContent = `Deletion failed: ${error instanceof Error ? error.message : String(error)}`
-                    console.error(error)
-                }
-            })
-        }
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

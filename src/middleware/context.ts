@@ -1,5 +1,5 @@
 /**
- * src/middleware/context.ts
+ * middleware/context.ts
  *
  * Stores the request URL isolate-wide so it can be used by callers/modules without the Astro context
  *

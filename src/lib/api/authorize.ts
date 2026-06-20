@@ -1,49 +1,49 @@
 /**
  * lib/api/authorize.ts
- * 
+ *
  * Accepts a BaseIdentity object from authenticate.ts and provides authorization information
  * Validates an Identity object for a given scope
  * Provides basic authorization primitives for Identity objects, such as verifying role permissions and admin status
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
-import { getRecordSpecificProp, CONTRIBUTOR, recordTypeAssertComplete } from "./d1.ts";
+import { getRecordSpecificProp, CONTRIBUTOR, recordTypeAssertComplete } from "./d1.ts"
 
 /**
  * The available roles and their permissions defined in lib/api/authorize.ts
- * 
+ *
  */
 export const roles: Record<string, RoleProfile> = {
-    "reviewer": {
+    reviewer: {
         overrides_lockout: true,
         lockout_ignore_admin: true,
         user_activation: false,
         user_addition: false,
-        conferrable: true,
+        conferrable: true
     },
-    "userenroll": {
+    userenroll: {
         overrides_lockout: false,
         lockout_ignore_admin: false,
         user_activation: true,
         user_addition: true,
-        conferrable: false,
+        conferrable: false
     }
 }
 
@@ -61,7 +61,7 @@ const IDENTITY_CACHE_TTL_MS = 45_000
  * invalidation, so {@link IDENTITY_CACHE_TTL_MS} is the only bound on staleness; the email key derives from
  * a verified Access JWT, so its cardinality is bounded by the org's enrolled users.
  */
-const _identityCache = new Map<string, { record: D1Contributor | null, expires: number }>()
+const _identityCache = new Map<string, { record: D1Contributor | null; expires: number }>()
 
 /**
  * Drops every entry from the per-isolate identity cache. Called by the data layer when a contributor
@@ -106,9 +106,13 @@ async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor
             // an unsuccessful (but non-throwing) response is treated as no match and left uncached
             return null
         }
-        const record = response.results.length === 0
-            ? null
-            : recordTypeAssertComplete(CONTRIBUTOR, response.results[0] as Record<string, string | number | null>) as D1Contributor
+        const record =
+            response.results.length === 0
+                ? null
+                : (recordTypeAssertComplete(
+                      CONTRIBUTOR,
+                      response.results[0] as Record<string, string | number | null>
+                  ) as D1Contributor)
         _identityCache.set(identity_email, { record, expires: now + IDENTITY_CACHE_TTL_MS })
         return record
     } catch (error) {
@@ -118,7 +122,7 @@ async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor
 
 /**
  * Using a BaseIdentity from authenticate.ts and a contributor record from d1.ts, constructs an authorization record
- * 
+ *
  * @param identity - the BaseIdentity object to construct from
  * @param record - the D1Contributor record to construct from, or null if no such record exists
  * @returns - the constructed Identity object
@@ -127,17 +131,28 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
     // builds an Identity object from a BaseIdentity and a D1Contributor record
     // there is no validation of identity or record, so this function is not exposed
     const allowed = record !== null
-    const enrollable = (record === null && env.API_USER_SELFENROLL) // provides method 2 enrollment directly; method 1 is accomplished in the enrollment flow
+    const enrollable = record === null && env.API_USER_SELFENROLL // provides method 2 enrollment directly; method 1 is accomplished in the enrollment flow
     const active = record ? record.active === 1 : false
     // an empty roles column ("") splits to [""], which is not a valid role and breaks role lookups; filter blanks so a roleless user is [] not [""]
-    const roles = record ? record.roles.split(",").map((r: string) => r.trim()).filter((r: string) => r.length > 0) : []
+    const roles = record
+        ? record.roles
+              .split(",")
+              .map((r: string) => r.trim())
+              .filter((r: string) => r.length > 0)
+        : []
     const id = record ? record.contributor_id : -1
     const admin = record ? record.admin === 1 : false
     const user_info: UserInfo = {
         name: record ? record.name : "",
         // the tags and phases columns are nullable; a null column yields an empty list in the identity summary
         tags: record && record.tags ? record.tags.split(",").map((t: string) => t.trim()) : [],
-        phases: record && record.phases ? record.phases.split(",").map((p: string) => parseInt(p.trim())).filter((p: number) => !isNaN(p)) : [],
+        phases:
+            record && record.phases
+                ? record.phases
+                      .split(",")
+                      .map((p: string) => parseInt(p.trim()))
+                      .filter((p: number) => !isNaN(p))
+                : [],
         entry_date: record ? record.entry_date : "",
         // the remaining non-authorization profile fields are stashed here so self-service flows can read
         // the acting user's own record straight from the identity rather than issuing a second lookup
@@ -153,13 +168,13 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
     }
     return {
         ...identity,
-        "allowed": allowed,
-        "enrollable": enrollable,
-        "active": active,
-        "roles": roles,
-        "id": id,
-        "admin": admin,
-        "userinfo": user_info,
+        allowed: allowed,
+        enrollable: enrollable,
+        active: active,
+        roles: roles,
+        id: id,
+        admin: admin,
+        userinfo: user_info
     }
 }
 
@@ -182,7 +197,7 @@ export default async function authorize(identity: BaseIdentity): Promise<Identit
  * @param permission - the permission to check for
  * @param identity - the Identity object to check permissions for
  * @return - true if the identity has the required permission, false otherwise
- * 
+ *
  */
 export function requires(permission: keyof RoleProfile, identity: Identity): boolean {
     // delegates to requiresOneOf so all role lookups share one (unknown-role-safe) implementation
@@ -195,7 +210,11 @@ export function requires(permission: keyof RoleProfile, identity: Identity): boo
  * @param identity - the Identity object to check permissions for
  * @return - true if the identity has at least one of the required permissions, false otherwise
  */
-export function requiresOneOf(permissions: (keyof RoleProfile)[], identity: Identity, fail_closed: boolean = true): boolean {
+export function requiresOneOf(
+    permissions: (keyof RoleProfile)[],
+    identity: Identity,
+    fail_closed: boolean = true
+): boolean {
     return _requiresMatch(permissions, identity, fail_closed, "some")
 }
 
@@ -205,7 +224,11 @@ export function requiresOneOf(permissions: (keyof RoleProfile)[], identity: Iden
  * @param identity - the Identity object to check permissions for
  * @return - true if the identity has all of the required permissions, false otherwise
  */
-export function requiresAllOf(permissions: (keyof RoleProfile)[], identity: Identity, fail_closed: boolean = true): boolean {
+export function requiresAllOf(
+    permissions: (keyof RoleProfile)[],
+    identity: Identity,
+    fail_closed: boolean = true
+): boolean {
     return _requiresMatch(permissions, identity, fail_closed, "every")
 }
 
@@ -217,17 +240,22 @@ export function requiresAllOf(permissions: (keyof RoleProfile)[], identity: Iden
  *
  * @param match - whether a role must grant some or every requested permission
  */
-function _requiresMatch(permissions: (keyof RoleProfile)[], identity: Identity, fail_closed: boolean, match: "some" | "every"): boolean {
+function _requiresMatch(
+    permissions: (keyof RoleProfile)[],
+    identity: Identity,
+    fail_closed: boolean,
+    match: "some" | "every"
+): boolean {
     if (permissions.length === 0) {
         if (fail_closed) return identity.admin
         else return true
     }
     const user_roles = identity.roles
-    return user_roles.some(role => {
+    return user_roles.some((role) => {
         const profile = roles[role]
         // an unknown role string (stale/typo data) has no profile; treat it as granting nothing rather than throwing
         if (!profile) return false
-        return permissions[match](permission => profile[permission] === true)
+        return permissions[match]((permission) => profile[permission] === true)
     })
 }
 
@@ -248,7 +276,7 @@ export function conferFrom(identity: Identity): string[] {
 
 /**
  * Implements the contribution edit lockout
- * 
+ *
  * @param record - the composition record to compare against
  * @param identity - the Identity object to review, assumed to be valid
  * @param use_admin - whether to allow review of admin status
@@ -276,15 +304,20 @@ export function canModify(record: CompositionRecord, acting_identity: Identity, 
 
 /**
  * Protects the contribution edit lockout mechanism by enforcing readonly on its implementing columns
- * 
+ *
  * @param record - the current database record to compare against
  * @param new_record - the new proposed record in API format, which may be partial
  * @param acting_identity - the identity of the acting user
  * @param use_admin - whether to allow review of admin status
  * @returns - whether the user is allowed to perform the modification as-is
- * 
+ *
  */
-export function canAct(record: CompositionRecord, new_record: Partial<Composition>, acting_identity: Identity, use_admin: boolean = true) {
+export function canAct(
+    record: CompositionRecord,
+    new_record: Partial<Composition>,
+    acting_identity: Identity,
+    use_admin: boolean = true
+) {
     if (acting_identity?.id === null || acting_identity.id === undefined) {
         // no identity asserted
         return false
@@ -301,7 +334,10 @@ export function canAct(record: CompositionRecord, new_record: Partial<Compositio
     // the user is not an admin and isn't a primary contributor
     // for the operation to proceed, it cannot modify the columns relevant to the lockout system, i.e. the primary contributor columns
 
-    if ((record.contrib_primary_1 !== new_record?.contrib_primary_1 && "contrib_primary_1" in new_record) || (record.contrib_primary_2 !== new_record?.contrib_primary_2 && "contrib_primary_2" in new_record)) {
+    if (
+        (record.contrib_primary_1 !== new_record?.contrib_primary_1 && "contrib_primary_1" in new_record) ||
+        (record.contrib_primary_2 !== new_record?.contrib_primary_2 && "contrib_primary_2" in new_record)
+    ) {
         // the operation modifies the lockout columns; do not allow since not admin or primary
         return false
     }
@@ -321,7 +357,7 @@ export function canAct(record: CompositionRecord, new_record: Partial<Compositio
  */
 function modifiesProtectedPrimary(record: CompositionRecord, new_record: Partial<Composition>, self: number): boolean {
     const slots: ("contrib_primary_1" | "contrib_primary_2")[] = ["contrib_primary_1", "contrib_primary_2"]
-    return slots.some(slot => {
+    return slots.some((slot) => {
         if (!(slot in new_record)) {
             // the slot is not part of this update; it cannot be modified
             return false
@@ -383,7 +419,11 @@ export function canCreate(record: Composition, acting_identity: Identity, use_ad
  * @param acting_identity - the identity of the acting user
  * @returns - the updated contrib_addl list, or null if no change is needed
  */
-export function withActingContributor(current: CompositionRecord, proposed: Partial<Composition>, acting_identity: Identity): number[] | null {
+export function withActingContributor(
+    current: CompositionRecord,
+    proposed: Partial<Composition>,
+    acting_identity: Identity
+): number[] | null {
     if (!hasContributorId(acting_identity?.id)) {
         return null
     }
@@ -395,7 +435,10 @@ export function withActingContributor(current: CompositionRecord, proposed: Part
         return null
     }
     // base on the proposed list when the update sets it, else carry the current record's list forward
-    const base = "contrib_addl" in proposed && Array.isArray(proposed.contrib_addl) ? proposed.contrib_addl : current.contrib_addl
+    const base =
+        "contrib_addl" in proposed && Array.isArray(proposed.contrib_addl)
+            ? proposed.contrib_addl
+            : current.contrib_addl
     if (base.includes(self)) {
         // the editor is already recorded as an additional contributor
         return null

@@ -5,52 +5,93 @@ import AdminFooter from "../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 
 const date = new Date()
-
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Project License`} description="View project license information"/>
-    <AdminHead />
-</head>
-<body>
-    <main class="admin-main" role="main">
-    <h1>Project License</h1>
-    <h2>Copyright</h2>
-        <p>The following copyrights apply to this project.</p>
-        <h3>Project Data</h3>
-        <p>&copy; {date.getFullYear()} by the following contributors:</p>
-        <ul>
-            <li>Vanessa Cruz,</li>
-            <li>Cam Schwind,</li>
-            <li>Alyssa Spina,</li>
-            <li>Michael Wong,</li>
-            <li>Emma Kuegel,</li>
-            <li>Kenny Hoang, and</li>
-            <li>additional later contributors.</li>
-        </ul>
-        <p>All rights reserved by the respective copyright holders.</p>
-        <h3>Website Source Code</h3>
-        <p>&copy; {date.getFullYear()} Michael Wong, and later contributors.</p>
-    <h2>License</h2>
-    <h3>Project Data</h3>
-    <p>Project data from the contributors is licensed for use in this project by pre-existing arrangements and under the <a href="/terms-of-use">Terms of Use</a>.<br>Disputes over copyrights of project data should be directed to contact@TBDTBDTBDTBDTBD.com</p>
-    <h3>Website Source Code</h3>
-    <p>Website source code is licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU General Public License, version 3 or later</a>.</p>
-    <p class="general-helpinfo">The license is available in LICENSE.md, available from the repository, and the text of the license is accessible at the earlier link.</p>
-    <p>This license and the following additional terms apply to the website source code. You agree to this license when you are conveyed a copy of the source code, which will most likely occur when you are granted access to the project's online repository on GitHub. You do not agree to a license by interacting with this website over the Internet, and you are not subject to the license's terms and conditions until you receive a copy of the source code.</p>
-    <h4>GPL Additional Terms</h4>
-    <p>The following additional terms apply to this License: in all covered works conveyed under this License, you shall:</p>
-    <ul>
-        <li>Include and preserve the License (the GNU General Public License, version 3) and these additional terms verbatim as a specific legal notice;</li>
-        <li>Include and preserve all author attributions, including, but not limited to the copyright notice in all source files, the notice in README.md, and the list in CONTRIBUTORS.md;</li>
-        <li>Not represent any modified works as the original unmodified work;</li>
-        <li>Clearly identify whether alterations were made in all conveyances of this work and any modified copies, identifying the relevant date of a modification and the purpose of the modification at the place of modification;</li>
-        <li>Clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices of a program that has an interactive user interface;</li>
-        <li>Not use the names of licensors or authors of material in any publicity related to the conveyance of a modification of this work in a manner so as to imply endorsement;</li>
-        <li>Not use any trade names, trademarks, or servicemarks, registered or otherwise, associated with the original source code so as to imply endorsement.</li>
-    </ul>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Project License`} description="View project license information" />
+        <AdminHead />
+    </head>
+    <body>
+        <main class="admin-main" role="main">
+            <h1>Project License</h1>
+            <h2>Copyright</h2>
+            <p>The following copyrights apply to this project.</p>
+            <h3>Project Data</h3>
+            <p>&copy; {date.getFullYear()} by the following contributors:</p>
+            <ul>
+                <li>Vanessa Cruz,</li>
+                <li>Cam Schwind,</li>
+                <li>Alyssa Spina,</li>
+                <li>Michael Wong,</li>
+                <li>Emma Kuegel,</li>
+                <li>Kenny Hoang, and</li>
+                <li>additional later contributors.</li>
+            </ul>
+            <p>All rights reserved by the respective copyright holders.</p>
+            <h3>Website Source Code</h3>
+            <p>&copy; {date.getFullYear()} Michael Wong, and later contributors.</p>
+            <h2>License</h2>
+            <h3>Project Data</h3>
+            <p>
+                Project data from the contributors is licensed for use in this project by pre-existing arrangements and
+                under the <a href="/terms-of-use">Terms of Use</a>.<br />Disputes over copyrights of project data should
+                be directed to contact@TBDTBDTBDTBDTBD.com
+            </p>
+            <h3>Website Source Code</h3>
+            <p>
+                Website source code is licensed under the <a
+                    href="https://www.gnu.org/licenses/gpl-3.0.html"
+                    target="_blank"
+                    rel="noopener noreferrer">GNU General Public License, version 3 or later</a
+                >.
+            </p>
+            <p class="general-helpinfo">
+                The license is available in LICENSE.md, available from the repository, and the text of the license is
+                accessible at the earlier link.
+            </p>
+            <p>
+                This license and the following additional terms apply to the website source code. You agree to this
+                license when you are conveyed a copy of the source code, which will most likely occur when you are
+                granted access to the project's online repository on GitHub. You do not agree to a license by
+                interacting with this website over the Internet, and you are not subject to the license's terms and
+                conditions until you receive a copy of the source code.
+            </p>
+            <h4>GPL Additional Terms</h4>
+            <p>
+                The following additional terms apply to this License: in all covered works conveyed under this License,
+                you shall:
+            </p>
+            <ul>
+                <li>
+                    Include and preserve the License (the GNU General Public License, version 3) and these additional
+                    terms verbatim as a specific legal notice;
+                </li>
+                <li>
+                    Include and preserve all author attributions, including, but not limited to the copyright notice in
+                    all source files, the notice in README.md, and the list in CONTRIBUTORS.md;
+                </li>
+                <li>Not represent any modified works as the original unmodified work;</li>
+                <li>
+                    Clearly identify whether alterations were made in all conveyances of this work and any modified
+                    copies, identifying the relevant date of a modification and the purpose of the modification at the
+                    place of modification;
+                </li>
+                <li>
+                    Clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal
+                    Notices of a program that has an interactive user interface;
+                </li>
+                <li>
+                    Not use the names of licensors or authors of material in any publicity related to the conveyance of
+                    a modification of this work in a manner so as to imply endorsement;
+                </li>
+                <li>
+                    Not use any trade names, trademarks, or servicemarks, registered or otherwise, associated with the
+                    original source code so as to imply endorsement.
+                </li>
+            </ul>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

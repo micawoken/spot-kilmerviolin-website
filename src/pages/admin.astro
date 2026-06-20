@@ -11,102 +11,105 @@ const locals = Astro.locals
 
 const identity = locals.identity !== undefined ? locals.identity : null
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Home`} description="Project administrative services"/>
-    <AdminHead />
-</head>
-<body>
-    <!-- Header -->
-    <AdminHeader identity={identity} welcome={true}/>
-    <main class="admin-main" role="main">
-    <!-- account-status callouts (enrollment / inactive) now render globally in AdminHeader -->
-    <!-- links to database management pages -->
-    <div class="admin-sections">
-        <section class="admin-section">
-            <h2><a href="/admin/works" class="col-header-link">Compositions</a></h2>
-            <ul>
-                <li><a href="/admin/works/create" class="col-item-link">Add new composition</a></li>
-                <li><a href="/admin/works/info" class="col-item-link">View composition info</a></li>
-                <li><a href="/admin/works/edit" class="col-item-link">Edit existing composition</a></li>
-                <li><a href="/admin/works/delete" class="col-item-link">Delete composition</a></li>
-                <li><a href="/admin/works/list" class="col-item-link">List compositions</a></li>
-            </ul>
-        </section>
-        <section class="admin-section">
-            <h2><a href="/admin/composers" class="col-header-link">Composers</a></h2>
-            <ul>
-                <li><a href="/admin/composers/create" class="col-item-link">Add new composer</a></li>
-                <li><a href="/admin/composers/info" class="col-item-link">View composer info</a></li>
-                <li><a href="/admin/composers/edit" class="col-item-link">Edit existing composer</a></li>
-                <li><a href="/admin/composers/delete" class="col-item-link">Delete composer</a></li>
-                <li><a href="/admin/composers/list" class="col-item-link">List composers</a></li>
-            </ul>
-        </section>
-        <section class="admin-section">
-            <h2><a href="/admin/contributors" class="col-header-link">Contributors</a></h2>
-            <ul>
-                <li><a href="/admin/contributors/create" class="col-item-link">Add new contributor</a></li>
-                <li><a href="/admin/contributors/info" class="col-item-link">View contributor info</a></li>
-                <li><a href="/admin/contributors/edit" class="col-item-link">Edit existing contributor</a></li>
-                <li><a href="/admin/contributors/delete" class="col-item-link">Delete contributor</a></li>
-                <li><a href="/admin/contributors/list" class="col-item-link">List contributors</a></li>
-            </ul>
-        </section>
-        <section class="admin-section">
-            <h2><a href="/admin/user" class="col-header-link">User Management</a></h2>
-            <ul>
-                <li><a href="/admin/user/activate" class="col-item-link">Activate user account</a></li>
-                <li><a href="/admin/user/deactivate" class="col-item-link">Deactivate user account</a></li>
-                <li><a href="/admin/user/elevate" class="col-item-link">Promote user to administrator</a></li>
-                <li><a href="/admin/user/demote" class="col-item-link">Demote user from administrator</a></li>
-            </ul>
-        </section>
-    </div>
-    <!-- Pages for IAM, site info/mgmt, files, and advanced -->
-    <div class="admin-sections">
-        <section class="admin-section">
-            <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>
-            <ul>
-                <li><a href="/admin/iam/whoami" class="col-item-link">My authorization info</a></li>
-                <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
-                <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
-                <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
-                <li><a href="/admin/iam/email" class="col-item-link">Change sign-in email</a></li>
-                <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
-            </ul>
-        </section>
-        <section class="admin-section">
-            <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
-            <ul>
-                <li><a href="/admin/search" class="col-item-link">Search database</a></li>
-                <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
-                <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
-                <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
-            </ul>
-        </section>
-        <section class="admin-section">
-            <h2><a href="/admin/files" class="col-header-link">File Management</a></h2>
-            <ul>
-                <li><a href="/admin/files/create" class="col-item-link">Add new file</a></li>
-                <li><a href="/admin/files/info" class="col-item-link">View file info</a></li>
-                <li><a href="/admin/files/edit" class="col-item-link">Replace existing file</a></li>
-                <li><a href="/admin/files/delete" class="col-item-link">Delete file</a></li>
-                <li><a href="/admin/files/list" class="col-item-link">List files</a></li>
-            </ul>
-        </section>
-        <section class="admin-section">
-            <h2><a href="/admin/advanced" class="col-header-link">Advanced Options</a></h2>
-            <ul>
-                <li><a href="/admin/advanced/command" class="col-item-link">Access database terminal</a></li>
-                <li><a href="/admin/advanced/selfenroll" class="col-item-link">View self-enrollment flow</a></li>
-            </ul>
-        </section>
-    </div>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Home`} description="Project administrative services" />
+        <AdminHead />
+    </head>
+    <body>
+        <!-- Header -->
+        <AdminHeader identity={identity} welcome={true} />
+        <main class="admin-main" role="main">
+            <!-- account-status callouts (enrollment / inactive) now render globally in AdminHeader -->
+            <!-- links to database management pages -->
+            <div class="admin-sections">
+                <section class="admin-section">
+                    <h2><a href="/admin/works" class="col-header-link">Compositions</a></h2>
+                    <ul>
+                        <li><a href="/admin/works/create" class="col-item-link">Add new composition</a></li>
+                        <li><a href="/admin/works/info" class="col-item-link">View composition info</a></li>
+                        <li><a href="/admin/works/edit" class="col-item-link">Edit existing composition</a></li>
+                        <li><a href="/admin/works/delete" class="col-item-link">Delete composition</a></li>
+                        <li><a href="/admin/works/list" class="col-item-link">List compositions</a></li>
+                    </ul>
+                </section>
+                <section class="admin-section">
+                    <h2><a href="/admin/composers" class="col-header-link">Composers</a></h2>
+                    <ul>
+                        <li><a href="/admin/composers/create" class="col-item-link">Add new composer</a></li>
+                        <li><a href="/admin/composers/info" class="col-item-link">View composer info</a></li>
+                        <li><a href="/admin/composers/edit" class="col-item-link">Edit existing composer</a></li>
+                        <li><a href="/admin/composers/delete" class="col-item-link">Delete composer</a></li>
+                        <li><a href="/admin/composers/list" class="col-item-link">List composers</a></li>
+                    </ul>
+                </section>
+                <section class="admin-section">
+                    <h2><a href="/admin/contributors" class="col-header-link">Contributors</a></h2>
+                    <ul>
+                        <li><a href="/admin/contributors/create" class="col-item-link">Add new contributor</a></li>
+                        <li><a href="/admin/contributors/info" class="col-item-link">View contributor info</a></li>
+                        <li><a href="/admin/contributors/edit" class="col-item-link">Edit existing contributor</a></li>
+                        <li><a href="/admin/contributors/delete" class="col-item-link">Delete contributor</a></li>
+                        <li><a href="/admin/contributors/list" class="col-item-link">List contributors</a></li>
+                    </ul>
+                </section>
+                <section class="admin-section">
+                    <h2><a href="/admin/user" class="col-header-link">User Management</a></h2>
+                    <ul>
+                        <li><a href="/admin/user/activate" class="col-item-link">Activate user account</a></li>
+                        <li><a href="/admin/user/deactivate" class="col-item-link">Deactivate user account</a></li>
+                        <li><a href="/admin/user/elevate" class="col-item-link">Promote user to administrator</a></li>
+                        <li><a href="/admin/user/demote" class="col-item-link">Demote user from administrator</a></li>
+                    </ul>
+                </section>
+            </div>
+            <!-- Pages for IAM, site info/mgmt, files, and advanced -->
+            <div class="admin-sections">
+                <section class="admin-section">
+                    <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>
+                    <ul>
+                        <li><a href="/admin/iam/whoami" class="col-item-link">My authorization info</a></li>
+                        <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
+                        <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
+                        <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
+                        <li><a href="/admin/iam/email" class="col-item-link">Change sign-in email</a></li>
+                        <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
+                    </ul>
+                </section>
+                <section class="admin-section">
+                    <h2><a href="/admin/site" class="col-header-link">Site Management</a></h2>
+                    <ul>
+                        <li><a href="/admin/search" class="col-item-link">Search database</a></li>
+                        <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
+                        <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
+                        <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
+                    </ul>
+                </section>
+                <section class="admin-section">
+                    <h2><a href="/admin/files" class="col-header-link">File Management</a></h2>
+                    <ul>
+                        <li><a href="/admin/files/create" class="col-item-link">Add new file</a></li>
+                        <li><a href="/admin/files/info" class="col-item-link">View file info</a></li>
+                        <li><a href="/admin/files/edit" class="col-item-link">Replace existing file</a></li>
+                        <li><a href="/admin/files/delete" class="col-item-link">Delete file</a></li>
+                        <li><a href="/admin/files/list" class="col-item-link">List files</a></li>
+                    </ul>
+                </section>
+                <section class="admin-section">
+                    <h2><a href="/admin/advanced" class="col-header-link">Advanced Options</a></h2>
+                    <ul>
+                        <li><a href="/admin/advanced/command" class="col-item-link">Access database terminal</a></li>
+                        <li>
+                            <a href="/admin/advanced/selfenroll" class="col-item-link">View self-enrollment flow</a>
+                        </li>
+                    </ul>
+                </section>
+            </div>
+        </main>
+        <AdminFooter />
+    </body>
 </html>
 
 <style>

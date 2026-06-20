@@ -8,40 +8,55 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 export const prerender = false
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Delete Contributor`} description="Delete a contributor from the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Delete a Contributor</h2>
-    <p class="general-warning">Deletion is permanent and requires administrator permissions. You cannot delete your own record. Consider deactivating the contributor instead via <a href="/admin/iam/remove">Identity & Access Management &gt; Delete user</a>.</p>
-    <IDEntryForm output_div={undefined} hidden={false} search={true} />
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { getForm, genHandler, getTransactionElem  } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
-        const delete_form = getForm("contributor_partial", APIOpCode.DELETE)
-        // keyword lookup scoped to contributors; selecting a hit only fills the id field so the user can
-        // review the target before pressing Submit (which is what triggers the delete confirmation)
-        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "contributors", (result) => {
-            const id_input = document.getElementById("form-id-entry-id")
-            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
-        })
-        const handler = genHandler(delete_form, getTransactionElem(), APIOpCode.DELETE, "contributor_partial")
-        delete_form.addEventListener("submit", (evt: Event) => {
-            evt.preventDefault()
-            if (!confirm("Are you sure you want to permanently delete this contributor?")) {
-                return
-            }
-            handler(evt)
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Delete Contributor`}
+            description="Delete a contributor from the database"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Delete a Contributor</h2>
+            <p class="general-warning">
+                Deletion is permanent and requires administrator permissions. You cannot delete your own record.
+                Consider deactivating the contributor instead via <a href="/admin/iam/remove"
+                    >Identity & Access Management &gt; Delete user</a
+                >.
+            </p>
+            <IDEntryForm output_div={undefined} hidden={false} search={true} />
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                const delete_form = getForm("contributor_partial", APIOpCode.DELETE)
+                // keyword lookup scoped to contributors; selecting a hit only fills the id field so the user can
+                // review the target before pressing Submit (which is what triggers the delete confirmation)
+                attachKeywordSearchInline(
+                    "form-id-entry-search-input",
+                    "form-id-entry-search-button",
+                    "form-id-entry-search-results",
+                    () => "contributors",
+                    (result) => {
+                        const id_input = document.getElementById("form-id-entry-id")
+                        if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+                    }
+                )
+                const handler = genHandler(delete_form, getTransactionElem(), APIOpCode.DELETE, "contributor_partial")
+                delete_form.addEventListener("submit", (evt: Event) => {
+                    evt.preventDefault()
+                    if (!confirm("Are you sure you want to permanently delete this contributor?")) {
+                        return
+                    }
+                    handler(evt)
+                })
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

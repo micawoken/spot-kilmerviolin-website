@@ -13,7 +13,6 @@ import { env } from "cloudflare:workers"
  * be written to prevent overages (do not scan the entire bucket, unless it is build time)
  */
 
-
 /**
  * The maximum total number of bytes the bucket is allowed to hold
  *
@@ -52,7 +51,11 @@ export class R2CapacityError extends Error {
  * @param {("httpMetadata" | "customMetadata")[]} [include] - which metadata to include on each object
  * @returns {Promise<R2Objects>} the listing, including objects, truncation flag, and next cursor
  */
-export async function listObjects(prefix?: string, cursor?: string, include: ("httpMetadata" | "customMetadata")[] = ["httpMetadata", "customMetadata"]): Promise<R2Objects> {
+export async function listObjects(
+    prefix?: string,
+    cursor?: string,
+    include: ("httpMetadata" | "customMetadata")[] = ["httpMetadata", "customMetadata"]
+): Promise<R2Objects> {
     return await env.R2_FILES.list({ prefix, cursor, include })
 }
 
@@ -93,11 +96,19 @@ export async function headObject(key: string): Promise<R2Object | null> {
  * @returns {Promise<R2Object>} the written object's metadata
  * @throws {R2CapacityError} if the write would push total usage past MAX_R2_STORAGE_BYTES
  */
-export async function putObject(key: string, body: ArrayBuffer | Uint8Array, content_type: string, custom_metadata: Record<string, string> | undefined, usage_budget: number): Promise<R2Object> {
+export async function putObject(
+    key: string,
+    body: ArrayBuffer | Uint8Array,
+    content_type: string,
+    custom_metadata: Record<string, string> | undefined,
+    usage_budget: number
+): Promise<R2Object> {
     const incoming = body.byteLength
     const used = usage_budget
     if (used + incoming > MAX_R2_STORAGE_BYTES) {
-        throw new R2CapacityError(`Storage capacity exceeded: ${used + incoming} bytes would exceed the ${MAX_R2_STORAGE_BYTES} byte ceiling`)
+        throw new R2CapacityError(
+            `Storage capacity exceeded: ${used + incoming} bytes would exceed the ${MAX_R2_STORAGE_BYTES} byte ceiling`
+        )
     }
     return await env.R2_FILES.put(key, body, {
         httpMetadata: { contentType: content_type },

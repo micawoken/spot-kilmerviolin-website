@@ -42,55 +42,85 @@ const hidden_form = use_id && composer_data ? true : false
 // prefilled, so surface that clearly rather than silently dropping back to the ID entry form
 const prefill_failed = Boolean(id) && !use_id
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Composer`} description="Edit an existing composer in the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Edit a Composer</h2>
-    { prefill_failed ? <p class="general-warning">No composer was found for ID #{id}, so the edit form could not be prefilled. Enter an ID below to try again.</p> : null }
-    <IDEntryForm output_div={"generic-form-composers"} hidden={hidden_form} search={true} />
-    <ComposerForm required={true} hidden={!hidden_form} composer={use_id ? composer_data : null} patch={true} />
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
-        // patch in editing/updating form (partial edits via PATCH)
-        const edit_form = getForm("composer", APIOpCode.UPDATE_PARTIAL)
-        edit_form.addEventListener("submit", genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "composer"))
-        // patch in id entry form
-        const id_entry_form = getForm("composer", APIOpCode.READ)
-        id_entry_form.addEventListener("submit", async (evt: Event) => {
-            evt.preventDefault()
-            try {
-                const record = await retrieveObjectFromIDEntry(id_entry_form, "composer") as ComposerRecord | null
-                if (!record) {
-                    throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
-                }
-                // populate the fields, and hide the input form
-                prefillForm("composer", record)
-                document.getElementById("generic-form-composers")?.classList.remove("hidden")
-                // hiding the id-entry container also hides its embedded keyword-search helper
-                document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
-            } catch (error) {
-                console.error(error)
-                emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Edit Composer`}
+            description="Edit an existing composer in the database"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Edit a Composer</h2>
+            {
+                prefill_failed ? (
+                    <p class="general-warning">
+                        No composer was found for ID #{id}, so the edit form could not be prefilled. Enter an ID below
+                        to try again.
+                    </p>
+                ) : null
             }
-        })
-        // keyword lookup scoped to composers; selecting a hit fills the ID box and submits the ID entry
-        // form (prefilling the edit form on this page) rather than navigating away
-        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "composers", (result) => {
-            const id_input = document.getElementById("form-id-entry-id")
-            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
-            id_entry_form.requestSubmit()
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+            <IDEntryForm output_div={"generic-form-composers"} hidden={hidden_form} search={true} />
+            <ComposerForm required={true} hidden={!hidden_form} composer={use_id ? composer_data : null} patch={true} />
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import {
+                    getForm,
+                    genHandler,
+                    getTransactionElem,
+                    retrieveObjectFromIDEntry,
+                    prefillForm,
+                    emitError
+                } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                // patch in editing/updating form (partial edits via PATCH)
+                const edit_form = getForm("composer", APIOpCode.UPDATE_PARTIAL)
+                edit_form.addEventListener(
+                    "submit",
+                    genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "composer")
+                )
+                // patch in id entry form
+                const id_entry_form = getForm("composer", APIOpCode.READ)
+                id_entry_form.addEventListener("submit", async (evt: Event) => {
+                    evt.preventDefault()
+                    try {
+                        const record = (await retrieveObjectFromIDEntry(
+                            id_entry_form,
+                            "composer"
+                        )) as ComposerRecord | null
+                        if (!record) {
+                            throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
+                        }
+                        // populate the fields, and hide the input form
+                        prefillForm("composer", record)
+                        document.getElementById("generic-form-composers")?.classList.remove("hidden")
+                        // hiding the id-entry container also hides its embedded keyword-search helper
+                        document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+                    } catch (error) {
+                        console.error(error)
+                        emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+                    }
+                })
+                // keyword lookup scoped to composers; selecting a hit fills the ID box and submits the ID entry
+                // form (prefilling the edit form on this page) rather than navigating away
+                attachKeywordSearchInline(
+                    "form-id-entry-search-input",
+                    "form-id-entry-search-button",
+                    "form-id-entry-search-results",
+                    () => "composers",
+                    (result) => {
+                        const id_input = document.getElementById("form-id-entry-id")
+                        if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+                        id_entry_form.requestSubmit()
+                    }
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

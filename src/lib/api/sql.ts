@@ -1,10 +1,9 @@
 /**
  * lib/api/sql.ts
- * 
+ *
  * Implements an object representing a SQL statement and an object representing a SQL database
- * 
+ *
  */
-
 
 import { SQLCompareOp, sqlListJoin } from "./common.ts"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1.ts"
@@ -23,7 +22,6 @@ function hashIdentifier(value: string): string {
     }
     return hash.toString(16).padStart(16, "0")
 }
-
 
 /**
  * An object representing an SQL statement
@@ -77,7 +75,12 @@ export class SQLStatement {
      * @param from The name of the table to query, which must match the one specified in the schema
      * @param columns The columns to run the statement against; if omitted, defaults to all columns
      */
-    constructor(schema: D1Schema, verb: "SELECT" | "INSERT" | "UPDATE" | "DELETE", from: string, columns: string[] = []) {
+    constructor(
+        schema: D1Schema,
+        verb: "SELECT" | "INSERT" | "UPDATE" | "DELETE",
+        from: string,
+        columns: string[] = []
+    ) {
         this.schema = schema
         this.verb = verb
         this.from = from
@@ -86,34 +89,39 @@ export class SQLStatement {
 
     /**
      * Converts a row from a VirtualSQLTable execution into its object representation with a type assertion into the API type
-     * 
+     *
      * @param stmt An SQLStatement object representing the executed statement
      * @param output The output row from statement execution
      * @returns An object representation of the output row based on the executed statement's properties, with a type assertion into the API type
      */
-    static constructObject(stmt: SQLStatement, output: Array<string | number | null>): (Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>) {
+    static constructObject(
+        stmt: SQLStatement,
+        output: Array<string | number | null>
+    ): Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition> {
         // given the output of a SQL statement execution, it constructs the object representation
         const columns = stmt.columns.includes("*") ? stmt.schema.columns : stmt.columns
         const construction = SQLStatement.#_constructObjectFromColumns(stmt.schema, columns, output)
         // based on the columns, check if the object is possibly complete
         if (new Set(stmt.schema.columns).difference(new Set(columns)).size === 0) {
             // if all columns are present, then the object is complete and can be fully typed
-            return construction as (D1Contributor | D1Composer | D1Composition)
+            return construction as D1Contributor | D1Composer | D1Composition
         }
         // properties are missing, so return as partial
         return construction
     }
 
-
     /**
      * Converts a full row from a VirtualSQLTable execution into its object representation using the schema instead of an SQLStatement
-     * 
+     *
      * @param schema The D1Schema corresponding to the VirtualSQLTable's database definition
      * @param output The output row from statement execution, which must include all columns in the schema in the order specified by the schema
      * @returns An object representation of the output row based on the schema, with a complete type assertion into the API type
-     * 
+     *
      */
-    static _constructObject(schema: D1Schema, output: Array<string | number | null>): (D1Contributor | D1Composer | D1Composition) {
+    static _constructObject(
+        schema: D1Schema,
+        output: Array<string | number | null>
+    ): D1Contributor | D1Composer | D1Composition {
         // constructs an object assuming all columns are present
         const data = SQLStatement.#_constructObjectFromColumns(schema, schema.columns, output)
         // since all properties are used, the object is assumed to be complete
@@ -131,13 +139,17 @@ export class SQLStatement {
 
     /**
      * Internal method used to perform object construction
-     * 
+     *
      * @param schema The D1Schema
      * @param columns The columns in the output, in order
      * @param output The data from VirtualSQLTable.execute
      * @returns The object representation
      */
-    static #_constructObjectFromColumns(schema: D1Schema, columns: string[], output: Array<string | number | null>): (Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>) {
+    static #_constructObjectFromColumns(
+        schema: D1Schema,
+        columns: string[],
+        output: Array<string | number | null>
+    ): Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition> {
         const record: Record<string, string | number | null> = {}
         for (let index = 0; index < columns.length; index++) {
             record[columns[index]] = output[index]
@@ -153,11 +165,10 @@ export class SQLStatement {
                 throw new Error(`Unsupported schema: ${schema.name}`)
         }
     }
-    
 
     /**
      * Set the SQL verb to use
-     * 
+     *
      * @param verb The SQL verb to set for the statement, which must be one of SELECT, INSERT, UPDATE, or DELETE
      */
     setVerb(verb: "SELECT" | "INSERT" | "UPDATE" | "DELETE"): void {
@@ -166,7 +177,7 @@ export class SQLStatement {
 
     /**
      * Set the target table for the statement
-     * 
+     *
      * @param from The name of the table
      */
     setFrom(from: string): void {
@@ -182,7 +193,7 @@ export class SQLStatement {
     }
 
     removeColumn(column: string): void {
-        this.columns = this.columns.filter(col => col !== column)
+        this.columns = this.columns.filter((col) => col !== column)
     }
 
     setValue(index: number, param: string, value: string | number | null): void {
@@ -191,7 +202,7 @@ export class SQLStatement {
         }
         this.values[index][param] = value === null ? null : value.toString()
     }
-    
+
     addValueGroup<T extends Record<string, string | number | null>>(group: T, exclude?: string[]): void {
         const filtered: Record<string, string | null> = {}
         for (const key in group) {
@@ -208,7 +219,7 @@ export class SQLStatement {
         if (index >= this.values.length) {
             throw new Error(`Value index ${index} out of bounds for statement values of length ${this.values.length}`)
         }
-        if (!(this.schema.columns.includes(param))) {
+        if (!this.schema.columns.includes(param)) {
             throw new Error(`Invalid parameter '${param}' for table '${this.from}'`)
         }
         this.values[index][param] = value === null ? null : value.toString()
@@ -257,11 +268,11 @@ export class SQLStatement {
      * Indicates whether the statement can be run on VirtualSQLTable without querying D1
      * Currently, all SELECT statements with no order by clauses or the limit operator are deemed "simple"
      * VirtualSQLTable can perform operations using order by and limit, but this is temporarily disallowed until the execution model is verified
-     * 
+     *
      * Note: a false isSimple() doesn't necessarily mean a statement will fail on VirtualSQLTable, but a true isSimple() means that it will succeed
-     * 
+     *
      * @return Whether the SQLStatement should be executed on VirtualSQLTable instead of D1
-     * 
+     *
      */
     isSimple(): boolean {
         // returns if the statement is simple enough to execute virtually
@@ -270,7 +281,7 @@ export class SQLStatement {
     }
     /**
      * Useful for VirtualSQLTable; determines if the statement is expected to return all columns, which indicates if a complete type can be used
-     * 
+     *
      * @returns Whether the statement is expected to return all columns from the schema, which allows a non-Partial type assertion
      */
     isComplete(): boolean {
@@ -279,7 +290,7 @@ export class SQLStatement {
 
     /**
      * Generates an identifier for caching using the statement's properties
-     * 
+     *
      * @returns A string hash representing the command, or null if the statement is not cacheable
      */
     identifier(): string | null {
@@ -294,7 +305,10 @@ export class SQLStatement {
             output += this.columns.join(",") + "?"
         }
         if (this.where.length > 0) {
-            output += this.where.map(([param, value, op]) => `${param}${op}${Array.isArray(value) ? value.join(",") : value}`).join(",") + "|"
+            output +=
+                this.where
+                    .map(([param, value, op]) => `${param}${op}${Array.isArray(value) ? value.join(",") : value}`)
+                    .join(",") + "|"
         }
         if (this.order_by.length > 0) {
             output += this.order_by.map(([param, direction]) => `${param}${direction}`).join(",")
@@ -307,8 +321,8 @@ export class SQLStatement {
     /**
      * Completes the SQLStatement by converting it into a string with parameters to use on D1PreparedStatement.bind()
      * Schema validation runs during finishing, so invalid columns will be errored here
-     * 
-     * @returns A string containing the raw SQL command, and a list of parameters to bind; 
+     *
+     * @returns A string containing the raw SQL command, and a list of parameters to bind;
      */
     finish(): [string, Array<string | number | null>] {
         // returns (1) a string of the SQL command, and a list of prepared arguments in order
@@ -353,7 +367,10 @@ export class SQLStatement {
                     command += " DISTINCT"
                 }
                 // build columns
-                const column_construct = sqlListJoin(this.columns.map(col => [col]), "columns")
+                const column_construct = sqlListJoin(
+                    this.columns.map((col) => [col]),
+                    "columns"
+                )
                 command += " " + column_construct[0]
                 // no params to push since it is a column
                 // build from
@@ -366,7 +383,10 @@ export class SQLStatement {
                 }
                 // build order by
                 if (this.order_by.length > 0) {
-                    const order_construct = sqlListJoin(this.order_by.map(([param, direction]) => [param, direction]), "order")
+                    const order_construct = sqlListJoin(
+                        this.order_by.map(([param, direction]) => [param, direction]),
+                        "order"
+                    )
                     command += ` ORDER BY ${order_construct[0]}`
                     // no params to push since order by does not accept prepared arguments
                 }
@@ -386,7 +406,10 @@ export class SQLStatement {
                 // add target columns
                 if (this.columns[0] !== "*") {
                     // there are specific columns to insert into, not all
-                    const column_construct = sqlListJoin(this.columns.map(col => [col]), "columns")
+                    const column_construct = sqlListJoin(
+                        this.columns.map((col) => [col]),
+                        "columns"
+                    )
                     command += ` (${column_construct[0]})`
                     // no params to push since it is a column
                 }
@@ -397,12 +420,12 @@ export class SQLStatement {
                     throw new Error("INSERT statement requires at least one value group")
                 }
                 const sort_columns = this.columns[0] === "*" ? this.schema.columns : this.columns
-                const value_groups: Array<string> = this.values.map(group => {
+                const value_groups: Array<string> = this.values.map((group) => {
                     // Build values in the deterministic order of `sort_columns`.
                     // If a column is missing from the group, use null so placeholder count matches columns.
-                    const group_values = sort_columns.map(col => (col in group ? group[col] : null))
+                    const group_values = sort_columns.map((col) => (col in group ? group[col] : null))
                     params.push(...group_values)
-                    const placeholders = group_values.map(_ => "?").join(", ")
+                    const placeholders = group_values.map((_) => "?").join(", ")
                     return `(${placeholders})`
                 })
                 // join groups
@@ -422,7 +445,7 @@ export class SQLStatement {
                 // build set clause - pulls from values
 
                 const set_clauses: string[] = []
-                this.values.forEach(group => {
+                this.values.forEach((group) => {
                     Object.entries(group).forEach(([param, value]) => {
                         // the SET column name is interpolated, not bound, so it must be a known schema
                         // column (the SELECT column list and WHERE params above are validated the same way)
@@ -470,12 +493,11 @@ export class SQLStatement {
 /**
  * Given a D1 schema and the full database value, this object
  * represents the full SQL table
- * 
+ *
  * Commands on the table are executed either using the index query functions or by
  * supplying a SQLStatement object
  */
 export class VirtualSQLTable {
-
     /**
      * The schema of the specified table, imported from lib/api/d1.ts and supplied at initialization
      * Used for enforcement of column names and construction of SQL statements
@@ -484,7 +506,7 @@ export class VirtualSQLTable {
     /**
      * The database contents, pulled from D1, KV, or cache and supplied at initialization
      * Represented as an array of rows, where row indices correspond with columns in order
-     * 
+     *
      * It is assumed that all columns in the row are present and in the schema column order
      */
     database: Record<string, string | number | null>[]
@@ -499,13 +521,17 @@ export class VirtualSQLTable {
 
     /**
      * Given a schema, a database, and desired columns, it reduces the database horizontally to the specified columns in the column order
-     * 
+     *
      * @param schema The D1 schema corresponding to the table, used for column name enforcement and order
      * @param database The full database contents, represented as an array of rows, where row indices correspond with columns in order. It is assumed that all columns in the row are present and in the schema column order
      * @param columns The columns to constrain to, which must be present in the schema. The order of columns determines the order of values in the output database
      * @returns A new database only including the columns specified in the columns parameter, with enforcement from schema
      */
-    static constrain(schema: D1Schema, database: Record<string, string | number | null>[], columns: string[]): Record<string, string | number | null>[] {
+    static constrain(
+        schema: D1Schema,
+        database: Record<string, string | number | null>[],
+        columns: string[]
+    ): Record<string, string | number | null>[] {
         // returns a new database only including the columns specified in the columns parameter, with enforcement from schema
 
         // edge case - return if database is empty
@@ -520,21 +546,23 @@ export class VirtualSQLTable {
 
         // validate that all specified columns exist in schema
         if (new Set(columns).difference(new Set(schema.columns)).size !== 0) {
-            throw new Error(`Columns not defined in schema: ${columns.filter(col => !schema.columns.includes(col)).join(", ")}`)
+            throw new Error(
+                `Columns not defined in schema: ${columns.filter((col) => !schema.columns.includes(col)).join(", ")}`
+            )
         }
 
         // determine the shape of the first object, since there is at least one
         const keys = Object.keys(database[0])
 
         // columns are validated, go through each row and only extract the columns specified
-        // if a column specified does not exist, 
-        return database.map(row => {
+        // if a column specified does not exist,
+        return database.map((row) => {
             // validate the shape matches the first object
             if (new Set(Object.keys(row)).difference(new Set(keys)).size !== 0) {
                 throw new Error(`Inconsistent row shape in database: ${JSON.stringify(row)}`)
             }
             // shape is consistent, perform constrain by creating a new object with a subset of the keys based on columns
-            
+
             return Object.keys(row).reduce((acc, key) => {
                 if (columns.includes(key)) {
                     acc[key] = row[key]
@@ -545,7 +573,7 @@ export class VirtualSQLTable {
     }
     /**
      * Given a schema, a database, and a where clause, it reduces the database vertically to rows matching the where clause
-     * 
+     *
      * @param schema The D1 schema corresponding to the table, used for column name enforcement and order
      * @param database The full database contents, represented as an array of rows, where row indices correspond with columns in order. It is assumed that all columns in the row are present and in the schema column order
      * @param param The column name to apply the where clause to, which must be present in the schema
@@ -553,7 +581,13 @@ export class VirtualSQLTable {
      * @param op The comparison operator, a member of the SQLCompareOp enum
      * @returns A new database only including rows that match the where clause
      */
-    static where(schema: D1Schema, database: Record<string, string | number | null>[], param: string, value: string | string[] | number | number[] | null, op: SQLCompareOp): Record<string, string | number | null>[] {
+    static where(
+        schema: D1Schema,
+        database: Record<string, string | number | null>[],
+        param: string,
+        value: string | string[] | number | number[] | null,
+        op: SQLCompareOp
+    ): Record<string, string | number | null>[] {
         // returns a new database where a given where clause has been executed
         if (!schema.columns.includes(param)) {
             throw new Error(`Column '${param}' is not in schema`)
@@ -623,7 +657,7 @@ export class VirtualSQLTable {
                         output.push(row)
                     }
                     continue
-                case SQLCompareOp.LIKE: 
+                case SQLCompareOp.LIKE:
                     if (typeof cell !== "string" || typeof value !== "string") {
                         throw new Error(`LIKE operator requires string values`)
                     }
@@ -675,14 +709,18 @@ export class VirtualSQLTable {
     /**
      * Performs a comparison between two rows based on the order by clauses
      * Intended for use in an Array.sort() or Array.toSorted() call as it returns the <0, 0, and >0 values expected
-     * 
+     *
      * @param stmt The SQLStatement object containing the order by clauses to sort by
      * @param row_a The first row to compare (need not be complete, but should)
      * @param row_b The second row to compare (need not be complete, but should)
      * @return A number; if less than 0, A before B; if more than 0, B before A; if 0, order is equivalent
-     * 
+     *
      */
-    static sortFunc(stmt: SQLStatement, row_a: Record<string, string | number | null>, row_b: Record<string, string | number | null>): number {
+    static sortFunc(
+        stmt: SQLStatement,
+        row_a: Record<string, string | number | null>,
+        row_b: Record<string, string | number | null>
+    ): number {
         // executes the order by clauses sequentially until a non-equal comparison is found
         // supplied rows span the entire table, so we'll use the schema columns, which are ordered
         for (const [param, direction] of stmt.order_by) {
@@ -718,12 +756,15 @@ export class VirtualSQLTable {
     /**
      * Performs type conversion for use in where clauses (since SQLStatement.where stores them as strings or string arrays)
      * Conversion requires a type hint be declared in the schema
-     * 
+     *
      * @param schema the D1 schema to fetch the type hint form
      * @param where_clause a SQLStatement where clause
      * @return the type-converted value
      */
-    static valueConvert(schema: D1Schema, where_clause: [string, string | string[], SQLCompareOp]): string | string[] | number | number[] | null {
+    static valueConvert(
+        schema: D1Schema,
+        where_clause: [string, string | string[], SQLCompareOp]
+    ): string | string[] | number | number[] | null {
         // converts value types from strings to functional types
         const [param, value] = where_clause
         const type_hint = param in schema.type_hint ? schema.type_hint[param] : null
@@ -739,7 +780,7 @@ export class VirtualSQLTable {
         switch (type_hint) {
             case "number":
                 if (Array.isArray(value)) {
-                    return value.map(v => typeof v === "string" ? parseInt(v, 10) : v)
+                    return value.map((v) => (typeof v === "string" ? parseInt(v, 10) : v))
                 } else {
                     return parseInt(value, 10)
                 }
@@ -754,7 +795,7 @@ export class VirtualSQLTable {
 
     /**
      * Looks up a row by an indexed column; returns the matching row (only one since an index is used) or no result ([])
-     * 
+     *
      * @param param The column name to query, which must be declared as an index in the schema
      * @param value The value to search for in the indexed column
      * @returns The matching row, or null if no match is found
@@ -776,14 +817,16 @@ export class VirtualSQLTable {
      * Executes a provided SQLStatement object against the database
      * The SQLStatement object is an object-oriented representation of an SQL statement, containing clauses such as WHERE and ORDER BY as properties
      * These properties are used to filter and constrain the VirtualSQLTable's database to the desired output
-     * 
+     *
      * @param stmt The SQLStatement object representing the desired SQL query to execute against the database
      * @returns The resulting database after executing the SQLStatement, represented as an array of rows
      */
     execute(stmt: SQLStatement): Record<string, string | number | null>[] {
         // first, verify that the statement is supported by the schema
         if (stmt.from !== this.schema.name) {
-            throw new Error(`Statement references table '${stmt.from}' but this VirtualSQLTable is for table '${this.schema.name}'`)
+            throw new Error(
+                `Statement references table '${stmt.from}' but this VirtualSQLTable is for table '${this.schema.name}'`
+            )
         }
         // verify the statement is select
         if (stmt.verb !== "SELECT") {
@@ -796,7 +839,13 @@ export class VirtualSQLTable {
             if (!remaining.length) {
                 break
             }
-            remaining = VirtualSQLTable.where(this.schema, remaining, param, VirtualSQLTable.valueConvert(this.schema, [param, value, op]), op)
+            remaining = VirtualSQLTable.where(
+                this.schema,
+                remaining,
+                param,
+                VirtualSQLTable.valueConvert(this.schema, [param, value, op]),
+                op
+            )
         }
         if (!remaining.length) {
             return []
@@ -809,7 +858,7 @@ export class VirtualSQLTable {
         // execute distinct
         if (stmt.distinct) {
             let exists: string[] = []
-            remaining = remaining.filter(row => {
+            remaining = remaining.filter((row) => {
                 const key = JSON.stringify(row)
                 if (exists.includes(key)) {
                     return false
@@ -825,25 +874,24 @@ export class VirtualSQLTable {
         }
         return remaining
     }
-
 }
 
 /**
  * Converts a SQL LIKE pattern to a regular expression, with support for % and _ wildcards and an optional escape character
- * 
+ *
  * @param pattern The SQL LIKE pattern to convert
  * @param caseInsensitive Whether the resulting regular expression should be case insensitive (default: true)
  * @param escapeChar The character used to escape wildcard characters in the pattern (default: '\')
- * 
+ *
  * @returns A RegExp object representing the equivalent regular expression for the given SQL LIKE pattern
  */
 function sqlLikeToRegex(pattern: string, caseInsensitive = true, escapeChar = "\\"): RegExp {
     // escapeChar needs to be a single character to operate in the tokenizer correctly
     if ([...escapeChar].length !== 1) {
-        throw new Error("escapeChar must be a single character");
+        throw new Error("escapeChar must be a single character")
     }
     // convert the escape character to a RegEx safe form
-    const esc = escapeRegexChar(escapeChar);
+    const esc = escapeRegexChar(escapeChar)
     /**
      * the tokenizer runs through the body of the pattern to identify special characters
      * it identifies:
@@ -853,33 +901,30 @@ function sqlLikeToRegex(pattern: string, caseInsensitive = true, escapeChar = "\
      * 3. percent symbols (capture group 3) - these are converted to the .* RegEx wildcard
      * 4. underscore symbols (capture group 4) - these are converted to the . RegEx wildcard
      * 5. all other characters (capture group 5) - these are run through the escape function to remove any special meaning
-     * 
+     *
      * The order of the capture groups and execution logic is done to make sure that operator precedence is correct (escaped characters first, then wildcards, then literals))
      * (note: the _ variable in pattern.replace references the total match, a feature of the String.replace function, but it is not useful to the tokenizer)
      */
-    const tokenizer = new RegExp(`${esc}([\\s\\S])|(${esc}$)|(%)|(_)|([\\s\\S])`, "g");
-    const body = pattern.replace(
-        tokenizer,
-        (_, escaped, trailingEsc, percent, under, literal) => {
-            if (escaped     !== undefined) return escapeRegexChar(escaped);
-            if (trailingEsc !== undefined) return escapeRegexChar(escapeChar);
-            if (percent     !== undefined) return ".*";
-            if (under       !== undefined) return ".";
-            return escapeRegexChar(literal);
-        }
-    );
+    const tokenizer = new RegExp(`${esc}([\\s\\S])|(${esc}$)|(%)|(_)|([\\s\\S])`, "g")
+    const body = pattern.replace(tokenizer, (_, escaped, trailingEsc, percent, under, literal) => {
+        if (escaped !== undefined) return escapeRegexChar(escaped)
+        if (trailingEsc !== undefined) return escapeRegexChar(escapeChar)
+        if (percent !== undefined) return ".*"
+        if (under !== undefined) return "."
+        return escapeRegexChar(literal)
+    })
 
-    return new RegExp(`^${body}$`, caseInsensitive ? "siu" : "su");
+    return new RegExp(`^${body}$`, caseInsensitive ? "siu" : "su")
 }
 
 /**
  * Escapes characters present in the SQL LIKE operator that are treated as special in RegEx
- * 
+ *
  * @param str The character to process
  * @return The processed output
  */
 function escapeRegexChar(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 /**
@@ -893,13 +938,13 @@ function escapeRegexChar(str: string): string {
  */
 export function regexToSqlLike(regex: RegExp, escapeChar: string = "\\"): string {
     if ([...escapeChar].length !== 1) {
-        throw new Error("escapeChar must be a single character");
+        throw new Error("escapeChar must be a single character")
     }
 
-    let source = regex.source;
+    let source = regex.source
 
-    const leadingPercent  = source.startsWith("^") ? (source = source.slice(1),  false) : true;
-    const trailingPercent = source.endsWith("$")   ? (source = source.slice(0,-1), false) : true;
+    const leadingPercent = source.startsWith("^") ? ((source = source.slice(1)), false) : true
+    const trailingPercent = source.endsWith("$") ? ((source = source.slice(0, -1)), false) : true
 
     /**
      * The tokenizer walks the regex body and identifies, in priority order:
@@ -909,27 +954,27 @@ export function regexToSqlLike(regex: RegExp, escapeChar: string = "\\"): string
      * 4. Any char   (capture group 2)       → literal char,   SQL-escaped if needed
      *
      */
-    const tokenizer = /\.\*|\.|\\([\s\S])|([\s\S])/g;
+    const tokenizer = /\.\*|\.|\\([\s\S])|([\s\S])/g
 
-    let result = "";
+    let result = ""
     for (const [full, escapedChar, literal] of source.matchAll(tokenizer)) {
         if (full === ".*") {
-            result += "%";
+            result += "%"
         } else if (full === ".") {
-            result += "_";
+            result += "_"
         } else if (escapedChar !== undefined) {
             // Regex-escaped literal — strip the backslash and SQL-escape if needed
-            result += escapeSqlLikeChar(escapedChar, escapeChar);
+            result += escapeSqlLikeChar(escapedChar, escapeChar)
         } else {
             // Plain literal character
-            result += escapeSqlLikeChar(literal, escapeChar);
+            result += escapeSqlLikeChar(literal, escapeChar)
         }
     }
 
-    if (leadingPercent && !result.startsWith("%"))  result = "%" + result;
-    if (trailingPercent && !result.endsWith("%")) result = result + "%";
+    if (leadingPercent && !result.startsWith("%")) result = "%" + result
+    if (trailingPercent && !result.endsWith("%")) result = result + "%"
 
-    return result;
+    return result
 }
 
 /**
@@ -942,7 +987,7 @@ export function regexToSqlLike(regex: RegExp, escapeChar: string = "\\"): string
  */
 function escapeSqlLikeChar(char: string, escapeChar: string): string {
     if (char === "%" || char === "_" || char === escapeChar) {
-        return escapeChar + char;
+        return escapeChar + char
     }
-    return char;
+    return char
 }

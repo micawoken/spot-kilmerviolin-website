@@ -1,8 +1,8 @@
 /**
  * /pages/api/v1/works.ts
- * 
+ *
  * List and create work entries
- * 
+ *
  */
 
 import type { APIRoute } from "astro"
@@ -17,9 +17,9 @@ import { authEnabled } from "../../../lib/api/environment"
 /**
  * GET /api/v1/works
  * Returns a list of work IDs, or a list of work records if the "full" meta param is set to true
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: optional
  * Meta fields:
  * - full: {boolean} if true, returns full work records; if false or not provided, returns only work IDs
@@ -27,7 +27,7 @@ import { authEnabled } from "../../../lib/api/environment"
  *   ({ object, names }) with the referenced composer and contributor names resolved; off by default
  *
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns either a list of IDs or the full records
  */
@@ -60,13 +60,19 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             case true:
                 // return full composition records, optionally paired with resolved names
                 if (names_flag === true) {
-                    return constructResponse(request, await attachCompositionNames(context.locals.cfContext, data), 200, undefined, last_modified)
+                    return constructResponse(
+                        request,
+                        await attachCompositionNames(context.locals.cfContext, data),
+                        200,
+                        undefined,
+                        last_modified
+                    )
                 }
                 return constructResponse(request, data, 200, undefined, last_modified)
             case false:
             case undefined:
                 // return composition IDs only
-                const ids = data.map(record => record.id)
+                const ids = data.map((record) => record.id)
                 return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
@@ -79,12 +85,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * POST /api/v1/works
  * Creates a new work record with the provided data
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: required; shape of a Composition object
- * 
+ *
  * @param context - the Astro API context
  * @returns the created record, or an error message
  */
@@ -112,7 +118,12 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     // a non-admin may only create a composition on which they are themselves a primary contributor;
     // admins may name any registered users as primaries (skipped where auth is disabled, e.g. development)
     if (authEnabled(request) && !canCreate(record, locals.identity!)) {
-        return constructResponse(request, null, 403, "Forbidden: you must be a primary contributor on compositions you create")
+        return constructResponse(
+            request,
+            null,
+            403,
+            "Forbidden: you must be a primary contributor on compositions you create"
+        )
     }
     try {
         const add_response = await addComposition(context.locals.cfContext, record)

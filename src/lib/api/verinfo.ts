@@ -1,12 +1,12 @@
 /**
  * lib/api/verinfo.ts
- * 
+ *
  * Returns information about the current worker build
- * 
+ *
  */
 
-import { env } from 'cloudflare:workers';
-import { authEnabled, dbWriteEnabled, detectEnvironment, richErrors } from './environment';
+import { env } from "cloudflare:workers"
+import { authEnabled, dbWriteEnabled, detectEnvironment, richErrors } from "./environment"
 
 export default function verinfo(request: Request) {
     const data = env.CF_VERSION_METADATA
@@ -28,7 +28,7 @@ export default function verinfo(request: Request) {
             ttls: {
                 cacheApi: {
                     default: env.CACHE_API_TTL,
-                    long: env.CACHE_API_TTL_LONG,
+                    long: env.CACHE_API_TTL_LONG
                 },
                 kv: {
                     default: env.KV_CACHE_TTL,

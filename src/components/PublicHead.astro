@@ -1,6 +1,6 @@
 ---
 /**
- * src/components/PublicHead.astro
+ * components/PublicHead.astro
  *
  * Shared <head> fragment for the public-facing site, the public analog of AdminHead. It carries the
  * common metadata (charset, viewport, favicon, title/description, canonical and social tags) and is
@@ -12,19 +12,19 @@
  * environment is resolved per request from the hostname here. Do not prerender public pages, or the
  * directive would be baked in at build time rather than reflecting the serving environment.
  */
-import "../styles/global.css";
-import { detectEnvironment } from "../lib/api/environment";
+import "../styles/global.css"
+import { detectEnvironment } from "../lib/api/environment"
 
 interface Props {
-    title: string;
-    description: string;
-    image?: string;
+    title: string
+    description: string
+    image?: string
 }
 
-const { title, description, image = "/blog-placeholder-1.jpg" } = Astro.props;
+const { title, description, image = "/blog-placeholder-1.jpg" } = Astro.props
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const noindex = detectEnvironment(Astro.request) === "staging";
+const canonicalURL = new URL(Astro.url.pathname, Astro.site)
+const noindex = detectEnvironment(Astro.request) === "staging"
 ---
 
 <!-- Global Metadata -->

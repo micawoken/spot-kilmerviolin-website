@@ -1,5 +1,5 @@
 /*
- * src/styles/admin-entities.css
+ * styles/admin-entities.css
  *
  * Styles for the admin entity components (Info result views, data-entry Forms, list results, and the
  * keyword/ID search boxes). Loaded only on admin pages via AdminHead.astro so the public site does

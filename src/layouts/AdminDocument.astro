@@ -1,9 +1,9 @@
 ---
 /**
- * src/layouts/AdminDocument.astro
+ * layouts/AdminDocument.astro
  *
  * Layout for standalone admin prose pages authored in Markdown/MDX (the policy and legal pages under
- * src/pages/admin). MDX page files cannot read Astro.locals or run server-side setup the way an
+ * pages/admin). MDX page files cannot read Astro.locals or run server-side setup the way an
  * .astro page can, so this .astro layout is responsible for resolving the caller's identity from
  * locals and rendering the shared admin chrome (BaseHead, AdminHead, AdminHeader, AdminFooter) around
  * the page's content, which is projected through <slot />.
@@ -20,36 +20,37 @@
  *   ## Privacy Policy
  *   ...markdown content...
  */
-import BaseHead from "../components/BaseHead.astro";
-import AdminHead from "../components/AdminHead.astro";
-import AdminHeader from "../components/AdminHeader.astro";
-import AdminFooter from "../components/AdminFooter.astro";
-import { ADMIN_PAGE_TITLE_PRFX } from "../consts";
+import BaseHead from "../components/BaseHead.astro"
+import AdminHead from "../components/AdminHead.astro"
+import AdminHeader from "../components/AdminHeader.astro"
+import AdminFooter from "../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../consts"
 
 interface Props {
-    title: string;
-    description: string;
+    title: string
+    description: string
 }
 
-const { title, description } = Astro.props;
+const { title, description } = Astro.props
 
 // the identity middleware (src/middleware/identity.ts) resolves the caller for on-demand /admin
 // routes and stores it on locals; pass it to the header so the page greets the actual signed-in user
-const identity = Astro.locals.identity ?? null;
+const identity = Astro.locals.identity ?? null
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}${title}`} description={description} />
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={identity} welcome={false} />
-    <main>
-        <article>
-            <slot />
-        </article>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}${title}`} description={description} />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={identity} welcome={false} />
+        <main>
+            <article>
+                <slot />
+            </article>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

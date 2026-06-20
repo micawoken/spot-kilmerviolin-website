@@ -1,14 +1,12 @@
 /**
- * 
- * 
- * 
- * 
+ *
+ *
+ *
+ *
  */
 
 import { errorMessage, renderSearchProgress, submitOnEnter } from "./common"
 import { listComposer, listContributor, searchDatabase } from "./connector"
-
-
 
 /**
  * Resets and re-reveals the keyword search box that the info pages pair with the ID entry form.
@@ -36,7 +34,6 @@ export function _resetKeywordSearch(): void {
     }
 }
 
-
 /**
  * Singular, human-readable label for each searchable database, used to prefix a hit's result text so the
  * operator can tell which database it came from (most useful for an all-databases search, where the
@@ -45,7 +42,7 @@ export function _resetKeywordSearch(): void {
 const search_database_label: Record<SearchDatabase, string> = {
     composers: "Composer",
     compositions: "Composition",
-    contributors: "Contributor",
+    contributors: "Contributor"
 }
 
 /**
@@ -61,7 +58,13 @@ const search_database_label: Record<SearchDatabase, string> = {
  * @param {() => SearchDatabase | null} getDatabase returns the database to scope to, or null for all three
  * @param {(result: SearchResult) => void} onSelect handles a selected hit (e.g. loads it on-page)
  */
-export function attachKeywordSearchInline(input_id: string, button_id: string, results_div_id: string, getDatabase: () => SearchDatabase | null, onSelect: (result: SearchResult) => void): void {
+export function attachKeywordSearchInline(
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    getDatabase: () => SearchDatabase | null,
+    onSelect: (result: SearchResult) => void
+): void {
     _attachKeywordSearch(input_id, button_id, results_div_id, getDatabase, (link, result) => {
         link.href = "#"
         link.addEventListener("click", (e: Event) => {
@@ -85,7 +88,13 @@ export function attachKeywordSearchInline(input_id: string, button_id: string, r
  * @param {() => SearchDatabase | null} getDatabase returns the database to scope to, or null for all three
  * @param {(link: HTMLAnchorElement, result: SearchResult) => void} bindResult configures each result link
  */
-function _attachKeywordSearch(input_id: string, button_id: string, results_div_id: string, getDatabase: () => SearchDatabase | null, bindResult: (link: HTMLAnchorElement, result: SearchResult) => void): void {
+function _attachKeywordSearch(
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    getDatabase: () => SearchDatabase | null,
+    bindResult: (link: HTMLAnchorElement, result: SearchResult) => void
+): void {
     const button = document.getElementById(button_id)
     const input = document.getElementById(input_id)
     const results_div = document.getElementById(results_div_id)
@@ -144,12 +153,17 @@ function _attachKeywordSearch(input_id: string, button_id: string, results_div_i
  * @param {() => SearchDatabase | null} getDatabase returns the database to scope to, or null for all three
  * @param {(result: SearchResult) => string} getHref builds the href for a given hit
  */
-export function attachKeywordSearch(input_id: string, button_id: string, results_div_id: string, getDatabase: () => SearchDatabase | null, getHref: (result: SearchResult) => string): void {
+export function attachKeywordSearch(
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    getDatabase: () => SearchDatabase | null,
+    getHref: (result: SearchResult) => string
+): void {
     _attachKeywordSearch(input_id, button_id, results_div_id, getDatabase, (link, result) => {
         link.href = getHref(result)
     })
 }
-
 
 /**
  * Attaches a name-search helper to an entity ID input
@@ -163,13 +177,29 @@ export function attachKeywordSearch(input_id: string, button_id: string, results
  * @param {string} results_div_id DOM id of the element in which to render results
  * @param {string} target_input_id DOM id of the ID input to fill upon selection
  */
-export function attachSearchHelper(kind: "composer" | "contributor", input_id: string, button_id: string, results_div_id: string, target_input_id: string): void {
+export function attachSearchHelper(
+    kind: "composer" | "contributor",
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    target_input_id: string
+): void {
     const button = document.getElementById(button_id)
     const input = document.getElementById(input_id)
     const results_div = document.getElementById(results_div_id)
     const target_input = document.getElementById(target_input_id)
-    if (!button || !(input instanceof HTMLInputElement) || !results_div || !(target_input instanceof HTMLInputElement)) {
-        console.warn(`Search helper elements not found or invalid for ${kind}: `, { input_id, button_id, results_div_id, target_input_id })
+    if (
+        !button ||
+        !(input instanceof HTMLInputElement) ||
+        !results_div ||
+        !(target_input instanceof HTMLInputElement)
+    ) {
+        console.warn(`Search helper elements not found or invalid for ${kind}: `, {
+            input_id,
+            button_id,
+            results_div_id,
+            target_input_id
+        })
         return
     }
     submitOnEnter(input, button)
@@ -177,12 +207,14 @@ export function attachSearchHelper(kind: "composer" | "contributor", input_id: s
         evt.preventDefault()
         renderSearchProgress(results_div as HTMLElement)
         try {
-            const records = (kind === "composer") ? await listComposer(true) : await listContributor(true)
+            const records = kind === "composer" ? await listComposer(true) : await listContributor(true)
             if (!Array.isArray(records)) {
                 throw new Error("No records returned from search")
             }
             const query = input.value.trim().toLowerCase()
-            const matches = records.filter((rec: any) => typeof rec?.name === "string" && rec.name.toLowerCase().includes(query))
+            const matches = records.filter(
+                (rec: any) => typeof rec?.name === "string" && rec.name.toLowerCase().includes(query)
+            )
             results_div.textContent = ""
             if (matches.length === 0) {
                 results_div.textContent = "No matches found."

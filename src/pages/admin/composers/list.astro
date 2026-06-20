@@ -28,25 +28,28 @@ if (!composers) {
     throw new Error("Failed to fetch the composers list from the database")
 }
 
-const formatted_composers = composers.map(composer => ({
+const formatted_composers = composers.map((composer) => ({
     id: composer.id,
     name: composer.name,
-    name2: `${composer.birth_year || "?"} - ${composer.death_year ? (composer.death_year === -1 ? "Present" : composer.death_year) : "?"}`,
+    name2: `${composer.birth_year || "?"} - ${composer.death_year ? (composer.death_year === -1 ? "Present" : composer.death_year) : "?"}`
 }))
-
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Composers`} description="View the list of composers in the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>List Composers</h2>
-    <ListResults noun="composer" enviro="admin" results={formatted_composers} />
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}List Composers`}
+            description="View the list of composers in the database"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>List Composers</h2>
+            <ListResults noun="composer" enviro="admin" results={formatted_composers} />
+        </main>
+        <AdminFooter />
+    </body>
 </html>

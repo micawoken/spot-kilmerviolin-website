@@ -11,32 +11,41 @@ const locals = Astro.locals
 
 const identity = locals.identity
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Compositions`} description="Maintain composition information"/>
-    <AdminHead />
-</head>
-<body>
-    <!-- Header -->
-    <AdminHeader identity={identity} welcome={true}/>
-    <main class="admin-main" role="main">
-    <p class="general-infohelp">Composition records represent a musical work in the database. Each record stores information about the composition and who added it.</p>
-    <!-- links to database management pages -->
-    <div class="flex-container">
-        <div class="column">
-            <h2><a href="/admin/works" class="col-header-link">Compositions</a></h2>
-            <ul>
-                <li><a href="/admin/works/create" class="col-item-link">Add new composition</a></li>
-                <li><a href="/admin/works/info" class="col-item-link">View composition info</a></li>
-                <li><a href="/admin/works/edit" class="col-item-link">Edit existing composition</a></li>
-                <li><a href="/admin/works/delete" class="col-item-link">Delete composition</a></li>
-                <li><a href="/admin/works/list" class="col-item-link">List compositions</a></li>
-            </ul>
-        </div>
-    </div>
-    <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/works" class="general-helppointer-link">Database Management - Compositions</a> documentation and video.</p>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Compositions`} description="Maintain composition information" />
+        <AdminHead />
+    </head>
+    <body>
+        <!-- Header -->
+        <AdminHeader identity={identity} welcome={true} />
+        <main class="admin-main" role="main">
+            <p class="general-infohelp">
+                Composition records represent a musical work in the database. Each record stores information about the
+                composition and who added it.
+            </p>
+            <!-- links to database management pages -->
+            <div class="flex-container">
+                <div class="column">
+                    <h2><a href="/admin/works" class="col-header-link">Compositions</a></h2>
+                    <ul>
+                        <li><a href="/admin/works/create" class="col-item-link">Add new composition</a></li>
+                        <li><a href="/admin/works/info" class="col-item-link">View composition info</a></li>
+                        <li><a href="/admin/works/edit" class="col-item-link">Edit existing composition</a></li>
+                        <li><a href="/admin/works/delete" class="col-item-link">Delete composition</a></li>
+                        <li><a href="/admin/works/list" class="col-item-link">List compositions</a></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="general-helppointer">
+                For help with these options, please review the <a
+                    href="/admin/docs/works"
+                    class="general-helppointer-link">Database Management - Compositions</a
+                > documentation and video.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

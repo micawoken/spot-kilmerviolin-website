@@ -11,67 +11,78 @@ export const prerender = false
 // prefill the identity email when arriving from a user-list link (?identity_email=), if it is valid
 const prefill_email = emailFromParam(Astro.url)
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Activate User Account`} description="Activate a user account"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Activate a User Account</h2>
-    <p class="general-infohelp">Activates a given contributor record with the provided identity email. This operation requires the <code>userenroll</code> role (or administrator permissions).</p>
-    <div class="generic-form">
-        <form id="user-form-activate" class="generic-form" novalidate>
-            <fieldset>
-                <legend>User Identity Email</legend>
-                <div class="field-row">
-                    <input type="email" id="user-form-activate-email" name="email" value={prefill_email} required />
-                </div>
-            </fieldset>
-            <button type="submit">Submit</button>
-        </form>
-    </div>
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { activateIdentity } from "../../../scripts/connector"
-        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
-        import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Activate User Account`} description="Activate a user account" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Activate a User Account</h2>
+            <p class="general-infohelp">
+                Activates a given contributor record with the provided identity email. This operation requires the <code
+                    >userenroll</code
+                > role (or administrator permissions).
+            </p>
+            <div class="generic-form">
+                <form id="user-form-activate" class="generic-form" novalidate>
+                    <fieldset>
+                        <legend>User Identity Email</legend>
+                        <div class="field-row">
+                            <input
+                                type="email"
+                                id="user-form-activate-email"
+                                name="email"
+                                value={prefill_email}
+                                required
+                            />
+                        </div>
+                    </fieldset>
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import { activateIdentity } from "../../../scripts/connector"
+                import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+                import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
-        const form = document.getElementById("user-form-activate") as HTMLFormElement
-        const message = getTransactionElem()
+                const form = document.getElementById("user-form-activate") as HTMLFormElement
+                const message = getTransactionElem()
 
-        // live inline email validation, mirroring the entity forms
-        attachFormValidation(form)
+                // live inline email validation, mirroring the entity forms
+                attachFormValidation(form)
 
-        form.addEventListener("submit", async (evt: Event) => {
-            evt.preventDefault()
-            // submit gate: reject a malformed email with an inline hint before sending the request
-            if (!validateFormFields(form)) {
-                message.textContent = "Please correct the highlighted fields and try again."
-                return
-            }
-            message.textContent = "Processing request..."
-            const form_data = new FormData(form)
-            disableInput(form)
-            try {
-                const email = String(form_data.get("email") ?? "")
-                if (!email) {
-                    throw new Error("An identity email address is required")
-                }
-                // maps the identity email to the contributor record and marks it active
-                await activateIdentity([email])
-                message.textContent = `Request succeeded: activated the account for ${email}`
-            } catch (error) {
-                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-                console.error(error)
-            } finally {
-                enableInput(form)
-            }
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+                form.addEventListener("submit", async (evt: Event) => {
+                    evt.preventDefault()
+                    // submit gate: reject a malformed email with an inline hint before sending the request
+                    if (!validateFormFields(form)) {
+                        message.textContent = "Please correct the highlighted fields and try again."
+                        return
+                    }
+                    message.textContent = "Processing request..."
+                    const form_data = new FormData(form)
+                    disableInput(form)
+                    try {
+                        const email = String(form_data.get("email") ?? "")
+                        if (!email) {
+                            throw new Error("An identity email address is required")
+                        }
+                        // maps the identity email to the contributor record and marks it active
+                        await activateIdentity([email])
+                        message.textContent = `Request succeeded: activated the account for ${email}`
+                    } catch (error) {
+                        message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                        console.error(error)
+                    } finally {
+                        enableInput(form)
+                    }
+                })
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

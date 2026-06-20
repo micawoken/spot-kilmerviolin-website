@@ -33,7 +33,11 @@ function isLinkableHttpUri(uri: string): boolean {
     return parsed.protocol === "https:"
 }
 
-export function renderPublicationUri(uri_type: string | null | undefined, uri: string | null | undefined, placeholder: string): string {
+export function renderPublicationUri(
+    uri_type: string | null | undefined,
+    uri: string | null | undefined,
+    placeholder: string
+): string {
     if (uri === null || uri === undefined || uri.trim() === "") {
         return escapeHtml(placeholder)
     }

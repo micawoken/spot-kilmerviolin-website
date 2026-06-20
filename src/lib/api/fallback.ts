@@ -2,25 +2,24 @@
  * lib/api/fallback.ts
  *
  * Generates and identifies fallback identity emails
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-
 
 /** The reserved domain for fallback identity emails. */
 export const FALLBACK_EMAIL_DOMAIN = "mwmsc.net"
@@ -48,14 +47,18 @@ export function isFallbackEmail(email: string): boolean {
 
 /**
  * Builds a placeholder identity email
- * 
+ *
  * Formatted as fallback+{slug}-{suffix}@{FALLBACK_EMAIL_DOMAIN}
  *
  * @param {string} name - the contributor's name, used to make the address human-recognizable
  * @returns {string} - a generated fallback identity email
  */
 export function generateFallbackEmail(name: string): string {
-    const slug = name.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "")
+    const slug = name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "")
     // a name that slugifies to nothing (empty or all-special) still needs a stable, valid local part
     const suffix = String(Math.floor(Math.random() * 10000)).padStart(4, "0")
     return `fallback+${slug || "contributor"}-${suffix}@${FALLBACK_EMAIL_DOMAIN}`

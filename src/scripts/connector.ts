@@ -1,22 +1,22 @@
 /**
  * scripts/connector.ts
- * 
+ *
  * Performs low-level connection to the API and performs request and response processing
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
@@ -32,7 +32,7 @@ export const api_version = 1
 
 /**
  * Internal function to generate endpoint
- * 
+ *
  * @param noun the API object representation to access (ex. composers, contributors, etc.)
  * @param subject the specific instance, if any, of the object to access
  * @returns the generated API endpoint
@@ -46,9 +46,9 @@ function composeUrl(noun: string, subject: string | null = null): string {
 
 /**
  * Internal function to generate the X-MWMSC-Request-Meta header
- * 
+ *
  * The X-MWMSC-Request-Meta header is used to pass optional request information to modify the server's output. Use cases include, but are not limited to, requesting full object records instead of just IDs and requesting elevation of the request operation. The header contents should be formatted as a simple JS object, serialized to a JSON string. The server-side API parser enforces a maximum length of 512 characters for the header.
- * 
+ *
  * @param objects the object to be stringified and included in the header
  * @returns the stringified object, or undefined if the input is not an object
  */
@@ -64,7 +64,7 @@ function _constructMeta(objects: object | null | undefined): string | undefined 
 
 /**
  * Wrapper around _constructMeta to enforce header length limit and handle undefined
- * 
+ *
  * @param objects the object to be included in the header
  * @returns an object containing the X-MWMSC-Request-Meta header if the meta value is valid, or an empty object if the meta value is undefined or exceeds length limits
  */
@@ -74,30 +74,31 @@ function constructMeta(objects: object | null | undefined): Record<string, strin
         console.warn("Meta header value exceeds maximum length of 512 characters and will be omitted: ", meta_value)
         return {}
     }
-    return (meta_value ? { "X-MWMSC-Request-Meta": meta_value } : {})
+    return meta_value ? { "X-MWMSC-Request-Meta": meta_value } : {}
 }
 
 // API RESPONSE PROCESSING
 
 /**
  * Converts a Location header into an ID number
- * 
+ *
  * The expected location format is "/api/v{ver}/{noun}/{id}"
- * 
+ *
  * @param location the Location header value to parse
  * @return the extracted ID as a number, or null if the format is invalid or the ID is not a valid number
- * 
+ *
  */
 function stripAPILocation(location: string): number | null {
     // a leading slash yields an empty first component, so "/api/v1/{noun}/{id}" splits into exactly five
     // segments: ["", "api", "v{ver}", "{noun}", "{id}"]. Require the id segment to be present (length >= 5,
     // not just >= 4 where components[4] is undefined) and validate the api/v# prefix by component.
     const components = location.split("/")
-    const validate = components.length >= 5
-        && components[1] === "api"
-        && /^v\d+$/.test(components[2])
-        && components[3] !== ""
-        && components[4] !== ""
+    const validate =
+        components.length >= 5 &&
+        components[1] === "api" &&
+        /^v\d+$/.test(components[2]) &&
+        components[3] !== "" &&
+        components[4] !== ""
     if (!validate) {
         console.warn(`Invalid Location header format: ${location}`)
         return null
@@ -112,7 +113,7 @@ function stripAPILocation(location: string): number | null {
 
 /**
  * Internal function to parse API responses
- * 
+ *
  * @param response the response object returned by the fetch call
  * @param null_request_header if the response body is null, attempt to fetch the content of the specified header and return as a string
  * @returns the parsed response body, or the raw text if parsing fails, or undefined if the response body is empty
@@ -123,7 +124,12 @@ async function parser(response: Response, null_request_header?: string): Promise
         // attempt to surface the server's error comment instead of a generic failure message
         try {
             const error_data = JSON.parse(text)
-            if (error_data && typeof error_data === "object" && typeof error_data.comment === "string" && error_data.comment !== "") {
+            if (
+                error_data &&
+                typeof error_data === "object" &&
+                typeof error_data.comment === "string" &&
+                error_data.comment !== ""
+            ) {
                 throw new Error(`API request failed with status ${response.status}: ${error_data.comment}`)
             }
         } catch (e) {
@@ -152,7 +158,13 @@ async function parser(response: Response, null_request_header?: string): Promise
         const data = JSON.parse(text)
         // successful responses (e.g. 201 Created) carry a JSON body whose payload may be null while the
         // requested value travels in a header (e.g. Location); substitute it so callers see the header value
-        if (null_request_header && data && typeof data === "object" && data.success === true && (data.payload === null || data.payload === undefined)) {
+        if (
+            null_request_header &&
+            data &&
+            typeof data === "object" &&
+            data.success === true &&
+            (data.payload === null || data.payload === undefined)
+        ) {
             const header_value = response.headers.get(null_request_header)
             if (header_value) {
                 return {
@@ -175,7 +187,7 @@ async function parser(response: Response, null_request_header?: string): Promise
 
 /**
  * Internal function to interpret API response payloads
- * 
+ *
  * @param data_response the response body returned by the parser function
  * @returns the interpreted payload, or null if the response indicates failure or if the payload is empty
  * @throws {Error} if the response indicates failure with an accompanying comment, or if the response format is unexpected
@@ -238,7 +250,12 @@ async function requestPayload(url: string, init: RequestInit, null_request_heade
  * @param init the fetch init
  * @param null_request_header if the body is empty, the header to read the value from (see parser)
  */
-async function requestVoid(operation: string, url: string, init: RequestInit, null_request_header?: string): Promise<void> {
+async function requestVoid(
+    operation: string,
+    url: string,
+    init: RequestInit,
+    null_request_header?: string
+): Promise<void> {
     const payload_data = await requestPayload(url, init, null_request_header)
     if (payload_data !== null) {
         throw new Error(`Unexpected response payload for ${operation} operation: ${JSON.stringify(payload_data)}`)
@@ -257,20 +274,19 @@ export enum APIOpCode {
     LIST
 }
 
-
 /**
  * GET /api/v1/composers
- * 
+ *
  * @param full if true, returns full composer records; if false or not provided, returns only composer IDs
  * @returns a list of composer IDs, a list of Composer objects, or undefined
  */
-export async function listComposer(full? : boolean): Promise<any | null> {
+export async function listComposer(full?: boolean): Promise<any | null> {
     return requestPayload(composeUrl("composers"), jsonInit("GET", undefined, { full: full }))
 }
 
 /**
  * GET /api/v1/composers/{id}
- * 
+ *
  * @param id the composer ID to retrieve
  * @return the Composer object corresponding to the provided ID, or null if not found
  */
@@ -280,7 +296,7 @@ export async function getComposer(id: number): Promise<Composer | null> {
 
 /**
  * POST /api/v1/composers
- * 
+ *
  * @param data the composer data to create
  * @return the ID of the created composer
  */
@@ -295,10 +311,10 @@ export async function createComposer(data: Composer): Promise<number> {
 
 /**
  * PUT /api/v1/composers/{id}
- * 
+ *
  * @param id the composer ID to update
  * @param data the composer representation
- * @return 
+ * @return
  */
 export async function replaceComposer(id: number, data: Composer): Promise<void> {
     return requestVoid("update", composeUrl("composers", id.toString()), jsonInit("PUT", data))
@@ -306,10 +322,10 @@ export async function replaceComposer(id: number, data: Composer): Promise<void>
 
 /**
  * PATCH /api/v1/composers/{id}
- * 
+ *
  * @param id the composer ID to update
  * @param data the composer data to update
- * @return 
+ * @return
  */
 export async function updateComposer(id: number, data: Partial<Composer>): Promise<void> {
     return requestVoid("update", composeUrl("composers", id.toString()), jsonInit("PATCH", data))
@@ -317,9 +333,9 @@ export async function updateComposer(id: number, data: Partial<Composer>): Promi
 
 /**
  * DELETE /api/v1/composers/{id}
- * 
+ *
  * @param id the composer ID to delete
- * @return 
+ * @return
  */
 export async function deleteComposer(id: number): Promise<void> {
     return requestVoid("delete", composeUrl("composers", id.toString()), jsonInit("DELETE"))
@@ -335,7 +351,9 @@ export async function deleteComposer(id: number): Promise<void> {
  * @param value the value to test
  * @returns true if the value is a CompositionWithNames (carrying resolved names)
  */
-export function isCompositionWithNames(value: Composition | CompositionWithNames | null | undefined): value is CompositionWithNames {
+export function isCompositionWithNames(
+    value: Composition | CompositionWithNames | null | undefined
+): value is CompositionWithNames {
     return value !== null && typeof value === "object" && "object" in value && "names" in value
 }
 
@@ -394,10 +412,14 @@ export async function createWork(data: Composition): Promise<number> {
  * @param data the work representation
  * @param elevate optional; if true, allows consideration of admin status when reviewing contributor lockout
  * @param direct optional; if true, signals direct contributor management so the editor is not auto-added to contrib_addl
- * @return 
+ * @return
  */
 export async function replaceWork(id: number, data: Composition, elevate?: boolean, direct?: boolean): Promise<void> {
-    return requestVoid("update", composeUrl("works", id.toString()), jsonInit("PUT", data, { elevate: elevate, direct_contrib: direct }))
+    return requestVoid(
+        "update",
+        composeUrl("works", id.toString()),
+        jsonInit("PUT", data, { elevate: elevate, direct_contrib: direct })
+    )
 }
 
 /**
@@ -407,10 +429,19 @@ export async function replaceWork(id: number, data: Composition, elevate?: boole
  * @param data the work data to update
  * @param elevate optional; if true, allows consideration of admin status when reviewing contributor lockout
  * @param direct optional; if true, signals direct contributor management so the editor is not auto-added to contrib_addl
- * @return 
+ * @return
  */
-export async function updateWork(id: number, data: Partial<Composition>, elevate?: boolean, direct?: boolean): Promise<void> {
-    return requestVoid("update", composeUrl("works", id.toString()), jsonInit("PATCH", data, { elevate: elevate, direct_contrib: direct }))
+export async function updateWork(
+    id: number,
+    data: Partial<Composition>,
+    elevate?: boolean,
+    direct?: boolean
+): Promise<void> {
+    return requestVoid(
+        "update",
+        composeUrl("works", id.toString()),
+        jsonInit("PATCH", data, { elevate: elevate, direct_contrib: direct })
+    )
 }
 
 /**
@@ -418,10 +449,14 @@ export async function updateWork(id: number, data: Partial<Composition>, elevate
  *
  * @param id the work ID to delete
  * @param elevate optional; if true, allows consideration of admin status when reviewing contributor lockout
- * @return 
+ * @return
  */
 export async function deleteWork(id: number, elevate?: boolean): Promise<void> {
-    return requestVoid("delete", composeUrl("works", id.toString()), jsonInit("DELETE", undefined, { elevate: elevate }))
+    return requestVoid(
+        "delete",
+        composeUrl("works", id.toString()),
+        jsonInit("DELETE", undefined, { elevate: elevate })
+    )
 }
 
 /**
@@ -465,7 +500,7 @@ export async function createContributor(data: Contributor): Promise<number> {
  *
  * @param id the contributor ID to update
  * @param data the contributor representation
- * @return 
+ * @return
  */
 export async function replaceContributor(id: number, data: Contributor): Promise<void> {
     return requestVoid("update", composeUrl("contributors", id.toString()), jsonInit("PUT", data))
@@ -477,17 +512,21 @@ export async function replaceContributor(id: number, data: Contributor): Promise
  * @param id the contributor ID to update
  * @param data the contributor data to update
  * @param elevate optional; if true and the user is an admin, disables the safe property check and row-level security for this request
- * @return 
+ * @return
  */
 export async function updateContributor(id: number, data: Partial<Contributor>, elevate?: boolean): Promise<void> {
-    return requestVoid("update", composeUrl("contributors", id.toString()), jsonInit("PATCH", data, { elevate: elevate }))
+    return requestVoid(
+        "update",
+        composeUrl("contributors", id.toString()),
+        jsonInit("PATCH", data, { elevate: elevate })
+    )
 }
 
 /**
  * DELETE /api/v1/contributors/{id}
  *
  * @param id the contributor ID to delete
- * @return 
+ * @return
  */
 export async function deleteContributor(id: number): Promise<void> {
     return requestVoid("delete", composeUrl("contributors", id.toString()), jsonInit("DELETE"))
@@ -502,7 +541,10 @@ export async function deleteContributor(id: number): Promise<void> {
  * @param database the table to search, or null/omitted to search all three
  * @returns ranked hits as { database, id, name }, or null
  */
-export async function searchDatabase(keyword: string, database?: SearchDatabase | null): Promise<SearchResult[] | null> {
+export async function searchDatabase(
+    keyword: string,
+    database?: SearchDatabase | null
+): Promise<SearchResult[] | null> {
     return requestPayload(composeUrl("search"), jsonInit("POST", { keyword, database: database ?? null }))
 }
 
@@ -596,7 +638,7 @@ export async function replaceFile(key: string, file: File, crop?: CropSelection 
  * DELETE /api/v1/files/{key}
  *
  * @param key the file key to delete
- * @return 
+ * @return
  */
 export async function deleteFile(key: string): Promise<void> {
     return requestVoid("file delete", composeUrl("files", key), jsonInit("DELETE"))
@@ -621,14 +663,25 @@ export async function listIdentity(): Promise<string[] | null> {
  * @param major the major to set on autoenrollment, or null to omit
  * @param class_year the class year to set on autoenrollment, or null to omit
  */
-export async function addIdentity(email: string, autoenrollment?: boolean, confer?: boolean, name?: string, major?: string | null, class_year?: number | null): Promise<void> {
-    return requestVoid("addIdentity", composeUrl("identity"), jsonInit("POST", email, {
-        autoenrollment: autoenrollment,
-        confer: confer,
-        name: name,
-        major: major,
-        class_year: class_year
-    }))
+export async function addIdentity(
+    email: string,
+    autoenrollment?: boolean,
+    confer?: boolean,
+    name?: string,
+    major?: string | null,
+    class_year?: number | null
+): Promise<void> {
+    return requestVoid(
+        "addIdentity",
+        composeUrl("identity"),
+        jsonInit("POST", email, {
+            autoenrollment: autoenrollment,
+            confer: confer,
+            name: name,
+            major: major,
+            class_year: class_year
+        })
+    )
 }
 
 /**
@@ -655,7 +708,11 @@ export async function activateIdentity(emails: string[]): Promise<void> {
  * @param emails the identity emails of the accounts to deactivate
  */
 export async function deactivateIdentity(emails: string[]): Promise<void> {
-    return requestVoid("deactivateIdentity", composeUrl("identity", "activation"), jsonInit("DELETE", { emails: emails }))
+    return requestVoid(
+        "deactivateIdentity",
+        composeUrl("identity", "activation"),
+        jsonInit("DELETE", { emails: emails })
+    )
 }
 
 /**
@@ -683,7 +740,10 @@ export async function demoteIdentity(emails: string[]): Promise<void> {
  * @param operations the add/remove operations object, of the shape
  *  { add?: { [email: string]: string[] }, remove?: { [email: string]: string[] } }
  */
-export async function updateRoles(operations: { add?: Record<string, string[]>; remove?: Record<string, string[]> }): Promise<void> {
+export async function updateRoles(operations: {
+    add?: Record<string, string[]>
+    remove?: Record<string, string[]>
+}): Promise<void> {
     return requestVoid("updateRoles", composeUrl("identity", "roles"), jsonInit("PATCH", operations))
 }
 
@@ -714,7 +774,11 @@ export async function changeIdentityEmail(email_map: Record<string, string>): Pr
  * @param autodeactivation whether to automatically deactivate the associated Contributor record
  */
 export async function deleteIdentity(email: string, autodeactivation?: boolean): Promise<void> {
-    return requestVoid("deleteIdentity", composeUrl("identity"), jsonInit("DELETE", email, { autodeactivation: autodeactivation }))
+    return requestVoid(
+        "deleteIdentity",
+        composeUrl("identity"),
+        jsonInit("DELETE", email, { autodeactivation: autodeactivation })
+    )
 }
 
 /**

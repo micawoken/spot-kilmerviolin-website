@@ -52,10 +52,20 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         return constructResponse(request, null, 400, "Invalid request body: 'keyword' must be a non-empty string")
     }
     const database_raw = (item as Record<string, unknown>).database
-    if (database_raw !== undefined && database_raw !== null && !(VALID_DATABASES as string[]).includes(database_raw as string)) {
-        return constructResponse(request, null, 400, `Invalid request body: 'database' must be one of ${VALID_DATABASES.join(", ")} or null`)
+    if (
+        database_raw !== undefined &&
+        database_raw !== null &&
+        !(VALID_DATABASES as string[]).includes(database_raw as string)
+    ) {
+        return constructResponse(
+            request,
+            null,
+            400,
+            `Invalid request body: 'database' must be one of ${VALID_DATABASES.join(", ")} or null`
+        )
     }
-    const database: SearchDatabase | null = database_raw === undefined || database_raw === null ? null : (database_raw as SearchDatabase)
+    const database: SearchDatabase | null =
+        database_raw === undefined || database_raw === null ? null : (database_raw as SearchDatabase)
     const query = keyword.trim()
     const want_composers = database === null || database === "composers"
     const want_compositions = database === null || database === "compositions"
@@ -75,7 +85,9 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         if (want_compositions) {
             const composition_records = await listCompositions(ctx)
             if (composition_records !== null) {
-                const composer_names = new Map<number, string>((composer_records ?? []).map(record => [record.id, record.name]))
+                const composer_names = new Map<number, string>(
+                    (composer_records ?? []).map((record) => [record.id, record.name])
+                )
                 results.push(...searchCompositions(composition_records, composer_names, query))
             }
         }

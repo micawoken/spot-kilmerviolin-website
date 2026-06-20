@@ -38,7 +38,9 @@ if (id) {
         use_id = true
         // resolve the referenced composer and contributor names so the view can show them alongside the
         // numeric ids; a missing composers/contributors table surfaces the missing-table fallback page
-        const enhanced_result = await guardedRead(() => attachCompositionNames(Astro.locals.cfContext, [composition_data as CompositionRecord]))
+        const enhanced_result = await guardedRead(() =>
+            attachCompositionNames(Astro.locals.cfContext, [composition_data as CompositionRecord])
+        )
         if (enhanced_result instanceof Response) {
             return enhanced_result
         }
@@ -46,42 +48,63 @@ if (id) {
     }
 }
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composition`} description="View a composition"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>View a Composition</h2>
-    <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
-    <CompositionInfo composition={use_id ? composition_data as CompositionRecord : null} names={use_id ? composition_names : null} hidden={!use_id} />
-    <p id="transaction-status">{use_id ? "Composition data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
-    {
-        // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
-        // record, or return to the ID-entry view to look up another (the path without the id query param)
-        use_id ? (
-            <p>
-                <a href={`/admin/works/edit?id=${id}`}>Edit this composition &gt;</a> | <a href={Astro.url.pathname}>View another composition &gt;</a>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composition`} description="View a composition" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>View a Composition</h2>
+            <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
+            <CompositionInfo
+                composition={use_id ? (composition_data as CompositionRecord) : null}
+                names={use_id ? composition_names : null}
+                hidden={!use_id}
+            />
+            <p id="transaction-status">
+                {
+                    use_id
+                        ? "Composition data loaded from URL."
+                        : 'Your request status will show here after you press "Submit".'
+                }
             </p>
-        ) : null
-    }
-    <script>
-        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
-        const read_form = getForm("composition", APIOpCode.READ)
-        read_form.addEventListener("submit", genHandler(read_form, getTransactionElem(), APIOpCode.READ, "composition"))
-        // keyword lookup scoped to compositions; selecting a hit loads it on-page via the same READ flow as the ID entry form
-        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "compositions", (result) => {
-            const id_input = document.getElementById("form-id-entry-id")
-            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
-            read_form.requestSubmit()
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+            {
+                // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
+                // record, or return to the ID-entry view to look up another (the path without the id query param)
+                use_id ? (
+                    <p>
+                        <a href={`/admin/works/edit?id=${id}`}>Edit this composition &gt;</a> |{" "}
+                        <a href={Astro.url.pathname}>View another composition &gt;</a>
+                    </p>
+                ) : null
+            }
+            <script>
+                import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                const read_form = getForm("composition", APIOpCode.READ)
+                read_form.addEventListener(
+                    "submit",
+                    genHandler(read_form, getTransactionElem(), APIOpCode.READ, "composition")
+                )
+                // keyword lookup scoped to compositions; selecting a hit loads it on-page via the same READ flow as the ID entry form
+                attachKeywordSearchInline(
+                    "form-id-entry-search-input",
+                    "form-id-entry-search-button",
+                    "form-id-entry-search-results",
+                    () => "compositions",
+                    (result) => {
+                        const id_input = document.getElementById("form-id-entry-id")
+                        if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+                        read_form.requestSubmit()
+                    }
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

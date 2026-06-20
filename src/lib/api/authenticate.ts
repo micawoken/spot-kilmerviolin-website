@@ -1,33 +1,32 @@
 /**
  * lib/api/authenticate.ts
- * 
+ *
  * Retrieves the Cloudflare Access JWT from a request, if it exists
  * Validates the JWT with the given Access policy
  * Returns a BaseIdentity object for a validated identity
- * 
- * 
+ *
+ *
  * Portions of this file borrow code from the mwm-go-shorturl project (mwmsc.net) by
  * Michael Wong; for questions, contact him at contact@michaelwongmusic.com
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
- * 
+ *
  */
-
 
 import { env } from "cloudflare:workers"
 import { jwtVerify, createRemoteJWKSet } from "jose"
@@ -38,7 +37,7 @@ type CredentialResult = ["cookie" | "Cf-Header" | "Auth-Header", string]
 
 /**
  * Retrieves the Cloudflare Access JWT from a request, if it exists
- * 
+ *
  * @param {Request} request - the original Request object
  * @returns {Promise<CredentialResult | null>} a Promise resolving to the credential or null if not found
  */
@@ -46,9 +45,9 @@ export async function retrieveCredential(request: Request): Promise<CredentialRe
     // borrowed from the mwm-go-shorturl project
 
     // reads the request headers to determine if the credential is present
-    
+
     // credential priority: cookie, cf-access header, authorization header
-    
+
     // only inspect the cookie when a Cookie header is present; its absence must not short-circuit
     // the header-based checks below (Cf-Access-Jwt-Assertion / Authorization), which API and
     // service-token clients rely on
@@ -65,27 +64,26 @@ export async function retrieveCredential(request: Request): Promise<CredentialRe
     const cf_jwt_header = request.headers.get("Cf-Access-Jwt-Assertion")
 
     // check headers first, then cookies as fallback
-    if (cf_jwt_header != null) {
+    if (cf_jwt_header !== null) {
         return ["Cf-Header", cf_jwt_header] // Cloudflare Access JWT in header, which is the standard when using Cloudflare Access; takes precedence over Authorization header
-    } 
+    }
     const auth_header = request.headers.get("Authorization")
-    if (auth_header == null) {
+    if (auth_header === null) {
         return null // no authorization header, so no credential
     }
 
-    if (!(auth_header.startsWith("Bearer "))) {
+    if (!auth_header.startsWith("Bearer ")) {
         // credential is not a Bearer token, reject
         return null
     } else {
         return ["Auth-Header", auth_header.slice(7)] // Bearer token in Authorization header, which is a common standard for transmitting JWTs; only accepted if it starts with "Bearer "
     }
-    // code is unreachable here, so no return statement is needed   
-        
+    // code is unreachable here, so no return statement is needed
 }
 
 /**
  * Parses and validates a Cloudflare Access JWT
- * 
+ *
  * @param {string | null} token - the JWT as a string, or null if no credential was found
  * @param {string} aud - the expected audience claim for the JWT, which should match the CF Access application audience
  * @returns {Promise<BaseIdentity | null | undefined>} a Promise resolving to a BaseIdentity object if the token is valid, null if the token is invalid, or undefined if the token is missing or the audience is not specified
@@ -119,31 +117,31 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
     }
 
     try {
-        const JWKS = createRemoteJWKSet(new URL(`${env.TEAM_DOMAIN}/cdn-cgi/access/certs`));
+        const JWKS = createRemoteJWKSet(new URL(`${env.TEAM_DOMAIN}/cdn-cgi/access/certs`))
 
         const { payload } = await jwtVerify(token, JWKS, {
-          issuer: env.TEAM_DOMAIN,
-          audience: aud,
-        });
-        
+            issuer: env.TEAM_DOMAIN,
+            audience: aud
+        })
+
         // jwtVerify interface shape is defined at https://github.com/panva/jose/blob/main/docs/types/interfaces/JWTPayload.md
         // this time (in this project, unlike mwm-go-shorturl), the interface is defined in env.d.ts
-        const sub: string | null = payload.sub ? payload.sub : null; // see RFC 7519; property is the subject of the JWT, which is the Access ID
+        const sub: string | null = payload.sub ? payload.sub : null // see RFC 7519; property is the subject of the JWT, which is the Access ID
         // Cloudflare Access stores and compares emails case-insensitively (lowercased); normalize the
         // claim here, at the single point identities are minted, so every downstream lookup and
         // comparison against the stored identity_email matches regardless of the casing in the JWT
         const email: string | null = payload.email ? String(payload.email).toLowerCase() : null // Access JWT's include an email claim
-        const nbf_time: number = payload.nbf ? payload.nbf : 0; // not before time, in seconds since epoch; if not specified, it is epoch 0
-        const exp_time: number = payload.exp ? payload.exp : Infinity; // expiration time, in seconds since epoch; if not specified, it is infinite
+        const nbf_time: number = payload.nbf ? payload.nbf : 0 // not before time, in seconds since epoch; if not specified, it is epoch 0
+        const exp_time: number = payload.exp ? payload.exp : Infinity // expiration time, in seconds since epoch; if not specified, it is infinite
 
         /**
          * BaseIdentity includes an nbf and exp time, but it is unlikely that these times will be used because:
          * 1. Zero Trust is assumed, so the JWT is re-validated after every request; and
          * 2. Time in Cloudflare Workers is frozen unless there is I/O.
-         * 
+         *
          * For these reasons, if a JWT does not include an nbf and/or an exp claim, it fails open - there is
          * no practical use for these claims, and the absence of the claims does not invalidate the authenticated identity.
-         * 
+         *
          * However, if an nbf and/or an exp claim is provided, it may be checked before certain security-sensitive operations.
          */
 
@@ -169,7 +167,7 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
 
 /**
  * Validates the nbf and exp claims
- * 
+ *
  * @param {BaseIdentity} result - the result of JWT validation, which includes nbf and exp claims if they were provided in the JWT
  * @returns {boolean} true if the current time is within the nbf and exp window, or if neither claim is provided;
  */

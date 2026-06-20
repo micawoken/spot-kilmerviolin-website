@@ -1,6 +1,6 @@
 ---
 /**
- * src/components/entities/ElevationBox.astro
+ * components/entities/ElevationBox.astro
  *
  * Standalone administrator-elevation control. Renders the same elevation checkbox that IDEntryForm
  * can render inline, but as its own block so a page can place it *after* the lookup dialogs (the ID
@@ -37,6 +37,7 @@
 const form_id: string = Astro.props.form_id
 const hidden: boolean = Astro.props.hidden ?? false
 ---
+
 <div class=`generic-form elevation-box${hidden ? ' hidden' : ''}` id={`${form_id}-elevate-container`}>
     <form class="generic-form">
         <fieldset>

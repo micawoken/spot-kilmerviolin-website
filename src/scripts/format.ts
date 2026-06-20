@@ -48,16 +48,16 @@ export function countryCodeName(code: string): string {
 // A handful of common informal names that Intl.DisplayNames does not resolve on its own, mapped to their
 // ISO 3166-1 alpha-2 codes so a user can type the everyday name rather than the formal one.
 const COUNTRY_NAME_ALIASES: Record<string, string> = {
-    "usa": "US",
+    usa: "US",
     "u.s.a.": "US",
     "u.s.": "US",
-    "america": "US",
+    america: "US",
     "united states of america": "US",
-    "uk": "GB",
+    uk: "GB",
     "u.k.": "GB",
-    "britain": "GB",
+    britain: "GB",
     "great britain": "GB",
-    "england": "GB",
+    england: "GB"
 }
 
 // Lazily-built reverse index from a country's English display name (lowercased) to its ISO 3166-1 alpha-2

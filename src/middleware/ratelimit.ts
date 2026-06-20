@@ -1,8 +1,8 @@
 /**
- * src/middleware/ratelimit.ts
- * 
+ * middleware/ratelimit.ts
+ *
  * Supplies a middleware function to perform rate limiting
- * 
+ *
  */
 
 import type { MiddlewareHandler } from "astro"
@@ -18,7 +18,7 @@ export const rateLimit: MiddlewareHandler = async (context, next) => {
 
     // determine if the request path requires rate limiting
     const url = new URL(context.request.url)
-    const path_components = url.pathname.split("/").filter(component => component.length > 0)
+    const path_components = url.pathname.split("/").filter((component) => component.length > 0)
 
     if (path_components.length === 0) {
         return next()
