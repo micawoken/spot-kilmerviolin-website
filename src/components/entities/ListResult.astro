@@ -1,4 +1,24 @@
 ---
+/**
+ * components/entities/ListResult.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 // extracts the data to render the list result
 /*
  * noun - the entity type
@@ -6,8 +26,9 @@
  * enviro - the list environment (admin, or something else), used to generate the pointer address
  * name - optional, indicates the main name
  * name2 - optional, indicates a secondary name
+ * is_self - optional, marks the record as the viewing user's own (highlights the card and tags the name)
  */
-const { noun, id, enviro, name, name2 } = Astro.props
+const { noun, id, enviro, name, name2, is_self } = Astro.props
 // when a name is present it becomes the primary label and the ID is demoted to a corner badge;
 // with no name the ID is the primary label (original behavior)
 const display_name = name ? (name2 ? `${name} (${name2})` : name) : null
@@ -15,9 +36,10 @@ const pointer_text = display_name ?? `ID #${id}`
 const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : `/entity/${noun}/${id}`
 ---
 
-<div id={`list-result-${noun}-${id}`} class="list-result-container">
+<div id={`list-result-${noun}-${id}`} class:list={["list-result-container", { "list-result-self": is_self }]}>
     {display_name && <span class="list-result-id">ID #{id}</span>}
     <a href={pointer_address} class="list-result-link">{pointer_text}</a>
+    {is_self && <span class="list-result-self-tag"> (you)</span>}
     {
         enviro === "admin" ? (
             <>

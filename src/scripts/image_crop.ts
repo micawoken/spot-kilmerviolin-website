@@ -10,6 +10,22 @@
  * The canonical dimensions mirror CANON_PORTRAIT / CANON_LANDSCAPE in lib/api/images.ts — keep them in
  * sync. They live here (not imported from the server module) because that module imports
  * "cloudflare:workers", which cannot be pulled into a browser bundle.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /** The crop region selected on the add/replace pages, normalized to the source image (0..1). */
