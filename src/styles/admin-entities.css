@@ -1008,13 +1008,17 @@ form.generic-form .field-hidden {
 
 /* the viewing user's own card: a slightly tinted background distinguishes it at a glance */
 .list-result-container.list-result-self {
-	background: var(--shade-2);
+	background: var(--shade-3);
 }
 
-/* de-emphasized "(you)" marker shown beside the name on the caller's own card */
+/* de-emphasized "(you)" marker on the caller's own card, anchored bottom-right (mirroring the
+ * bottom-left edit link) in the same small text style; bottom-right is otherwise unoccupied */
 .list-result-self-tag {
+	position: absolute;
+	bottom: 0.6rem;
+	right: 0.85rem;
+	font-size: 0.85em;
 	color: var(--color-text-muted);
-	font-weight: 400;
 }
 
 

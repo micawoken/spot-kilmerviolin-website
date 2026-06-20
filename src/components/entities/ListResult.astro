@@ -39,7 +39,6 @@ const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : `
 <div id={`list-result-${noun}-${id}`} class:list={["list-result-container", { "list-result-self": is_self }]}>
     {display_name && <span class="list-result-id">ID #{id}</span>}
     <a href={pointer_address} class="list-result-link">{pointer_text}</a>
-    {is_self && <span class="list-result-self-tag"> (you)</span>}
     {
         enviro === "admin" ? (
             <>
@@ -55,4 +54,5 @@ const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : `
             <></>
         )
     }
+    {is_self && <span class="list-result-self-tag">(you)</span>}
 </div>
