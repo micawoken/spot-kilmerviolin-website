@@ -1,8 +1,24 @@
 /**
- * src/middleware/ratelimit.ts
- * 
+ * middleware/ratelimit.ts
+ *
  * Supplies a middleware function to perform rate limiting
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { MiddlewareHandler } from "astro"
@@ -18,18 +34,10 @@ export const rateLimit: MiddlewareHandler = async (context, next) => {
 
     // determine if the request path requires rate limiting
     const url = new URL(context.request.url)
-    const path_components = url.pathname.split("/").filter(component => component.length > 0)
+    const path_components = url.pathname.split("/").filter((component) => component.length > 0)
 
     if (path_components.length === 0) {
         return next()
-    }
-
-    if (path_components[0] === "api" || path_components[0] === "admin" || path_components[0] === "services") {
-        if (path_components[0] === "services" && path_components.length < 2) {
-            return next()
-        } else if (path_components[0] === "services" && path_components[1] !== "search") {
-            return next()
-        }
     }
 
     // determine the appropriate rate limit scope
@@ -47,8 +55,6 @@ export const rateLimit: MiddlewareHandler = async (context, next) => {
         }
     } else if (path_components[0] === "admin") {
         scopes.push(RLScope.ENDPOINT_PAGERENDER_ADMIN)
-    } else if (path_components[0] === "services" && path_components[1] === "search") {
-        scopes.push(RLScope.ENDPOINT_API_PUBLIC)
     }
     if (scopes.length === 0) {
         return next()

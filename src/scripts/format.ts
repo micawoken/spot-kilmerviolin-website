@@ -45,6 +45,64 @@ export function countryCodeName(code: string): string {
     }
 }
 
+// A handful of common informal names that Intl.DisplayNames does not resolve on its own, mapped to their
+// ISO 3166-1 alpha-2 codes so a user can type the everyday name rather than the formal one.
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+    usa: "US",
+    "u.s.a.": "US",
+    "u.s.": "US",
+    america: "US",
+    "united states of america": "US",
+    uk: "GB",
+    "u.k.": "GB",
+    britain: "GB",
+    "great britain": "GB",
+    england: "GB"
+}
+
+// Lazily-built reverse index from a country's English display name (lowercased) to its ISO 3166-1 alpha-2
+// code. Built by resolving every alpha-2 code through region_display, the same resolver countryCodeName
+// uses, so the names accepted here are exactly the names rendered elsewhere.
+let country_name_index: Map<string, string> | null = null
+
+function buildCountryNameIndex(): Map<string, string> {
+    const index = new Map<string, string>()
+    for (let first = 65; first <= 90; first++) {
+        for (let second = 65; second <= 90; second++) {
+            const code = String.fromCharCode(first, second)
+            let name: string | undefined
+            try {
+                name = region_display.of(code)
+            } catch {
+                continue
+            }
+            // region_display falls back to the code itself for codes it cannot resolve; skip those
+            if (!name || name === code) continue
+            index.set(name.toLowerCase(), code)
+        }
+    }
+    // overlay the informal aliases (these take precedence is irrelevant — the keys do not overlap)
+    for (const [alias, code] of Object.entries(COUNTRY_NAME_ALIASES)) {
+        index.set(alias, code)
+    }
+    return index
+}
+
+/**
+ * Resolves a country's common English name (e.g. "France", "South Korea", "USA") to its ISO 3166-1 alpha-2
+ * code, case-insensitively. Returns null when the name is blank or not recognised. Used to let a user enter
+ * a country name in the composer country field, which is converted to the code the API requires.
+ *
+ * @param {string} name the country name to resolve
+ * @returns {string | null} the ISO 3166-1 alpha-2 code, or null if unrecognised
+ */
+export function countryNameToCode(name: string): string | null {
+    const key = name.trim().toLowerCase()
+    if (key === "") return null
+    if (!country_name_index) country_name_index = buildCountryNameIndex()
+    return country_name_index.get(key) ?? null
+}
+
 /**
  * Formats a scalar record field value for the entity info card, mirroring the SSR `disp` helper: a
  * null/undefined/blank/empty-array value renders as the shared "not provided" marker, and per-entity
@@ -85,5 +143,49 @@ export function formatInfoValue(type_name: string, key: string, value: unknown, 
         return value ? "Yes" : "No"
     } else {
         return String(value)
+    }
+}
+
+/**
+ * Formats a stored ISO 8601 timestamp (a record's entry_date/change_date) into a human-readable
+ * date-and-time string for display, using the same format as the admin footer (see AdminFooter.astro). A
+ * blank/missing value renders as the shared "not provided" marker, and an unparseable value falls back to
+ * the raw string so nothing is silently dropped. Shared by the metadata page's SSR view and its
+ * client-side fetch.
+ *
+ * @param {string | null | undefined} iso the ISO 8601 timestamp, or null/undefined/"" when absent
+ * @param {string} [timeZone] the IANA time zone to render in (e.g. the visitor's Cloudflare cf.timezone on
+ *   the server); when omitted, the runtime's default zone is used (the browser's local zone on the client)
+ * @returns {string} the formatted timestamp, the raw value if unparseable, or the "not provided" marker
+ */
+export function formatTimestamp(iso: string | null | undefined, timeZone?: string): string {
+    if (iso === null || iso === undefined || iso.trim() === "") {
+        return NOT_PROVIDED
+    }
+    const parsed = new Date(iso)
+    if (isNaN(parsed.getTime())) {
+        // not a valid date string; surface the raw stored value rather than an empty/incorrect render
+        return iso
+    }
+    // mirrors the date/time format the admin footer renders
+    const options: Intl.DateTimeFormatOptions = {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short"
+    }
+    if (timeZone) {
+        options.timeZone = timeZone
+    }
+    try {
+        return parsed.toLocaleString("en-US", options)
+    } catch {
+        // an unrecognized time zone string would throw; fall back to the runtime default zone
+        delete options.timeZone
+        return parsed.toLocaleString("en-US", options)
     }
 }

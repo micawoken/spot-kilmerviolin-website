@@ -1,19 +1,34 @@
 /**
- * src/middleware/identity.ts
- * 
+ * middleware/identity.ts
+ *
  * Supplies a middleware function to determine if authentication and authorization is necessary, and if so, performs said authorization and adds it to context.locals
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
 import type { MiddlewareHandler } from "astro"
-import { middlewareErrorResponder } from "../lib/api/http"
+import { middlewareErrorResponder, failsCsrfOriginCheck } from "../lib/api/http"
 import { parseJWT, retrieveCredential } from "../lib/api/authenticate"
 import { authEnabled, detectEnvironment } from "../lib/api/environment"
 import authorize from "../lib/api/authorize"
 import { isFallbackEmail } from "../lib/api/fallback"
 import { type AdminAccess, satisfiesAccess, comment_401, comment_403 } from "../lib/api/page_auth"
-
 
 /**
  * A node in the admin page structure. A node may carry an access requirement (gating itself and, by
@@ -47,8 +62,8 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             // the database terminal maps to POST /api/v1/command, which requires admin
             command: { access: { kind: "admin" } },
             // the self-enrollment flow must be reachable by a not-yet-enrolled (inactive) caller
-            selfenroll: { access: { kind: "any" } },
-        },
+            selfenroll: { access: { kind: "any" } }
+        }
     },
     user: {
         children: {
@@ -58,8 +73,8 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             deactivate: { access: { kind: "admin" } },
             // promotion/demotion (PUT/DELETE /api/v1/identity/admin) require admin
             elevate: { access: { kind: "admin" } },
-            demote: { access: { kind: "admin" } },
-        },
+            demote: { access: { kind: "admin" } }
+        }
     },
     iam: {
         children: {
@@ -72,12 +87,16 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             list: { access: { kind: "role", roles: ["user_addition"] } },
             remove: { access: { kind: "role", roles: ["user_addition"] } },
             // "my authorization info" shows the caller their own info; reachable while inactive
-            whoami: { access: { kind: "any" } },
-        },
+            whoami: { access: { kind: "any" } }
+        }
     },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
     profile: { access: { kind: "any" } },
+    // site policy pages are always accessible
+    "terms-of-use": { access: { kind: "any" } },
+    "privacy-policy": { access: { kind: "any" } },
+    "security-policy": { access: { kind: "any" } }
 }
 
 /**
@@ -106,19 +125,18 @@ function adminPageAccess(path_components: string[]): AdminAccess {
     return access
 }
 
-
 export const identity: MiddlewareHandler = async (context, next) => {
     // determine if the request path requires authentication and authorization
     const url = new URL(context.request.url)
-    const path_components = url.pathname.split("/").filter(component => component.length > 0)
-    
+    const path_components = url.pathname.split("/").filter((component) => component.length > 0)
+
     /**
      * Protected paths are as follows:
-     * 
+     *
      * /api/* - all API routes require authentication and authorization
      * /admin/* - all admin routes require authentication and authorization
      * /admin$ - the admin index page also requires authentication and authorization
-     * 
+     *
      * (/api will error out as 404)
      */
 
@@ -126,7 +144,11 @@ export const identity: MiddlewareHandler = async (context, next) => {
         // staging serves only public-facing pages; the admin UI and the API are disabled there.
         // Respond 404 to hide their existence (staging needs no auth secrets as a result).
         if (detectEnvironment(context.request) === "staging") {
-            return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
+            return middlewareErrorResponder(
+                context.request,
+                404,
+                "This resource is not available on the staging preview."
+            )
         }
 
         // the request path requires authentication and authorization
@@ -143,6 +165,14 @@ export const identity: MiddlewareHandler = async (context, next) => {
         if (credential_data === null) {
             // no credential, unauthorized
             return middlewareErrorResponder(context.request, 401, comment_401)
+        }
+        // CSRF defense for the ambient cookie credential: the CF_Authorization cookie is attached by the
+        // browser to any request to this origin, so a cookie-authenticated state-changing request must
+        // prove a same-origin initiator (see failsCsrfOriginCheck). Header/Bearer credentials are not
+        // ambient — a cross-site page cannot set those headers — so they are exempt. The app's own admin
+        // UI issues same-origin calls whose Origin is allowlisted, so legitimate writes are unaffected.
+        if (credential_data[0] === "cookie" && failsCsrfOriginCheck(context.request)) {
+            return middlewareErrorResponder(context.request, 403, "Cross-origin request rejected.")
         }
 
         const validation: BaseIdentity | null | undefined = await parseJWT(credential_data[1], env.CF_ACCESS_AUD)
@@ -170,7 +200,7 @@ export const identity: MiddlewareHandler = async (context, next) => {
                 return middlewareErrorResponder(context.request, 403, comment_403)
             }
             // enrollable credentials must be permissionless; verify it is
-            if (constructed_identity.roles.length != 0 || constructed_identity.admin || constructed_identity.active) {
+            if (constructed_identity.roles.length !== 0 || constructed_identity.admin || constructed_identity.active) {
                 // enrollable credential has permissions, which should be impossible, so reject
                 return middlewareErrorResponder(context.request, 403, comment_403)
             }
@@ -184,7 +214,10 @@ export const identity: MiddlewareHandler = async (context, next) => {
         // page-level authorization for the admin UI (API routes enforce their own checks downstream).
         // Active-state gating happens here via the resolved access requirement: most admin pages require
         // an active caller unless they are an administrator (see ADMIN_PAGE_STRUCTURE / satisfiesAccess).
-        if (path_components[0] === "admin" && !satisfiesAccess(adminPageAccess(path_components), constructed_identity)) {
+        if (
+            path_components[0] === "admin" &&
+            !satisfiesAccess(adminPageAccess(path_components), constructed_identity)
+        ) {
             return middlewareErrorResponder(context.request, 403, comment_403)
         }
         return next()

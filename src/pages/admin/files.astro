@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/files.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../components/BaseHead.astro"
 import AdminHead from "../../components/AdminHead.astro"
 import AdminHeader from "../../components/AdminHeader.astro"
@@ -15,28 +35,43 @@ const used_gb = (usage.used / (1024 * 1024 * 1024)).toFixed(2)
 const max_gb = (usage.max / (1024 * 1024 * 1024)).toFixed(2)
 const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}File Management`} description="Manage files stored in the R2 file store"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>File Management</h2>
-    <p class="general-infohelp">Files (mainly images) are stored in the R2 file store and referenced by records via their image field. Uploaded images are optimized automatically.</p>
-    <p class="general-infohelp">Storage used: {used_gb} GB of {max_gb} GB ({percent}%).</p>
-    <div class="column">
-        <ul>
-            <li><a href="/admin/files/create" class="col-item-link">Add new file</a></li>
-            <li><a href="/admin/files/info" class="col-item-link">View file info</a></li>
-            <li><a href="/admin/files/edit" class="col-item-link">Replace existing file</a></li>
-            <li><a href="/admin/files/delete" class="col-item-link">Delete file</a></li>
-            <li><a href="/admin/files/list" class="col-item-link">List files</a></li>
-        </ul>
-    </div>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}File Management`}
+            description="Manage files stored in the R2 file store"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>File Management</h2>
+            <p class="general-infohelp">
+                Files (mainly images) are stored in the R2 file store and referenced by records via their image field.
+                Uploaded images are optimized automatically.
+            </p>
+            <p class="general-infohelp">Storage used: {used_gb} GB of {max_gb} GB ({percent}%).</p>
+            <div class="flex-container">
+                <div class="column">
+                    <ul>
+                        <li><a href="/admin/files/create" class="col-item-link">Add new file</a></li>
+                        <li><a href="/admin/files/info" class="col-item-link">View file info</a></li>
+                        <li><a href="/admin/files/edit" class="col-item-link">Replace existing file</a></li>
+                        <li><a href="/admin/files/delete" class="col-item-link">Delete file</a></li>
+                        <li><a href="/admin/files/list" class="col-item-link">List files</a></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="general-helppointer">
+                For help with these options, please review the <a
+                    href="/admin/docs/files"
+                    class="general-helppointer-link">File Management</a
+                > documentation and video.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

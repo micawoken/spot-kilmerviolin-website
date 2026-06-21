@@ -324,7 +324,12 @@ Purges the database cache. See [Site Management](/admin/docs/site).
 ### Database terminal (advanced)
 
 #### `POST /api/v1/command`
-Executes a raw SQL string directly against the D1 database. This bypasses all the validation the
-regular endpoints perform — see [Advanced Options](/admin/docs/advanced) for the warnings.
+Executes one or more raw SQL strings directly against the D1 database. This bypasses all the validation
+the regular endpoints perform — see [Advanced Options](/admin/docs/advanced) for the warnings.
 - Permissions: **admin**.
-- Body: required; an array containing the one SQL command string.
+- Body: required; an array of one or more SQL command strings.
+- Meta: optional; `batch` (boolean, default `true`). When more than one command is supplied they run as a
+  single atomic transaction, so a failure rolls back the whole set. Set `batch` to `false` to run the
+  commands sequentially as independent statements (no rollback). Ignored for a single command.
+- Returns the single D1 result for one command, or an array of results (one per command, in order) for
+  multiple commands.

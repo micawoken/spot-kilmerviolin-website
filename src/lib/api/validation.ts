@@ -1,9 +1,23 @@
 /**
  * lib/api/validation.ts
  *
- * Small, dependency-free validators shared by the admin pages, the client-side forms, and the server
- * record validators. These pull in no Cloudflare or database bindings, so they are safe to import into
- * Astro page frontmatter (server-side), API routes, and client-side scripts alike.
+ * Provides validation functions used server and client-side
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 // Pragmatic email check: a single @ separating non-empty, space-free local and (dotted) domain parts.
@@ -11,7 +25,7 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
- * Reports whether a string looks like a valid email address.
+ * Whether the string appears to be a valid email address
  *
  * @param {string} value - the candidate email
  * @returns {boolean} - true if the value is a plausibly valid email address
@@ -21,9 +35,7 @@ export function isValidEmail(value: string): boolean {
 }
 
 /**
- * Reads an identity-email query parameter from a URL and returns it only if it is a valid email,
- * otherwise "". Used by the admin IAM pages to prefill the identity-email field when reached from a
- * link in the user list.
+ * Reads an email from a URL and returns it if valid
  *
  * @param {URL} url - the request URL (e.g. Astro.url)
  * @param {string} param - the query parameter name (default "identity_email")
@@ -38,14 +50,8 @@ export function emailFromParam(url: URL, param: string = "identity_email"): stri
     return isValidEmail(trimmed) ? trimmed : ""
 }
 
-// ---------------------------------------------------------------------------
-// Numbers, identifiers, and years
-// ---------------------------------------------------------------------------
-
 /**
- * Reports whether a string is a positive integer (a bare, unsigned whole number ≥ 1).
- *
- * Used for ID and phase-number inputs, which must reference real (1-based) records.
+ * Whether a supplied string rep of a number is a positive integer
  *
  * @param {string} value - the candidate string
  * @returns {boolean} - true if the trimmed value is a positive integer
@@ -56,11 +62,10 @@ export function isPositiveIntegerString(value: string): boolean {
 }
 
 /**
- * Reports whether a number is a valid year value: a positive integer, or (when allow_living is set,
- * for a composer's death year) the -1 sentinel that denotes a living composer.
+ * Whether a number is a valid year value (a positive integer, or -1 if allow_living is true)
  *
  * @param {unknown} value - the candidate value
- * @param {boolean} [allow_living] - whether the -1 "still living" sentinel is permitted
+ * @param {boolean} [allow_living] - whether the -1 "still living" signal is allowed
  * @returns {boolean} - true if the value is an acceptable year
  */
 export function isValidYear(value: unknown, allow_living: boolean = false): boolean {
@@ -70,9 +75,18 @@ export function isValidYear(value: unknown, allow_living: boolean = false): bool
     return value >= 1 || (allow_living && value === -1)
 }
 
-// ---------------------------------------------------------------------------
-// Pitch range (composition "range" field)
-// ---------------------------------------------------------------------------
+/**
+ * Whether the birth year is consistent with the death year (birth year before death year)
+ *
+ * If the death year is -1, birth year check is skipped since they're still living
+ *
+ * @param {number} birth_year - the composer's birth year
+ * @param {number} death_year - the composer's death year (or -1 if living)
+ * @returns {boolean} - true if death_year is the -1 sentinel, or is greater than or equal to birth_year
+ */
+export function isDeathYearConsistent(birth_year: number, death_year: number): boolean {
+    return death_year === -1 || death_year >= birth_year
+}
 
 /**
  * Two notes separated by a dash, each a letter A–G with an optional accidental (# sharp or b flat) and
@@ -85,7 +99,7 @@ export function isValidYear(value: unknown, allow_living: boolean = false): bool
 export const PITCH_RANGE_PATTERN = /^[A-Ga-g][#b]?\d{1,2}-[A-Ga-g][#b]?\d{1,2}$/
 
 /**
- * Reports whether a string is a valid two-note pitch range (see PITCH_RANGE_PATTERN).
+ * Whether a string is a valid two-note pitch range (see PITCH_RANGE_PATTERN)
  *
  * @param {string} value - the candidate range
  * @returns {boolean} - true if the trimmed value is a valid pitch range
@@ -94,14 +108,20 @@ export function isValidPitchRange(value: string): boolean {
     return PITCH_RANGE_PATTERN.test(value.trim())
 }
 
-/** Uppercases only the leading note letter, leaving the accidental (b/#) and octave untouched. */
+/**
+ * Uppercases only the leading note letter, leaving the accidental (b/#) and octave untouched.
+ *
+ * @param {string} note - a pitch range note (e.g. "Bb3")
+ * @returns {string} the normalized note
+ */
 function normalizeNote(note: string): string {
     return note.charAt(0).toUpperCase() + note.slice(1)
 }
 
 /**
- * Normalizes a (pre-validated) pitch range to its canonical stored form: each note letter uppercased,
- * with the flat marker "b" preserved in lowercase (see PITCH_RANGE_PATTERN).
+ * Normalizes a (pre-validated) pitch range to its canonical stored form
+ *
+ * Format: uppercase note letters, accidental and octave unchanged, separated by a dash with no spaces (e.g. "Bb3-C6")
  *
  * @param {string} value - a valid pitch range
  * @returns {string} - the normalized range
@@ -111,19 +131,19 @@ export function normalizePitchRange(value: string): string {
     return `${normalizeNote(low)}-${normalizeNote(high)}`
 }
 
-// ---------------------------------------------------------------------------
-// Highest position (composition "position_highest" field)
-// ---------------------------------------------------------------------------
-
-/** A positive 1–2 digit integer, the alternative input form for a position. */
+/**
+ * Pattern matching a positive 1–2 digit integer, the alternative input form for a position
+ */
 export const POSITION_INTEGER_PATTERN = /^[1-9][0-9]?$/
-// a valid (uppercase) Roman numeral 1–99: tens via XC/XL/L?X{0,3}, units via IX/IV/V?I{0,3}, with a
-// leading lookahead that requires at least one numeral so the empty string is rejected
+
+/**
+ * Pattern matching a Roman numeral representing 1–99, the canonical stored form for a position
+ */
 const ROMAN_NUMERAL_PATTERN = /^(?=[IVXLC])(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/
 
 /**
- * Reports whether a string is a valid violin position: a Roman numeral (case-insensitive on input) or a
- * positive 1–2 digit integer.
+ * Whether a string is a valid position: a Roman numeral (case-insensitive on input) or a
+ * positive 1–2 digit integer
  *
  * @param {string} value - the candidate position
  * @returns {boolean} - true if the trimmed value is a valid position
@@ -134,13 +154,22 @@ export function isValidPosition(value: string): boolean {
 }
 
 /**
- * Converts an integer in 1–99 to its Roman-numeral representation.
+ * Converts an integer in 1–99 to its Roman-numeral representation
  *
  * @param {number} value - the integer to convert
  * @returns {string} - the Roman numeral
  */
 export function integerToRoman(value: number): string {
-    const table: [number, string][] = [[90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]
+    const table: [number, string][] = [
+        [90, "XC"],
+        [50, "L"],
+        [40, "XL"],
+        [10, "X"],
+        [9, "IX"],
+        [5, "V"],
+        [4, "IV"],
+        [1, "I"]
+    ]
     let remaining = value
     let out = ""
     for (const [magnitude, symbol] of table) {
@@ -153,8 +182,7 @@ export function integerToRoman(value: number): string {
 }
 
 /**
- * Normalizes a (pre-validated) position to its canonical stored form: always an uppercase Roman numeral.
- * An integer input is converted to a Roman numeral; a Roman numeral is uppercased.
+ * Normalizes a (pre-validated) position to its canonical stored form: always an uppercase Roman numeral
  *
  * @param {string} value - a valid position (Roman numeral or integer)
  * @returns {string} - the normalized Roman numeral
@@ -167,17 +195,20 @@ export function normalizePosition(value: string): string {
     return trimmed.toUpperCase()
 }
 
-// ---------------------------------------------------------------------------
-// Image URL
-// ---------------------------------------------------------------------------
-
-// internal asset paths served by the site: R2-backed files (/api/v1/files/<key>) and build-time
-// bundled assets (/files/<name>). Anything else must be an absolute http(s) URL.
+/**
+ * Pattern matching internal asset paths: either /api/v1/files/<key> for uploaded files, or /files/<name> for bundled assets
+ */
 const INTERNAL_IMAGE_PATTERN = /^\/(?:api\/v\d+\/files|files)\/\S+$/
 
 /**
- * Reports whether a string is an acceptable image reference: an absolute http(s) URL, or an internal
- * asset path (/api/v1/files/<key> for uploaded files, /files/<name> for bundled assets).
+ * Whether a string is an acceptable image reference: an absolute https URL, or an internal
+ * asset path (/api/v1/files/<key> for uploaded files, /files/<name> for bundled assets)
+ *
+ * Only https is accepted for external references. A stored image value is loaded automatically into an
+ * <img src> whenever an admin views the owning record (both in the SSR Info cards and the client READ
+ * flow in scripts/interface.ts), so permitting http would let a record author force the viewer's browser
+ * into a plaintext, mixed-content request to an arbitrary host (a tracking-pixel / IP-leak vector). The
+ * scheme is constrained here, at the single write-time validation point, rather than at each render site.
  *
  * @param {string} value - the candidate image URL or path
  * @returns {boolean} - true if the trimmed value is an acceptable image reference
@@ -193,17 +224,26 @@ export function isValidImageUrl(value: string): boolean {
     } catch {
         return false
     }
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
+    return parsed.protocol === "https:"
 }
 
-// ---------------------------------------------------------------------------
-// Comma-separated lists
-// ---------------------------------------------------------------------------
+/**
+ * Whether a MIME type denotes an image (any image/* subtype)
+ *
+ * Used by the admin file upload pages to ensure that only images are uploaded
+ *
+ * @param {string} type - the candidate MIME type (e.g. a File's .type)
+ * @returns {boolean} - true if the trimmed, lowercased type begins with "image/"
+ */
+export function isImageMimeType(type: string): boolean {
+    return type.trim().toLowerCase().startsWith("image/")
+}
 
 /**
- * Reports whether a comma-separated input contains stray (empty) segments — a leading, trailing, or
- * doubled comma that yields a blank entry. These are silently dropped on submission (client and server),
- * but are flagged so the user can fix an unintended comma rather than lose data.
+ * Whether a comma-separated input contains stray (empty) segments — a leading, trailing, or
+ * doubled comma that yields a blank entry
+ *
+ * Used client-side to validate input responses (the server has separate logic that removes blank entries automatically)
  *
  * @param {string} value - the raw comma-separated input
  * @returns {boolean} - true if any segment is empty
@@ -212,19 +252,16 @@ export function hasStrayCommaSegments(value: string): boolean {
     if (value.trim() === "") {
         return false
     }
-    return value.split(",").some(segment => segment.trim() === "")
+    return value.split(",").some((segment) => segment.trim() === "")
 }
 
-// ---------------------------------------------------------------------------
-// Publication URI (shared by the client form and the server record validators)
-// ---------------------------------------------------------------------------
-
-// supported publication URI types; the uri_type is authoritative and a stored URI must match the shape
-// of its declared type
+/**
+ * Supported URI types for composer/contributor external links, used to determine validation mode
+ */
 export const SUPPORTED_URI_TYPES = ["https", "isbn", "doi"]
 
 /**
- * Validates an ISBN-10 or ISBN-13 by its checksum (hyphens and spaces are ignored).
+ * Validates an ISBN-10 or ISBN-13 by its checksum (hyphens and spaces are ignored)
  *
  * @param {string} value - the candidate ISBN string
  * @returns {boolean} - true if value is a checksum-valid ISBN-10 or ISBN-13
@@ -252,7 +289,9 @@ export function isValidISBN(value: string): boolean {
 }
 
 /**
- * Validates that a publication URI matches its declared uri_type (the type is authoritative).
+ * Validates that a publication URI matches its declared uri_type (the type is authoritative)
+ *
+ * URI Types:
  *   https -> must parse as a URL with the https scheme
  *   isbn  -> must be a checksum-valid ISBN-10 or ISBN-13
  *   doi   -> must match DOI syntax (10.<registrant>/<suffix>); stored bare, the doi.org resolver is added in the view
@@ -282,16 +321,13 @@ export function validateURIForType(uri_type: string, uri: string): boolean {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Country code (composer/contributor country field)
-// ---------------------------------------------------------------------------
-
-// fallback "none" makes .of() return undefined for codes the runtime cannot resolve, which is the signal
-// used for validation. The display-name resolver (countryCodeName) lives in the client format module.
+/**
+ * Intl.DisplayNames instance configured to resolve ISO 3166-1 alpha-2 region codes to country names
+ */
 const region_validator = new Intl.DisplayNames(["en"], { type: "region", fallback: "none" })
 
 /**
- * Normalizes a country code to the canonical ISO 3166-1 alpha-2 form (trimmed and uppercased).
+ * Normalizes a country code to the canonical ISO 3166-1 alpha-2 form (trimmed and uppercased)
  *
  * @param {string} code the raw country code
  * @returns {string} the trimmed, uppercased code
@@ -301,10 +337,7 @@ export function normalizeCountryCode(code: string): string {
 }
 
 /**
- * Whether the given string is a valid ISO 3166-1 alpha-2 country code.
- *
- * Enforces the two-letter alpha-2 shape (so numeric region codes such as "001" are rejected) and then
- * defers to Intl.DisplayNames: the code is valid iff the runtime resolves it to a region name.
+ * Whether the given string is a valid ISO 3166-1 alpha-2 country code
  *
  * @param {string} code the country code to validate
  * @returns {boolean} whether the code is a resolvable ISO 3166-1 alpha-2 code

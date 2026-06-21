@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/profile/reset_login.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -25,8 +45,8 @@ const has_record = identity?.id !== undefined && identity?.id !== null
     {
         has_record ? (
             <>
-                <p class="general-infohelp">This changes the email you use to sign in (your identity email), updating both your contributor record and the access policy. It does not change your public email — edit that under <a href="/admin/profile/edit">Edit my profile</a>.</p>
-                <p class="general-warning">After this change, you must sign in with the new email. Do not make a mistake — you will lose access if you enter an incorrect email.</p>
+                <p class="general-infohelp">This changes the email you use to sign in (your identity email). It does not change your public email; edit that under <a href="/admin/profile/edit">Edit my profile</a>.</p>
+                <p class="general-warning">After this change, you must sign in with the new email. Do not make a mistake: you will lose access if you enter an incorrect email.</p>
                 <div class="generic-form">
                     <form id="profile-form-reset_login" class="generic-form" data-current-email={current_email}>
                         <fieldset>

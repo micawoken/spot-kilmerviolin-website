@@ -1,15 +1,30 @@
 /**
  * lib/public/ratelimit.ts
- * 
+ *
  * Implements rate limiting on the API
- * 
- * 
- * 
- * 
+ *
+ *
+ *
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
-
 
 /**
  * Identifies the rate limit scope, used to select which rate limit applies
@@ -19,10 +34,6 @@ export enum RLScope {
      * Applies to all Worker invocations
      */
     IP_GLOBAL,
-    /**
-     * Applies to public endpoints (i.e., those related to search)
-     */
-    ENDPOINT_API_PUBLIC,
     /**
      * Applies to all admin API endpoints (everything behind Access)
      */
@@ -54,9 +65,8 @@ export enum RLScope {
  * call time rather than module load. An unmapped scope falls back to RL_FREQ for the binding (matching
  * the previous switch default) and throws when its key type is requested.
  */
-const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit, keyType: "ip" | "user" }> = {
+const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit; keyType: "ip" | "user" }> = {
     [RLScope.IP_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "ip" },
-    [RLScope.ENDPOINT_API_PUBLIC]: { binding: () => env.RL_FREQ, keyType: "user" },
     [RLScope.ENDPOINT_API_ADMIN_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "user" },
     [RLScope.ENDPOINT_API_ADMIN_USER]: { binding: () => env.RL_FREQ, keyType: "user" },
     [RLScope.ENDPOINT_PAGERENDER_ADMIN]: { binding: () => env.RL_FREQ, keyType: "user" },
@@ -73,8 +83,7 @@ function _scopeBinding(rl_key: RLScope): RateLimit {
     return (RL_SCOPE_CONFIG[rl_key]?.binding ?? (() => env.RL_FREQ))()
 }
 
-
-function generateRLValue(request: Request, identity?: Identity): { ip: string, user: string } {
+function generateRLValue(request: Request, identity?: Identity): { ip: string; user: string } {
     const ip = request.headers.get("CF-Connecting-IP") ?? "unknown_ip"
     const user = identity ? identity.id : "unknown_id"
     return {
@@ -83,7 +92,7 @@ function generateRLValue(request: Request, identity?: Identity): { ip: string, u
     }
 }
 
-function _unpackKey(key_pair: { ip: string, user: string } | string, rl_key: RLScope): string {
+function _unpackKey(key_pair: { ip: string; user: string } | string, rl_key: RLScope): string {
     if (typeof key_pair === "string") {
         return key_pair
     }
@@ -94,7 +103,11 @@ function _unpackKey(key_pair: { ip: string, user: string } | string, rl_key: RLS
     return config.keyType === "ip" ? key_pair.ip : key_pair.user
 }
 
-async function _call_RL(rl_key: RLScope, rl_value: { ip: string, user: string } | string, auto_global: boolean = true): Promise<boolean> {
+async function _call_RL(
+    rl_key: RLScope,
+    rl_value: { ip: string; user: string } | string,
+    auto_global: boolean = true
+): Promise<boolean> {
     let rl_entry: string
     if (typeof rl_value !== "string") {
         rl_entry = _unpackKey(rl_value, rl_key)
@@ -117,7 +130,11 @@ async function _call_RL(rl_key: RLScope, rl_value: { ip: string, user: string } 
     return outcome.success
 }
 
-async function _call_RLs(rl_keys: RLScope[], rl_value: { ip: string, user: string } | string, auto_global: boolean = true): Promise<boolean> {
+async function _call_RLs(
+    rl_keys: RLScope[],
+    rl_value: { ip: string; user: string } | string,
+    auto_global: boolean = true
+): Promise<boolean> {
     if (auto_global) {
         const outcome_global = await env.RL_FREQ.limit({ key: typeof rl_value === "string" ? rl_value : rl_value.ip })
         if (!outcome_global.success) {

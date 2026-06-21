@@ -1,8 +1,24 @@
 /**
  * pages/api/v1/composers.ts
- * 
+ *
  * Returns a list of composer records
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
@@ -12,22 +28,21 @@ import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
 
-
 /**
  * GET /api/v1/composers
  * Returns a list of composer IDs, or a list of composer records if the "full" query parameter is set to true
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: optional
  * Meta fields:
  * - full: {boolean} if true, returns full composer records; if false or not provided, returns only composer IDs
- * 
+ *
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @return either a list of IDs or the full records
- * 
+ *
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -55,7 +70,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             case false:
             case undefined:
                 // return composer IDs only
-                const ids = data.map(record => record.id)
+                const ids = data.map((record) => record.id)
                 return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
@@ -69,15 +84,15 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * POST /api/v1/composers
  * Adds a new composer record, returning the location
- * 
+ *
  * Permissions required: none
- * 
+ *
  * Meta: none
  * Body: required, Composer[] single item
- * 
+ *
  * @param context - the Astro API context
  * @return a Response object with the ID of the new record, or an error
- * 
+ *
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context

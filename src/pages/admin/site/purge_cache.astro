@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/site/purge_cache.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -7,45 +27,57 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 export const prerender = false
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Purge Cache`} description="Purge the site's database cache"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Purge the Database Cache</h2>
-    <p class="general-warning">Unless you encounter stale data, you should not purge the cache. The cache will automatically update within the time-to-live specified in <a href="/admin/site/verinfo">Site Management &gt; View site info</a>. Purging the cache unnecessarily will increase read operations on the database, which are subject to a daily limit.</p>
-    <p class="general-infohelp">The database cache contains temporary copies of the database to improve website performance and reduce database use. By default, the website will check the cache first. When you make an edit, it updates the database but may not update the cache. Purging the cache here deletes the cache and allows it to regenerate from the database.</p>
-    <button type="button" id="site-purge-button">Purge cache</button>
-    <p id="transaction-status">Your request status will show here after you press "Purge cache".</p>
-    <script>
-        import { purgeSite } from "../../../scripts/connector"
-        import { getTransactionElem } from "../../../scripts/interface"
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Purge Cache`} description="Purge the site's database cache" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Purge the Database Cache</h2>
+            <p class="general-warning">
+                Unless you encounter stale data, you should not purge the cache. The cache will automatically update
+                within the time-to-live specified in <a href="/admin/site/verinfo"
+                    >Site Management &gt; View site info</a
+                >. Purging the cache unnecessarily will increase read operations on the database, which are subject to a
+                daily limit.
+            </p>
+            <p class="general-infohelp">
+                The database cache contains temporary copies of the database to improve website performance and reduce
+                database use. By default, the website will check the cache first. When you make an edit, it updates the
+                database but may not update the cache. Purging the cache here deletes the cache and allows it to
+                regenerate from the database.
+            </p>
+            <button type="button" id="site-purge-button">Purge cache</button>
+            <p id="transaction-status">Your request status will show here after you press "Purge cache".</p>
+            <script>
+                import { purgeSite } from "../../../scripts/connector"
+                import { getTransactionElem } from "../../../scripts/interface"
 
-        const button = document.getElementById("site-purge-button") as HTMLButtonElement
-        const message = getTransactionElem()
+                const button = document.getElementById("site-purge-button") as HTMLButtonElement
+                const message = getTransactionElem()
 
-        button.addEventListener("click", async () => {
-            if (!confirm("Are you sure you want to purge the database cache?")) {
-                return
-            }
-            message.textContent = "Processing request..."
-            button.disabled = true
-            try {
-                const result = await purgeSite()
-                message.textContent = `Request succeeded: ${result?.message ?? "cache purged"}`
-            } catch (error) {
-                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-                console.error(error)
-            } finally {
-                button.disabled = false
-            }
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+                button.addEventListener("click", async () => {
+                    if (!confirm("Are you sure you want to purge the database cache?")) {
+                        return
+                    }
+                    message.textContent = "Processing request..."
+                    button.disabled = true
+                    try {
+                        const result = await purgeSite()
+                        message.textContent = `Request succeeded: ${result?.message ?? "cache purged"}`
+                    } catch (error) {
+                        message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                        console.error(error)
+                    } finally {
+                        button.disabled = false
+                    }
+                })
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

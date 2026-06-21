@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/composers/create.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -6,25 +26,29 @@ import AdminFooter from "../../../components/AdminFooter.astro"
 import ComposerForm from "../../../components/entities/ComposerForm.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Composer`} description="Add a new composer to the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Add a New Composer</h2>
-    <ComposerForm required={true} />
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        const form_or_button = getForm("composer", APIOpCode.CREATE)
-        form_or_button.addEventListener((form_or_button instanceof HTMLFormElement) ? "submit" : "click", genHandler(form_or_button, getTransactionElem(), APIOpCode.CREATE, "composer"))
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Composer`} description="Add a new composer to the database" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Add a New Composer</h2>
+            <ComposerForm required={true} />
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                const form_or_button = getForm("composer", APIOpCode.CREATE)
+                form_or_button.addEventListener(
+                    form_or_button instanceof HTMLFormElement ? "submit" : "click",
+                    genHandler(form_or_button, getTransactionElem(), APIOpCode.CREATE, "composer")
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

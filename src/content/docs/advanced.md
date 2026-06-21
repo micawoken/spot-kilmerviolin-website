@@ -24,6 +24,8 @@ This option is provided to administrators to diagnose why issues may be occurrin
 
 This tool is not designed for general use - the response you will read is the JSON-encoded object from D1, which may include additional information about your command.
 
+You may enter several commands at once, separated by semicolons. By default, multiple commands run as a single atomic batch: if any command fails, none of the changes are applied. Uncheck the batch option to run each command independently, in order, with no rollback (a failure leaves earlier commands applied). The response shows one result block per command.
+
 **Do not use this tool if you do not know what you are doing.** Making a mistake on the terminal, such as deleting the contributors table, will cause Administrative Services to stop working for everyone. Before running a command here, you should have a good understanding of the SQL database language.
 
 If you make a mistake, you have a few days to correct it: contact the system administrator to recover the data.

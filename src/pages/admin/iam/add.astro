@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/iam/add.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -11,100 +31,118 @@ export const prerender = false
 // prefill the user email when arriving from an unlinked-contributor link on the user list (?identity_email=), if valid
 const prefill_email = emailFromParam(Astro.url)
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add User`} description="Add a new user to the access policy"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Add a New User</h2>
-    <p class="general-infohelp">Allow a user to log onto the system. Optionally, automatically create a contributor record. This operation requires the userenroll role or administrator permissions.</p>
-    <div class="generic-form">
-        <form id="iam-form-add" class="generic-form">
-            <fieldset>
-                <legend>User Email</legend>
-                <input type="email" id="iam-form-add-email" name="email" value={prefill_email} required />
-            </fieldset>
-            <fieldset>
-                <legend>Auto-Enrollment</legend>
-                <input type="checkbox" id="iam-form-add-autoenrollment" name="autoenrollment" />
-                <label for="iam-form-add-autoenrollment">Automatically create a contributor record for this user</label>
-                <div id="iam-form-add-autoenrollment-fields" class="hidden">
-                    <label for="iam-form-add-name">Name:</label>
-                    <input type="text" id="iam-form-add-name" name="name" />
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add User`} description="Add a new user to the access policy" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Add a New User</h2>
+            <p class="general-infohelp">
+                Allow a user to log onto the system. Optionally, automatically create a contributor record. This
+                operation requires the userenroll role or administrator permissions.
+            </p>
+            <div class="generic-form">
+                <form id="iam-form-add" class="generic-form" novalidate>
+                    <fieldset>
+                        <legend>User Email</legend>
+                        <div class="field-row">
+                            <input type="email" id="iam-form-add-email" name="email" value={prefill_email} required />
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Auto-Enrollment</legend>
+                        <input type="checkbox" id="iam-form-add-autoenrollment" name="autoenrollment" />
+                        <label for="iam-form-add-autoenrollment"
+                            >Automatically create a contributor record for this user</label
+                        >
+                        <div id="iam-form-add-autoenrollment-fields" class="hidden">
+                            <label for="iam-form-add-name">Name:</label>
+                            <input type="text" id="iam-form-add-name" name="name" />
 
-                    <label for="iam-form-add-major">Major:</label>
-                    <input type="text" id="iam-form-add-major" name="major" />
-                    <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
+                            <label for="iam-form-add-major">Major:</label>
+                            <input type="text" id="iam-form-add-major" name="major" />
+                            <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
 
-                    <label for="iam-form-add-class_year">Class Year:</label>
-                    <input type="number" id="iam-form-add-class_year" name="class_year" />
-                    <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
+                            <label for="iam-form-add-class_year">Class Year:</label>
+                            <input type="number" id="iam-form-add-class_year" name="class_year" />
+                            <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
 
-                    <input type="checkbox" id="iam-form-add-confer" name="confer" />
-                    <label for="iam-form-add-confer">Confer your conferrable roles to the new contributor</label>
-                </div>
-            </fieldset>
-            <button type="submit">Submit</button>
-        </form>
-    </div>
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { addIdentity } from "../../../scripts/connector"
-        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+                            <input type="checkbox" id="iam-form-add-confer" name="confer" />
+                            <label for="iam-form-add-confer">Confer your conferrable roles to the new contributor</label
+                            >
+                        </div>
+                    </fieldset>
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import { addIdentity } from "../../../scripts/connector"
+                import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+                import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
-        const form = document.getElementById("iam-form-add") as HTMLFormElement
-        const message = getTransactionElem()
+                const form = document.getElementById("iam-form-add") as HTMLFormElement
+                const message = getTransactionElem()
 
-        // reveal the auto-enrollment fields only when requested
-        const autoenroll_checkbox = document.getElementById("iam-form-add-autoenrollment") as HTMLInputElement
-        const autoenroll_fields = document.getElementById("iam-form-add-autoenrollment-fields")!
-        autoenroll_checkbox.addEventListener("change", () => {
-            autoenroll_fields.classList.toggle("hidden", !autoenroll_checkbox.checked)
-        })
+                // live inline email (and class-year) validation, mirroring the entity forms
+                attachFormValidation(form)
 
-        form.addEventListener("submit", async (evt: Event) => {
-            evt.preventDefault()
-            message.textContent = "Processing request..."
-            const form_data = new FormData(form)
-            disableInput(form)
-            try {
-                const email = String(form_data.get("email") ?? "")
-                if (!email) {
-                    throw new Error("An email address is required")
-                }
-                const autoenrollment = form_data.get("autoenrollment") === "on"
-                if (autoenrollment) {
-                    const name = String(form_data.get("name") ?? "")
-                    // major and class_year are nullable columns: blank inputs are sent as null
-                    const major_raw = String(form_data.get("major") ?? "").trim()
-                    const major = major_raw === "" ? null : major_raw
-                    const class_year_raw = String(form_data.get("class_year") ?? "").trim()
-                    const class_year = class_year_raw === "" ? null : parseInt(class_year_raw)
-                    if (!name) {
-                        throw new Error("Auto-enrollment requires a name")
+                // reveal the auto-enrollment fields only when requested
+                const autoenroll_checkbox = document.getElementById("iam-form-add-autoenrollment") as HTMLInputElement
+                const autoenroll_fields = document.getElementById("iam-form-add-autoenrollment-fields")!
+                autoenroll_checkbox.addEventListener("change", () => {
+                    autoenroll_fields.classList.toggle("hidden", !autoenroll_checkbox.checked)
+                })
+
+                form.addEventListener("submit", async (evt: Event) => {
+                    evt.preventDefault()
+                    // submit gate: reject a malformed email (or class year) with an inline hint before sending
+                    if (!validateFormFields(form)) {
+                        message.textContent = "Please correct the highlighted fields and try again."
+                        return
                     }
-                    if (class_year !== null && isNaN(class_year)) {
-                        throw new Error("Class year must be a number (or left blank to omit)")
+                    message.textContent = "Processing request..."
+                    const form_data = new FormData(form)
+                    disableInput(form)
+                    try {
+                        const email = String(form_data.get("email") ?? "")
+                        if (!email) {
+                            throw new Error("An email address is required")
+                        }
+                        const autoenrollment = form_data.get("autoenrollment") === "on"
+                        if (autoenrollment) {
+                            const name = String(form_data.get("name") ?? "")
+                            // major and class_year are nullable columns: blank inputs are sent as null
+                            const major_raw = String(form_data.get("major") ?? "").trim()
+                            const major = major_raw === "" ? null : major_raw
+                            const class_year_raw = String(form_data.get("class_year") ?? "").trim()
+                            const class_year = class_year_raw === "" ? null : parseInt(class_year_raw)
+                            if (!name) {
+                                throw new Error("Auto-enrollment requires a name")
+                            }
+                            if (class_year !== null && isNaN(class_year)) {
+                                throw new Error("Class year must be a number (or left blank to omit)")
+                            }
+                            const confer = form_data.get("confer") === "on"
+                            await addIdentity(email, true, confer, name, major, class_year)
+                        } else {
+                            await addIdentity(email)
+                        }
+                        message.textContent = `Request succeeded: added user ${email}`
+                    } catch (error) {
+                        message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                        console.error(error)
+                    } finally {
+                        enableInput(form)
                     }
-                    const confer = form_data.get("confer") === "on"
-                    await addIdentity(email, true, confer, name, major, class_year)
-                } else {
-                    await addIdentity(email)
-                }
-                message.textContent = `Request succeeded: added user ${email}`
-            } catch (error) {
-                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-                console.error(error)
-            } finally {
-                enableInput(form)
-            }
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+                })
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

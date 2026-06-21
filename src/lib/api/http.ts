@@ -1,14 +1,31 @@
 /**
  * lib/api/http.ts
- * 
+ *
  * Provides functions related to creating HTTP Response objects for the API
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { createAPIPayload } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
-import { richErrors } from "./environment"
+import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
+
 // the generic HTTP error page lives in its own file (error.html) and is inlined as a raw string at
 // build time; the {errorCode}/{errorName}/{errorDescription} tokens are filled in middlewareErrorResponder
 import error_http from "../templates/error.html?raw"
@@ -17,7 +34,6 @@ interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {
     code: keyof typeof http_codes
 }
 
-
 // headers
 
 // headers are added to static and dynamic pages through the Astro middleware at build time and at request
@@ -25,20 +41,34 @@ interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {
 export const static_headers = {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "public, maxage=86400, s-maxage=604800, stale-while-revalidate=604800, must-understand",
-    "Allow": "GET, OPTIONS",
-    "Vary": "Origin"
+    Allow: "GET, OPTIONS",
+    Vary: "Origin"
+}
+
+/**
+ * Header template for raw (non-JSON) body responses, intended for file delivery
+ */
+export const file_headers = {
+    "Content-Type": undefined,
+    "Content-Disposition": undefined,
+    "Cache-Control": undefined,
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "sandbox",
+    "Access-Control-Allow-Origin": undefined,
+    "Access-Control-Allow-Credentials": "true",
+    Vary: "Origin"
 }
 
 export const error_headers = {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-store, must-understand",
-    "Allow": "GET, OPTIONS",
-    "Vary": "Origin"
+    Allow: "GET, OPTIONS",
+    Vary: "Origin"
 }
 
 /**
  * Applied to pages that do not need CORS requests
- * 
+ *
  */
 export const preflight_closed_headers = {
     "Access-Control-Allow-Origin": undefined,
@@ -46,7 +76,7 @@ export const preflight_closed_headers = {
     "Access-Control-Allow-Credentials": "false",
     "Access-Control-Max-Age": "86400",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Vary": "Origin"
+    Vary: "Origin"
 }
 
 /**
@@ -59,12 +89,12 @@ export const preflight_limited_headers = {
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Vary": "Origin"
+    Vary: "Origin"
 }
 
 /**
  * Used on API routes to grant clients greater access to the HTTP API
- * 
+ *
  */
 export const preflight_headers = {
     "Access-Control-Allow-Origin": undefined, // also must be generated
@@ -72,31 +102,16 @@ export const preflight_headers = {
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-MWMSC-Request-Meta",
-    "Vary": "Origin"
-    /**
-     * CORS preflight is implemented in middleware/preflight.ts and activates on calls to 
-     * 
-     * 
-     */
+    Vary: "Origin"
 }
-
 
 /**
  * A fallback origin to use for CORS headers when a request does not include an allowed "Origin"
  */
-export const cors_fallback_origin = "localhost" // temporary
+export const cors_fallback_origin = "https://spot-kilmer-violin-website.mwmsc.workers.dev" // temporary, workers.dev domain
 
 /**
  * Resolves the value to send in Access-Control-Allow-Origin for a request.
- *
- * Because API responses set Access-Control-Allow-Credentials: true, the allowed origin must never be a
- * blanket reflection of the request's Origin header — doing so would let any site make credentialed
- * cross-origin calls and read the responses. Instead, the request Origin is echoed back only when the
- * full origin (scheme://host[:port], serialized via the URL parser to normalize away any trailing
- * slash or default port) exactly matches an entry on the ALLOWED_ORIGINS allowlist (see src/consts.ts);
- * matching the full origin rather than just the hostname keeps the scheme and port constrained. Any
- * other (or absent/malformed) Origin yields the non-matching fallback, which the browser will reject
- * for cross-origin use.
  *
  * @param {Request} request - the original Request object
  * @returns {string} the Origin to echo (when allowlisted) or the fallback origin
@@ -116,6 +131,46 @@ export function resolveAllowedOrigin(request: Request): string {
 }
 
 /**
+ * Safe HTTP methods (cannot modify server state, do not need CSRF protection)
+ */
+const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
+
+/**
+ * Whether a state-changing request fails the same-origin (CSRF) check
+ *
+ * Runs whenever a cookie (specifically, the CF_Authorization cookie) is used to authenticate with the system
+ *
+ * Checks the fetch metadata to see if the request's initiator is cross-site or if the Origin header is not allowlisted
+ *
+ * NOTE: CSRF protection is origin-wide (not site-wide); mixing www and non-www versions will cause this check to fail
+ *
+ * @param {Request} request - the original Request object
+ * @returns {boolean} true if the request should be rejected as a cross-site (CSRF) attempt
+ */
+export function failsCsrfOriginCheck(request: Request): boolean {
+    if (CSRF_SAFE_METHODS.has(request.method)) {
+        return false
+    }
+    const fetch_site = request.headers.get("Sec-Fetch-Site")
+    // an explicit cross-site (or same-site-but-cross-origin) initiator is rejected outright
+    if (fetch_site === "cross-site" || fetch_site === "same-site") {
+        return true
+    }
+    const origin = request.headers.get("Origin")
+    if (origin === null) {
+        // no Origin on a state-changing request: accept only when Fetch Metadata attests same-origin,
+        // otherwise treat the absence as suspect (a same-origin browser write always sends an Origin)
+        return fetch_site !== "same-origin"
+    }
+    try {
+        return !ALLOWED_ORIGINS.includes(new URL(origin).origin)
+    } catch {
+        // malformed Origin header
+        return true
+    }
+}
+
+/**
  * The default headers applied to API responses, with some undefined values that must be generated per-request
  */
 export const API_headers = {
@@ -125,22 +180,14 @@ export const API_headers = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
-    "Allow": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "Vary": "Origin"
+    Allow: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    Vary: "Origin"
 }
 
 /**
- * Header template for raw (non-JSON) body responses, such as a file served from the store.
- * Mirrors the credentialed CORS posture of API_headers but carries the body's own content type and a
- * cacheable directive; the undefined values are filled per-request by constructFileResponse.
+ * Content types that are safe to serve inline (everything else is downloaded)
  */
-export const file_headers = {
-    "Content-Type": undefined,
-    "Cache-Control": undefined,
-    "Access-Control-Allow-Origin": undefined,
-    "Access-Control-Allow-Credentials": "true",
-    "Vary": "Origin"
-}
+export const INLINE_SAFE_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
 
 /**
  * HTTP status codes used in constructResponse()
@@ -200,6 +247,12 @@ const http_codes = {
         comment: "The request could not be completed due to a conflict with the current state of the resource",
         body: true
     },
+    413: {
+        success: false,
+        statusText: "Content Too Large",
+        comment: "The uploaded file exceeds the maximum permitted size",
+        body: true
+    },
     429: {
         success: false,
         statusText: "Too Many Requests",
@@ -217,7 +270,7 @@ const http_codes = {
         statusText: "Not Implemented",
         comment: "The requested HTTP method is not supported by this endpoint",
         body: true
-    }, 
+    },
     503: {
         success: false,
         statusText: "Service Unavailable",
@@ -234,31 +287,31 @@ const http_codes = {
 
 /**
  * Constructs a HeaderInit object based on the template, a completion object, and an additional headers object
- * 
+ *
  * @param {Record<string, string | undefined>} template - the template to use
  * @param {Record<string, string>} complete - an object containing the missing values from the template
  * @param {Record<string, string>} additional - an object containing additional headers to add to the result
  * @returns {Record<string, string>} a complete set of headers based on the template and additional headers
  * @throws {Error} if the complete object does not contain values for all undefined keys in the template
  */
-export function _constructHeaders(template: Record<string, string | undefined>, complete: Record<string, string>, additional: Record<string, string> = {}): Record<string, string> {
+export function _constructHeaders(
+    template: Record<string, string | undefined>,
+    complete: Record<string, string>,
+    additional: Record<string, string> = {}
+): Record<string, string> {
     // assert that each undefined key is mapped in complete
-    Object.keys(template).filter(key => template[key] === undefined).forEach(key => {
-        if (!(key in complete)) {
-            throw new Error(`Missing value for header key: ${key}`)
-        }
-    })
+    Object.keys(template)
+        .filter((key) => template[key] === undefined)
+        .forEach((key) => {
+            if (!(key in complete)) {
+                throw new Error(`Missing value for header key: ${key}`)
+            }
+        })
     return { ...template, ...complete, ...additional } as Record<string, string>
 }
 
 /**
  * Recursively collects the change_date timestamps (as epoch milliseconds) carried by an API payload.
- *
- * The payload may be a single entity record, an array of records, a CompositionWithNames wrapper
- * ({ object, names }) — where the record lives under "object" — or an array of those wrappers. Each
- * entity record carries change_date as an ISO 8601 string (a hidden, business-logic-managed last-modified
- * marker; see database.ts). Anything without a parseable change_date (e.g. an ID-only list of numbers)
- * contributes nothing.
  *
  * @param {unknown} value - the payload (or a nested fragment of it) to scan
  * @param {number[]} out - accumulator of parsed epoch-millisecond timestamps
@@ -287,14 +340,7 @@ function collectChangeDates(value: unknown, out: number[]): void {
 }
 
 /**
- * Builds a Last-Modified header from the entity record(s) in an API payload, using the most recent
- * change_date among them. change_date is the hidden last-modified marker stamped by the business logic
- * on every insert/update (see database.ts), so the latest one represents when the returned data last
- * changed.
- *
- * The result is intended to be spread into the headers_addl argument of constructResponse; when the
- * payload carries no usable change_date (for example an ID-only list), an empty object is returned so
- * callers can spread it unconditionally without emitting a misleading header.
+ * Builds a Last-Modified header from the entity record(s) in an API payload using the change_date
  *
  * @param {unknown} payload - the API payload being returned (a record, array of records, or names wrapper)
  * @returns {Record<string, string>} a { "Last-Modified": <HTTP-date> } header, or {} when none applies
@@ -320,35 +366,38 @@ export function lastModifiedHeader(payload: unknown): Record<string, string> {
  * @returns {Response} a Response object
  * @throws {Error} if payload serialization fails or if required headers are missing
  */
-export function constructResponse(request: Request, payload: any, code: (keyof typeof http_codes), force_comment?: string | undefined, headers_addl?: Record<string, string>): Response {
+export function constructResponse(
+    request: Request,
+    payload: any,
+    code: keyof typeof http_codes,
+    force_comment?: string | undefined,
+    headers_addl?: Record<string, string>
+): Response {
     const { success, statusText, comment } = http_codes[code]
-    const headers = _constructHeaders(API_headers, {
-        "Access-Control-Allow-Origin": resolveAllowedOrigin(request)
+    const headers = _constructHeaders(
+        API_headers,
+        {
+            "Access-Control-Allow-Origin": resolveAllowedOrigin(request)
         },
         headers_addl ? headers_addl : {}
     )
     let response_body: string | null
     try {
-        response_body = http_codes[code].body ? JSON.stringify(createAPIPayload(success, payload, force_comment !== undefined ? force_comment : comment)) : null
+        response_body = http_codes[code].body
+            ? JSON.stringify(createAPIPayload(success, payload, force_comment !== undefined ? force_comment : comment))
+            : null
     } catch (e) {
         throw new Error(`Failed to serialize response payload: ${e}`)
     }
-    return new Response(
-        response_body,
-        {
-            status: code,
-            statusText: statusText,
-            headers: headers
-        }
-    )
+    return new Response(response_body, {
+        status: code,
+        statusText: statusText,
+        headers: headers
+    })
 }
 
 /**
  * Constructs a 200 Response carrying a raw (non-JSON) body, such as a file's bytes served from the store
- *
- * Unlike constructResponse, the body is sent verbatim with its own content type rather than wrapped in a
- * JSON API envelope, but the credentialed CORS headers are still resolved from the request's origin so
- * file responses stay consistent with the rest of the API.
  *
  * @param {Request} request - the original Request object, used to generate CORS headers
  * @param {BodyInit} body - the raw response body (e.g. the file bytes)
@@ -357,11 +406,24 @@ export function constructResponse(request: Request, payload: any, code: (keyof t
  * @param {Record<string, string>} [headers_addl] - additional headers merged over the defaults
  * @returns {Response} a 200 Response carrying the raw body
  */
-export function constructFileResponse(request: Request, body: BodyInit, content_type: string, cache_ttl: number, headers_addl?: Record<string, string>): Response {
-    const headers = _constructHeaders(file_headers, {
-        "Content-Type": content_type,
-        "Cache-Control": `private, max-age=${cache_ttl}, must-understand`,
-        "Access-Control-Allow-Origin": resolveAllowedOrigin(request)
+export function constructFileResponse(
+    request: Request,
+    body: BodyInit,
+    content_type: string,
+    cache_ttl: number,
+    headers_addl?: Record<string, string>
+): Response {
+    // serve inline only for raster image types (safe to render); anything else (SVG, HTML, octet-stream)
+    // is forced to download so a viewer's browser never renders attacker-supplied active content on-origin
+    const base_type = content_type.split(";")[0].trim().toLowerCase()
+    const disposition = INLINE_SAFE_CONTENT_TYPES.includes(base_type) ? "inline" : "attachment"
+    const headers = _constructHeaders(
+        file_headers,
+        {
+            "Content-Type": content_type,
+            "Content-Disposition": disposition,
+            "Cache-Control": `private, max-age=${cache_ttl}, must-understand`,
+            "Access-Control-Allow-Origin": resolveAllowedOrigin(request)
         },
         headers_addl ? headers_addl : {}
     )
@@ -381,26 +443,41 @@ export function constructFileResponse(request: Request, body: BodyInit, content_
  * @param {string} [force_comment] - if provided, this string will be used as the comment in the response body instead of the default comment for the status code
  * @returns {Response} a Response object
  */
-export function constructResponseErrorHook(request: Request, error: any, code: keyof typeof http_codes, force_comment?: string | undefined): Response {
+export function constructResponseErrorHook(
+    request: Request,
+    error: any,
+    code: keyof typeof http_codes,
+    force_comment?: string | undefined
+): Response {
     if (checkSQLiteErrorHook(error)) {
         return hookSQLiteError(request, error)
     }
-    return constructResponse(request, null, code, richErrors(request) && !force_comment ? `Error: ${error.message}` : force_comment)
+    return constructResponse(
+        request,
+        null,
+        code,
+        richErrors(request) && !force_comment ? `Error: ${error.message}` : force_comment
+    )
 }
 
 /**
  * Check if an error can be processed by the SQLite error hook
- * 
+ *
  * @param {any} error - the error to check
  * @returns {boolean} if the error can be processed by the SQLite error hook
  */
 export function checkSQLiteErrorHook(error: any): boolean {
-    return (error instanceof Error && error.message.match(/SQLITE_/) !== null)
+    return error instanceof Error && error.message.match(/SQLITE_/) !== null
 }
 
-export function middlewareErrorResponder(_request: Request, code: keyof typeof http_codes, force_comment?: string): Response {
+export function middlewareErrorResponder(
+    _request: Request,
+    code: keyof typeof http_codes,
+    force_comment?: string
+): Response {
     const { statusText, comment } = http_codes[code]
-    const data = error_http.replaceAll("{errorCode}", code.toString())
+    const data = error_http
+        .replaceAll("{errorCode}", code.toString())
         .replaceAll("{errorName}", statusText)
         .replaceAll("{errorDescription}", force_comment ? force_comment : comment)
     return new Response(data, {
@@ -414,15 +491,13 @@ export function middlewareErrorResponder(_request: Request, code: keyof typeof h
  * Constructs the 204 CORS preflight response for an OPTIONS request, selecting the policy by route
  *
  * The full CORS policy (all methods + custom headers) is released on API routes, the limited
- * credentialed policy applies to admin routes, and everything else defaults closed. The allowed origin
- * is echoed only when the request's Origin is on the allowlist; otherwise the non-matching fallback is
- * sent, which the browser rejects for cross-origin use. Used by the preflight middleware.
+ * credentialed policy applies to admin routes, and everything else defaults closed
  *
  * @param {Request} request - the original OPTIONS request, used to resolve the allowed origin
  * @returns {Response} a 204 No Content response carrying the appropriate CORS headers
  */
 export function constructPreflightResponse(request: Request): Response {
-    const path_components = new URL(request.url).pathname.split("/").filter(component => component.length > 0)
+    const path_components = new URL(request.url).pathname.split("/").filter((component) => component.length > 0)
     let template: Record<string, string | undefined>
     if (path_components.length > 0 && path_components[0] === "api") {
         // API routes necessitate the additional request methods/headers
@@ -446,14 +521,24 @@ export function constructPreflightResponse(request: Request): Response {
 /**
  * Constructs the 204 response for a bare OPTIONS request that is not a CORS preflight
  *
+ * The advertised Allow set is selected by route, mirroring constructPreflightResponse: API routes accept the
+ * full method set, everything else is read-only. This stays a superset of any individual endpoint's verbs
+ * (e.g. /api/v1/site is GET/POST/DELETE) rather than claiming GET-only for write-capable API routes.
+ *
+ * @param {Request} request - the original OPTIONS request, used to resolve the route
  * @returns {Response} a 204 No Content response advertising the allowed methods
  */
-export function constructOptionsResponse(): Response {
+export function constructOptionsResponse(request: Request): Response {
+    const path_components = new URL(request.url).pathname.split("/").filter((component) => component.length > 0)
+    const allow =
+        path_components.length > 0 && path_components[0] === "api"
+            ? "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            : "GET, OPTIONS"
     return new Response(null, {
         status: 204,
         statusText: "No Content",
         headers: {
-            "Allow": "GET, OPTIONS"
+            Allow: allow
         }
     })
 }
@@ -468,109 +553,108 @@ const sqlite_errors_extended: Record<string, SQLiteErrorMsg> = {
     // matched alongside the extended codes below. SQLITE_ERROR carries a processor that picks apart the
     // common generic failures (missing table/column, malformed query); SQLITE_CONSTRAINT likewise
     // dispatches by the constraint named in the message when only the primary code is reported.
-    "SQLITE_ERROR": { code: 500, processor: processGenericError },
-    "SQLITE_INTERNAL": { code: 500 },
-    "SQLITE_PERM": { code: 403 },
-    "SQLITE_ABORT": { code: 500 },
-    "SQLITE_BUSY": { code: 503 },
-    "SQLITE_LOCKED": { code: 503 },
-    "SQLITE_NOMEM": { code: 500 },
-    "SQLITE_READONLY": { code: 403 },
-    "SQLITE_INTERRUPT": { code: 503 },
-    "SQLITE_IOERR": { code: 500 },
-    "SQLITE_CORRUPT": { code: 500 },
-    "SQLITE_NOTFOUND": { code: 500 },
-    "SQLITE_FULL": { code: 507 },
-    "SQLITE_CANTOPEN": { code: 500 },
-    "SQLITE_PROTOCOL": { code: 500 },
-    "SQLITE_SCHEMA": { code: 500 },
-    "SQLITE_TOOBIG": { code: 400, message: "The request contains a value that is too large to store" },
-    "SQLITE_CONSTRAINT": { code: 400, processor: processConstraintGeneric },
-    "SQLITE_MISMATCH": { code: 400, message: "A value has an incompatible type for its column" },
-    "SQLITE_MISUSE": { code: 500 },
-    "SQLITE_AUTH": { code: 403 },
-    "SQLITE_RANGE": { code: 400 },
-    "SQLITE_NOTADB": { code: 500 },
+    SQLITE_ERROR: { code: 500, processor: processGenericError },
+    SQLITE_INTERNAL: { code: 500 },
+    SQLITE_PERM: { code: 403 },
+    SQLITE_ABORT: { code: 500 },
+    SQLITE_BUSY: { code: 503 },
+    SQLITE_LOCKED: { code: 503 },
+    SQLITE_NOMEM: { code: 500 },
+    SQLITE_READONLY: { code: 403 },
+    SQLITE_INTERRUPT: { code: 503 },
+    SQLITE_IOERR: { code: 500 },
+    SQLITE_CORRUPT: { code: 500 },
+    SQLITE_NOTFOUND: { code: 500 },
+    SQLITE_FULL: { code: 507 },
+    SQLITE_CANTOPEN: { code: 500 },
+    SQLITE_PROTOCOL: { code: 500 },
+    SQLITE_SCHEMA: { code: 500 },
+    SQLITE_TOOBIG: { code: 400, message: "The request contains a value that is too large to store" },
+    SQLITE_CONSTRAINT: { code: 400, processor: processConstraintGeneric },
+    SQLITE_MISMATCH: { code: 400, message: "A value has an incompatible type for its column" },
+    SQLITE_MISUSE: { code: 500 },
+    SQLITE_AUTH: { code: 403 },
+    SQLITE_RANGE: { code: 400 },
+    SQLITE_NOTADB: { code: 500 },
     // --- Extended result codes --------------------------------------------------------------------
-    "SQLITE_ABORT_ROLLBACK": { code: 500 },
-    "SQLITE_AUTH_USER": { code: 403 },
-    "SQLITE_BUSY_RECOVERY": { code: 503 },
-    "SQLITE_BUSY_SNAPSHOT": { code: 503 },
-    "SQLITE_BUSY_TIMEOUT": { code: 503 },
-    "SQLITE_CANTOPEN_CONVPATH": { code: 500 },
-    "SQLITE_CANTOPEN_DIRTYWAL": { code: 500 },
-    "SQLITE_CANTOPEN_FULLPATH": { code: 500 },
-    "SQLITE_CANTOPEN_ISDIR": { code: 500 },
-    "SQLITE_CANTOPEN_NOTEMPDIR": { code: 500 },
-    "SQLITE_CANTOPEN_SYMLINK": { code: 500 },
-    "SQLITE_CONSTRAINT_CHECK": { code: 400, processor: processConstraintCheck },
-    "SQLITE_CONSTRAINT_COMMITHOOK": { code: 400 },
-    "SQLITE_CONSTRAINT_DATATYPE": { code: 400 },
-    "SQLITE_CONSTRAINT_FOREIGNKEY": { code: 409, processor: processConstraintForeignKey },
-    "SQLITE_CONSTRAINT_FUNCTION": { code: 400 },
-    "SQLITE_CONSTRAINT_NOTNULL": { code: 400, processor: processConstraintNotNull },
-    "SQLITE_CONSTRAINT_PINNED": { code: 400 },
-    "SQLITE_CONSTRAINT_PRIMARYKEY": { code: 400 },
-    "SQLITE_CONSTRAINT_ROWID": { code: 400 },
-    "SQLITE_CONSTRAINT_TRIGGER": { code: 400 },
-    "SQLITE_CONSTRAINT_UNIQUE": { code: 400, processor: processConstraintUnique },
-    "SQLITE_CONSTRAINT_VTAB": { code: 400 },
-    "SQLITE_CORRUPT_INDEX": { code: 500 },
-    "SQLITE_CORRUPT_SEQUENCE": { code: 500 },
-    "SQLITE_CORRUPT_VTAB": { code: 500 },
-    "SQLITE_ERROR_MISSING_COLLSEQ": { code: 500 },
-    "SQLITE_ERROR_RETRY": { code: 500 },
-    "SQLITE_ERROR_SNAPSHOT": { code: 500 },
-    "SQLITE_IOERR_ACCESS": { code: 500 },
-    "SQLITE_IOERR_AUTH": { code: 500 },
-    "SQLITE_IOERR_BEGIN_ATOMIC": { code: 500 },
-    "SQLITE_IOERR_BLOCKED": { code: 500 },
-    "SQLITE_IOERR_CHECKRESERVEDLOCK": { code: 500 },
-    "SQLITE_IOERR_CLOSE": { code: 500 },
-    "SQLITE_IOERR_COMMIT_ATOMIC": { code: 500 },
-    "SQLITE_IOERR_CONVPATH": { code: 500 },
-    "SQLITE_IOERR_CORRUPTFS": { code: 500 },
-    "SQLITE_IOERR_DATA": { code: 500 },
-    "SQLITE_IOERR_DELETE": { code: 500 },
-    "SQLITE_IOERR_DELETE_NOENT": { code: 500 },
-    "SQLITE_IOERR_DIR_CLOSE": { code: 500 },
-    "SQLITE_IOERR_DIR_FSYNC": { code: 500 },
-    "SQLITE_IOERR_FSTAT": { code: 500 },
-    "SQLITE_IOERR_FSYNC": { code: 500 },
-    "SQLITE_IOERR_GETTEMPPATH": { code: 500 },
-    "SQLITE_IOERR_LOCK": { code: 500 },
-    "SQLITE_IOERR_MMAP": { code: 500 },
-    "SQLITE_IOERR_NOMEM": { code: 500 },
-    "SQLITE_IOERR_RDLOCK": { code: 500 },
-    "SQLITE_IOERR_READ": { code: 500 },
-    "SQLITE_IOERR_ROLLBACK_ATOMIC": { code: 500 },
-    "SQLITE_IOERR_SEEK": { code: 500 },
-    "SQLITE_IOERR_SHMLOCK": { code: 500 },
-    "SQLITE_IOERR_SHMMAP": { code: 500 },
-    "SQLITE_IOERR_SHMOPEN": { code: 500 },
-    "SQLITE_IOERR_SHMSIZE": { code: 500 },
-    "SQLITE_IOERR_SHORT_READ": { code: 500 },
-    "SQLITE_IOERR_TRUNCATE": { code: 500 },
-    "SQLITE_IOERR_UNLOCK": { code: 500 },
-    "SQLITE_IOERR_VNODE": { code: 500 },
-    "SQLITE_IOERR_WRITE": { code: 500 },
-    "SQLITE_LOCKED_SHAREDCACHE": { code: 500 },
-    "SQLITE_LOCKED_VTAB": { code: 500 },
-    "SQLITE_NOTICE_RECOVER_ROLLBACK": { code: 500 },
-    "SQLITE_NOTICE_RECOVER_WAL": { code: 500 },
-    "SQLITE_OK_LOAD_PERMANENTLY": { code: 200 },
-    "SQLITE_READONLY_CANTINIT": { code: 403 },
-    "SQLITE_READONLY_CANTLOCK": { code: 403 },
-    "SQLITE_READONLY_DBMOVED": { code: 403 },
-    "SQLITE_READONLY_DIRECTORY": { code: 403 },
-    "SQLITE_READONLY_RECOVERY": { code: 403 },
-    "SQLITE_READONLY_ROLLBACK": { code: 403 }
+    SQLITE_ABORT_ROLLBACK: { code: 500 },
+    SQLITE_AUTH_USER: { code: 403 },
+    SQLITE_BUSY_RECOVERY: { code: 503 },
+    SQLITE_BUSY_SNAPSHOT: { code: 503 },
+    SQLITE_BUSY_TIMEOUT: { code: 503 },
+    SQLITE_CANTOPEN_CONVPATH: { code: 500 },
+    SQLITE_CANTOPEN_DIRTYWAL: { code: 500 },
+    SQLITE_CANTOPEN_FULLPATH: { code: 500 },
+    SQLITE_CANTOPEN_ISDIR: { code: 500 },
+    SQLITE_CANTOPEN_NOTEMPDIR: { code: 500 },
+    SQLITE_CANTOPEN_SYMLINK: { code: 500 },
+    SQLITE_CONSTRAINT_CHECK: { code: 400, processor: processConstraintCheck },
+    SQLITE_CONSTRAINT_COMMITHOOK: { code: 400 },
+    SQLITE_CONSTRAINT_DATATYPE: { code: 400 },
+    SQLITE_CONSTRAINT_FOREIGNKEY: { code: 409, processor: processConstraintForeignKey },
+    SQLITE_CONSTRAINT_FUNCTION: { code: 400 },
+    SQLITE_CONSTRAINT_NOTNULL: { code: 400, processor: processConstraintNotNull },
+    SQLITE_CONSTRAINT_PINNED: { code: 400 },
+    SQLITE_CONSTRAINT_PRIMARYKEY: { code: 400 },
+    SQLITE_CONSTRAINT_ROWID: { code: 400 },
+    SQLITE_CONSTRAINT_TRIGGER: { code: 400 },
+    SQLITE_CONSTRAINT_UNIQUE: { code: 400, processor: processConstraintUnique },
+    SQLITE_CONSTRAINT_VTAB: { code: 400 },
+    SQLITE_CORRUPT_INDEX: { code: 500 },
+    SQLITE_CORRUPT_SEQUENCE: { code: 500 },
+    SQLITE_CORRUPT_VTAB: { code: 500 },
+    SQLITE_ERROR_MISSING_COLLSEQ: { code: 500 },
+    SQLITE_ERROR_RETRY: { code: 500 },
+    SQLITE_ERROR_SNAPSHOT: { code: 500 },
+    SQLITE_IOERR_ACCESS: { code: 500 },
+    SQLITE_IOERR_AUTH: { code: 500 },
+    SQLITE_IOERR_BEGIN_ATOMIC: { code: 500 },
+    SQLITE_IOERR_BLOCKED: { code: 500 },
+    SQLITE_IOERR_CHECKRESERVEDLOCK: { code: 500 },
+    SQLITE_IOERR_CLOSE: { code: 500 },
+    SQLITE_IOERR_COMMIT_ATOMIC: { code: 500 },
+    SQLITE_IOERR_CONVPATH: { code: 500 },
+    SQLITE_IOERR_CORRUPTFS: { code: 500 },
+    SQLITE_IOERR_DATA: { code: 500 },
+    SQLITE_IOERR_DELETE: { code: 500 },
+    SQLITE_IOERR_DELETE_NOENT: { code: 500 },
+    SQLITE_IOERR_DIR_CLOSE: { code: 500 },
+    SQLITE_IOERR_DIR_FSYNC: { code: 500 },
+    SQLITE_IOERR_FSTAT: { code: 500 },
+    SQLITE_IOERR_FSYNC: { code: 500 },
+    SQLITE_IOERR_GETTEMPPATH: { code: 500 },
+    SQLITE_IOERR_LOCK: { code: 500 },
+    SQLITE_IOERR_MMAP: { code: 500 },
+    SQLITE_IOERR_NOMEM: { code: 500 },
+    SQLITE_IOERR_RDLOCK: { code: 500 },
+    SQLITE_IOERR_READ: { code: 500 },
+    SQLITE_IOERR_ROLLBACK_ATOMIC: { code: 500 },
+    SQLITE_IOERR_SEEK: { code: 500 },
+    SQLITE_IOERR_SHMLOCK: { code: 500 },
+    SQLITE_IOERR_SHMMAP: { code: 500 },
+    SQLITE_IOERR_SHMOPEN: { code: 500 },
+    SQLITE_IOERR_SHMSIZE: { code: 500 },
+    SQLITE_IOERR_SHORT_READ: { code: 500 },
+    SQLITE_IOERR_TRUNCATE: { code: 500 },
+    SQLITE_IOERR_UNLOCK: { code: 500 },
+    SQLITE_IOERR_VNODE: { code: 500 },
+    SQLITE_IOERR_WRITE: { code: 500 },
+    SQLITE_LOCKED_SHAREDCACHE: { code: 500 },
+    SQLITE_LOCKED_VTAB: { code: 500 },
+    SQLITE_NOTICE_RECOVER_ROLLBACK: { code: 500 },
+    SQLITE_NOTICE_RECOVER_WAL: { code: 500 },
+    SQLITE_OK_LOAD_PERMANENTLY: { code: 200 },
+    SQLITE_READONLY_CANTINIT: { code: 403 },
+    SQLITE_READONLY_CANTLOCK: { code: 403 },
+    SQLITE_READONLY_DBMOVED: { code: 403 },
+    SQLITE_READONLY_DIRECTORY: { code: 403 },
+    SQLITE_READONLY_RECOVERY: { code: 403 },
+    SQLITE_READONLY_ROLLBACK: { code: 403 }
 }
-
 
 /**
  * Parser function for SQLITE_CONSTRAINT_UNIQUE errors
- * 
+ *
  * @param {string} error_message - the error message, from Error.message
  * @return {[boolean, number, string]} [whether the error was processed, the HTTP status code to return, the message to return]
  */
@@ -583,13 +667,13 @@ function processConstraintUnique(error_message: string): [boolean, number, strin
     }
     const table = match[1]
     const column = match[2]
-    
+
     let schema
     switch (table) {
         case "contributors":
             schema = CONTRIBUTOR
             break
-        case "composers": 
+        case "composers":
             schema = COMPOSER
             break
         case "compositions":
@@ -676,9 +760,7 @@ function processConstraintGeneric(error_message: string): [boolean, number, stri
 }
 
 /**
- * Parser for the primary SQLITE_ERROR code, which covers the generic failures D1 reports without a more
- * specific extended code: a missing table, a missing column, or a malformed query. These name the
- * offending object in the message, so each is surfaced with a description that identifies it.
+ * Parser for the primary SQLITE_ERROR code, which covers generic failures
  *
  * @param {string} error_message - the error message, from Error.message
  * @returns {[boolean, number, string]} [whether the error was processed, the HTTP status code, the message]
@@ -688,21 +770,32 @@ function processGenericError(error_message: string): [boolean, number, string] {
     if (table !== null) {
         // a table required for the operation does not exist (a missing migration, a misconfigured binding,
         // or a partially-provisioned database): the data layer cannot proceed, so report it as unavailable
-        return [true, 503, `A database table required for this operation ("${table}") does not exist. The service may be misconfigured or undergoing maintenance; please contact an administrator.`]
+        return [
+            true,
+            503,
+            `A database table required for this operation ("${table}") does not exist. The service may be misconfigured or undergoing maintenance; please contact an administrator.`
+        ]
     }
     const column = error_message.match(/no such column:?\s*([A-Za-z0-9_.]+)/i)
     if (column) {
-        return [true, 500, `A database column required for this operation ("${column[1]}") does not exist. The database schema may be out of date.`]
+        return [
+            true,
+            500,
+            `A database column required for this operation ("${column[1]}") does not exist. The database schema may be out of date.`
+        ]
     }
     if (/syntax error/i.test(error_message)) {
-        return [true, 500, "The server generated an invalid database query. Please report this issue to an administrator."]
+        return [
+            true,
+            500,
+            "The server generated an invalid database query. Please report this issue to an administrator."
+        ]
     }
     return [false, 500, ""]
 }
 
 /**
- * Extracts the table name from a SQLite "no such table" error message, or null when the message is not a
- * missing-table error. D1 surfaces it as e.g. "D1_ERROR: no such table: contributors: SQLITE_ERROR".
+ * Extracts the table name from a SQLite "no such table" error message
  *
  * @param {string} message - the error message to inspect
  * @returns {string | null} the missing table name, or null
@@ -713,9 +806,7 @@ function parseMissingTable(message: string): string | null {
 }
 
 /**
- * Returns the missing table name when the given error is a SQLite "no such table" error, otherwise null.
- * Used by server-rendered pages (and any caller) to detect that a table critical to the operation does
- * not exist and to render the missing-table fallback instead of a generic failure.
+ * Returns the missing table name when the given error is a SQLite "no such table" error
  *
  * @param {unknown} error - the thrown value to inspect
  * @returns {string | null} the missing table name, or null when the error is not a missing-table error
@@ -738,9 +829,7 @@ export function isMissingTableError(error: unknown): boolean {
 }
 
 /**
- * Builds an HTML fallback error page for a code, reusing the generic error template. Intended for
- * server-rendered (non-API) routes such as the admin pages, which return HTML rather than the JSON API
- * envelope.
+ * Builds the HTML error fallback page with an HTTP status code
  *
  * @param {keyof typeof http_codes} code - the HTTP status code for the page
  * @param {string} [force_comment] - a description to show instead of the code's default comment
@@ -748,7 +837,8 @@ export function isMissingTableError(error: unknown): boolean {
  */
 export function constructErrorPage(code: keyof typeof http_codes, force_comment?: string): Response {
     const { statusText, comment } = http_codes[code]
-    const data = error_http.replaceAll("{errorCode}", code.toString())
+    const data = error_http
+        .replaceAll("{errorCode}", code.toString())
         .replaceAll("{errorName}", statusText)
         .replaceAll("{errorDescription}", force_comment ? force_comment : comment)
     return new Response(data, {
@@ -759,8 +849,7 @@ export function constructErrorPage(code: keyof typeof http_codes, force_comment?
 }
 
 /**
- * Builds the HTML fallback page shown when a database table critical for a server-rendered page does not
- * exist. The page reports the situation as a 503 and, when known, names the missing table.
+ * Builds a simple fallback page in case a critical database table is missing.
  *
  * @param {unknown} error - the missing-table error (used to name the table when available)
  * @returns {Response} an HTML 503 Response describing the missing table
@@ -775,13 +864,15 @@ export function missingTableErrorPage(error: unknown): Response {
 
 /**
  * Builds the HTML fallback page shown when a page attempts to read live data (database, R2, KV)
- * in local development where Cloudflare bindings are not available. Use "npm run preview" to test
- * pages that require live data.
+ * in local development
  *
  * @returns {Response} an HTML 503 Response with a dev-mode-specific explanation
  */
 export function devModeUnavailablePage(): Response {
-    return constructErrorPage(503, "Cloudflare database and storage bindings are not available in local development. Use \"npm run preview\" (via wrangler) to test pages that require live data.")
+    return constructErrorPage(
+        503,
+        'Cloudflare database and storage bindings are not available in local development. Use "npm run preview" (via wrangler) to test pages that require live data.'
+    )
 }
 
 /**
@@ -824,4 +915,37 @@ export function hookSQLiteError(request: Request, error: Error): Response {
     } else {
         return constructResponse(request, null, code, message)
     }
-} 
+}
+
+/**
+ * Wraps a server-side database read performed directly by an admin page. When the read fails because a
+ * table critical to the operation does not exist, it resolves to the missing-table fallback page instead
+ * of letting the error bubble up as an unhandled 500; any other error propagates unchanged.
+ *
+ * The caller distinguishes the two outcomes with an `instanceof Response` check: a Response is a
+ * ready-to-return fallback page, while anything else is the read's resolved value.
+ *
+ * This lives in http.ts (alongside the error-page constructors it returns) rather than page_auth.ts
+ * because it concerns HTTP error handling for a read, not page authorization.
+ *
+ * Usage from an Astro page's frontmatter:
+ *   const composers = await guardedRead(() => listComposers(Astro.locals.cfContext))
+ *   if (composers instanceof Response) return composers
+ *
+ * @param {() => Promise<T>} read - the database read to perform
+ * @returns {Promise<T | Response>} the read's value, or the missing-table fallback page
+ */
+export async function guardedRead<T>(read: () => Promise<T>): Promise<T | Response> {
+    try {
+        return await read()
+    } catch (error) {
+        if (isMissingTableError(error)) {
+            return missingTableErrorPage(error)
+        }
+        if (isActiveRequestDev()) {
+            return devModeUnavailablePage()
+        }
+        console.log(error)
+        throw error
+    }
+}

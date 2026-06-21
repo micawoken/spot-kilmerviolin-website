@@ -6,10 +6,7 @@ author: Michael Wong
 
 ## Overview
 
-The file store holds assets — mainly images — that records can reference through their **image** field.
-Instead of pasting an external image URL into a composer, composition, or contributor, you can upload an
-image once and point the record at it. Files live in a Cloudflare R2 bucket and are reached through the
-admin file pages and the file picker on the entity forms.
+Some database fields, such as image URL, are used to display website media. To simplify how website media is managed, you can use the File Management system to upload, retrieve, replace, and delete media stored on our servers.
 
 The following actions are available from the [File Management home](/admin/files):
 
@@ -23,43 +20,43 @@ The following actions are available from the [File Management home](/admin/files
 
 (YouTube embed)
 
-## Uploading and optimizing images
+## Storage Architecture
+
+(you can skip this if you are looking for instructions)
+
+We store images in two places:
+1. In the project repository, in the folder src/files, and
+2. In Cloudflare R2 object storage.
+
+Images in the src/files folder do not consume cloud storage limits and are not deleteable without a git commit. Images in Cloudflare R2 can be modified by an active user but consume storage limits.
+
+It is encouraged to use the src/files store as much as possible.
+
+### Identifying files
+Files, after uploading, are assigned a unique file key. This key is used to look up the file and is based on the file name. You can use the built-in search function to search for file keys.
+
+### Image optimization
 
 When you upload an image, it is automatically converted to an efficient web format (WebP) and scaled
-down so it is no wider than 1600 pixels. Smaller images are never enlarged. Only the optimized version
-is kept — the original is discarded. Files that are not images (or are SVGs) are stored as-is.
+down so it is no wider than 1600 pixels. We do this to conserve storage space.
 
-Each file is identified by its **key**, which is its filename. When you upload, you may supply a name to
-set the key; otherwise the uploaded file's own name is used. Filenames are sanitized to safe characters.
-Because images are re-encoded to WebP, a file's stored format may differ from its key's extension — the
-URL still serves the correct image.
+## Adding a File
+You can either:
+1. Use [Add new file](/admin/file/add), or
+2. Add the file to the src/files folder, commit the file to the development branch on GitHub, and follow the deployment verification process.
 
-## Referencing a file from a record (the image picker)
+## Viewing a File
+Use [View file info](/admin/file/view).
 
-On the composer, composition, and contributor forms, the **Image URL** field has a **Pick file** helper.
-Type part of a file name and press **Pick file** to list matching files; selecting one fills the Image
-URL field with that file's address. The picker draws from two sources:
+## Replacing a File
+This depends on where it is stored:
+- If it is in the cloud: use [Replace existing file](/admin/file/edit)
+- If it is in src/files: replace the file in the repository, commit the change, and follow the deployment verification process.
 
-1. **Bundled images** — optimized assets published from `src/files` at build time (see below). These are
-   listed first and take priority.
-2. **Uploaded images** — files in the R2 store, served at `/api/v1/files/<key>`.
-
-## Bundled images (`src/files`)
-
-Files placed in the project's `src/files` directory are part of the codebase. During each site build they
-are optimized with the same settings as uploads and published to `/files/<name>`, and a manifest is
-generated so the file picker can offer them. Every file in `src/files` is published even if no record
-references it. Use this for images that should ship with the site itself rather than be uploaded at
-runtime.
-
-## Storage and limits
-
-The store runs on Cloudflare's R2 free plan. To stay within it:
-
-- A **storage ceiling** (9 GB) is enforced on upload; an upload that would exceed it is rejected with an
-  "Insufficient Storage" error. Current usage is shown on the [File Management home](/admin/files).
-- File reads and writes are **rate limited** so normal use stays well under the plan's monthly operation
-  allowances. If you ever hit a limit, wait a minute and try again.
+## Deleting a File
+This depends on where it is stored:
+- If it is in the cloud: use [Delete file](/admin/file/delete)
+- If it is in src/files: delete the file in the repository, commit the change, and follow the deployment verification process.
 
 ## For developers
 

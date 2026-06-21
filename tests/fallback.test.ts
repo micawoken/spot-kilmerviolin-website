@@ -1,3 +1,23 @@
+/**
+ * tests/fallback.test.ts
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import { describe, it, expect } from "vitest"
 
 import { isFallbackEmail, generateFallbackEmail, resolveIdentityEmail, FALLBACK_EMAIL_DOMAIN } from "../src/lib/api/fallback.ts"
@@ -57,6 +77,13 @@ describe("generateFallbackEmail", () => {
 describe("resolveIdentityEmail", () => {
     it("returns a real supplied email unchanged", () => {
         expect(resolveIdentityEmail("person@example.com", "First Last")).toBe("person@example.com")
+    })
+
+    it("normalizes a supplied email to lowercase (matching the case-insensitive Access address)", () => {
+        // a mixed-case address must persist lowercased so it matches the lowercased JWT email used at
+        // identity lookup; otherwise a User@Example.com login would miss its own contributor record
+        expect(resolveIdentityEmail("User@Example.com", "First Last")).toBe("user@example.com")
+        expect(resolveIdentityEmail("  Mixed.Case@Domain.COM  ", "First Last")).toBe("mixed.case@domain.com")
     })
 
     it("generates a fallback when the email is blank, whitespace, null, or omitted", () => {

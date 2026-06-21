@@ -1,12 +1,27 @@
 /**
- * 
- * 
- * 
+ *
+ *
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { errorMessage, renderSearchProgress, submitOnEnter } from "./common"
 import { fileApiUrl, listFiles } from "./connector"
-
 
 /**
  * The build-time pool of optimized src/files assets, fetched once and reused across pickers.
@@ -23,13 +38,18 @@ async function _loadBundledFiles(): Promise<FilePickerEntry[]> {
         return _bundled_files_cache
     }
     try {
-        const response = await fetch("/files-manifest.json", { headers: { "Accept": "application/json" } })
+        const response = await fetch("/files-manifest.json", { headers: { Accept: "application/json" } })
         if (!response.ok) {
             _bundled_files_cache = []
             return _bundled_files_cache
         }
-        const manifest = await response.json() as { name: string, url: string, w?: number | null, h?: number | null }[]
-        _bundled_files_cache = manifest.map(entry => ({
+        const manifest = (await response.json()) as {
+            name: string
+            url: string
+            w?: number | null
+            h?: number | null
+        }[]
+        _bundled_files_cache = manifest.map((entry) => ({
             source: "bundled" as const,
             name: entry.name,
             url: entry.url,
@@ -98,13 +118,28 @@ export async function appendBundledFiles(container_id: string): Promise<void> {
  * @param {string} results_div_id DOM id of the element in which to render results
  * @param {string} target_input_id DOM id of the image-URL input to fill on selection
  */
-export function attachFilePicker(input_id: string, button_id: string, results_div_id: string, target_input_id: string): void {
+export function attachFilePicker(
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    target_input_id: string
+): void {
     const button = document.getElementById(button_id)
     const input = document.getElementById(input_id)
     const results_div = document.getElementById(results_div_id)
     const target_input = document.getElementById(target_input_id)
-    if (!button || !(input instanceof HTMLInputElement) || !results_div || !(target_input instanceof HTMLInputElement)) {
-        console.warn("File picker elements not found or invalid: ", { input_id, button_id, results_div_id, target_input_id })
+    if (
+        !button ||
+        !(input instanceof HTMLInputElement) ||
+        !results_div ||
+        !(target_input instanceof HTMLInputElement)
+    ) {
+        console.warn("File picker elements not found or invalid: ", {
+            input_id,
+            button_id,
+            results_div_id,
+            target_input_id
+        })
         return
     }
     submitOnEnter(input, button)
@@ -116,17 +151,17 @@ export function attachFilePicker(input_id: string, button_id: string, results_di
             const bundled = await _loadBundledFiles()
             const r2_files = await listFiles(true)
             const r2_entries: FilePickerEntry[] = Array.isArray(r2_files)
-                ? (r2_files as FileMeta[]).map(file => ({
-                    source: "r2" as const,
-                    name: file.key,
-                    url: fileApiUrl(file.key),
-                    width: file.width,
-                    height: file.height
-                }))
+                ? (r2_files as FileMeta[]).map((file) => ({
+                      source: "r2" as const,
+                      name: file.key,
+                      url: fileApiUrl(file.key),
+                      width: file.width,
+                      height: file.height
+                  }))
                 : []
             const all_entries = [...bundled, ...r2_entries]
             const query = input.value.trim().toLowerCase()
-            const matches = all_entries.filter(entry => entry.name.toLowerCase().includes(query))
+            const matches = all_entries.filter((entry) => entry.name.toLowerCase().includes(query))
             results_div.textContent = ""
             if (matches.length === 0) {
                 results_div.textContent = "No matching files found."
@@ -178,7 +213,12 @@ export function attachFilePicker(input_id: string, button_id: string, results_di
  * @param {string} results_div_id DOM id of the element in which to render results
  * @param {(link: HTMLAnchorElement, key: string) => void} bindResult configures each result link
  */
-function _attachFileSearch(input_id: string, button_id: string, results_div_id: string, bindResult: (link: HTMLAnchorElement, key: string) => void): void {
+function _attachFileSearch(
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    bindResult: (link: HTMLAnchorElement, key: string) => void
+): void {
     const button = document.getElementById(button_id)
     const input = document.getElementById(input_id)
     const results_div = document.getElementById(results_div_id)
@@ -194,7 +234,7 @@ function _attachFileSearch(input_id: string, button_id: string, results_div_id: 
             const r2_files = await listFiles(true)
             const files: FileMeta[] = Array.isArray(r2_files) ? (r2_files as FileMeta[]) : []
             const query = input.value.trim().toLowerCase()
-            const matches = files.filter(file => file.key.toLowerCase().includes(query))
+            const matches = files.filter((file) => file.key.toLowerCase().includes(query))
             results_div.textContent = ""
             if (matches.length === 0) {
                 results_div.textContent = "No matching files found."
@@ -241,7 +281,12 @@ export function attachFileSearch(input_id: string, button_id: string, results_di
  * @param {string} results_div_id DOM id of the element in which to render results
  * @param {(key: string) => void} onSelect handles a selected file key (e.g. fills a form field)
  */
-export function attachFileSearchInline(input_id: string, button_id: string, results_div_id: string, onSelect: (key: string) => void): void {
+export function attachFileSearchInline(
+    input_id: string,
+    button_id: string,
+    results_div_id: string,
+    onSelect: (key: string) => void
+): void {
     _attachFileSearch(input_id, button_id, results_div_id, (link, key) => {
         link.href = "#"
         link.addEventListener("click", (e: Event) => {
@@ -267,7 +312,13 @@ export function attachFileSearchInline(input_id: string, button_id: string, resu
  * @param {string} display_id DOM id of the element the usage text is rendered into
  * @param {string} [key_input_id] DOM id of the key input (replace flow only); subtracts the replaced file's size
  */
-export function attachStorageEstimate(used: number, max: number, file_input_id: string, display_id: string, key_input_id?: string): void {
+export function attachStorageEstimate(
+    used: number,
+    max: number,
+    file_input_id: string,
+    display_id: string,
+    key_input_id?: string
+): void {
     const file_input = document.getElementById(file_input_id)
     const display = document.getElementById(display_id)
     if (!(file_input instanceof HTMLInputElement) || !display) {
@@ -277,7 +328,7 @@ export function attachStorageEstimate(used: number, max: number, file_input_id: 
     const key_input = key_input_id ? document.getElementById(key_input_id) : null
     const GB = 1024 * 1024 * 1024
     const gb = (bytes: number) => (Math.max(0, bytes) / GB).toFixed(2)
-    const pct = (bytes: number) => max > 0 ? Math.round((bytes / max) * 100) : 0
+    const pct = (bytes: number) => (max > 0 ? Math.round((bytes / max) * 100) : 0)
     // human-readable size for the (typically sub-GB) selected file
     const human = (bytes: number) => {
         if (bytes < 1024) return `${bytes} B`

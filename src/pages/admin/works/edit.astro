@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/works/edit.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -9,7 +29,8 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { COMPOSITION } from "../../../lib/api/d1"
 import { getComposition } from "../../../lib/api/database"
-import { guardPage, guardedRead } from "../../../lib/api/page_auth"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
 
 export const prerender = false
 
@@ -43,64 +64,122 @@ const hidden_form = use_id && composition_data ? true : false
 // prefilled, so surface that clearly rather than silently dropping back to the ID entry form
 const prefill_failed = Boolean(id) && !use_id
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Composition`} description="Edit an existing composition in the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Edit a Composition</h2>
-    <p class="general-infohelp">Only the primary contributors of a composition (or users with the reviewer role) may edit it. Administrators may use elevation to bypass this lockout.</p>
-    { prefill_failed ? <p class="general-warning">No composition was found for ID #{id}, so the edit form could not be prefilled. Enter an ID below to try again.</p> : null }
-    <IDEntryForm output_div={"generic-form-composition"} hidden={hidden_form} search={true} />
-    <CompositionForm required={false} hidden={!hidden_form} composition={use_id ? composition_data : null} patch={true} show_elevate={is_admin} />
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { getForm, genHandler, getTransactionElem, retrieveObjectFromIDEntry, prefillForm, emitError, attachContributorManagement } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-import { attachSearchHelper, attachKeywordSearchInline } from "../../../scripts/keyword_search"
-        // patch in editing/updating form (partial edits via PATCH)
-        const edit_form = getForm("composition", APIOpCode.UPDATE_PARTIAL)
-        edit_form.addEventListener("submit", genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "composition"))
-        // manage the primary/additional contributor fields (hidden + server-recorded unless an admin opts into direct editing)
-        attachContributorManagement(edit_form, true)
-        // patch in id entry form
-        const id_entry_form = getForm("composition", APIOpCode.READ)
-        id_entry_form.addEventListener("submit", async (evt: Event) => {
-            evt.preventDefault()
-            try {
-                const record = await retrieveObjectFromIDEntry(id_entry_form, "composition") as CompositionRecord | null
-                if (!record) {
-                    throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
-                }
-                // populate the fields, and hide the input form
-                prefillForm("composition", record)
-                // re-evaluate the additional-primary visibility now that the form carries the record's values
-                edit_form.dispatchEvent(new CustomEvent("composition:prefilled"))
-                document.getElementById("generic-form-composition")?.classList.remove("hidden")
-                // hiding the id-entry container also hides its embedded keyword-search helper
-                document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
-            } catch (error) {
-                console.error(error)
-                emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Edit Composition`}
+            description="Edit an existing composition in the database"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Edit a Composition</h2>
+            <p class="general-infohelp">
+                Only the primary contributors of a composition (or users with the reviewer role) may edit it.
+                Administrators may use elevation to bypass this lockout.
+            </p>
+            {
+                prefill_failed ? (
+                    <p class="general-warning">
+                        No composition was found for ID #{id}, so the edit form could not be prefilled. Enter an ID
+                        below to try again.
+                    </p>
+                ) : null
             }
-        })
-        // wire the ID lookup helpers
-        attachSearchHelper("composer", "form-composition-searchhelper-composer_id-input", "form-composition-searchhelper-composer_id-button", "form-composition-searchhelper-composer_id-results", "form-composition-composer_id")
-        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_1-input", "form-composition-searchhelper-contrib_primary_1-button", "form-composition-searchhelper-contrib_primary_1-results", "form-composition-contrib_primary_1")
-        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_2-input", "form-composition-searchhelper-contrib_primary_2-button", "form-composition-searchhelper-contrib_primary_2-results", "form-composition-contrib_primary_2")
-        // keyword lookup scoped to compositions; selecting a hit fills the ID box and submits the ID entry
-        // form (prefilling the edit form on this page) rather than navigating away
-        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "compositions", (result) => {
-            const id_input = document.getElementById("form-id-entry-id")
-            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
-            id_entry_form.requestSubmit()
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+            <IDEntryForm output_div={"generic-form-composition"} hidden={hidden_form} search={true} />
+            <CompositionForm
+                required={false}
+                hidden={!hidden_form}
+                composition={use_id ? composition_data : null}
+                patch={true}
+                show_elevate={is_admin}
+            />
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import {
+                    getForm,
+                    genHandler,
+                    getTransactionElem,
+                    retrieveObjectFromIDEntry,
+                    prefillForm,
+                    emitError,
+                    attachContributorManagement
+                } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachSearchHelper, attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                // patch in editing/updating form (partial edits via PATCH)
+                const edit_form = getForm("composition", APIOpCode.UPDATE_PARTIAL)
+                edit_form.addEventListener(
+                    "submit",
+                    genHandler(edit_form, getTransactionElem(), APIOpCode.UPDATE_PARTIAL, "composition")
+                )
+                // manage the primary/additional contributor fields (hidden + server-recorded unless an admin opts into direct editing)
+                attachContributorManagement(edit_form, true)
+                // patch in id entry form
+                const id_entry_form = getForm("composition", APIOpCode.READ)
+                id_entry_form.addEventListener("submit", async (evt: Event) => {
+                    evt.preventDefault()
+                    try {
+                        const record = (await retrieveObjectFromIDEntry(
+                            id_entry_form,
+                            "composition"
+                        )) as CompositionRecord | null
+                        if (!record) {
+                            throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
+                        }
+                        // populate the fields, and hide the input form
+                        prefillForm("composition", record)
+                        // re-evaluate the additional-primary visibility now that the form carries the record's values
+                        edit_form.dispatchEvent(new CustomEvent("composition:prefilled"))
+                        document.getElementById("generic-form-composition")?.classList.remove("hidden")
+                        // hiding the id-entry container also hides its embedded keyword-search helper
+                        document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
+                    } catch (error) {
+                        console.error(error)
+                        emitError(error instanceof Error ? error : new Error(String(error)), "transaction-status")
+                    }
+                })
+                // wire the ID lookup helpers
+                attachSearchHelper(
+                    "composer",
+                    "form-composition-searchhelper-composer_id-input",
+                    "form-composition-searchhelper-composer_id-button",
+                    "form-composition-searchhelper-composer_id-results",
+                    "form-composition-composer_id"
+                )
+                attachSearchHelper(
+                    "contributor",
+                    "form-composition-searchhelper-contrib_primary_1-input",
+                    "form-composition-searchhelper-contrib_primary_1-button",
+                    "form-composition-searchhelper-contrib_primary_1-results",
+                    "form-composition-contrib_primary_1"
+                )
+                attachSearchHelper(
+                    "contributor",
+                    "form-composition-searchhelper-contrib_primary_2-input",
+                    "form-composition-searchhelper-contrib_primary_2-button",
+                    "form-composition-searchhelper-contrib_primary_2-results",
+                    "form-composition-contrib_primary_2"
+                )
+                // keyword lookup scoped to compositions; selecting a hit fills the ID box and submits the ID entry
+                // form (prefilling the edit form on this page) rather than navigating away
+                attachKeywordSearchInline(
+                    "form-id-entry-search-input",
+                    "form-id-entry-search-button",
+                    "form-id-entry-search-results",
+                    () => "compositions",
+                    (result) => {
+                        const id_input = document.getElementById("form-id-entry-id")
+                        if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+                        id_entry_form.requestSubmit()
+                    }
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

@@ -1,25 +1,46 @@
 /**
  * pages/api/v1/contributors.ts
- * 
+ *
  * Manages contributor records used for identifying project contributors and system authorization
- * 
+ *
  * Note: this is not the intended endpoint for adding or removing contributors.
  *  - Add: POST /api/v1/identity with autoenrollment enabled
  *  - Remove: DELETE /api/v1/identity with autodeactivation enabled
- * 
+ *
  * These two endpoints in this file provide full management of the contributor table by administrators.
- * 
+ *
  * Since the contributors table is used for security-relevant operations,
  * most API endpoints default to least-privileged access and include a meta field
  * to request elevated access if authorized.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { _constructHeaders, constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
+import {
+    _constructHeaders,
+    constructResponse,
+    constructResponseErrorHook,
+    lastModifiedHeader
+} from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
 import { addContributor, listContributors } from "../../../lib/api/database"
-import { _stateTypeAssertCompleteContributor, CONTRIBUTOR } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteContributor, CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
 import { authEnabled } from "../../../lib/api/environment"
 import { resolveIdentityEmail } from "../../../lib/api/fallback"
 
@@ -34,9 +55,9 @@ import { resolveIdentityEmail } from "../../../lib/api/fallback"
  * Meta: optional
  * Meta fields:
  *  - full: {boolean} if true, returns the full contributor records (subject to redaction) instead of just IDs
- * 
+ *
  * Body: none
- * 
+ *
  * @param context - the Astro API context
  * @returns a Response object with payload of string[] of contributor IDs or D1Contributor[] of complete contributor records
  */
@@ -75,16 +96,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                     return constructResponse(request, data, 200, undefined, last_modified)
                 }
                 const self_id = locals.identity?.id
-                const redacted = data.map(record =>
-                    record.id === self_id
-                        ? record
-                        : Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRIBUTOR.protected!.includes(key)))
+                const redacted = data.map((record) =>
+                    record.id === self_id ? record : redactProtected(CONTRIBUTOR, record)
                 )
                 return constructResponse(request, redacted, 200, undefined, last_modified)
             case false:
             case undefined:
                 // return contributor IDs only
-                const ids = data.map(record => record.id)
+                const ids = data.map((record) => record.id)
                 return constructResponse(request, ids, 200, undefined, last_modified)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be boolean")
@@ -98,15 +117,15 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 /**
  * POST /api/v1/contributors
  * Adds a contributor record by API request, used for the administrator pages
- * 
+ *
  * Permissions required: *admin*
- * 
+ *
  * Meta: none
  * Body: required, Contributor object
- * 
+ *
  * @param context - the Astro API context
  * @return a Response object with the ID of the new record, or an error
- * 
+ *
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -140,9 +159,8 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     try {
         const id = await addContributor(context.locals.cfContext, record)
         return constructResponse(request, null, 201, undefined, {
-                "Location": `/api/v1/contributors/${id}`
-            }
-        )
+            Location: `/api/v1/contributors/${id}`
+        })
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }

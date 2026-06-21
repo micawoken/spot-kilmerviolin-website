@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/iam/list.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -7,7 +27,7 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 import { list_users } from "../../../lib/api/access_iam_mgmt"
 import { listContributors } from "../../../lib/api/database"
 import { isFallbackEmail } from "../../../lib/api/fallback"
-import { isMissingTableError, missingTableErrorPage } from "../../../lib/api/http"
+import { isMissingTableError } from "../../../lib/api/http"
 import { guardPage } from "../../../lib/api/page_auth"
 
 export const prerender = false
@@ -101,7 +121,7 @@ try {
                 type_label: "—",
                 type_href: null,
                 roles_label: "—",
-                roles_href: null,
+                roles_href: null
             }
         }
         return {
@@ -120,7 +140,7 @@ try {
             type_href: withParam(record.admin ? "/admin/user/demote" : "/admin/user/elevate", email),
             roles_label: record.roles.length > 0 ? record.roles.join(", ") : "None",
             // link to the add/remove roles editor
-            roles_href: withParam("/admin/iam/edit", email),
+            roles_href: withParam("/admin/iam/edit", email)
         }
     })
     // Contributors whose identity_email is not in Access are "unlinked": they hold an authorization
@@ -136,7 +156,10 @@ try {
                 name: contributor.name,
                 id: contributor.id,
                 status_label: contributor.active ? "Active" : "Inactive",
-                status_href: withParam(contributor.active ? "/admin/user/deactivate" : "/admin/user/activate", contributor.identity_email),
+                status_href: withParam(
+                    contributor.active ? "/admin/user/deactivate" : "/admin/user/activate",
+                    contributor.identity_email
+                ),
                 // a fallback address is a placeholder; surface "Missing" instead of the generated value
                 email_label: is_fallback ? "Missing" : contributor.identity_email,
                 // a real address links to "Add User" to enroll it into Access; a fallback has no real
@@ -146,7 +169,7 @@ try {
                 edit_href,
                 info_href: `/admin/contributors/info?id=${encodeURIComponent(String(contributor.id))}`,
                 type_label: contributor.admin ? "Administrator" : "Standard",
-                roles_label: contributor.roles.length > 0 ? contributor.roles.join(", ") : "None",
+                roles_label: contributor.roles.length > 0 ? contributor.roles.join(", ") : "None"
             }
         })
 } catch (e) {
@@ -158,110 +181,159 @@ try {
     console.error("Failed to fetch user list:", e)
 }
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Users`} description="List users in the access policy"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>List Users</h2>
-    <p class="general-infohelp">To modify user properties, click the current value for that property.</p>
-    <div id="iam-list-results">
-        {
-            error ? (
-                <p class="general-warning">Error: {error}</p>
-            ) : rows.length === 0 ? (
-                <p>No users found.</p>
-            ) : (
-                <table class="iam-table">
-                    <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>Status</th>
-                            <th>Contributor</th>
-                            <th>Type</th>
-                            <th>Roles</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((row) => (
-                            <tr>
-                                <td>{row.email_href ? <a href={row.email_href}>{row.email}</a> : row.email}{row.is_self && <span class="iam-self"> (you)</span>}</td>
-                                <td>{row.status_href ? <a href={row.status_href}>{row.status_label}</a> : row.status_label}</td>
-                                <td>{row.contributor_href ? <a href={row.contributor_href}>{row.contributor_label}</a> : row.contributor_label}</td>
-                                <td>{row.type_href ? <a href={row.type_href}>{row.type_label}</a> : row.type_label}</td>
-                                <td>{row.roles_href ? <a href={row.roles_href}>{row.roles_label}</a> : row.roles_label}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            )
-        }
-    </div>
-    <p id="transaction-status">{error ? "Failed to load the user list." : `${rows.length} user(s) listed.`}</p>
-    {!error && (
-        <>
-            <h2>Unlinked Contributors</h2>
-            <p class="general-infohelp">Contributor records whose identity email is not in the Cloudflare Access policy. These users are unable to log-on.</p>
-            <div id="iam-unlinked-results">
-                {unlinked.length === 0 ? (
-                    <p>No unlinked contributors found.</p>
-                ) : (
-                    <table class="iam-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Identity Email</th>
-                                <th>Status</th>
-                                <th>Contributor</th>
-                                <th>Type</th>
-                                <th>Roles</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {unlinked.map((row) => (
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Users`} description="List users in the access policy" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>List Users</h2>
+            <p class="general-infohelp">To modify user properties, click the current value for that property.</p>
+            <div id="iam-list-results">
+                {
+                    error ? (
+                        <p class="general-warning">Error: {error}</p>
+                    ) : rows.length === 0 ? (
+                        <p>No users found.</p>
+                    ) : (
+                        <table class="iam-table">
+                            <thead>
                                 <tr>
-                                    <td><a href={row.info_href}>{row.name}</a></td>
-                                    <td><a href={row.email_href}>{row.email_label}</a></td>
-                                    <td>{row.status_href ? <a href={row.status_href}>{row.status_label}</a> : row.status_label}</td>
-                                    <td><a href={row.edit_href}>{` ID #${String(row.id)}`}</a></td>
-                                    <td><a href={row.edit_href}>{row.type_label}</a></td>
-                                    <td><a href={row.edit_href}>{row.roles_label}</a></td>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Contributor</th>
+                                    <th>Type</th>
+                                    <th>Roles</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                            </thead>
+                            <tbody>
+                                {rows.map((row) => (
+                                    <tr>
+                                        <td>
+                                            {row.email_href ? <a href={row.email_href}>{row.email}</a> : row.email}
+                                            {row.is_self && <span class="iam-self"> (you)</span>}
+                                        </td>
+                                        <td>
+                                            {row.status_href ? (
+                                                <a href={row.status_href}>{row.status_label}</a>
+                                            ) : (
+                                                row.status_label
+                                            )}
+                                        </td>
+                                        <td>
+                                            {row.contributor_href ? (
+                                                <a href={row.contributor_href}>{row.contributor_label}</a>
+                                            ) : (
+                                                row.contributor_label
+                                            )}
+                                        </td>
+                                        <td>
+                                            {row.type_href ? (
+                                                <a href={row.type_href}>{row.type_label}</a>
+                                            ) : (
+                                                row.type_label
+                                            )}
+                                        </td>
+                                        <td>
+                                            {row.roles_href ? (
+                                                <a href={row.roles_href}>{row.roles_label}</a>
+                                            ) : (
+                                                row.roles_label
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )
+                }
             </div>
-            <p id="unlinked-status">{`${unlinked.length} unlinked contributor(s) listed.`}</p>
-        </>
-    )}
-    </main>
-    <AdminFooter />
-    <style>
-        /* invisible table: no borders or background, just aligned columns */
-        .iam-table {
-            border-collapse: collapse;
-            border: none;
-            background: transparent;
-        }
-        .iam-table th,
-        .iam-table td {
-            border: none;
-            text-align: left;
-            padding: 0.25rem 1.5rem 0.25rem 0;
-        }
-        /* links read as ordinary text (inherit color) but stay clickable */
-        .iam-table a {
-            color: inherit;
-        }
-        /* de-emphasized marker identifying the caller's own row */
-        .iam-self {
-            opacity: 0.6;
-        }
-    </style>
-</body>
+            <p id="transaction-status">{error ? "Failed to load the user list." : `${rows.length} user(s) listed.`}</p>
+            {
+                !error && (
+                    <>
+                        <h2>Unlinked Contributors</h2>
+                        <p class="general-infohelp">
+                            Contributor records whose identity email is not in the Cloudflare Access policy. These users
+                            are unable to log-on.
+                        </p>
+                        <div id="iam-unlinked-results">
+                            {unlinked.length === 0 ? (
+                                <p>No unlinked contributors found.</p>
+                            ) : (
+                                <table class="iam-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Identity Email</th>
+                                            <th>Status</th>
+                                            <th>Contributor</th>
+                                            <th>Type</th>
+                                            <th>Roles</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {unlinked.map((row) => (
+                                            <tr>
+                                                <td>
+                                                    <a href={row.info_href}>{row.name}</a>
+                                                </td>
+                                                <td>
+                                                    <a href={row.email_href}>{row.email_label}</a>
+                                                </td>
+                                                <td>
+                                                    {row.status_href ? (
+                                                        <a href={row.status_href}>{row.status_label}</a>
+                                                    ) : (
+                                                        row.status_label
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <a href={row.edit_href}>{` ID #${String(row.id)}`}</a>
+                                                </td>
+                                                <td>
+                                                    <a href={row.edit_href}>{row.type_label}</a>
+                                                </td>
+                                                <td>
+                                                    <a href={row.edit_href}>{row.roles_label}</a>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <p id="unlinked-status">{`${unlinked.length} unlinked contributor(s) listed.`}</p>
+                    </>
+                )
+            }
+        </main>
+        <AdminFooter />
+        <style>
+            /* invisible table: no borders or background, just aligned columns */
+            .iam-table {
+                border-collapse: collapse;
+                border: none;
+                background: transparent;
+            }
+            .iam-table th,
+            .iam-table td {
+                border: none;
+                text-align: left;
+                padding: 0.25rem 1.5rem 0.25rem 0;
+            }
+            /* links read as ordinary text (inherit color) but stay clickable */
+            .iam-table a {
+                color: inherit;
+            }
+            /* de-emphasized marker identifying the caller's own row */
+            .iam-self {
+                opacity: 0.6;
+            }
+        </style>
+    </body>
 </html>

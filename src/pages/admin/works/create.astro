@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/works/create.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -8,32 +28,62 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 export const prerender = false
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Add Composition`} description="Add a new composition to the database"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Add a New Composition</h2>
-    <CompositionForm required={true} />
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { getForm, genHandler, getTransactionElem, attachContributorManagement } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        import { attachSearchHelper } from "../../../scripts/keyword_search"
-        const create_form = getForm("composition", APIOpCode.CREATE)
-        create_form.addEventListener("submit", genHandler(create_form, getTransactionElem(), APIOpCode.CREATE, "composition"))
-        // manage the primary/additional contributor fields (hidden + auto-assigned unless an admin opts into direct editing)
-        attachContributorManagement(create_form, false)
-        // wire the ID lookup helpers
-        attachSearchHelper("composer", "form-composition-searchhelper-composer_id-input", "form-composition-searchhelper-composer_id-button", "form-composition-searchhelper-composer_id-results", "form-composition-composer_id")
-        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_1-input", "form-composition-searchhelper-contrib_primary_1-button", "form-composition-searchhelper-contrib_primary_1-results", "form-composition-contrib_primary_1")
-        attachSearchHelper("contributor", "form-composition-searchhelper-contrib_primary_2-input", "form-composition-searchhelper-contrib_primary_2-button", "form-composition-searchhelper-contrib_primary_2-results", "form-composition-contrib_primary_2")
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Add Composition`}
+            description="Add a new composition to the database"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Add a New Composition</h2>
+            <CompositionForm required={true} />
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import {
+                    getForm,
+                    genHandler,
+                    getTransactionElem,
+                    attachContributorManagement
+                } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachSearchHelper } from "../../../scripts/keyword_search"
+                const create_form = getForm("composition", APIOpCode.CREATE)
+                create_form.addEventListener(
+                    "submit",
+                    genHandler(create_form, getTransactionElem(), APIOpCode.CREATE, "composition")
+                )
+                // manage the primary/additional contributor fields (hidden + auto-assigned unless an admin opts into direct editing)
+                attachContributorManagement(create_form, false)
+                // wire the ID lookup helpers
+                attachSearchHelper(
+                    "composer",
+                    "form-composition-searchhelper-composer_id-input",
+                    "form-composition-searchhelper-composer_id-button",
+                    "form-composition-searchhelper-composer_id-results",
+                    "form-composition-composer_id"
+                )
+                attachSearchHelper(
+                    "contributor",
+                    "form-composition-searchhelper-contrib_primary_1-input",
+                    "form-composition-searchhelper-contrib_primary_1-button",
+                    "form-composition-searchhelper-contrib_primary_1-results",
+                    "form-composition-contrib_primary_1"
+                )
+                attachSearchHelper(
+                    "contributor",
+                    "form-composition-searchhelper-contrib_primary_2-input",
+                    "form-composition-searchhelper-contrib_primary_2-button",
+                    "form-composition-searchhelper-contrib_primary_2-results",
+                    "form-composition-contrib_primary_2"
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

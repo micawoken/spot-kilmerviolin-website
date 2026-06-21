@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/user/elevate.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -11,59 +31,83 @@ export const prerender = false
 // prefill the identity email when arriving from a user-list link (?identity_email=), if it is valid
 const prefill_email = emailFromParam(Astro.url)
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Promote to Administrator`} description="Promote a user to administrator"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Promote a User to Administrator</h2>
-    <p class="general-warning">Administrators have full control over the database, user access, and site management, including this page. Only promote users you fully trust. Requires administrator permissions.</p>
-    <div class="generic-form">
-        <form id="user-form-elevate" class="generic-form">
-            <fieldset>
-                <legend>User Identity Email</legend>
-                <input type="email" id="user-form-elevate-email" name="email" value={prefill_email} required />
-            </fieldset>
-            <button type="submit">Submit</button>
-        </form>
-    </div>
-    <p id="transaction-status">Your request status will show here after you press "Submit".</p>
-    <script>
-        import { elevateIdentity } from "../../../scripts/connector"
-        import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Promote to Administrator`}
+            description="Promote a user to administrator"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Promote a User to Administrator</h2>
+            <p class="general-warning">
+                Administrators have full control over the database and user management. This operation requires
+                administrator permissions.
+            </p>
+            <div class="generic-form">
+                <form id="user-form-elevate" class="generic-form" novalidate>
+                    <fieldset>
+                        <legend>User Identity Email</legend>
+                        <div class="field-row">
+                            <input
+                                type="email"
+                                id="user-form-elevate-email"
+                                name="email"
+                                value={prefill_email}
+                                required
+                            />
+                        </div>
+                    </fieldset>
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <script>
+                import { elevateIdentity } from "../../../scripts/connector"
+                import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"
+                import { attachFormValidation, validateFormFields } from "../../../scripts/form_validate"
 
-        const form = document.getElementById("user-form-elevate") as HTMLFormElement
-        const message = getTransactionElem()
+                const form = document.getElementById("user-form-elevate") as HTMLFormElement
+                const message = getTransactionElem()
 
-        form.addEventListener("submit", async (evt: Event) => {
-            evt.preventDefault()
-            const form_data = new FormData(form)
-            const email = String(form_data.get("email") ?? "")
-            if (!email) {
-                message.textContent = "Error: an identity email address is required"
-                return
-            }
-            if (!confirm(`Are you sure you want to promote ${email} to administrator?`)) {
-                return
-            }
-            message.textContent = "Processing request..."
-            disableInput(form)
-            try {
-                await elevateIdentity([email])
-                message.textContent = `Request succeeded: promoted ${email} to administrator`
-            } catch (error) {
-                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-                console.error(error)
-            } finally {
-                enableInput(form)
-            }
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+                // live inline email validation, mirroring the entity forms
+                attachFormValidation(form)
+
+                form.addEventListener("submit", async (evt: Event) => {
+                    evt.preventDefault()
+                    // submit gate: reject a malformed email with an inline hint before confirming or sending
+                    if (!validateFormFields(form)) {
+                        message.textContent = "Please correct the highlighted fields and try again."
+                        return
+                    }
+                    const form_data = new FormData(form)
+                    const email = String(form_data.get("email") ?? "")
+                    if (!email) {
+                        message.textContent = "Error: an identity email address is required"
+                        return
+                    }
+                    if (!confirm(`Are you sure you want to promote ${email} to administrator?`)) {
+                        return
+                    }
+                    message.textContent = "Processing request..."
+                    disableInput(form)
+                    try {
+                        await elevateIdentity([email])
+                        message.textContent = `Request succeeded: promoted ${email} to administrator`
+                    } catch (error) {
+                        message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                        console.error(error)
+                    } finally {
+                        enableInput(form)
+                    }
+                })
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

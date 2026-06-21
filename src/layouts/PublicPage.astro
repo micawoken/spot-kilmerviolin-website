@@ -1,6 +1,6 @@
 ---
 /**
- * src/layouts/PublicPage.astro
+ * layouts/PublicPage.astro
  *
  * Base layout for public-facing pages, the public analog of AdminDocument. It renders the shared
  * public chrome (PublicHead in the document head, PublicHeader and PublicFooter around the body)
@@ -9,30 +9,47 @@
  * PublicHead emits the staging noindex directive, so every page built on this layout is kept out of
  * search indexes on the staging preview. Public pages are server-rendered (output: "server"); leave
  * them un-prerendered so the environment is resolved per request.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-import PublicHead from "../components/PublicHead.astro";
-import PublicHeader from "../components/PublicHeader.astro";
-import PublicFooter from "../components/PublicFooter.astro";
-import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+import PublicHead from "../components/PublicHead.astro"
+import PublicHeader from "../components/PublicHeader.astro"
+import PublicFooter from "../components/PublicFooter.astro"
+import { SITE_TITLE, SITE_DESCRIPTION } from "../consts"
 
 interface Props {
-    title?: string;
-    description?: string;
-    image?: string;
+    title?: string
+    description?: string
+    image?: string
 }
 
-const { title = SITE_TITLE, description = SITE_DESCRIPTION, image } = Astro.props;
+const { title = SITE_TITLE, description = SITE_DESCRIPTION, image } = Astro.props
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <PublicHead title={title} description={description} image={image} />
-</head>
-<body>
-    <PublicHeader />
-    <main>
-        <slot />
-    </main>
-    <PublicFooter />
-</body>
+    <head>
+        <PublicHead title={title} description={description} image={image} />
+    </head>
+    <body>
+        <PublicHeader />
+        <main>
+            <slot />
+        </main>
+        <PublicFooter />
+    </body>
 </html>
