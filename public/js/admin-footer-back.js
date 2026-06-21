@@ -1,9 +1,10 @@
----
-/**
- * components/PublicFooter.astro
+/*
+ * admin-footer-back.js
  *
- * Public-facing site footer, the public analog of AdminFooter. Renders the CMS-managed static footer
- * content (the "footer" file, via lib/content/footer.ts) with the copyright year computed at render time.
+ * "Back" goes to the previous page in history. Served as a same-origin static file (not an Astro
+ * <script>, which the bundler inlines for small scripts) so the admin Content-Security-Policy can keep
+ * script-src 'self' with no inline-script allowance. The anchor's href="/admin" remains the no-JS
+ * fallback, so this only overrides navigation when history exists.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -21,13 +22,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-import { getFooter } from "../lib/content/footer"
 
-const today = new Date()
-const { organization, tagline } = getFooter()
----
-
-<footer>
-    <p>&copy; {today.getFullYear()} {organization ?? "TBD"}.</p>
-    {tagline && <p class="footer-tagline">{tagline}</p>}
-</footer>
+const back_link = document.getElementById("admin-footer-back")
+if (back_link) {
+    back_link.addEventListener("click", (event) => {
+        if (window.history.length > 1) {
+            event.preventDefault()
+            window.history.back()
+        }
+    })
+}

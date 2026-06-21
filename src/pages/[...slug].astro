@@ -1,0 +1,56 @@
+---
+/**
+ * pages/[...slug].astro
+ *
+ * Catch-all route for the CMS-authored public pages (the "pages" collection; see .pages.yml and
+ * content.config.ts). Resolves the requested page by its slug at request time and renders its markdoc
+ * body through the PublicPage layout.
+ *
+ * As a rest-parameter route this has the lowest routing priority, so explicit files (index.md,
+ * privacy-policy.astro, the /admin and /api trees) always win; only otherwise-unmatched paths reach
+ * here, and an unknown slug returns 404.
+ *
+ * Server-rendered (not prerendered) like the rest of the public site: the environment — and the staging
+ * noindex directive in PublicHead — is resolved per request from the hostname.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { getEntry, render } from "astro:content"
+import PublicPage from "../layouts/PublicPage.astro"
+import FormattedDate from "../components/FormattedDate.astro"
+
+export const prerender = false
+
+const { slug } = Astro.params
+
+// the collection id is the file path under src/content/pages without extension, which matches the slug
+const entry = slug ? await getEntry("pages", slug) : undefined
+if (!entry) {
+    return new Response(null, { status: 404, statusText: "Not Found" })
+}
+
+const { Content } = await render(entry)
+---
+
+<PublicPage title={entry.data.title} description={entry.data.description}>
+    <article>
+        <h1>{entry.data.title}</h1>
+        <p class="last-updated">Last updated: <FormattedDate date={entry.data.pubDate} /></p>
+        <Content />
+    </article>
+</PublicPage>

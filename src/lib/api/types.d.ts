@@ -306,6 +306,9 @@ interface Identity extends BaseIdentity {
  * @property {boolean} user_activation - Whether the role allows a user to activate user accounts (their own, and others)
  * @property {boolean} user_addition - Whether the role allows a user to add new users
  * @property {boolean} conferrable - Whether the role can be conferred by a non-administrator possessing the role to another user
+ * @property {boolean} cms_editor - Whether the role provides authorization to edit site content through the CMS.
+ *   The CMS is now external (Pages CMS, see docs/dev/pages-cms.md) and is no longer gated in-app, so this
+ *   permission is currently unused; it is retained for a possible future worker-hosted CMS that would gate on it.
  *
  * Contribution edit lockout: by default, users are granted read-only access to entries made by others, which is enforced by the API.
  * By default, administrators bypass the lockout, but certain use-cases (such as peer review) merit a lift of this restriction so that
@@ -319,6 +322,7 @@ interface RoleProfile {
     user_activation: boolean
     user_addition: boolean
     conferrable: boolean
+    cms_editor: boolean
 }
 
 // D1 TYPES

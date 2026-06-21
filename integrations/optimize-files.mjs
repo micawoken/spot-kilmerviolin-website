@@ -40,7 +40,9 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import sharp from "sharp"
 
-// keep these in sync with the exports of src/lib/api/images.ts (CANON_PORTRAIT / CANON_LANDSCAPE)
+// This build-time integration runs under Node (not the Worker runtime) and cannot read the Cloudflare
+// `env`, so these mirror the runtime config literally: TARGET_QUALITY tracks the TARGET_IMAGE_QUALITY
+// wrangler var, and CANON tracks CANON_PORTRAIT / CANON_LANDSCAPE in src/lib/api/images.ts. Keep in sync.
 const TARGET_QUALITY = 82
 const CANON = { portrait: { w: 1280, h: 1600 }, landscape: { w: 1600, h: 1280 } }
 const PORTRAIT_RATIO = CANON.portrait.w / CANON.portrait.h // 0.8

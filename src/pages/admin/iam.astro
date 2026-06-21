@@ -45,6 +45,7 @@ const identity = locals.identity
         <!-- Header -->
         <AdminHeader identity={identity} welcome={true} />
         <main class="admin-main" role="main">
+            <h2>Identity & Access Management</h2>
             <p class="general-infohelp">
                 Identity & Access Management controls who can log into this system and what they are allowed to do once
                 connected.
@@ -52,7 +53,6 @@ const identity = locals.identity
             <!-- Pages for IAM, site info/mgmt, and advanced -->
             <div class="flex-container">
                 <div class="column">
-                    <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>
                     <ul>
                         <li><a href="/admin/iam/whoami" class="col-item-link">My authorization info</a></li>
                         <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>

@@ -1,0 +1,16 @@
+name: Verify main branch is always pushed to from staging and never development
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+jobs:
+  check-branches:
+    if: github.head_ref != 'staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch order
+        run: |
+          echo "Branch sequence error: pull requests to main must originate from staging; push to staging, then retry from staging"
+          exit 1
