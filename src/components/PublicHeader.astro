@@ -2,8 +2,8 @@
 /**
  * components/PublicHeader.astro
  *
- * Public-facing site header, the public analog of AdminHeader. Placeholder scaffolding for now: a
- * site title and a stub navigation, to be fleshed out once the real public pages are designed.
+ * Public-facing site header, the public analog of AdminHeader. Renders the site title (linking home)
+ * and the CMS-managed header navigation (the "navigation" file, via lib/content/nav.ts).
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -21,12 +21,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-import { SITE_TITLE } from "../consts"
+import { getSiteSettings } from "../lib/content/site"
+import { getNav } from "../lib/content/nav"
+
+const { title } = getSiteSettings()
+const links = getNav()
 ---
 
 <header>
     <nav>
-        <a href="/" class="site-title">{SITE_TITLE}</a>
-        {/* TODO: real public navigation goes here */}
+        <a href="/" class="site-title">{title}</a>
+        {
+            links.length > 0 && (
+                <ul class="nav-links">
+                    {links.map((link) => (
+                        <li>
+                            <a href={link.href}>{link.label}</a>
+                        </li>
+                    ))}
+                </ul>
+            )
+        }
     </nav>
 </header>

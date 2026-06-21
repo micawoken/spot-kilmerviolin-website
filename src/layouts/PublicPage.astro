@@ -29,7 +29,7 @@
 import PublicHead from "../components/PublicHead.astro"
 import PublicHeader from "../components/PublicHeader.astro"
 import PublicFooter from "../components/PublicFooter.astro"
-import { SITE_TITLE, SITE_DESCRIPTION } from "../consts"
+import { getSiteSettings } from "../lib/content/site"
 
 interface Props {
     title?: string
@@ -37,7 +37,10 @@ interface Props {
     image?: string
 }
 
-const { title = SITE_TITLE, description = SITE_DESCRIPTION, image } = Astro.props
+// fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
+// when a page does not supply its own title/description
+const site = getSiteSettings()
+const { title = site.title, description = site.description, image } = Astro.props
 ---
 
 <!doctype html>

@@ -16,13 +16,19 @@
   "dependencies": {
     "@astrojs/check": "^0.9.8",
     "@astrojs/cloudflare": "^13.2.1",
+    "@astrojs/markdoc": "^1.0.6",
     "@astrojs/mdx": "^6.0.3",
+    "@astrojs/react": "^5.0.7",
     "@astrojs/rss": "^4.0.18",
     "@astrojs/sitemap": "^3.7.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "astro": "^6.1.9",
     "he": "^1.2.0",
     "jose": "^6.2.3",
     "minisearch": "^7.2.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "typescript": "^5.9.3"
   },
   "devDependencies": {

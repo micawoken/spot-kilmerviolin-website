@@ -140,88 +140,94 @@ export const identity: MiddlewareHandler = async (context, next) => {
      * (/api will error out as 404)
      */
 
-    if (path_components.length > 0 && (path_components[0] === "api" || path_components[0] === "admin")) {
-        // staging serves only public-facing pages; the admin UI and the API are disabled there.
-        // Respond 404 to hide their existence (staging needs no auth secrets as a result).
-        if (detectEnvironment(context.request) === "staging") {
-            return middlewareErrorResponder(
-                context.request,
-                404,
-                "This resource is not available on the staging preview."
-            )
-        }
-
-        // the request path requires authentication and authorization
-
-        // on local development (development build served from localhost/127.0.0.1),
-        // authentication and authorization are bypassed entirely; in all other
-        // environments, the identity authentication and authorization process proceeds as normal
-        if (!authEnabled(context.request)) {
-            return next()
-        }
-
-        // retrieve the credential and perform JWT validation
-        const credential_data = await retrieveCredential(context.request)
-        if (credential_data === null) {
-            // no credential, unauthorized
-            return middlewareErrorResponder(context.request, 401, comment_401)
-        }
-        // CSRF defense for the ambient cookie credential: the CF_Authorization cookie is attached by the
-        // browser to any request to this origin, so a cookie-authenticated state-changing request must
-        // prove a same-origin initiator (see failsCsrfOriginCheck). Header/Bearer credentials are not
-        // ambient — a cross-site page cannot set those headers — so they are exempt. The app's own admin
-        // UI issues same-origin calls whose Origin is allowlisted, so legitimate writes are unaffected.
-        if (credential_data[0] === "cookie" && failsCsrfOriginCheck(context.request)) {
-            return middlewareErrorResponder(context.request, 403, "Cross-origin request rejected.")
-        }
-
-        const validation: BaseIdentity | null | undefined = await parseJWT(credential_data[1], env.CF_ACCESS_AUD)
-        if (validation === undefined) {
-            // no credential provided, unauthorized
-            return middlewareErrorResponder(context.request, 401, comment_401)
-        }
-        if (validation === null) {
-            // credential invalid, unauthorized
-            return middlewareErrorResponder(context.request, 401, comment_401)
-        }
-        // fallback identity emails are reserved placeholders for contributors with no real sign-in email
-        // (see lib/api/fallback.ts); refuse to construct an identity for one so it can never authenticate,
-        // even if such an address somehow appears in Access
-        if (isFallbackEmail(validation.email)) {
-            return middlewareErrorResponder(context.request, 403, comment_403)
-        }
-        // credential is authenticated, construct the identity information
-        const constructed_identity: Identity = await authorize(validation)
-        // verify the credential can be used, or is unusable but enrollable
-        if (!constructed_identity.allowed) {
-            // no Contributor record exists conveying authorization information
-            if (!constructed_identity.enrollable) {
-                // credential is inactive and not enrollable, so reject
-                return middlewareErrorResponder(context.request, 403, comment_403)
-            }
-            // enrollable credentials must be permissionless; verify it is
-            if (constructed_identity.roles.length !== 0 || constructed_identity.admin || constructed_identity.active) {
-                // enrollable credential has permissions, which should be impossible, so reject
-                return middlewareErrorResponder(context.request, 403, comment_403)
-            }
-            // credential is enrollable and permissionless, so can be set
-        } else if (constructed_identity.allowed && constructed_identity.enrollable) {
-            // also impossible - a credential cannot be both allowed and enrollable
-            return middlewareErrorResponder(context.request, 403, comment_403)
-        }
-        // credential is useable, so set to locals
-        context.locals.identity = constructed_identity
-        // page-level authorization for the admin UI (API routes enforce their own checks downstream).
-        // Active-state gating happens here via the resolved access requirement: most admin pages require
-        // an active caller unless they are an administrator (see ADMIN_PAGE_STRUCTURE / satisfiesAccess).
-        if (
-            path_components[0] === "admin" &&
-            !satisfiesAccess(adminPageAccess(path_components), constructed_identity)
-        ) {
-            return middlewareErrorResponder(context.request, 403, comment_403)
-        }
+    if (path_components.length === 0) {
+        // the root path does not require authentication and authorization
         return next()
     }
-    // path does not require authentication and authorization
+
+    if (path_components.length > 0 && path_components[0] !== "api" && path_components[0] !== "admin") {
+        // the request path does not require authentication and authorization (not api, not admin)
+        return next()
+    }
+
+    // staging serves only public-facing pages; the admin UI and the API are disabled there.
+    // Respond 404 to hide their existence (staging needs no auth secrets as a result).
+    if (detectEnvironment(context.request) === "staging") {
+        return middlewareErrorResponder(
+            context.request,
+            404,
+            "This resource is not available on the staging preview."
+        )
+    }
+
+    // the request path requires authentication and authorization
+
+    // on local development (development build served from localhost/127.0.0.1),
+    // authentication and authorization are bypassed entirely; in all other
+    // environments, the identity authentication and authorization process proceeds as normal
+    if (!authEnabled(context.request)) {
+        return next()
+    }
+
+    // retrieve the credential and perform JWT validation
+    const credential_data = await retrieveCredential(context.request)
+    if (credential_data === null) {
+        // no credential, unauthorized
+        return middlewareErrorResponder(context.request, 401, comment_401)
+    }
+    // CSRF defense for the ambient cookie credential: the CF_Authorization cookie is attached by the
+    // browser to any request to this origin, so a cookie-authenticated state-changing request must
+    // prove a same-origin initiator (see failsCsrfOriginCheck). Header/Bearer credentials are not
+    // ambient — a cross-site page cannot set those headers — so they are exempt. The app's own admin
+    // UI issues same-origin calls whose Origin is allowlisted, so legitimate writes are unaffected.
+    if (credential_data[0] === "cookie" && failsCsrfOriginCheck(context.request)) {
+        return middlewareErrorResponder(context.request, 403, "Cross-origin request rejected.")
+    }
+
+    const validation: BaseIdentity | null | undefined = await parseJWT(credential_data[1], env.CF_ACCESS_AUD)
+    if (validation === undefined) {
+        // no credential provided, unauthorized
+        return middlewareErrorResponder(context.request, 401, comment_401)
+    }
+    if (validation === null) {
+        // credential invalid, unauthorized
+        return middlewareErrorResponder(context.request, 401, comment_401)
+    }
+    // fallback identity emails are reserved placeholders for contributors with no real sign-in email
+    // (see lib/api/fallback.ts); refuse to construct an identity for one so it can never authenticate,
+    // even if such an address somehow appears in Access
+    if (isFallbackEmail(validation.email)) {
+        return middlewareErrorResponder(context.request, 403, comment_403)
+    }
+    // credential is authenticated, construct the identity information
+    const constructed_identity: Identity = await authorize(validation)
+    // verify the credential can be used, or is unusable but enrollable
+    if (!constructed_identity.allowed) {
+        // no Contributor record exists conveying authorization information
+        if (!constructed_identity.enrollable) {
+            // credential is inactive and not enrollable, so reject
+            return middlewareErrorResponder(context.request, 403, comment_403)
+        }
+        // enrollable credentials must be permissionless; verify it is
+        if (constructed_identity.roles.length !== 0 || constructed_identity.admin || constructed_identity.active) {
+            // enrollable credential has permissions, which should be impossible, so reject
+            return middlewareErrorResponder(context.request, 403, comment_403)
+        }
+        // credential is enrollable and permissionless, so can be set
+    } else if (constructed_identity.allowed && constructed_identity.enrollable) {
+        // also impossible - a credential cannot be both allowed and enrollable
+        return middlewareErrorResponder(context.request, 403, comment_403)
+    }
+    // credential is useable, so set to locals
+    context.locals.identity = constructed_identity
+    // page-level authorization for the admin UI (API routes enforce their own checks downstream).
+    // Active-state gating happens here via the resolved access requirement: most admin pages require
+    // an active caller unless they are an administrator (see ADMIN_PAGE_STRUCTURE / satisfiesAccess).
+    if (
+        path_components[0] === "admin" &&
+        !satisfiesAccess(adminPageAccess(path_components), constructed_identity)
+    ) {
+        return middlewareErrorResponder(context.request, 403, comment_403)
+    }
     return next()
 }
