@@ -33,32 +33,15 @@ const name_defined = identity?.userinfo?.ok || identity?.email
 ---
 
 <header role="banner">
-    <h1><a href="/admin" style="text-decoration: none; color: inherit; outline: none;">Administrative Services</a></h1>
-    {
-        welcome ? (
-            <p>
-                Welcome, {display_name}!{" "}
-                <a href="/admin/profile" class="col-item-link">
-                    View your profile &gt;
-                </a>{" "}
-                &middot;{" "}
-                <a href="/admin/logout" class="col-item-link">
-                    Logout &gt;
-                </a>
-            </p>
-        ) : (
-            <p>
-                {name_defined ? display_name : "Unknown user"} &middot;{" "}
-                <a href="/admin/profile" class="col-item-link">
-                    My profile &gt;
-                </a>{" "}
-                &middot;{" "}
-                <a href="/admin/logout" class="col-item-link">
-                    Logout &gt;
-                </a>
-            </p>
-        )
-    }
+    <h1><a href="/admin" style="outline: none;">Administrative Services</a></h1>
+    <p class="admin-header-welcome">
+        {welcome ? `Welcome, ${display_name}!` : name_defined ? display_name : "Unknown user"}
+    </p>
+    <nav class="admin-header-actions" aria-label="Account">
+        <a href="/admin/profile" class="col-item-link">My Profile</a>
+        <span class="admin-header-sep" aria-hidden="true">&middot;</span>
+        <a href="/admin/logout" class="col-item-link">Logout</a>
+    </nav>
 </header>
 {
     /* Account-status callouts live in the header so they appear on every admin page, not just the home page.

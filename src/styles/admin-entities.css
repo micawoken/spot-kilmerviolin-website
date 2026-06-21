@@ -42,6 +42,92 @@ body {
 }
 
 /* ----------------------------------------------------------------------------
+ * Admin page chrome: banner header and contentinfo footer
+ *
+ * Mirrors the worker error fallback (lib/templates/error.html) so every admin page shares one look: a
+ * rule-under banner whose page title sits at the left, the signed-in welcome line beside it, and the
+ * profile/logout actions pushed to the right viewport edge — and the same quiet rule-over footer. The
+ * error fallback keeps its own self-contained copy of these rules (it is inlined into the worker and
+ * cannot link a bundled stylesheet); this section is the matching copy for the rendered admin pages.
+ * ------------------------------------------------------------------------- */
+
+/* Banner: a single baseline-aligned row. The title and welcome line sit together at the left; the
+ * actions group is pushed to the right edge with margin-left:auto (the body's 16px gutter is the
+ * "padding" off the viewport edge). Wraps on narrow viewports (see the media block below). */
+header[role="banner"] {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: 1rem;
+	row-gap: 0.25rem;
+	border-bottom: 1px solid var(--shade-3);
+	padding-bottom: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+/* the page title, sized down from the user-agent <h1> so the welcome line reads as a peer beside it
+ * rather than being dwarfed; the anchor is a quiet self-link (color/underline only on hover) */
+header[role="banner"] h1 {
+	margin: 0;
+	font-size: 1.5rem;
+	line-height: 1.2;
+}
+header[role="banner"] h1 a {
+	color: inherit;
+	text-decoration: none;
+}
+header[role="banner"] h1 a:hover {
+	text-decoration: underline;
+}
+/* the signed-in welcome line, immediately to the right of the title */
+.admin-header-welcome {
+	margin: 0;
+	color: var(--color-text-secondary);
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+/* profile/logout actions, pushed to the banner's right edge */
+.admin-header-actions {
+	margin: 0;
+	margin-left: auto;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+	color: var(--color-text-secondary);
+}
+.admin-header-sep {
+	color: var(--shade-6);
+}
+
+@media (max-width: 720px) {
+	/* compact the banner: the title takes its own row, with the welcome line and the actions sharing the
+	 * row beneath it (the actions still pushed to the right edge by their margin-left:auto) */
+	header[role="banner"] h1 {
+		flex: 1 1 100%;
+	}
+}
+
+/* Footer: a quiet rule-over contentinfo block in secondary text. The sticky-footer anchoring (pushing
+ * it to the viewport bottom on short pages) is the body flex column set up in AdminFooter.astro; these
+ * rules are purely the visual treatment, so margin-top is deliberately left to that anchoring. */
+footer[role="contentinfo"] {
+	border-top: 1px solid var(--shade-3);
+	padding-top: 0.75rem;
+	font-size: 0.9em;
+	color: var(--color-text-secondary);
+}
+footer[role="contentinfo"] p {
+	margin: 0.4rem 0;
+}
+footer[role="contentinfo"] p:last-child {
+	margin-bottom: 0;
+}
+/* the footer nav is the first child; pull its paragraph flush to the top rule */
+footer[role="contentinfo"] nav p {
+	margin-top: 0;
+}
+
+/* ----------------------------------------------------------------------------
  * Entity result (Info) views
  * ------------------------------------------------------------------------- */
 
