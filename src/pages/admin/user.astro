@@ -45,13 +45,13 @@ const identity = locals.identity
         <!-- Header -->
         <AdminHeader identity={identity} welcome={true} />
         <main class="admin-main" role="main">
+            <h2>User Management</h2>
             <p class="general-infohelp">
                 User Management allows you to activate or deactivate a user account and modify their account type.
             </p>
             <!-- Pages for user account status and administrator access -->
             <div class="flex-container">
                 <div class="column">
-                    <h2><a href="/admin/user" class="col-header-link">User Management</a></h2>
                     <ul>
                         <li><a href="/admin/user/activate" class="col-item-link">Activate user account</a></li>
                         <li><a href="/admin/user/deactivate" class="col-item-link">Deactivate user account</a></li>
