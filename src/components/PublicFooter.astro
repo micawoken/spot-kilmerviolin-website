@@ -2,8 +2,8 @@
 /**
  * components/PublicFooter.astro
  *
- * Public-facing site footer, the public analog of AdminFooter. Dummy placeholder for now, to be
- * fleshed out once the real public pages are designed.
+ * Public-facing site footer, the public analog of AdminFooter. Renders the CMS-managed static footer
+ * content (the "footer" file, via lib/content/footer.ts) with the copyright year computed at render time.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -21,10 +21,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import { getFooter } from "../lib/content/footer"
+
 const today = new Date()
+const { organization, tagline } = getFooter()
 ---
 
 <footer>
-    {/* TODO: real public footer content goes here */}
-    <p>&copy; {today.getFullYear()} TBD.</p>
+    <p>&copy; {today.getFullYear()} {organization ?? "TBD"}.</p>
+    {tagline && <p class="footer-tagline">{tagline}</p>}
 </footer>
