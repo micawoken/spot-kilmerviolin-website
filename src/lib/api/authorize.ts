@@ -36,14 +36,24 @@ export const roles: Record<string, RoleProfile> = {
         lockout_ignore_admin: true,
         user_activation: false,
         user_addition: false,
-        conferrable: true
+        conferrable: true,
+        cms_editor: false
     },
     userenroll: {
         overrides_lockout: false,
         lockout_ignore_admin: false,
         user_activation: true,
         user_addition: true,
-        conferrable: false
+        conferrable: false,
+        cms_editor: false,
+    },
+    siteeditor: {
+        overrides_lockout: false,
+        lockout_ignore_admin: false,
+        user_activation: false,
+        user_addition: false,
+        conferrable: false,
+        cms_editor: true
     }
 }
 

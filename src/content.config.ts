@@ -31,4 +31,19 @@ const docs = defineCollection({
     })
 })
 
-export const collections = { docs }
+// public-facing pages authored in the CMS (Pages CMS; see .pages.yml -> content.pages). The CMS writes
+// flat markdoc files to src/content/pages/<slug>.mdoc; the .mdoc body is rendered through the
+// @astrojs/markdoc integration and the frontmatter is validated here. Rendered by src/pages/[...slug].astro.
+// The CMS also writes a `slug` frontmatter field (it drives the filename); it is not validated or used
+// here — the route keys off the filename — and zod's default object strips the unknown key.
+const pages = defineCollection({
+    loader: glob({ base: "./src/content/pages", pattern: "**/*.mdoc" }),
+    schema: z.object({
+        title: z.string(),
+        description: z.string(),
+        // the CMS date field writes an ISO (YYYY-MM-DD) string; coerce it to a Date for rendering
+        pubDate: z.coerce.date()
+    })
+})
+
+export const collections = { docs, pages }
