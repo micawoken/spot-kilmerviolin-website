@@ -1,6 +1,6 @@
 ---
 /**
- * src/components/entities/ContributorForm.astro
+ * components/entities/ContributorForm.astro
  *
  * Reusable data-entry form for contributor records
  *
@@ -28,6 +28,22 @@
  * protected properties (data-protected-fields, sourced from CONTRIBUTOR.protected) are exposed on the
  * form so processSubmit can client-side validate edit permission before issuing a PATCH (the server
  * remains the authority; this is an early, clearer rejection).
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { CONTRIBUTOR } from "../../lib/api/d1";
 
@@ -155,6 +171,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <legend>Image URL</legend>
                 <div class="field-row">
                     <input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
+                    <small class="general-infohelp field-inline-help">Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.</small>
                     {
                         patch ? (
                             <span class="field-edittarget">
@@ -238,11 +255,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 // admin status is not part of the partial (PATCH) interface; manage it in IAM instead
                 show_auth && !patch ? (
                     <fieldset>
-                        <legend>Admin</legend>
+                        <legend>Account Type</legend>
                         <div class="field-row">
+                            <!-- the option values stay the literal admin booleans ("true"/"false") so this still
+                                 maps to the `admin` field sent to the API; only the labels are humanized -->
                             <select id="form-contributors-admin" name="admin">
-                                <option value="true" selected={contributor?.admin === true}>True</option>
-                                <option value="false" selected={contributor ? contributor.admin === false : true}>False</option>
+                                <option value="false" selected={contributor ? contributor.admin === false : true}>Standard</option>
+                                <option value="true" selected={contributor?.admin === true}>Administrator</option>
                             </select>
                         </div>
                         <p class="general-infohelp">Administrator status allows users to bypass lockouts preventing modification of contributions by others and provides authorization to several site management facilities. You do not need administrator status to make contributions or manage your past work.</p>

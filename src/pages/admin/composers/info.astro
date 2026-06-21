@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/composers/info.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -9,7 +29,8 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { COMPOSER } from "../../../lib/api/d1"
 import { getComposer } from "../../../lib/api/database"
-import { guardPage, guardedRead } from "../../../lib/api/page_auth"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
 
 export const prerender = false
 
@@ -37,44 +58,60 @@ if (id) {
         use_id = true
     }
 }
-
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composer`} description="View a composer"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>View a Composer</h2>
-    <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
-    <ComposerInfo composer={use_id ? composer_data as ComposerRecord : null} hidden={!use_id} />
-    <p id="transaction-status">{use_id ? "Composer data loaded from URL." : "Your request status will show here after you press \"Submit\"."}</p>
-    {
-        // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
-        // record, or return to the ID-entry view to look up another (the path without the id query param)
-        use_id ? (
-            <p>
-                <a href={`/admin/composers/edit?id=${id}`}>Edit this composer &gt;</a> | <a href={Astro.url.pathname}>View another composer &gt;</a>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}View Composer`} description="View a composer" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>View a Composer</h2>
+            <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
+            <ComposerInfo composer={use_id ? (composer_data as ComposerRecord) : null} hidden={!use_id} />
+            <p id="transaction-status">
+                {
+                    use_id
+                        ? "Composer data loaded from URL."
+                        : 'Your request status will show here after you press "Submit".'
+                }
             </p>
-        ) : null
-    }
-    <script>
-        import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
-        import { APIOpCode } from "../../../scripts/connector"
-        import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
-        const form_or_button = getForm("composer", APIOpCode.READ)
-        form_or_button.addEventListener((form_or_button instanceof HTMLFormElement) ? "submit" : "click", genHandler(form_or_button, getTransactionElem(), APIOpCode.READ, "composer"))
-        // keyword lookup scoped to composers; selecting a hit loads it on-page via the same READ flow as the ID entry form
-        attachKeywordSearchInline("form-id-entry-search-input", "form-id-entry-search-button", "form-id-entry-search-results", () => "composers", (result) => {
-            const id_input = document.getElementById("form-id-entry-id")
-            if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
-            form_or_button.requestSubmit()
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+            {
+                // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
+                // record, or return to the ID-entry view to look up another (the path without the id query param)
+                use_id ? (
+                    <p>
+                        <a href={`/admin/composers/edit?id=${id}`}>Edit this composer &gt;</a> |{" "}
+                        <a href={Astro.url.pathname}>View another composer &gt;</a>
+                    </p>
+                ) : null
+            }
+            <script>
+                import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
+                import { APIOpCode } from "../../../scripts/connector"
+                import { attachKeywordSearchInline } from "../../../scripts/keyword_search"
+                const form_or_button = getForm("composer", APIOpCode.READ)
+                form_or_button.addEventListener(
+                    form_or_button instanceof HTMLFormElement ? "submit" : "click",
+                    genHandler(form_or_button, getTransactionElem(), APIOpCode.READ, "composer")
+                )
+                // keyword lookup scoped to composers; selecting a hit loads it on-page via the same READ flow as the ID entry form
+                attachKeywordSearchInline(
+                    "form-id-entry-search-input",
+                    "form-id-entry-search-button",
+                    "form-id-entry-search-results",
+                    () => "composers",
+                    (result) => {
+                        const id_input = document.getElementById("form-id-entry-id")
+                        if (id_input instanceof HTMLInputElement) id_input.value = String(result.id)
+                        form_or_button.requestSubmit()
+                    }
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

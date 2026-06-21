@@ -8,6 +8,22 @@
  *  - PATCH performs incremental add/remove (mirrors PATCH /api/v1/identity's roles operation)
  *  - PUT replaces a user's entire role set (set semantics)
  *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
@@ -29,18 +45,38 @@ import { emailToId, assignRole, removeRole, setRoles } from "../../../../lib/pub
  */
 function _validateRoleMap(value: unknown, request: Request, label: string): [string, string[]][] | Response {
     if (typeof value !== "object" || value === null) {
-        return constructResponse(request, null, 400, `Bad request: ${label} must be an object; previous transactions may have succeeded`)
+        return constructResponse(
+            request,
+            null,
+            400,
+            `Bad request: ${label} must be an object; previous transactions may have succeeded`
+        )
     }
     if (Object.keys(value).length > 5) {
-        return constructResponse(request, null, 400, `Bad request: transaction exceeds max 5 users per ${label}; previous transactions may have succeeded`)
+        return constructResponse(
+            request,
+            null,
+            400,
+            `Bad request: transaction exceeds max 5 users per ${label}; previous transactions may have succeeded`
+        )
     }
     const entries: [string, string[]][] = []
     for (const [email, role_list] of Object.entries(value)) {
         if (!Array.isArray(role_list) || !role_list.every((role: any) => role in roles)) {
-            return constructResponse(request, null, 400, `Bad request: roles for ${email} in ${label} must be valid roles; previous transactions may have succeeded`)
+            return constructResponse(
+                request,
+                null,
+                400,
+                `Bad request: roles for ${email} in ${label} must be valid roles; previous transactions may have succeeded`
+            )
         }
         if (role_list.length > 5) {
-            return constructResponse(request, null, 400, `Bad request: transaction exceeds max 5 roles per user for ${label}; previous transactions may have succeeded`)
+            return constructResponse(
+                request,
+                null,
+                400,
+                `Bad request: transaction exceeds max 5 roles per user for ${label}; previous transactions may have succeeded`
+            )
         }
         entries.push([email, role_list])
     }
@@ -115,7 +151,12 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             }
         }
     } catch (error) {
-        const response = constructResponseErrorHook(request, error, 500, "Failed to update roles; previous transactions may have succeeded")
+        const response = constructResponseErrorHook(
+            request,
+            error,
+            500,
+            "Failed to update roles; previous transactions may have succeeded"
+        )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }
@@ -174,7 +215,12 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
             await setRoles(context.locals.cfContext, id, role_list)
         }
     } catch (error) {
-        const response = constructResponseErrorHook(request, error, 500, "Failed to set roles; previous transactions may have succeeded")
+        const response = constructResponseErrorHook(
+            request,
+            error,
+            500,
+            "Failed to set roles; previous transactions may have succeeded"
+        )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }

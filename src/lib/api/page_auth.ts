@@ -1,18 +1,32 @@
 /**
  * lib/api/page_auth.ts
  *
- * Shared page-level authorization model for the admin UI. The identity middleware uses it to gate
- * admin routes (defense in depth — every /api/* endpoint still enforces its own authorization), and
- * SSR admin pages use guardPage() to re-check authorization before reading privileged data directly
- * from the database (which bypasses the API entirely).
+ * Authorization primitives used by the identity middleware to determine who can access a protected page
  *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { authEnabled, isActiveRequestDev } from "./environment"
+import { authEnabled } from "./environment"
 import { requires } from "./authorize"
-import { isMissingTableError, middlewareErrorResponder, missingTableErrorPage, devModeUnavailablePage } from "./http"
+import { middlewareErrorResponder } from "./http"
 
-export const comment_401 = "You have not provided valid credentials to access this resource. Please log in and try again."
+export const comment_401 =
+    "You have not provided valid credentials to access this resource. Please log in and try again."
 export const comment_403 = "Your user account is not authorized to access this resource."
 
 /**
@@ -35,14 +49,14 @@ export type AdminAccess =
     | { kind: "any" }
 
 /**
- * Evaluates whether an identity satisfies an access requirement.
+ * Evaluates whether an identity satisfies an access requirement
  *
  * @param {AdminAccess} access - the requirement to check against
  * @param {Identity} identity - the constructed identity for the caller
  * @returns {boolean} true if the caller may proceed, false if it should be rejected with 403
  */
 export function satisfiesAccess(access: AdminAccess, identity: Identity): boolean {
-    // an administrator satisfies every requirement (an inactive administrator retains full authorization)
+    // an administrator is always approved (an inactive administrator would still retain full authorization)
     if (identity.admin) {
         return true
     }
@@ -51,7 +65,7 @@ export function satisfiesAccess(access: AdminAccess, identity: Identity): boolea
             return false
         case "role":
             // an active caller holding one of the accepted role permissions satisfies the requirement
-            return identity.active && access.roles.some(role => requires(role, identity))
+            return identity.active && access.roles.some((role) => requires(role, identity))
         case "active":
             return identity.active
         case "any":
@@ -60,14 +74,10 @@ export function satisfiesAccess(access: AdminAccess, identity: Identity): boolea
 }
 
 /**
- * Authorization guard for SSR admin pages. Returns a ready-to-return error Response when the caller is
- * not authorized for the data the page is about to read, or null when the page may proceed. Mirrors the
- * middleware's environment handling: when authentication is disabled (local development) the page is
- * allowed through, matching the rest of the admin UI.
+ * Authorization guard for SSR admin pages
  *
- * Usage from an Astro page's frontmatter, before any database call:
- *   const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
- *   if (denied) return denied
+ * Returns an error response if not authorized; null if authorized
+ *
  *
  * @param {Request} request - the page request, used for environment detection and the error response
  * @param {Identity | undefined} identity - the caller's identity from Astro.locals (undefined if unauthenticated)
@@ -88,34 +98,4 @@ export function guardPage(request: Request, identity: Identity | undefined, acce
         return middlewareErrorResponder(request, 403, comment_403)
     }
     return null
-}
-
-/**
- * Wraps a server-side database read performed directly by an admin page. When the read fails because a
- * table critical to the operation does not exist, it resolves to the missing-table fallback page instead
- * of letting the error bubble up as an unhandled 500; any other error propagates unchanged.
- *
- * The caller distinguishes the two outcomes with an `instanceof Response` check: a Response is a
- * ready-to-return fallback page, while anything else is the read's resolved value.
- *
- * Usage from an Astro page's frontmatter:
- *   const composers = await guardedRead(() => listComposers(Astro.locals.cfContext))
- *   if (composers instanceof Response) return composers
- *
- * @param {() => Promise<T>} read - the database read to perform
- * @returns {Promise<T | Response>} the read's value, or the missing-table fallback page
- */
-export async function guardedRead<T>(read: () => Promise<T>): Promise<T | Response> {
-    try {
-        return await read()
-    } catch (error) {
-        if (isMissingTableError(error)) {
-            return missingTableErrorPage(error)
-        }
-        if (isActiveRequestDev()) {
-            return devModeUnavailablePage()
-        }
-        console.log(error)
-        throw error
-    }
 }

@@ -1,26 +1,25 @@
 /**
  * lib/api/database.ts
- * 
+ *
  * Provides higher-level database services on top of D1, integrating KV caching and Cache API caching
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-
 
 /*
  * WARNING
@@ -28,18 +27,38 @@
  * become out of sync. Instead, directly use the D1 primitives to directly query the database.
  */
 
-
-import { formatContribToD1, formatContribToD1Partial, formatCompToD1, formatWorkToD1, formatWorkToD1Partial, formatCompToD1Partial, formatContribFromD1, formatCompFromD1, formatWorkFromD1, SQLCompareOp } from "./common.ts"
-import { CONTRIBUTOR, COMPOSER, COMPOSITION, exec_stmt, getRecord, getRecordSpecificProp, exec_string, recordTypeAssertComplete } from "./d1.ts"
+import {
+    formatContribToD1,
+    formatContribToD1Partial,
+    formatCompToD1,
+    formatWorkToD1,
+    formatWorkToD1Partial,
+    formatCompToD1Partial,
+    formatContribFromD1,
+    formatCompFromD1,
+    formatWorkFromD1,
+    SQLCompareOp
+} from "./common.ts"
+import {
+    CONTRIBUTOR,
+    COMPOSER,
+    COMPOSITION,
+    exec_stmt,
+    getRecord,
+    getRecordSpecificProp,
+    exec_string,
+    recordTypeAssertComplete
+} from "./d1.ts"
 import { SQLStatement, VirtualSQLTable } from "./sql.ts"
 import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
-import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
+import { getCache, putCache, deleteCacheKey } from "./caching.ts"
+import { invalidateIdentityCache } from "./authorize.ts"
 
 // in general, authorization is managed by the API endpoint, so no identity checks are made in this module
 
 /*
  * SQLITE TABLE SPEC
- * 
+ *
  * CONTRIBUTORS:
  * contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
  * name TEXT UNIQUE NOT NULL,
@@ -104,10 +123,9 @@ import { getCache, purgeCache, putCache, deleteCacheKey } from "./caching.ts"
  * FOREIGN KEY (contrib_primary_2) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
  */
 
-
 /**
  * Purges the KV caching layer
- * 
+ *
  * @param fixed Whether to purge only known keys, or purge all enrolled keys
  */
 async function purgeKV(fixed: boolean = true): Promise<void> {
@@ -124,32 +142,32 @@ async function purgeKV(fixed: boolean = true): Promise<void> {
         // purge only known keys
         const known_keys = ["composers", "contributors", "compositions"]
         await Promise.all(known_keys.map(safeDelete))
-        return;
+        return
     } else {
         try {
-            const keys = await listKeys(false) as string[]
+            const keys = (await listKeys(false)) as string[]
             await Promise.all(keys.map(safeDelete))
         } catch (error) {
             // a list is itself a metered KV operation; if it is unavailable, leave entries to expire
             console.warn("Failed to list KV keys during purge; entries will expire via TTL", error)
         }
-        return;
+        return
     }
 }
 
 /**
  * Purges the Cache API and KV cache
- * 
+ *
  * @param kv_fixed Whether to purge only known keys from KV, or purge all enrolled keys in KV
  * @returns {boolean} Whether the Cache API purge succeeded
  */
 export async function purgeCacheAll(kv_fixed: boolean = true): Promise<boolean> {
-    const outcome = await purgeCache("db_cache")
-    // purgeCache cannot enumerate or drop the whole store on Workers, so evict the known per-table entries directly
+    // the Workers Cache API has no store-wide purge, so evict the known per-table entries directly
     const known_keys = ["composers", "contributors", "compositions"]
-    await Promise.all(known_keys.map(key => deleteCacheKey("db_cache", key)))
+    await Promise.all(known_keys.map((key) => deleteCacheKey("db_cache", key)))
     await purgeKV(kv_fixed) // KV deletion succeeds whether the key exists or not
-    return outcome
+    // a thrown eviction would propagate; reaching here means the per-key purge + KV purge completed
+    return true
 }
 
 /**
@@ -191,7 +209,7 @@ function isCapacityError(error: unknown): boolean {
             return String(value)
         }
     }
-    return markers.some(marker => flatten(error).toLowerCase().includes(marker))
+    return markers.some((marker) => flatten(error).toLowerCase().includes(marker))
 }
 
 /**
@@ -204,9 +222,11 @@ function isCapacityError(error: unknown): boolean {
  * @param operation the cache-population/invalidation operation to run
  */
 function _backfill(ctx: ExecutionContext, operation: () => Promise<unknown>): void {
-    ctx.waitUntil(operation().catch(error => {
-        console.warn("Best-effort cache operation failed; continuing without it", error)
-    }))
+    ctx.waitUntil(
+        operation().catch((error) => {
+            console.warn("Best-effort cache operation failed; continuing without it", error)
+        })
+    )
 }
 
 /**
@@ -249,7 +269,11 @@ function _asRows(value: unknown): Record<string, string | number | null>[] | nul
  * @returns the resolved rows and the tier that served them
  * @throws if every tier is exhausted (the authoritative D1 read fails)
  */
-async function _resolveTable(table: string, long: boolean, ctx: ExecutionContext): Promise<{ rows: Record<string, string | number | null>[], origin: StorageTier }> {
+async function _resolveTable(
+    table: string,
+    long: boolean,
+    ctx: ExecutionContext
+): Promise<{ rows: Record<string, string | number | null>[]; origin: StorageTier }> {
     // Tier 1: Cache API (free, fastest)
     try {
         const rows = _asRows(await getCache("db_cache", table))
@@ -318,13 +342,20 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
         // limit here propagates because the change genuinely cannot be persisted anywhere else.
         const output = await exec_stmt(stmt)
         // the write succeeded, so the now-stale caches are invalidated best-effort (a failed eviction must
-        // not fail the write; the entries will also expire on their own via TTL)
-        _backfill(ctx, () => purgeCache("db_cache"))
+        // not fail the write; the entries will also expire on their own via TTL). The Workers Cache API has
+        // no store-wide purge, so invalidation is per-key against the affected table.
         if (stmt.from) {
             // invalidate the KV backing store and the per-table Cache API entry so a simple SELECT is not
-            // repopulated from, or kept serving, stale data (the Cache API has no store-wide purge)
+            // repopulated from, or kept serving, stale data
             _backfill(ctx, () => deleteKey(stmt.from!))
             _backfill(ctx, () => deleteCacheKey("db_cache", stmt.from!))
+            if (stmt.from === CONTRIBUTOR.name) {
+                // a contributor write may change authorization-relevant fields or the identity_email
+                // mapping, so also drop authorize.ts's per-isolate identity cache. This is a synchronous
+                // in-memory Map clear (not best-effort like the cache evictions above) so it takes effect
+                // before the response; see invalidateIdentityCache for why it clears wholesale.
+                invalidateIdentityCache()
+            }
         }
         return {
             data: output.results as Record<string, string | number | null>[],
@@ -354,7 +385,15 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
     }
     try {
         const output = await exec_stmt(stmt)
-        _backfill(ctx, () => putCache("db_cache", identifier, output.results as Record<string, string | number | null>[], new Date().toISOString(), false))
+        _backfill(ctx, () =>
+            putCache(
+                "db_cache",
+                identifier,
+                output.results as Record<string, string | number | null>[],
+                new Date().toISOString(),
+                false
+            )
+        )
         return {
             data: output.results as Record<string, string | number | null>[],
             cached: false,
@@ -367,7 +406,10 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
         if (!isCapacityError(error)) {
             throw error
         }
-        console.warn(`D1 unavailable for query '${identifier}' due to a usage limit; attempting degraded whole-table execution`, error)
+        console.warn(
+            `D1 unavailable for query '${identifier}' due to a usage limit; attempting degraded whole-table execution`,
+            error
+        )
     }
 
     // Last resort: pull the whole table from whatever tier is still available and execute the statement on
@@ -386,13 +428,13 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
 
 /**
  * Exported interface to execute a SQLStatement with the caching context
- * 
+ *
  * @see _exec_wrap for full details
- * 
+ *
  * @param {SQLStatement} stmt the SQLStatement to execute
  * @param {ExecutionContext} ctx the Cloudflare Worker ExecutionContext
  * @return {Promise<ExecResult>} the output
- * 
+ *
  */
 export async function run_stmt(stmt: SQLStatement, ctx: ExecutionContext): Promise<ExecResult> {
     return await _exec_wrap(stmt, ctx)
@@ -400,14 +442,18 @@ export async function run_stmt(stmt: SQLStatement, ctx: ExecutionContext): Promi
 
 /**
  * Internal function to add a new record to the database, with type assertion and cache management
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the record being added
  * @param record the record to add, as a Contributor, Composition, or Composer type
  * @returns the ID of the newly added record
  * @throws an error if the record is invalid or if the schema is invalid
  */
-async function _addPrimitive(ctx: ExecutionContext, schema: D1Schema, record: Contributor | Composition | Composer): Promise<number> {
+async function _addPrimitive(
+    ctx: ExecutionContext,
+    schema: D1Schema,
+    record: Contributor | Composition | Composer
+): Promise<number> {
     const stmt = new SQLStatement(schema, "INSERT", schema.name) // new record insertion uses all columns since none are specified
     let entry
     switch (schema) {
@@ -436,14 +482,18 @@ async function _addPrimitive(ctx: ExecutionContext, schema: D1Schema, record: Co
 
 /**
  * Exposed internal function to perform a cacheless read from D1
- * 
+ *
  * @param schema the D1Schema of the record being queried
  * @param param the unique column being queried on
  * @param value the value of the unique column being queried
  * @returns the record matching the query as a primitive record type, or null if not found
  * @throws an error if the param is not a unique column
  */
-export async function _getPrimitiveCacheless(schema: D1Schema, param: string, value: string): Promise<Record<string, string | number | null> | null> {
+export async function _getPrimitiveCacheless(
+    schema: D1Schema,
+    param: string,
+    value: string
+): Promise<Record<string, string | number | null> | null> {
     // the _getPrimitiveCacheless variant provides direct access to D1, bypassing the caching layers
     // this function may be used in lieu of D1 primitives for security-relevant operations
     if (!schema.index.includes(param)) {
@@ -463,7 +513,7 @@ export async function _getPrimitiveCacheless(schema: D1Schema, param: string, va
 
 /**
  * Internal function to perform a read from D1, with type assertion and cache management
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the record being queried
  * @param param the unique column being queried on
@@ -471,13 +521,18 @@ export async function _getPrimitiveCacheless(schema: D1Schema, param: string, va
  * @return the record matching the query as a primitive record type, or null if not found
  * @throws an error if the param is not a unique column
  */
-async function _getPrimitive(ctx: ExecutionContext, schema: D1Schema, param: string, value: string): Promise<Record<string, string | number | null> | null> {
+async function _getPrimitive(
+    ctx: ExecutionContext,
+    schema: D1Schema,
+    param: string,
+    value: string
+): Promise<Record<string, string | number | null> | null> {
     if (!schema.index.includes(param)) {
         throw new Error("Param is not a unique column")
     }
     const stmt = new SQLStatement(schema, "SELECT", schema.name)
     stmt.addWhere(param, value, SQLCompareOp.EQ)
-    const response: ExecResult = await _exec_wrap(stmt, ctx) 
+    const response: ExecResult = await _exec_wrap(stmt, ctx)
     if (response.data.length === 0) {
         return null
     }
@@ -486,7 +541,7 @@ async function _getPrimitive(ctx: ExecutionContext, schema: D1Schema, param: str
 
 /**
  * Internal function to update a record in the database, with type assertion and cache management
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the record being updated
  * @param id the ID of the record being updated
@@ -494,7 +549,12 @@ async function _getPrimitive(ctx: ExecutionContext, schema: D1Schema, param: str
  * @returns null
  * @throws an error if the record is invalid or if the schema is invalid
  */
-async function _updatePrimitive(ctx: ExecutionContext, schema: D1Schema, id: number, record: Contributor | Composition | Composer): Promise<null> {
+async function _updatePrimitive(
+    ctx: ExecutionContext,
+    schema: D1Schema,
+    id: number,
+    record: Contributor | Composition | Composer
+): Promise<null> {
     const stmt = new SQLStatement(schema, "UPDATE", schema.name)
     let entry
     switch (schema) {
@@ -510,7 +570,7 @@ async function _updatePrimitive(ctx: ExecutionContext, schema: D1Schema, id: num
         default:
             throw new Error("Invalid schema")
     }
-    stmt.addColumns(schema.columns.filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))) // exclude primary key and hidden meta columns (entry_date, change_date) from update
+    stmt.addColumns(schema.columns.filter((col) => col !== schema.primary_key && !schema.repr_exclude.includes(col))) // exclude primary key and hidden meta columns (entry_date, change_date) from update
     stmt.addValueGroup(entry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and hidden meta columns; change_date is restamped below, entry_date is preserved
     // change_date tracks the last modification, so it is stamped here on every update (entry_date is left untouched)
     stmt.editValue(0, "change_date", new Date().toISOString())
@@ -521,15 +581,23 @@ async function _updatePrimitive(ctx: ExecutionContext, schema: D1Schema, id: num
 
 /**
  * Internal function to perform a partial update on a record in the database, with type assertion and cache management
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the record being updated
  * @param id the ID of the record being updated
  * @param record the updated record, as a partial Contributor, Composition, or Composer type; only provided fields will be updated
+ * @param allowProtected whether the caller has authorized writing schema.protected columns (e.g. roles/admin/
+ *   identity_email); defaults to false so a caller that omits its own elevation check cannot mass-assign them
  * @returns null
- * @throws an error if the record is invalid or if the schema is invalid
+ * @throws an error if the record is invalid, if the schema is invalid, or if it writes a protected column without authorization
  */
-async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, id: number, record: Partial<Contributor | Composition | Composer>): Promise<null> {
+async function _updatePrimitivePartial(
+    ctx: ExecutionContext,
+    schema: D1Schema,
+    id: number,
+    record: Partial<Contributor | Composition | Composer>,
+    allowProtected: boolean = false
+): Promise<null> {
     const stmt = new SQLStatement(schema, "UPDATE", schema.name)
 
     let entry
@@ -546,8 +614,25 @@ async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, 
         default:
             throw new Error("Invalid schema")
     }
-    const cleanEntry = Object.fromEntries(Object.entries(entry).filter(([_, value]) => value !== undefined)) as Record<string, string | number | null>
-    const update_columns = Object.keys(cleanEntry).filter(col => col !== schema.primary_key && !schema.repr_exclude.includes(col))
+    const cleanEntry = Object.fromEntries(Object.entries(entry).filter(([_, value]) => value !== undefined)) as Record<
+        string,
+        string | number | null
+    >
+    // defense in depth: protected columns carry authorization state (roles/admin/identity_email) and must
+    // never be written through a generic partial update unless the caller explicitly authorized it after its
+    // own permission/elevation check. A caller that forgets that check trips this guard (a loud failure)
+    // rather than silently mass-assigning privileged fields.
+    if (!allowProtected && schema.protected) {
+        const blocked = schema.protected.filter((col) => col in cleanEntry)
+        if (blocked.length > 0) {
+            throw new Error(
+                `Refusing to update protected column(s) [${blocked.join(", ")}] without explicit authorization`
+            )
+        }
+    }
+    const update_columns = Object.keys(cleanEntry).filter(
+        (col) => col !== schema.primary_key && !schema.repr_exclude.includes(col)
+    )
     if (update_columns.length === 0) {
         // nothing to update; running a SET-less UPDATE would be invalid SQL, so treat as a no-op
         return null
@@ -563,7 +648,7 @@ async function _updatePrimitivePartial(ctx: ExecutionContext, schema: D1Schema, 
 
 /**
  * Internal function to delete a record from the database, with cache management
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the record being deleted
  * @param id the ID of the record being deleted
@@ -579,13 +664,16 @@ async function _deletePrimitive(ctx: ExecutionContext, schema: D1Schema, id: num
 
 /**
  * Internal function to list all records of a given schema from the database, with cache management
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the records being listed
  * @returns an array of records matching the schema, as primitive record types
  * @throws an error if the schema is invalid
  */
-async function _listPrimitive(ctx: ExecutionContext, schema: D1Schema): Promise<Record<string, string | number | null>[]> {
+async function _listPrimitive(
+    ctx: ExecutionContext,
+    schema: D1Schema
+): Promise<Record<string, string | number | null>[]> {
     const stmt = new SQLStatement(schema, "SELECT", schema.name)
     const output = await _exec_wrap(stmt, ctx)
     return output.data
@@ -593,18 +681,21 @@ async function _listPrimitive(ctx: ExecutionContext, schema: D1Schema): Promise<
 
 /**
  * Internal function to convert a primitive D1 record into the API record type
- * 
+ *
  * @param schema the D1Schema of the record being converted
  * @param result the record to convert, as a primitive D1 record type
  * @returns the record as an API record type, or null if the input is null
  * @throws an error if the schema is invalid
  */
-async function _getWrapper(schema: D1Schema, result: Record<string, string | number | null> | null): Promise<ContributorRecord | ComposerRecord | CompositionRecord | null> {
+async function _getWrapper(
+    schema: D1Schema,
+    result: Record<string, string | number | null> | null
+): Promise<ContributorRecord | ComposerRecord | CompositionRecord | null> {
     // provides type conversion between the raw D1 output into the D1 type primitives, then converts to the API type primitives
-    
+
     // the wrapper assumes that the result contains all columns in the same order; as such, it is an internal function
     // only used within the exported functions
-    
+
     if (result === null) {
         return null
     }
@@ -612,13 +703,17 @@ async function _getWrapper(schema: D1Schema, result: Record<string, string | num
     // type assertion validation is disabled since the get wrapper is used during full record queries
     switch (schema) {
         case CONTRIBUTOR:
-            output = formatContribFromD1(recordTypeAssertComplete(schema, result, false) as D1Contributor) as ContributorRecord
+            output = formatContribFromD1(
+                recordTypeAssertComplete(schema, result, false) as D1Contributor
+            ) as ContributorRecord
             break
         case COMPOSER:
             output = formatCompFromD1(recordTypeAssertComplete(schema, result, false) as D1Composer) as ComposerRecord
             break
         case COMPOSITION:
-            output = formatWorkFromD1(recordTypeAssertComplete(schema, result, false) as D1Composition) as CompositionRecord
+            output = formatWorkFromD1(
+                recordTypeAssertComplete(schema, result, false) as D1Composition
+            ) as CompositionRecord
             break
         default:
             throw new Error("Invalid schema")
@@ -628,13 +723,16 @@ async function _getWrapper(schema: D1Schema, result: Record<string, string | num
 
 /**
  * Internal function to convert a list of primitive D1 records into the API record type
- * 
+ *
  * @param schema the D1Schema of the records being converted
  * @param result the records to convert, as an array of primitive D1 record types
  * @returns the records as an array of API record types, or null if the input is null
  * @throws an error if the schema is invalid
  */
-async function _listWrapper(schema: D1Schema, result: Record<string, string | number | null>[] | null): Promise<ContributorRecord[] | ComposerRecord[] | CompositionRecord[] | null> {
+async function _listWrapper(
+    schema: D1Schema,
+    result: Record<string, string | number | null>[] | null
+): Promise<ContributorRecord[] | ComposerRecord[] | CompositionRecord[] | null> {
     // see _getWrapper for details; this function implements _getWrapper on a list of result rows
     if (result === null) {
         return null
@@ -642,13 +740,23 @@ async function _listWrapper(schema: D1Schema, result: Record<string, string | nu
     let output
     switch (schema) {
         case CONTRIBUTOR:
-            output = result.map(row => formatContribFromD1(recordTypeAssertComplete(schema, row, false) as D1Contributor) as ContributorRecord)
+            output = result.map(
+                (row) =>
+                    formatContribFromD1(
+                        recordTypeAssertComplete(schema, row, false) as D1Contributor
+                    ) as ContributorRecord
+            )
             break
         case COMPOSER:
-            output = result.map(row => formatCompFromD1(recordTypeAssertComplete(schema, row, false) as D1Composer) as ComposerRecord)
+            output = result.map(
+                (row) => formatCompFromD1(recordTypeAssertComplete(schema, row, false) as D1Composer) as ComposerRecord
+            )
             break
         case COMPOSITION:
-            output = result.map(row => formatWorkFromD1(recordTypeAssertComplete(schema, row, false) as D1Composition) as CompositionRecord)
+            output = result.map(
+                (row) =>
+                    formatWorkFromD1(recordTypeAssertComplete(schema, row, false) as D1Composition) as CompositionRecord
+            )
             break
         default:
             throw new Error("Invalid schema")
@@ -658,22 +766,29 @@ async function _listWrapper(schema: D1Schema, result: Record<string, string | nu
 
 /**
  * Get a contributor record based on a unique param
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
- * @param param the unique column being queried on
+ * @param param the unique column being queried on (from D1Schema.index, i.e. the D1 types, not API types)
  * @param value the value of the unique column being queried
  * @returns the contributor record matching the query, or null if not found
  * @throws an error if the param is not a unique column
  */
-export async function getContributor(ctx: ExecutionContext, param: string, value: string): Promise<ContributorRecord | null> {
+export async function getContributor(
+    ctx: ExecutionContext,
+    param: string,
+    value: string
+): Promise<ContributorRecord | null> {
     // given the unique param and its value, return the contributor record
     // caching is implemented at the primitive level
-    return _getWrapper(CONTRIBUTOR, await _getPrimitive(ctx, CONTRIBUTOR, param, value)) as Promise<ContributorRecord | null>
+    return _getWrapper(
+        CONTRIBUTOR,
+        await _getPrimitive(ctx, CONTRIBUTOR, param, value)
+    ) as Promise<ContributorRecord | null>
 }
 
 /**
  * Add a contributor record to the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param record the contributor record to add
  * @returns the id of the new record
@@ -685,7 +800,7 @@ export async function addContributor(ctx: ExecutionContext, record: Contributor)
 
 /**
  * Update a contributor record in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated contributor record; all fields must be provided
@@ -699,20 +814,27 @@ export async function updateContributor(ctx: ExecutionContext, id: number, recor
 
 /**
  * Perform a partial update on a contributor record in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated contributor record; only provided fields will be updated
+ * @param allowProtected whether the caller has authorized writing protected columns (roles/admin/
+ *   identity_email); the caller must perform its own elevation/permission check before passing true
  * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
+ * @throws an error if the record is invalid, if the id does not exist, or if it writes a protected column without authorization
  */
-export async function updateContributorPartial(ctx: ExecutionContext, id: number, record: Partial<Contributor>): Promise<null> {
-    return await _updatePrimitivePartial(ctx, CONTRIBUTOR, id, record)
+export async function updateContributorPartial(
+    ctx: ExecutionContext,
+    id: number,
+    record: Partial<Contributor>,
+    allowProtected: boolean = false
+): Promise<null> {
+    return await _updatePrimitivePartial(ctx, CONTRIBUTOR, id, record, allowProtected)
 }
 
 /**
  * Delete a contributor record from the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to delete
  * @returns null if successful
@@ -724,7 +846,7 @@ export async function deleteContributor(ctx: ExecutionContext, id: number): Prom
 
 /**
  * List all contributor records in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @returns an array of all contributor records, or null if no records are found
  * @throws an error if the database query fails
@@ -735,7 +857,7 @@ export async function listContributors(ctx: ExecutionContext): Promise<Contribut
 
 /**
  * Get a composer record based on a unique param
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param param the unique column being queried on
  * @param value the value of the unique column being queried
@@ -749,7 +871,7 @@ export async function getComposer(ctx: ExecutionContext, param: string, value: s
 
 /**
  * Add a composer record to the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param record the composer record to add
  * @returns the id of the new record
@@ -761,7 +883,7 @@ export async function addComposer(ctx: ExecutionContext, record: Composer): Prom
 
 /**
  * Update a composer record in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated composer record; all fields must be provided
@@ -774,20 +896,24 @@ export async function updateComposer(ctx: ExecutionContext, id: number, record: 
 
 /**
  * Perform a partial update on a composer record in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated composer record; only provided fields will be updated
  * @returns null if successful
  * @throws an error if the record is invalid or if the id does not exist
  */
-export async function updateComposerPartial(ctx: ExecutionContext, id: number, record: Partial<Composer>): Promise<null> {
+export async function updateComposerPartial(
+    ctx: ExecutionContext,
+    id: number,
+    record: Partial<Composer>
+): Promise<null> {
     return await _updatePrimitivePartial(ctx, COMPOSER, id, record)
 }
 
 /**
  * Delete a composer record from the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to delete
  * @returns null if successful
@@ -799,7 +925,7 @@ export async function deleteComposer(ctx: ExecutionContext, id: number): Promise
 
 /**
  * List all composer records in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @returns an array of all composer records, or null if no records are found
  * @throws an error if the database query fails
@@ -810,20 +936,27 @@ export async function listComposers(ctx: ExecutionContext): Promise<ComposerReco
 
 /**
  * Get a composition record based on a unique param
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param param the unique column being queried on
  * @param value the value of the unique column being queried
  * @returns the composition record matching the query, or null if not found
  * @throws an error if the param is not a unique column
  */
-export async function getComposition(ctx: ExecutionContext, param: string, value: string): Promise<CompositionRecord | null> {
-    return _getWrapper(COMPOSITION, await _getPrimitive(ctx, COMPOSITION, param, value)) as Promise<CompositionRecord | null>
+export async function getComposition(
+    ctx: ExecutionContext,
+    param: string,
+    value: string
+): Promise<CompositionRecord | null> {
+    return _getWrapper(
+        COMPOSITION,
+        await _getPrimitive(ctx, COMPOSITION, param, value)
+    ) as Promise<CompositionRecord | null>
 }
 
 /**
  * Add a composition record to the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param record the composition record to add
  * @returns the id of the new record
@@ -835,7 +968,7 @@ export async function addComposition(ctx: ExecutionContext, record: Composition)
 
 /**
  * Update a composition record in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated composition record; all fields must be provided
@@ -848,20 +981,24 @@ export async function updateComposition(ctx: ExecutionContext, id: number, recor
 
 /**
  * Perform a partial update on a composition record in the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to update
  * @param record the updated composition record; only provided fields will be updated
  * @returns null if successful
  * @throws an error if the record is invalid or if the id does not exist
  */
-export async function updateCompositionPartial(ctx: ExecutionContext, id: number, record: Partial<Composition>): Promise<null> {
+export async function updateCompositionPartial(
+    ctx: ExecutionContext,
+    id: number,
+    record: Partial<Composition>
+): Promise<null> {
     return await _updatePrimitivePartial(ctx, COMPOSITION, id, record)
 }
 
 /**
  * Delete a composition record from the database
- * 
+ *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param id the id of the record to delete
  * @returns null if successful
@@ -897,7 +1034,10 @@ export async function listCompositions(ctx: ExecutionContext): Promise<Compositi
  * @param compositions the composition records to resolve names for
  * @returns each composition paired with its resolved composer and contributor names
  */
-export async function attachCompositionNames(ctx: ExecutionContext, compositions: CompositionRecord[]): Promise<CompositionWithNames[]> {
+export async function attachCompositionNames(
+    ctx: ExecutionContext,
+    compositions: CompositionRecord[]
+): Promise<CompositionWithNames[]> {
     const composers = await listComposers(ctx)
     const composer_names = new Map<number, string>()
     if (composers) {
@@ -912,14 +1052,17 @@ export async function attachCompositionNames(ctx: ExecutionContext, compositions
             contributor_names.set(contributor.id, contributor.name)
         }
     }
-    return compositions.map(composition => ({
+    return compositions.map((composition) => ({
         object: composition,
         names: {
             composer_name: composer_names.get(composition.composer_id) ?? "",
-            author_secondary_names: composition.author_secondary.map(id => composer_names.get(id) ?? ""),
+            author_secondary_names: composition.author_secondary.map((id) => composer_names.get(id) ?? ""),
             contrib_primary_1_name: contributor_names.get(composition.contrib_primary_1) ?? "",
-            contrib_primary_2_name: composition.contrib_primary_2 === null ? "" : (contributor_names.get(composition.contrib_primary_2) ?? ""),
-            contrib_addl_names: composition.contrib_addl.map(id => contributor_names.get(id) ?? "")
+            contrib_primary_2_name:
+                composition.contrib_primary_2 === null
+                    ? ""
+                    : (contributor_names.get(composition.contrib_primary_2) ?? ""),
+            contrib_addl_names: composition.contrib_addl.map((id) => contributor_names.get(id) ?? "")
         }
     }))
 }

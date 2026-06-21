@@ -3,20 +3,31 @@
  *
  * Provides primitives to access Cloudflare R2 object storage, mainly for images
  *
- * These primitives are deliberately thin: they expose put/get/head/list/delete over the R2_FILES
- * bucket and enforce a storage-capacity ceiling so the bucket stays within the R2 free plan. No
- * caching happens here; lib/api/files.ts layers caching (Cache API + KV) on top of these, mirroring
- * how database.ts layers caching over d1.ts, and is the entry point other libraries should use.
  *
- * OPERATION DISCIPLINE
- * R2 free-plan operation ceilings (Class A: writes/lists, 1M/mo; Class B: reads, 10M/mo) are kept in
- * check by (1) per-request rate limits on the files API (RL_API_FILES_READ / RL_API_FILES_WRITE) and
- * (2) the caching in files.ts. Internal logic must therefore avoid fanning out into many R2 calls
- * (e.g. no per-object head() in a loop). The one place a full bucket scan is acceptable is the build
- * process, which runs out-of-band and is not subject to the request rate limits.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
+
+/**
+ * R2 free plan limits are maintained using rate limiters and caching to prevent overages; logic should
+ * be written to prevent overages (do not scan the entire bucket, unless it is build time)
+ */
 
 /**
  * The maximum total number of bytes the bucket is allowed to hold
@@ -27,6 +38,19 @@ import { env } from "cloudflare:workers"
 export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
 
 /**
+ * The maximum size, in bytes, of a single uploaded file, sourced from the `MAX_UPLOAD_BYTES` wrangler var.
+ *
+ * Enforced by the upload endpoints before the body is read into memory, so a client cannot exhaust
+ * worker memory or storage with one oversized upload. Images are optimized down after upload, but the
+ * cap applies to the original bytes the client sends.
+ *
+ * @returns {number} the configured per-file upload cap in bytes
+ */
+export function maxUploadBytes(): number {
+    return Number(env.MAX_UPLOAD_BYTES)
+}
+
+/**
  * Thrown by putObject when a write would exceed MAX_R2_STORAGE_BYTES; endpoints map this to 507
  */
 export class R2CapacityError extends Error {
@@ -34,27 +58,6 @@ export class R2CapacityError extends Error {
         super(message)
         this.name = "R2CapacityError"
     }
-}
-
-/**
- * Sums the size of every object in the bucket, following list pagination to completion
- *
- * This is a Class A (list) operation and may issue several calls on a large bucket, so callers in the
- * request path should cache the result (see files.ts) rather than calling it on every request.
- *
- * @returns {Promise<number>} the total number of bytes stored in the bucket
- */
-export async function computeUsage(): Promise<number> {
-    let total = 0
-    let cursor: string | undefined = undefined
-    do {
-        const listing: R2Objects = await env.R2_FILES.list({ cursor, include: [] })
-        for (const object of listing.objects) {
-            total += object.size
-        }
-        cursor = listing.truncated ? listing.cursor : undefined
-    } while (cursor !== undefined)
-    return total
 }
 
 /**
@@ -68,7 +71,11 @@ export async function computeUsage(): Promise<number> {
  * @param {("httpMetadata" | "customMetadata")[]} [include] - which metadata to include on each object
  * @returns {Promise<R2Objects>} the listing, including objects, truncation flag, and next cursor
  */
-export async function listObjects(prefix?: string, cursor?: string, include: ("httpMetadata" | "customMetadata")[] = ["httpMetadata", "customMetadata"]): Promise<R2Objects> {
+export async function listObjects(
+    prefix?: string,
+    cursor?: string,
+    include: ("httpMetadata" | "customMetadata")[] = ["httpMetadata", "customMetadata"]
+): Promise<R2Objects> {
     return await env.R2_FILES.list({ prefix, cursor, include })
 }
 
@@ -97,22 +104,31 @@ export async function headObject(key: string): Promise<R2Object | null> {
  *
  * The capacity check uses usage_budget — the number of bytes already stored that this write should be
  * counted against — so a caller replacing an existing object can subtract that object's current size to
- * avoid double-counting. When usage_budget is omitted it is computed with computeUsage() (a Class A
- * scan); request-path callers should pass a cached figure (see files.ts) instead.
+ * avoid double-counting. Computing current usage is not a storage primitive (it builds on a list scan),
+ * so it is the caller's responsibility: files.ts derives the budget from its cached listing and passes
+ * it here (see computeUsage in files.ts).
  *
  * @param {string} key - the object key to write
  * @param {ArrayBuffer | Uint8Array} body - the object bytes (size must be known for the capacity check)
  * @param {string} content_type - the MIME type to store as httpMetadata.contentType
- * @param {Record<string, string>} [custom_metadata] - opaque metadata to store on the object
- * @param {number} [usage_budget] - bytes already used to count this write against; computed if omitted
+ * @param {Record<string, string> | undefined} custom_metadata - opaque metadata to store on the object
+ * @param {number} usage_budget - bytes already used to count this write against
  * @returns {Promise<R2Object>} the written object's metadata
  * @throws {R2CapacityError} if the write would push total usage past MAX_R2_STORAGE_BYTES
  */
-export async function putObject(key: string, body: ArrayBuffer | Uint8Array, content_type: string, custom_metadata?: Record<string, string>, usage_budget?: number): Promise<R2Object> {
+export async function putObject(
+    key: string,
+    body: ArrayBuffer | Uint8Array,
+    content_type: string,
+    custom_metadata: Record<string, string> | undefined,
+    usage_budget: number
+): Promise<R2Object> {
     const incoming = body.byteLength
-    const used = usage_budget !== undefined ? usage_budget : await computeUsage()
+    const used = usage_budget
     if (used + incoming > MAX_R2_STORAGE_BYTES) {
-        throw new R2CapacityError(`Storage capacity exceeded: ${used + incoming} bytes would exceed the ${MAX_R2_STORAGE_BYTES} byte ceiling`)
+        throw new R2CapacityError(
+            `Storage capacity exceeded: ${used + incoming} bytes would exceed the ${MAX_R2_STORAGE_BYTES} byte ceiling`
+        )
     }
     return await env.R2_FILES.put(key, body, {
         httpMetadata: { contentType: content_type },

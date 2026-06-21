@@ -1,46 +1,63 @@
 ---
 /**
- * src/layouts/DocInfo.astro
+ * layouts/DocInfo.astro
  *
  * Layout for the documentation pages served from the `docs` content collection through
- * src/pages/admin/docs/[...slug].astro. It renders the shared admin chrome (BaseHead, AdminHead,
+ * pages/admin/docs/[...slug].astro. It renders the shared admin chrome (BaseHead, AdminHead,
  * AdminHeader, AdminFooter) around the collection entry's rendered Markdown/MDX body, which is
  * projected through <slot />. The entry's frontmatter (title, description, author) is passed in as
  * props and used for the document head, the page heading, and the byline.
  *
  * The [...slug] route is server-rendered (prerender = false), so the identity middleware has run and
  * populated Astro.locals.identity by the time this layout renders.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-import type { CollectionEntry } from 'astro:content';
-import BaseHead from '../components/BaseHead.astro';
-import AdminHead from '../components/AdminHead.astro';
-import AdminHeader from '../components/AdminHeader.astro';
-import AdminFooter from '../components/AdminFooter.astro';
-import { ADMIN_PAGE_TITLE_PRFX } from '../consts';
+import type { CollectionEntry } from "astro:content"
+import BaseHead from "../components/BaseHead.astro"
+import AdminHead from "../components/AdminHead.astro"
+import AdminHeader from "../components/AdminHeader.astro"
+import AdminFooter from "../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../consts"
 
-type Props = CollectionEntry<'docs'>['data'];
+type Props = CollectionEntry<"docs">["data"]
 
-const { title, description } = Astro.props;
+const { title, description } = Astro.props
 
 // pass the resolved caller to the header so it greets the signed-in administrator (falls back to a
 // generic label in local development where no identity is present)
-const identity = Astro.locals.identity ?? null;
+const identity = Astro.locals.identity ?? null
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Documentation: ${title}`} description={description} />
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={identity} welcome={false} />
-    <main>
-        <article>
-            <h1>{title}</h1>
-            <p>{description}</p>
-            <slot />
-        </article>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Documentation: ${title}`} description={description} />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={identity} welcome={false} />
+        <main>
+            <article>
+                <h1>{title}</h1>
+                <p>{description}</p>
+                <slot />
+            </article>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

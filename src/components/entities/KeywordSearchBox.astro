@@ -1,6 +1,6 @@
 ---
 /**
- * src/components/entities/KeywordSearchBox.astro
+ * components/entities/KeywordSearchBox.astro
  *
  * Reusable keyword-search box. Renders a keyword input, a Search button, and a results container,
  * with consistent element ids derived from `id_prefix` so the client can wire it via
@@ -42,6 +42,7 @@ const label: string = Astro.props.label ?? "Search by keyword"
 const database_select: boolean = Astro.props.database_select ?? false
 const hidden: boolean = Astro.props.hidden ?? false
 ---
+
 <div class=`generic-form keyword-search${hidden ? ' hidden' : ''}` id={`${id_prefix}-container`}>
     <form id={`${id_prefix}-form`} class="generic-form">
         {

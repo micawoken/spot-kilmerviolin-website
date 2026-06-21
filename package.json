@@ -30,6 +30,9 @@
     "@playwright/test": "^1.60.0",
     "@types/he": "^1.2.3",
     "@types/node": "^25.9.2",
+    "prettier": "^3.8.4",
+    "prettier-plugin-astro": "^0.14.1",
+    "sharp": "^0.34.0",
     "vitest": "^4.1.5",
     "wrangler": "^4.85.0"
   },
@@ -43,6 +46,8 @@
     "check": "astro build && tsc && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "dev": "astro dev",
+    "format": "prettier --write \"src/**/*.{ts,astro}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,astro}\"",
     "preview": "astro build && wrangler dev",
     "test": "vitest run"
   },

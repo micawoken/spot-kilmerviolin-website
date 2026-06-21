@@ -1,11 +1,27 @@
 /**
  * lib/api/d1.ts
- * 
+ *
  * Provides primitives to access Cloudflare D1, including adding records, searching records, and deleting records
- * 
- * 
+ *
+ *
  * The D1 primitives provided by this library, except the command primitive, deliberately exclude complex SQL features since (1) they aren't necessary and (2) they provide protection against injection.
- * 
+ *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
@@ -13,6 +29,7 @@ import { Key, WorkType } from "./common.ts"
 import { SQLStatement } from "./sql.ts"
 import { dbWriteEnabled } from "./environment.ts"
 import {
+    isDeathYearConsistent,
     isValidCountryCode,
     isValidEmail,
     isValidImageUrl,
@@ -22,7 +39,6 @@ import {
     SUPPORTED_URI_TYPES,
     validateURIForType
 } from "./validation.ts"
-
 
 /*
  * D1 table spec info
@@ -93,15 +109,29 @@ import {
  * );
  */
 
-
-
 /**
  * Schema for contributors table
  */
 export const CONTRIBUTOR: D1Schema = {
     db: env.DB_MAIN,
     name: "contributors",
-    columns: ["contributor_id", "name", "class_year", "major", "phases", "bio", "public_email", "identity_email", "active", "roles", "admin", "image", "tags", "entry_date", "change_date"],
+    columns: [
+        "contributor_id",
+        "name",
+        "class_year",
+        "major",
+        "phases",
+        "bio",
+        "public_email",
+        "identity_email",
+        "active",
+        "roles",
+        "admin",
+        "image",
+        "tags",
+        "entry_date",
+        "change_date"
+    ],
     index: ["contributor_id", "identity_email", "public_email"],
     repr_exclude: ["entry_date", "change_date"],
     primary_key: "contributor_id",
@@ -131,7 +161,19 @@ export const CONTRIBUTOR: D1Schema = {
 export const COMPOSER: D1Schema = {
     db: env.DB_MAIN,
     name: "composers",
-    columns: ["composer_id", "name", "role", "birth_year", "death_year", "country", "bio", "image", "tags", "entry_date", "change_date"],
+    columns: [
+        "composer_id",
+        "name",
+        "role",
+        "birth_year",
+        "death_year",
+        "country",
+        "bio",
+        "image",
+        "tags",
+        "entry_date",
+        "change_date"
+    ],
     index: ["composer_id", "name"],
     repr_exclude: ["entry_date", "change_date"],
     primary_key: "composer_id",
@@ -157,10 +199,35 @@ export const COMPOSITION: D1Schema = {
     db: env.DB_MAIN,
     name: "compositions",
     // columns use shape of Composition interface
-    columns: ["composition_id", "name", "composer_id", "contrib_primary_1", "contrib_primary_2",
-        "contrib_addl", "author_secondary", "type", "part", "rating_suzuki", "rating_nyssma", "publish_location",
-        "publish_name", "publish_year", "uri_type", "uri", "key", "range", "position_highest", "notes_pedagogical",
-        "notes_historical", "notes_other", "image", "phases", "entry_date", "tags", "change_date"],
+    columns: [
+        "composition_id",
+        "name",
+        "composer_id",
+        "contrib_primary_1",
+        "contrib_primary_2",
+        "contrib_addl",
+        "author_secondary",
+        "type",
+        "part",
+        "rating_suzuki",
+        "rating_nyssma",
+        "publish_location",
+        "publish_name",
+        "publish_year",
+        "uri_type",
+        "uri",
+        "key",
+        "range",
+        "position_highest",
+        "notes_pedagogical",
+        "notes_historical",
+        "notes_other",
+        "image",
+        "phases",
+        "entry_date",
+        "tags",
+        "change_date"
+    ],
     index: ["composition_id"],
     repr_exclude: ["entry_date", "change_date"],
     primary_key: "composition_id",
@@ -196,8 +263,28 @@ export const COMPOSITION: D1Schema = {
 }
 
 /**
+ * Strips a schema's protected properties (schema.protected) from a record before it leaves the server
+ *
+ * Read wrappers (getContributor/listContributors) intentionally return full records for server-side use;
+ * client-facing read endpoints must redact protected columns from records the requester is not entitled
+ * to see in full. Centralizing that here gives one tested chokepoint instead of an ad-hoc inline filter
+ * duplicated per endpoint, so a future endpoint is less likely to forget to redact.
+ *
+ * @param schema - the D1Schema whose `protected` list names the columns to remove (no-op when absent)
+ * @param record - the record to redact
+ * @returns a shallow copy of the record with protected properties removed
+ */
+export function redactProtected(schema: D1Schema, record: object): Record<string, unknown> {
+    const protectedKeys = schema.protected
+    if (!protectedKeys || protectedKeys.length === 0) {
+        return { ...record }
+    }
+    return Object.fromEntries(Object.entries(record).filter(([key]) => !protectedKeys.includes(key)))
+}
+
+/**
  * Internal function to prepare and execute a SQL command with supplied parameters
- * 
+ *
  * @param command the SQL command to execute, with parameter placeholders
  * @param params the parameters to bind to the command, in order
  * @returns a D1Result object containing the results of the command execution
@@ -210,14 +297,20 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
     } catch (error) {
         // identify the failing stage (preparation) and the offending statement; the original message is
         // appended verbatim so any embedded SQLITE_ code is preserved for the error hook and cause chain
-        throw new Error(`Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+        throw new Error(
+            `Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+        )
     }
 
     let exec_result
     try {
         exec_result = await prepared.bind(...params).run()
     } catch (error) {
-        throw new Error(`Failed to execute SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+        throw new Error(
+            `Failed to execute SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+        )
     }
 
     if (!exec_result.success) {
@@ -229,7 +322,7 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
 
 /**
  * Execute a SQLStatement object using _exec()
- * 
+ *
  * @param stmt the SQLStatement object to execute
  * @returns a D1Result object containing the results of the command execution
  * @throws an error if preparation or execution fails, or if execution does not succeed
@@ -246,7 +339,10 @@ export async function exec_stmt(stmt: SQLStatement): Promise<D1Result> {
         finished = stmt.finish()
     } catch (error) {
         // name the operation (verb + table) that failed to finalize so the cause is identifiable upstream
-        throw new Error(`Failed to finalize ${stmt.verb} statement on table '${stmt.from}': ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+        throw new Error(
+            `Failed to finalize ${stmt.verb} statement on table '${stmt.from}': ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+        )
     }
     const [command, params] = finished
     const result = await _exec(command, params)
@@ -258,7 +354,7 @@ export async function exec_stmt(stmt: SQLStatement): Promise<D1Result> {
 
 /**
  * Execute a raw SQL command string with parameters using _exec()
- * 
+ *
  * @param command the SQL command to execute
  * @param params the parameters to bind to the command, in order
  * @returns a D1Result object containing the results of the command execution
@@ -270,6 +366,74 @@ export async function exec_string(command: string, params: unknown[] = []): Prom
         throw new Error("Failed to execute SQL statement")
     }
     return result
+}
+
+/**
+ * Execute several raw SQL command strings in a single atomic batch.
+ *
+ * The statements are prepared and handed to D1's batch() API, which wraps them in an implicit
+ * transaction: they run sequentially in the order supplied, and if any statement fails the entire
+ * batch is rolled back (no partial application). Parameter binding is not exposed here since these
+ * commands originate from the admin terminal as complete literal SQL.
+ *
+ * @param commands the SQL command strings to execute, in order (must be non-empty)
+ * @returns an array of D1Result objects, one per command, in the same order
+ * @throws an error if any statement fails to prepare or execute, or if the batch does not succeed
+ */
+export async function exec_string_batch(commands: string[]): Promise<D1Result[]> {
+    if (commands.length === 0) {
+        throw new Error("No SQL commands supplied for batch execution")
+    }
+    const prepared: D1PreparedStatement[] = []
+    for (const command of commands) {
+        try {
+            prepared.push(env.DB_MAIN.prepare(command))
+        } catch (error) {
+            // mirror _exec's preparation error so the offending statement and any SQLITE_ code survive
+            throw new Error(
+                `Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error }
+            )
+        }
+    }
+
+    let results: D1Result[]
+    try {
+        results = await env.DB_MAIN.batch(prepared)
+    } catch (error) {
+        // a batch failure rolls back every statement; surface the original message for the error hook
+        throw new Error(`Failed to execute SQL batch: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+        })
+    }
+
+    // batch() resolves only when the transaction commits, but guard against a result flagged unsuccessful
+    if (results.some((result) => !result.success)) {
+        throw new Error("SQL execution did not succeed for one or more statements in the batch")
+    }
+    return results
+}
+
+/**
+ * Execute several raw SQL command strings sequentially, each as its own statement.
+ *
+ * Unlike {@link exec_string_batch}, the statements are NOT wrapped in a transaction: each runs and
+ * commits independently, so a failure leaves the already-executed statements applied. Execution stops
+ * at the first failure (the error from _exec propagates), and only the results up to that point are lost.
+ *
+ * @param commands the SQL command strings to execute, in order (must be non-empty)
+ * @returns an array of D1Result objects, one per command, in the same order
+ * @throws an error if any statement fails to prepare or execute
+ */
+export async function exec_string_sequential(commands: string[]): Promise<D1Result[]> {
+    if (commands.length === 0) {
+        throw new Error("No SQL commands supplied for execution")
+    }
+    const results: D1Result[] = []
+    for (const command of commands) {
+        results.push(await _exec(command, []))
+    }
+    return results
 }
 
 /**
@@ -294,6 +458,12 @@ export async function getRecord(schema: D1Schema, id: number): Promise<D1Result>
  */
 export async function getRecordSpecificProp(schema: D1Schema, param: string, value: string): Promise<D1Result> {
     // mainly used in authorization mechanism to query
+    // the value is bound, but `param` is interpolated into the column position, so it must be constrained
+    // to a known schema column (mirrors SQLStatement.finish()'s allow-list); a caller that ever forwards a
+    // user-supplied column name therefore cannot inject SQL through the identifier position
+    if (!schema.columns.includes(param)) {
+        throw new Error(`Invalid column '${param}' for table '${schema.name}'`)
+    }
     const statement = `SELECT * FROM ${schema.name} WHERE ${param} = ?;`
     return _exec(statement, [value])
 }
@@ -312,20 +482,23 @@ export async function deleteRecord(schema: D1Schema, id: number): Promise<D1Resu
 
 // complex operations, i.e. insertion, updates, and complex selects, can only be performed using exec_stmt
 
-
 /**
  * Provides a type assertion and key validation for a record not originating from D1 directly
- * 
+ *
  * @param schema the D1Schema of the record being asserted
  * @param record the record for which type assertion is requested
  * @param validate whether to perform key validation, default true
  * @returns the record with a TS type assertion
- * 
+ *
  */
-export function recordTypeAssertComplete(schema: D1Schema, record: Record<string, string | number | null>, validate: boolean = true): D1Contributor | D1Composer | D1Composition {
+export function recordTypeAssertComplete(
+    schema: D1Schema,
+    record: Record<string, string | number | null>,
+    validate: boolean = true
+): D1Contributor | D1Composer | D1Composition {
     if (validate) {
         const params = new Set(schema.columns.concat(schema.repr_exclude))
-        if (Object.keys(record).some(key => !params.has(key))) {
+        if (Object.keys(record).some((key) => !params.has(key))) {
             throw new Error("Record is missing required parameters or has extraneous parameters")
         }
     }
@@ -343,16 +516,20 @@ export function recordTypeAssertComplete(schema: D1Schema, record: Record<string
 
 /**
  * Provides a type assertion and key validation for a record that may be partial
- * 
+ *
  * @param schema the D1Schema of the record being asserted
  * @param record the record for which type assertion is requested
  * @param validate whether to perform key validation, default true
  * @return the record with a TS type assertion, along with a boolean indicating whether the record is complete
  */
-export function recordTypeAssertPartial(schema: D1Schema, record: Record<string, string | number | null>, validate: boolean = true): Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition> {
+export function recordTypeAssertPartial(
+    schema: D1Schema,
+    record: Record<string, string | number | null>,
+    validate: boolean = true
+): Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition> {
     if (validate) {
         const params = new Set(schema.columns.concat(schema.repr_exclude))
-        if (Object.keys(record).some(key => !params.has(key))) {
+        if (Object.keys(record).some((key) => !params.has(key))) {
             throw new Error("Record has extraneous parameters")
         }
     }
@@ -370,21 +547,28 @@ export function recordTypeAssertPartial(schema: D1Schema, record: Record<string,
 
 /**
  * Provide a general type assertion for a record that may be complete or partial, with optional key validation
- * 
+ *
  * @param schema the D1Schema of the record being asserted
  * @param record the record for which type assertion is requested
  * @param validate whether to perform key validation, default true
  * @returns the record with a TS type assertion, along with a boolean indicating whether the record is complete
  */
-export function recordTypeAssert(schema: D1Schema, record: Record<string, string | number | null>, validate: boolean = true): [D1Contributor | D1Composer | D1Composition | Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>, boolean] {
+export function recordTypeAssert(
+    schema: D1Schema,
+    record: Record<string, string | number | null>,
+    validate: boolean = true
+): [
+    D1Contributor | D1Composer | D1Composition | Partial<D1Contributor> | Partial<D1Composer> | Partial<D1Composition>,
+    boolean
+] {
     const params = schema.columns.concat(schema.repr_exclude)
     const args = Object.keys(record)
     if (validate) {
-        if (args.some(key => !params.includes(key))) {
+        if (args.some((key) => !params.includes(key))) {
             throw new Error("Record has extraneous parameters")
         }
     }
-    const is_complete = params.every(column => column in record)
+    const is_complete = params.every((column) => column in record)
     switch (schema) {
         case CONTRIBUTOR:
             return [record as D1Contributor | Partial<D1Contributor>, is_complete]
@@ -430,7 +614,7 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
     }
     const r = record as { [key: string]: any }
     // id is nullable on inbound records: it must be a number, or absent (undefined) when not expected
-    if ((typeof r.id !== "number") && (typeof r.id !== "undefined" || expect_id)) {
+    if (typeof r.id !== "number" && (typeof r.id !== "undefined" || expect_id)) {
         return "Record has invalid types for one or more parameters"
     }
     for (const field in spec) {
@@ -466,35 +650,41 @@ const _invalidBoolean = (v: any) => typeof v !== "boolean"
 // nullable variants accept null alongside the base type
 const _invalidNullableString = (v: any) => typeof v !== "string" && v !== null
 // a nullable image field: null, or a string that (when non-blank) is a valid image URL or internal path
-const _invalidNullableImage = (v: any) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidImageUrl(v)))
+const _invalidNullableImage = (v: any) =>
+    v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidImageUrl(v)))
 // a nullable email field: null, or a string that (when non-blank) is a valid email address
 const _invalidNullableEmail = (v: any) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidEmail(v)))
 // every element of an array is a positive integer (used for id and phase-number lists)
-const _allPositiveIntegers = (v: any[]) => v.every((item: any) => typeof item === "number" && Number.isInteger(item) && item >= 1)
+const _allPositiveIntegers = (v: any[]) =>
+    v.every((item: any) => typeof item === "number" && Number.isInteger(item) && item >= 1)
 
 /** Field spec for Contributor records. */
 const CONTRIBUTOR_SPEC: RecordSpec = {
     name: { invalid: _invalidString },
     // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
     // class_year, when present, is a positive (4-digit) year
-    class_year: { invalid: v => v !== null && (typeof v !== "number" || !isValidYear(v)) },
+    class_year: { invalid: (v) => v !== null && (typeof v !== "number" || !isValidYear(v)) },
     major: { invalid: _invalidNullableString },
     phases: {
-        invalid: v => !(v instanceof Array) && v !== null,
+        invalid: (v) => !(v instanceof Array) && v !== null,
         // phase numbers must be positive integers
-        elementCheck: v => (v !== null && v.length > 0 && !_allPositiveIntegers(v))
-            ? "Record has invalid value for phases parameter (expected positive integers)" : null
+        elementCheck: (v) =>
+            v !== null && v.length > 0 && !_allPositiveIntegers(v)
+                ? "Record has invalid value for phases parameter (expected positive integers)"
+                : null
     },
     bio: { invalid: _invalidNullableString },
     public_email: { invalid: _invalidNullableEmail },
     // identity_email is filled with a generated fallback address before validation when blank, so by the
     // time it reaches here it is always a present, non-blank string and must be a valid email
-    identity_email: { invalid: v => typeof v !== "string" || !isValidEmail(v) },
+    identity_email: { invalid: (v) => typeof v !== "string" || !isValidEmail(v) },
     active: { invalid: _invalidBoolean },
     roles: {
-        invalid: v => !(v instanceof Array),
-        elementCheck: v => (!v.every((role: any) => typeof role === "string") && v.length > 0)
-            ? "Record has invalid type for roles parameter" : null
+        invalid: (v) => !(v instanceof Array),
+        elementCheck: (v) =>
+            !v.every((role: any) => typeof role === "string") && v.length > 0
+                ? "Record has invalid type for roles parameter"
+                : null
     },
     admin: { invalid: _invalidBoolean },
     image: { invalid: _invalidNullableImage }
@@ -505,10 +695,10 @@ const COMPOSER_SPEC: RecordSpec = {
     name: { invalid: _invalidString },
     role: { invalid: _invalidString },
     // birth_year is a positive (4-digit) year; death_year additionally permits the -1 "living" sentinel
-    birth_year: { invalid: v => typeof v !== "number" || !isValidYear(v) },
-    death_year: { invalid: v => typeof v !== "number" || !isValidYear(v, true) },
+    birth_year: { invalid: (v) => typeof v !== "number" || !isValidYear(v) },
+    death_year: { invalid: (v) => typeof v !== "number" || !isValidYear(v, true) },
     // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
-    country: { invalid: v => typeof v !== "string" || !isValidCountryCode(v) },
+    country: { invalid: (v) => typeof v !== "string" || !isValidCountryCode(v) },
     image: { invalid: _invalidNullableImage },
     bio: { invalid: _invalidNullableString }
 }
@@ -521,7 +711,7 @@ const COMPOSER_SPEC: RecordSpec = {
  */
 export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: boolean = true): Contributor | string {
     const result = assertRecordBySpec(record, CONTRIBUTOR_SPEC, false, expect_id)
-    return result === true ? record as Contributor : result
+    return result === true ? (record as Contributor) : result
 }
 
 /**
@@ -530,9 +720,30 @@ export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: 
  * @param record the record to check and assert
  * @returns the record as a partial Contributor type if valid, or a string error message if invalid
  */
-export function _stateTypeAssertPartialContributor(record: unknown, expect_id: boolean = true): Partial<Contributor> | string {
+export function _stateTypeAssertPartialContributor(
+    record: unknown,
+    expect_id: boolean = true
+): Partial<Contributor> | string {
     const result = assertRecordBySpec(record, CONTRIBUTOR_SPEC, true, expect_id)
-    return result === true ? record as Partial<Contributor> : result
+    return result === true ? (record as Partial<Contributor>) : result
+}
+
+/**
+ * Cross-field consistency check for composer years: a composer's death_year must fall on or after their
+ * birth_year, unless it is the -1 "still living" sentinel. Only enforced when both years are present as
+ * numbers (so a partial update touching only one year is not rejected against an absent counterpart);
+ * the per-field shape of each year is already validated by COMPOSER_SPEC before this runs.
+ *
+ * @param record the (already per-field validated) composer record or partial record
+ * @returns true if the years are consistent, otherwise a string error message
+ */
+function composerYearsConsistent(record: { [key: string]: any }): true | string {
+    const birth = record.birth_year
+    const death = record.death_year
+    if (typeof birth === "number" && typeof death === "number" && !isDeathYearConsistent(birth, death)) {
+        return "Record has invalid death_year (must be greater than or equal to birth_year, or -1 if living)"
+    }
+    return true
 }
 
 /**
@@ -543,7 +754,11 @@ export function _stateTypeAssertPartialContributor(record: unknown, expect_id: b
  */
 export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boolean = true): Composer | string {
     const result = assertRecordBySpec(record, COMPOSER_SPEC, false, expect_id)
-    return result === true ? record as Composer : result
+    if (result !== true) {
+        return result
+    }
+    const consistency = composerYearsConsistent(record as { [key: string]: any })
+    return consistency === true ? (record as Composer) : consistency
 }
 
 /**
@@ -552,9 +767,16 @@ export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boo
  * @param record the record to check and assert
  * @returns the record as a partial Composer type if valid, or a string error message if invalid
  */
-export function _stateTypeAssertPartialComposer(record: unknown, expect_id: boolean = true): Partial<Composer> | string {
+export function _stateTypeAssertPartialComposer(
+    record: unknown,
+    expect_id: boolean = true
+): Partial<Composer> | string {
     const result = assertRecordBySpec(record, COMPOSER_SPEC, true, expect_id)
-    return result === true ? record as Partial<Composer> : result
+    if (result !== true) {
+        return result
+    }
+    const consistency = composerYearsConsistent(record as { [key: string]: any })
+    return consistency === true ? (record as Partial<Composer>) : consistency
 }
 
 /**
@@ -593,7 +815,7 @@ function validateCompRating(record: unknown, partial: boolean = false): boolean 
         "suzuki" in r ? validateRatingMember(r.suzuki, 1, 10) : false,
         "nyssma" in r ? validateRatingMember(r.nyssma, 1, 6) : false
     ]
-    return partial ? tests.some(test => test) : tests.every(test => test)
+    return partial ? tests.some((test) => test) : tests.every((test) => test)
 }
 
 /** * Given an unknown object from JSON, determine if it is a complete PublicationInfo record and perform a type assertion
@@ -626,44 +848,54 @@ function validatePubInfo(record: unknown, partial: boolean = false): boolean {
             return false
         }
     }
-    return partial ? tests.some(test => test) : tests.every(test => test)
+    return partial ? tests.some((test) => test) : tests.every((test) => test)
 }
 /** Field spec for Composition records. */
 const COMPOSITION_SPEC: RecordSpec = {
     name: { invalid: _invalidString },
     // id references must be positive integers (1-based record ids)
-    composer_id: { invalid: v => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
-    contrib_primary_1: { invalid: v => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
-    contrib_primary_2: { invalid: v => v !== null && (typeof v !== "number" || !Number.isInteger(v) || v < 1) },
+    composer_id: { invalid: (v) => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
+    contrib_primary_1: { invalid: (v) => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
+    contrib_primary_2: { invalid: (v) => v !== null && (typeof v !== "number" || !Number.isInteger(v) || v < 1) },
     contrib_addl: {
-        invalid: v => !(v instanceof Array),
-        elementCheck: v => (v.length > 0 && !_allPositiveIntegers(v))
-            ? "Record has invalid value for contrib_addl parameter (expected positive integer ids)" : null
+        invalid: (v) => !(v instanceof Array),
+        elementCheck: (v) =>
+            v.length > 0 && !_allPositiveIntegers(v)
+                ? "Record has invalid value for contrib_addl parameter (expected positive integer ids)"
+                : null
     },
     author_secondary: {
-        invalid: v => !(v instanceof Array),
-        elementCheck: v => (v.length > 0 && !_allPositiveIntegers(v))
-            ? "Record has invalid value for author_secondary parameter (expected positive integer ids)" : null
+        invalid: (v) => !(v instanceof Array),
+        elementCheck: (v) =>
+            v.length > 0 && !_allPositiveIntegers(v)
+                ? "Record has invalid value for author_secondary parameter (expected positive integer ids)"
+                : null
     },
     phases: {
-        invalid: v => !(v instanceof Array),
-        elementCheck: v => (v.length > 0 && !_allPositiveIntegers(v))
-            ? "Record has invalid value for phases parameter (expected positive integers)" : null
+        invalid: (v) => !(v instanceof Array),
+        elementCheck: (v) =>
+            v.length > 0 && !_allPositiveIntegers(v)
+                ? "Record has invalid value for phases parameter (expected positive integers)"
+                : null
     },
-    type: { invalid: v => typeof v !== "string" && !(v in WorkType) },
+    type: { invalid: (v) => typeof v !== "string" && !(v in WorkType) },
     part: { invalid: _invalidNullableString },
-    key: { invalid: v => (typeof v !== "string" && !(v in Key)) && v !== null },
+    key: { invalid: (v) => typeof v !== "string" && !(v in Key) && v !== null },
     // range: a two-note pitch range (e.g. G3-A5); position_highest: a Roman numeral or integer. Both are
     // nullable, and a blank string is tolerated (mapped to a cleared value); a non-blank value must match.
-    range: { invalid: v => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPitchRange(v))) },
-    position_highest: { invalid: v => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPosition(v))) },
+    range: { invalid: (v) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPitchRange(v))) },
+    position_highest: {
+        invalid: (v) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPosition(v)))
+    },
     notes_pedagogical: { invalid: _invalidNullableString },
     notes_historical: { invalid: _invalidNullableString },
     notes_other: { invalid: _invalidNullableString },
     image: { invalid: _invalidNullableImage },
     // rating is nullable only in complete mode; in partial mode a present rating must validate
     // (mirrors the original, which dropped the !== null guard and passed partial=true to validateCompRating)
-    rating: { invalid: (v, partial) => partial ? !validateCompRating(v, true) : (v !== null && !validateCompRating(v, false)) },
+    rating: {
+        invalid: (v, partial) => (partial ? !validateCompRating(v, true) : v !== null && !validateCompRating(v, false))
+    },
     publication_info: { invalid: (v, partial) => !validatePubInfo(v, partial) }
 }
 
@@ -675,7 +907,7 @@ const COMPOSITION_SPEC: RecordSpec = {
  */
 export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: boolean = true): Composition | string {
     const result = assertRecordBySpec(record, COMPOSITION_SPEC, false, expect_id)
-    return result === true ? record as Composition : result
+    return result === true ? (record as Composition) : result
 }
 
 /**
@@ -684,7 +916,10 @@ export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: 
  * @param record the record to check and assert
  * @returns the record as a partial Composition type if valid, or a string error message if invalid
  */
-export function _stateTypeAssertPartialComposition(record: unknown, expect_id: boolean = true): Partial<Composition> | string {
+export function _stateTypeAssertPartialComposition(
+    record: unknown,
+    expect_id: boolean = true
+): Partial<Composition> | string {
     const result = assertRecordBySpec(record, COMPOSITION_SPEC, true, expect_id)
-    return result === true ? record as Partial<Composition> : result
+    return result === true ? (record as Partial<Composition>) : result
 }

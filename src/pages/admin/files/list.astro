@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/files/list.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -25,45 +45,68 @@ function formatBytes(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Files`} description="View the list of files in the file store"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>List Files</h2>
-    <p class="general-infohelp">Files are either bundled <strong>local</strong> assets (src/files, served from the build) or uploaded <strong>database</strong> files (R2). Only database files can be replaced or deleted; bundled local assets are part of the site build.</p>
-    <div id="list-results-file" class="list-results-container">
-        {
-            files.length > 0 ? (
-                files.map(file => (
-                    <div id={`list-result-file-${file.key}`} class="list-result-container">
-                        <img class="list-result-thumb" src={`/api/v1/files/${file.key}`} alt={`Preview of ${file.key}`} loading="lazy" width="48" height="48" />
-                        <a href={`/admin/files/info?id=${file.key}`} class="list-result-link">{file.key}</a>
-                        <span class="list-result-meta">Database (R2) · {file.content_type} · {formatBytes(file.size)}{file.width && file.height ? ` · ${file.width}×${file.height}` : ""}</span>
-                        <div class="list-result-actions">
-                            <a href={`/admin/files/edit?id=${file.key}`} class="list-result-edit-link">Replace &gt;</a>
-                            <a href={`/admin/files/delete?id=${file.key}`} class="list-result-edit-link">Delete &gt;</a>
-                        </div>
-                    </div>
-                ))
-            ) : (
-                <p id="list-result-file-empty">No uploaded (database) files found.</p>
-            )
-        }
-    </div>
-    <!-- current storage usage sits at the foot of the listing (bundled local assets do not count toward the R2 ceiling) -->
-    <p id="file-storage-usage" class="general-infohelp">Storage used: {used_gb} GB of {max_gb} GB ({percent}%).</p>
-    <script>
-        import { appendBundledFiles } from "../../../scripts/file_picker"
-        // bundled (src/files) assets live only in the build manifest, so they are added client-side,
-        // each tagged "Local (src/files)" alongside the server-rendered "Database (R2)" rows
-        appendBundledFiles("list-results-file")
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}List Files`} description="View the list of files in the file store" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>List Files</h2>
+            <p class="general-infohelp">
+                Files are either bundled <strong>local</strong> assets (src/files, served from the build) or uploaded <strong
+                    >database</strong
+                > files (R2). Only database files can be replaced or deleted; bundled local assets are part of the site build.
+            </p>
+            <div id="list-results-file" class="list-results-container">
+                {
+                    files.length > 0 ? (
+                        files.map((file) => (
+                            <div id={`list-result-file-${file.key}`} class="list-result-container">
+                                <img
+                                    class="list-result-thumb"
+                                    src={`/api/v1/files/${file.key}`}
+                                    alt={`Preview of ${file.key}`}
+                                    loading="lazy"
+                                    width="48"
+                                    height="48"
+                                />
+                                <a href={`/admin/files/info?id=${file.key}`} class="list-result-link">
+                                    {file.key}
+                                </a>
+                                <span class="list-result-meta">
+                                    Database (R2) · {file.content_type} · {formatBytes(file.size)}
+                                    {file.width && file.height ? ` · ${file.width}×${file.height}` : ""}
+                                </span>
+                                <div class="list-result-actions">
+                                    <a href={`/admin/files/edit?id=${file.key}`} class="list-result-edit-link">
+                                        Replace &gt;
+                                    </a>
+                                    <a href={`/admin/files/delete?id=${file.key}`} class="list-result-edit-link">
+                                        Delete &gt;
+                                    </a>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p id="list-result-file-empty">No uploaded (database) files found.</p>
+                    )
+                }
+            </div>
+            <!-- current storage usage sits at the foot of the listing (bundled local assets do not count toward the R2 ceiling) -->
+            <p id="file-storage-usage" class="general-infohelp">
+                Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
+            </p>
+            <script>
+                import { appendBundledFiles } from "../../../scripts/file_picker"
+                // bundled (src/files) assets live only in the build manifest, so they are added client-side,
+                // each tagged "Local (src/files)" alongside the server-rendered "Database (R2)" rows
+                appendBundledFiles("list-results-file")
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

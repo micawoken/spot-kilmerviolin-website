@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/iam.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../components/BaseHead.astro"
 import AdminHead from "../../components/AdminHead.astro"
 import AdminHeader from "../../components/AdminHeader.astro"
@@ -11,33 +31,51 @@ const locals = Astro.locals
 
 const identity = locals.identity
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Identity & Access Management`} description="Manage access to administrative services"/>
-    <AdminHead />
-</head>
-<body>
-    <!-- Header -->
-    <AdminHeader identity={identity}  welcome={true}/>
-    <main class="admin-main" role="main">
-    <!-- Pages for IAM, site info/mgmt, and advanced -->
-    <div class="flex-container">
-        <div class="column">
-            <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>
-            <ul>
-                <li><a href="/admin/iam/whoami" class="col-item-link">My authorization info</a></li>
-                <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
-                <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
-                <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
-                <li><a href="/admin/iam/email" class="col-item-link">Change sign-in email</a></li>
-                <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
-            </ul>
-        </div>
-    </div>
-    <p class="general-helppointer">For help with these options, please review the <a href="/admin/docs/iam" class="general-helppointer-link">Identity & Access Management</a>documentation and video.</p>
-    <p class="general-helpinfo">Looking for options to activate or deactivate an account, or to promote or demote a user as administrator? Those options are in <a href="/admin/user" class="general-helpinfo-link">User Management</a>.</p>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Identity & Access Management`}
+            description="Manage access to administrative services"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <!-- Header -->
+        <AdminHeader identity={identity} welcome={true} />
+        <main class="admin-main" role="main">
+            <h2>Identity & Access Management</h2>
+            <p class="general-infohelp">
+                Identity & Access Management controls who can log into this system and what they are allowed to do once
+                connected.
+            </p>
+            <!-- Pages for IAM, site info/mgmt, and advanced -->
+            <div class="flex-container">
+                <div class="column">
+                    <ul>
+                        <li><a href="/admin/iam/whoami" class="col-item-link">My authorization info</a></li>
+                        <li><a href="/admin/iam/add" class="col-item-link">Add new user</a></li>
+                        <li><a href="/admin/iam/list" class="col-item-link">List users</a></li>
+                        <li><a href="/admin/iam/edit" class="col-item-link">Add or remove roles</a></li>
+                        <li><a href="/admin/iam/email" class="col-item-link">Change sign-in email</a></li>
+                        <li><a href="/admin/iam/remove" class="col-item-link">Delete user</a></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="general-helppointer">
+                For help with these options, please review the <a
+                    href="/admin/docs/iam"
+                    class="general-helppointer-link">Identity & Access Management</a
+                > documentation and video.
+            </p>
+            <p class="general-helpinfo">
+                Looking for options to activate or deactivate an account, or to promote or demote a user as
+                administrator? Those options are in <a href="/admin/user" class="general-helpinfo-link"
+                    >User Management</a
+                >.
+            </p>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

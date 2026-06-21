@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/site/rebuild.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -7,45 +27,122 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 export const prerender = false
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Rebuild Site`} description="Trigger a rebuild and redeploy of the site"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Rebuild the Site</h2>
-    <p class="general-warning">Website rebuilds use cloud compute minutes on either GitHub Actions or Worker Builds. These are subject to monthly usage limits. Do not rebuild the website until you are done.</p>
-    <p class="general-infohelp">When you update the database, it does not update the static contributor/composer/composition records. To update it, trigger a website rebuild here.</p>
-    <button type="button" id="site-rebuild-button">Rebuild site</button>
-    <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
-    <script>
-        import { rebuildSite } from "../../../scripts/connector"
-        import { getTransactionElem } from "../../../scripts/interface"
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Rebuild Site`}
+            description="Trigger a rebuild and redeploy of the site"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Rebuild the Site</h2>
+            <p class="general-warning">
+                Website rebuilds use cloud compute minutes on Worker Builds. Do not rebuild the website until you are
+                done with editing so we can conserve resources.
+            </p>
+            <p class="general-infohelp">
+                Rebuilds are used to publish changes you make to the database to the website. Any changes you make will
+                not be made public until you rebuild.
+            </p>
+            <button type="button" id="site-rebuild-button">Rebuild site</button>
+            <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
+            <script>
+                import { rebuildSite, getSite } from "../../../scripts/connector"
+                import { getTransactionElem } from "../../../scripts/interface"
 
-        const button = document.getElementById("site-rebuild-button") as HTMLButtonElement
-        const message = getTransactionElem()
+                const button = document.getElementById("site-rebuild-button") as HTMLButtonElement
+                const message = getTransactionElem()
 
-        button.addEventListener("click", async () => {
-            if (!confirm("Are you sure you want to trigger a site rebuild and redeploy?")) {
-                return
-            }
-            message.textContent = "Processing request..."
-            button.disabled = true
-            try {
-                await rebuildSite()
-                message.textContent = "Request succeeded: rebuild triggered. The new build will be live in a few minutes."
-            } catch (error) {
-                message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
-                console.error(error)
-            } finally {
-                button.disabled = false
-            }
-        })
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+                /**
+                 * Detects whether the page is being served from a local development build, mirroring the
+                 * hostname check in lib/api/environment.ts. Development serves only from localhost/127.0.0.1,
+                 * so rebuilds (which redeploy the live Worker) are meaningless and disabled here. The API
+                 * enforces the same restriction server-side.
+                 */
+                function isDevelopment(): boolean {
+                    const hostname = window.location.hostname
+                    return hostname === "localhost" || hostname === "127.0.0.1"
+                }
+
+                // The earliest time (epoch ms) at which a rebuild is permitted, derived from the current build's
+                // timestamp plus its cooldown. While the cooldown is active the button stays disabled so the user
+                // cannot press it (and the rebuild request is never sent); the server enforces the same window.
+                let allowedAt = 0
+
+                /**
+                 * Formats a duration in seconds as a short "Xm Ys" (or "Ys") string for the cooldown notice.
+                 */
+                function formatWait(seconds: number): string {
+                    const mins = Math.floor(seconds / 60)
+                    const secs = seconds % 60
+                    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+                }
+
+                /**
+                 * Re-evaluates the cooldown: disables the button and shows the remaining wait while it is active,
+                 * re-enabling it once the window elapses. Schedules itself to refresh while a cooldown is pending.
+                 */
+                function refreshCooldown(): void {
+                    const remaining = Math.ceil((allowedAt - Date.now()) / 1000)
+                    if (remaining > 0) {
+                        button.disabled = true
+                        message.textContent = `Too soon since the last rebuild. You can rebuild again in ${formatWait(remaining)}.`
+                        window.setTimeout(refreshCooldown, 1000)
+                    } else {
+                        button.disabled = false
+                        message.textContent = `Your request status will show here after you press "Rebuild site".`
+                    }
+                }
+
+                if (isDevelopment()) {
+                    // rebuilds redeploy the live Worker, so they are disabled on a local development build
+                    button.disabled = true
+                    message.textContent = "Site rebuild is disabled in the development environment."
+                } else {
+                    // On load, read the current build's timestamp and cooldown to gate the button before any click.
+                    try {
+                        const info = await getSite()
+                        const built = info?.timestamp ? Date.parse(info.timestamp) : NaN
+                        const cooldownSec = Number(info?.settings?.rebuild_cooldown_sec)
+                        if (!isNaN(built) && !isNaN(cooldownSec)) {
+                            allowedAt = built + cooldownSec * 1000
+                            refreshCooldown()
+                        }
+                    } catch (error) {
+                        // a failure to read build info should not block manual rebuilds; the server still enforces the cooldown
+                        console.error(error)
+                    }
+
+                    button.addEventListener("click", async () => {
+                        if (Date.now() < allowedAt) {
+                            // guard against a click slipping through before the cooldown UI refreshes
+                            refreshCooldown()
+                            return
+                        }
+                        if (!confirm("Are you sure you want to trigger a site rebuild and redeploy?")) {
+                            return
+                        }
+                        message.textContent = "Processing request..."
+                        button.disabled = true
+                        try {
+                            await rebuildSite()
+                            message.textContent =
+                                "Request succeeded: rebuild triggered. The new build will be live in a few minutes."
+                        } catch (error) {
+                            message.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`
+                            console.error(error)
+                        } finally {
+                            button.disabled = false
+                        }
+                    })
+                }
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

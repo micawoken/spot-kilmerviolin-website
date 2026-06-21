@@ -3,11 +3,28 @@
  *
  * List and add files in the R2 file store
  *
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
 import { addFile, deriveFileKey, listFiles } from "../../../lib/api/files"
-import { R2CapacityError } from "../../../lib/api/r2"
+import { parseCropFromForm } from "../../../lib/api/images"
+import { maxUploadBytes, R2CapacityError } from "../../../lib/api/r2"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
@@ -47,7 +64,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             case false:
             case undefined:
                 // return file keys only
-                return constructResponse(request, data.map(file => file.key), 200)
+                return constructResponse(
+                    request,
+                    data.map((file) => file.key),
+                    200
+                )
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }
@@ -82,24 +103,43 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     try {
         form = await request.formData()
     } catch {
-        return constructResponse(request, null, 400, "Invalid request body: expected multipart/form-data with a 'file' part")
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid request body: expected multipart/form-data with a 'file' part"
+        )
     }
     const file = form.get("file")
     if (!(file instanceof File)) {
         return constructResponse(request, null, 400, "Invalid request body: missing 'file' part")
     }
+    // reject oversized uploads before reading the body into memory
+    if (file.size > maxUploadBytes()) {
+        return constructResponse(request, null, 413)
+    }
     const provided_name = form.get("name")
     const raw_name = typeof provided_name === "string" && provided_name.trim() !== "" ? provided_name : file.name
     const key = deriveFileKey(raw_name)
     if (key === "") {
-        return constructResponse(request, null, 400, "Invalid file name: no usable characters remain after sanitization")
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid file name: no usable characters remain after sanitization"
+        )
     }
     const content_type = file.type || "application/octet-stream"
     const uploader = locals.identity ? String(locals.identity.id) : null
+    // optional crop instruction carried in the multipart fields (absent = centered portrait)
+    const crop = parseCropFromForm(form)
+    if (crop instanceof Error) {
+        return constructResponse(request, null, 400, crop.message)
+    }
     try {
         // reading the upload's bytes can throw if the client aborts mid-stream; keep it inside the try
         const bytes = await file.arrayBuffer()
-        const meta = await addFile(context.locals.cfContext, key, bytes, content_type, uploader)
+        const meta = await addFile(context.locals.cfContext, key, bytes, content_type, uploader, crop)
         return constructResponse(request, meta, 201, undefined, {
             Location: `/api/v1/files/${key}`
         })

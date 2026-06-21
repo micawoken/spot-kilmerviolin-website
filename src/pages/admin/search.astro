@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/search.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../components/BaseHead.astro"
 import AdminHead from "../../components/AdminHead.astro"
 import AdminHeader from "../../components/AdminHeader.astro"
@@ -8,41 +28,42 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
 
 export const prerender = false
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Search`} description="Search the database by keyword"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Search the Database</h2>
-    <p class="general-infohelp">Search composers, compositions, and contributors by keyword.</p>
-    <KeywordSearchBox id_prefix="admin-search" label="Search by keyword" database_select={true} />
-    <script>
-        import { attachKeywordSearch } from "../../scripts/keyword_search"
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Search`} description="Search the database by keyword" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Search the Database</h2>
+            <p class="general-infohelp">Search composers, compositions, and contributors by keyword.</p>
+            <KeywordSearchBox id_prefix="admin-search" label="Search by keyword" database_select={true} />
+            <script>
+                import { attachKeywordSearch } from "../../scripts/keyword_search"
 
-        // each table's hits route to that entity's info (view) page
-        const INFO_PATHS: Record<SearchDatabase, string> = {
-            composers: "/admin/composers/info",
-            compositions: "/admin/works/info",
-            contributors: "/admin/contributors/info"
-        }
+                // each table's hits route to that entity's info (view) page
+                const INFO_PATHS: Record<SearchDatabase, string> = {
+                    composers: "/admin/composers/info",
+                    compositions: "/admin/works/info",
+                    contributors: "/admin/contributors/info"
+                }
 
-        const database_select = document.getElementById("admin-search-database")
-        attachKeywordSearch(
-            "admin-search-input",
-            "admin-search-button",
-            "admin-search-results",
-            () => {
-                const value = database_select instanceof HTMLSelectElement ? database_select.value : ""
-                return value === "" ? null : (value as SearchDatabase)
-            },
-            (result) => `${INFO_PATHS[result.database]}?id=${result.id}`
-        )
-    </script>
-    </main>
-    <AdminFooter />
-</body>
+                const database_select = document.getElementById("admin-search-database")
+                attachKeywordSearch(
+                    "admin-search-input",
+                    "admin-search-button",
+                    "admin-search-results",
+                    () => {
+                        const value = database_select instanceof HTMLSelectElement ? database_select.value : ""
+                        return value === "" ? null : (value as SearchDatabase)
+                    },
+                    (result) => `${INFO_PATHS[result.database]}?id=${result.id}`
+                )
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

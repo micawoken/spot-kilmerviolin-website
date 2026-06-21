@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/docs/index.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -12,30 +32,40 @@ const identity = Astro.locals.identity ?? null
 // list every entry in the docs collection alphabetically by title; the slug is the entry id
 const docs = (await getCollection("docs")).sort((a, b) => a.data.title.localeCompare(b.data.title))
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Documentation`} description="Documentation for the administrative services" />
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={identity} welcome={false} />
-    <main class="admin-main" role="main">
-    <div class="flex-container">
-        <div class="column">
-            <h2>Documentation</h2>
-            {docs.length === 0 ? (
-                <p>No documentation is available yet.</p>
-            ) : (
-                <ul>
-                    {docs.map((doc) => (
-                        <li><a href={`/admin/docs/${doc.id}`} class="col-item-link">{doc.data.title}</a></li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    </div>
-    </main>
-    <AdminFooter />
-</body>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Documentation`}
+            description="Documentation for the administrative services"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <div class="flex-container">
+                <div class="column">
+                    <h2>Documentation</h2>
+                    {
+                        docs.length === 0 ? (
+                            <p>No documentation is available yet.</p>
+                        ) : (
+                            <ul>
+                                {docs.map((doc) => (
+                                    <li>
+                                        <a href={`/admin/docs/${doc.id}`} class="col-item-link">
+                                            {doc.data.title}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        )
+                    }
+                </div>
+            </div>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

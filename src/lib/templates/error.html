@@ -144,16 +144,16 @@
 <body>
     <a class="skip-link" href="#error-main">Skip to content</a>
     <header role="banner">
-        <p class="site-name"><a href="/" rel="home">Administrative Services</a></p>
+        <p class="site-name"><a href="/admin" rel="home">Administrative Services</a></p>
     </header>
     <main id="error-main">
         <h1 class="error-code">{errorCode} {errorName}</h1>
         <p>{errorDescription}</p>
         <p>Please do not repeat this request.</p>
         <nav class="error-actions" aria-label="Error page navigation">
-            <a href="/" onclick="event.preventDefault(); history.back();">Back</a>
+            <a href="/admin" onclick="event.preventDefault(); history.back();">Back</a>
             <span class="error-sep" aria-hidden="true">|</span>
-            <a href="/" rel="home">Home</a>
+            <a href="/admin" rel="home">Home</a>
         </nav>
     </main>
     <footer role="contentinfo">

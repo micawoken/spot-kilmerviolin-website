@@ -1,22 +1,22 @@
 /**
  * scripts/interface.ts
- * 
+ *
  * Provides high-level functions related to populating the user interface
- * 
- * 
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
- * 
+ *
  * This license is also subject to additional terms as specified in the README.md.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
@@ -29,7 +29,7 @@ import {
     renderContributorRefLink,
     renderContributorRefLinks,
     renderComposerNameLink,
-    renderComposerNameLinks,
+    renderComposerNameLinks
 } from "./references"
 import {
     APIOpCode,
@@ -51,19 +51,15 @@ import {
     replaceContributor,
     updateContributor,
     deleteContributor,
-    listContributor,
+    listContributor
 } from "./connector"
 import { assertCanEditContributor, errorMessage, generateObjectForm, setInfoHtml, singleParse } from "./common"
 import { validateFormFields } from "./form_validate"
 import { _resetKeywordSearch } from "./keyword_search"
 
-
 // DATA FETCHER
 
-
-
 // INPUT CONTROL
-
 
 /**
  * Sets the `disabled` state of every input-like control in a form (inputs, textareas, selects, buttons).
@@ -74,8 +70,13 @@ import { _resetKeywordSearch } from "./keyword_search"
  */
 function setInputsDisabled(form_elem: HTMLFormElement, disabled: boolean): void {
     const inputs = form_elem.querySelectorAll("input, textarea, select, button")
-    inputs.forEach(input => {
-        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement || input instanceof HTMLButtonElement) {
+    inputs.forEach((input) => {
+        if (
+            input instanceof HTMLInputElement ||
+            input instanceof HTMLTextAreaElement ||
+            input instanceof HTMLSelectElement ||
+            input instanceof HTMLButtonElement
+        ) {
             input.disabled = disabled
         } else {
             console.warn(`Unsupported form element type for ${disabled ? "disabling" : "enabling"}: `, input)
@@ -91,10 +92,9 @@ export function enableInput(form_elem: HTMLFormElement): void {
     setInputsDisabled(form_elem, false)
 }
 
-
 /**
  * Emits catched errors onto a status element
- * 
+ *
  * @param {Error} error the error to display
  * @param {string} target_id the DOM id of the element on which to display the error message
  * @returns {void}
@@ -109,11 +109,11 @@ export function emitError(error: Error, target_id: string): void {
 }
 
 const generic_form_codes: Record<keyof typeof interface_data, string> = {
-    "composer": "generic-form-composers",
-    "composition": "generic-form-composition",
-    "contributor_partial": "generic-form-contributors",
-    "contributor_full": "generic-form-contributors",
-    "contributor_profile": "generic-form-contributors",
+    composer: "generic-form-composers",
+    composition: "generic-form-composition",
+    contributor_partial: "generic-form-contributors",
+    contributor_full: "generic-form-contributors",
+    contributor_profile: "generic-form-contributors"
 }
 
 const generic_read_code = "generic-form-id-entry"
@@ -162,10 +162,15 @@ function hideLookupForRecordView(): void {
     document.getElementById("entity-search-container")?.classList.add("hidden")
 }
 
-export async function populateInfo(noun: keyof typeof interface_data, data: object, force_prefix?: string): Promise<void> {
+export async function populateInfo(
+    noun: keyof typeof interface_data,
+    data: object,
+    force_prefix?: string
+): Promise<void> {
     const type_name = interface_data[noun].name
     for (const [key, value] of Object.entries(data)) {
-        const elem_id = (force_prefix === undefined) ? `${type_name}-${key}` : (force_prefix === "" ? key : `${force_prefix}-${key}`)
+        const elem_id =
+            force_prefix === undefined ? `${type_name}-${key}` : force_prefix === "" ? key : `${force_prefix}-${key}`
         if (value !== null && typeof value === "object" && !Array.isArray(value)) {
             // nested objects (rating, publication_info) populate elements prefixed with their own id
             await populateInfo(noun, value as object, elem_id)
@@ -187,9 +192,15 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
         // unset when there is no image to avoid a broken-image request.
         if (elem instanceof HTMLImageElement) {
             const missing = document.getElementById(`${elem_id}-missing`)
-            const has_image = !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""))
+            const has_image = !(
+                value === null ||
+                value === undefined ||
+                (typeof value === "string" && value.trim() === "")
+            )
             if (has_image) {
                 elem.src = String(value)
+                // mirror the alt text into the hover tooltip (the SSR markup does the same)
+                elem.title = elem.alt
                 elem.classList.remove("hidden")
                 missing?.classList.add("hidden")
             } else {
@@ -204,7 +215,10 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
         // "isbn:{value}" text for isbn. renderPublicationUri returns markup-safe HTML (every value is
         // escapeHtml-encoded), assigned via innerHTML, mirroring the set:html render in CompositionInfo.astro.
         // A blank/absent URI falls through to the shared "not provided" marker below.
-        if (elem_id.endsWith("publication_info-uri") && !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""))) {
+        if (
+            elem_id.endsWith("publication_info-uri") &&
+            !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""))
+        ) {
             elem.innerHTML = renderPublicationUri((data as { uri_type?: string }).uri_type, String(value), NOT_PROVIDED)
             continue
         }
@@ -214,10 +228,15 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
         // and an empty/unset phases value would lose the label to the NOT_PROVIDED marker.
         if (key === "phases" && force_prefix === undefined) {
             const body =
-                (value === null || value === undefined) ? "(no phases specified)"
-                : Array.isArray(value) ? (value.length > 0 ? value.join(", ") : "(no phases specified)")
-                : (typeof value === "string" && value.trim() === "") ? "(no phases specified)"
-                : String(value)
+                value === null || value === undefined
+                    ? "(no phases specified)"
+                    : Array.isArray(value)
+                      ? value.length > 0
+                          ? value.join(", ")
+                          : "(no phases specified)"
+                      : typeof value === "string" && value.trim() === ""
+                        ? "(no phases specified)"
+                        : String(value)
             elem.textContent = `Phases ${body}`
             continue
         }
@@ -230,7 +249,6 @@ export async function populateInfo(noun: keyof typeof interface_data, data: obje
     // unhide table
     document.getElementById(`generic-result-${type_name}`)?.classList.remove("hidden")
 }
-
 
 export async function clearInfo(noun: keyof typeof interface_data): Promise<void> {
     const type_name = interface_data[noun].name
@@ -245,11 +263,14 @@ export async function clearInfo(noun: keyof typeof interface_data): Promise<void
 
 /**
  * Retrieves an object from the API based on the ID entry form supplied
- * 
+ *
  * Intended for use for the edit (UPDATE) pages, which require entry of an ID and retrieval of the corresponding record
- * 
+ *
  */
-export async function retrieveObjectFromIDEntry(id_entry_form: HTMLFormElement, noun: keyof typeof interface_data): Promise<ComposerRecord | Partial<ContributorRecord> | CompositionRecord | null> {
+export async function retrieveObjectFromIDEntry(
+    id_entry_form: HTMLFormElement,
+    noun: keyof typeof interface_data
+): Promise<ComposerRecord | Partial<ContributorRecord> | CompositionRecord | null> {
     // retrieve the ID entry value
     const form_data = new FormData(id_entry_form)
     const id = parseInt(singleParse(form_data))
@@ -290,7 +311,13 @@ export async function retrieveObjectFromIDEntry(id_entry_form: HTMLFormElement, 
  * @param {boolean | undefined} elevate whether administrator escalation was requested
  * @returns {{ data: any, record_id?: number }} the generated object and/or target record id
  */
-function buildSubmitPayload(formData: FormData, exec_mode: APIOpCode, noun: keyof typeof interface_data, form: HTMLFormElement, elevate: boolean | undefined): { data: any, record_id?: number } {
+function buildSubmitPayload(
+    formData: FormData,
+    exec_mode: APIOpCode,
+    noun: keyof typeof interface_data,
+    form: HTMLFormElement,
+    elevate: boolean | undefined
+): { data: any; record_id?: number } {
     if (exec_mode === APIOpCode.READ || exec_mode === APIOpCode.DELETE) {
         // single-item exec mode - form is single-item (ID), so pull the single item
         const record_id = parseInt(singleParse(formData))
@@ -304,8 +331,14 @@ function buildSubmitPayload(formData: FormData, exec_mode: APIOpCode, noun: keyo
         if (isNaN(record_id)) {
             throw new Error(`Form data is missing a valid record ID for this operation`)
         }
-        const partial = (exec_mode === APIOpCode.UPDATE_PARTIAL)
-        const data = generateObjectForm(formData, interface_data[noun].interface, partial, interface_data[noun].custom_objects, partial)
+        const partial = exec_mode === APIOpCode.UPDATE_PARTIAL
+        const data = generateObjectForm(
+            formData,
+            interface_data[noun].interface,
+            partial,
+            interface_data[noun].custom_objects,
+            partial
+        )
         // contributor edits are subject to ownership and protected-property authorization; validate
         // client-side before sending so the user receives an immediate, clear rejection
         if (interface_data[noun].name === "contributor") {
@@ -314,7 +347,12 @@ function buildSubmitPayload(formData: FormData, exec_mode: APIOpCode, noun: keyo
         return { data, record_id }
     } else {
         // standard exec mode - pull form values
-        const data = generateObjectForm(formData, interface_data[noun].interface, false, interface_data[noun].custom_objects)
+        const data = generateObjectForm(
+            formData,
+            interface_data[noun].interface,
+            false,
+            interface_data[noun].custom_objects
+        )
         return { data }
     }
 }
@@ -328,22 +366,51 @@ function buildSubmitPayload(formData: FormData, exec_mode: APIOpCode, noun: keyo
  * @param {Awaited<ReturnType<typeof getWork>>} rec the loaded composition record (possibly name-enhanced)
  * @param {keyof typeof interface_data} noun the composition interface noun
  */
-async function displayCompositionRecord(rec: NonNullable<Awaited<ReturnType<typeof getWork>>>, noun: keyof typeof interface_data): Promise<void> {
+async function displayCompositionRecord(
+    rec: NonNullable<Awaited<ReturnType<typeof getWork>>>,
+    noun: keyof typeof interface_data
+): Promise<void> {
     if (isCompositionWithNames(rec)) {
         // composer_name and author_secondary_names are held back from the generic pass too: like the
         // contributor refs below, they render as info-page links (set:html) rather than the plain text
         // populateInfo would set.
-        const { contrib_primary_1_name, contrib_primary_2_name, contrib_addl_names, composer_name, author_secondary_names, ...composer_names } = rec.names
+        const {
+            contrib_primary_1_name,
+            contrib_primary_2_name,
+            contrib_addl_names,
+            composer_name,
+            author_secondary_names,
+            ...composer_names
+        } = rec.names
         await populateInfo(noun, rec.object as any)
         await populateInfo(noun, composer_names as any)
         const obj = rec.object as CompositionRecord
         // composer and secondary authors link to their composer info pages (mirrors the SSR CompositionInfo card)
-        setInfoHtml("composition-composer_name", renderComposerNameLink(obj.composer_id, composer_name, "(error in composer name)"))
-        setInfoHtml("composition-author_secondary_names", renderComposerNameLinks(obj.author_secondary, author_secondary_names, "(no secondary authors)"))
+        setInfoHtml(
+            "composition-composer_name",
+            renderComposerNameLink(obj.composer_id, composer_name, "(error in composer name)")
+        )
+        setInfoHtml(
+            "composition-author_secondary_names",
+            renderComposerNameLinks(obj.author_secondary, author_secondary_names, "(no secondary authors)")
+        )
         // contributor references render inline as "id (name)" links to each contributor info page
-        setInfoHtml("composition-contrib_primary_1", renderContributorRefLink(obj.contrib_primary_1, contrib_primary_1_name, NOT_PROVIDED))
-        setInfoHtml("composition-contrib_primary_2", renderContributorRefLink(obj.contrib_primary_2, contrib_primary_2_name, "(no additional primary contributor specified)"))
-        setInfoHtml("composition-contrib_addl", renderContributorRefLinks(obj.contrib_addl, contrib_addl_names, "(no additional contributors specified)"))
+        setInfoHtml(
+            "composition-contrib_primary_1",
+            renderContributorRefLink(obj.contrib_primary_1, contrib_primary_1_name, NOT_PROVIDED)
+        )
+        setInfoHtml(
+            "composition-contrib_primary_2",
+            renderContributorRefLink(
+                obj.contrib_primary_2,
+                contrib_primary_2_name,
+                "(no additional primary contributor specified)"
+            )
+        )
+        setInfoHtml(
+            "composition-contrib_addl",
+            renderContributorRefLinks(obj.contrib_addl, contrib_addl_names, "(no additional contributors specified)")
+        )
     } else {
         await populateInfo(noun, rec as any)
     }
@@ -405,7 +472,7 @@ const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => P
         [APIOpCode.LIST]: async ({ message }) => {
             await listComposer()
             message.textContent = "Request succeeded: list retrieved"
-        },
+        }
     },
     composition: {
         [APIOpCode.CREATE]: async ({ form, message, data, noun }) => {
@@ -444,7 +511,7 @@ const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => P
         [APIOpCode.LIST]: async ({ message }) => {
             await listWork()
             message.textContent = "Request succeeded: list retrieved"
-        },
+        }
     },
     contributor: {
         [APIOpCode.CREATE]: async ({ form, message, data, noun }) => {
@@ -485,8 +552,8 @@ const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => P
         [APIOpCode.LIST]: async ({ message }) => {
             await listContributor()
             message.textContent = "Request succeeded: list retrieved"
-        },
-    },
+        }
+    }
 }
 
 /**
@@ -499,8 +566,14 @@ const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => P
  *
  *
  */
-export async function processSubmit(submit_event: SubmitEvent | PointerEvent, form: HTMLFormElement, message: Element, exec_mode: APIOpCode, noun: keyof typeof interface_data) {
-    submit_event.preventDefault();
+export async function processSubmit(
+    submit_event: SubmitEvent | PointerEvent,
+    form: HTMLFormElement,
+    message: Element,
+    exec_mode: APIOpCode,
+    noun: keyof typeof interface_data
+) {
+    submit_event.preventDefault()
     message.textContent = "Processing request..."
     if (!(form instanceof HTMLFormElement)) {
         throw new Error(`Invalid form input for processSubmit: expected HTMLFormElement, got ${typeof form}`)
@@ -545,7 +618,12 @@ export async function processSubmit(submit_event: SubmitEvent | PointerEvent, fo
  * @param {"create" | "replace" | "update" | "delete"} exec_mode
  *
  */
-export function genHandler(form: HTMLFormElement, message: Element, exec_mode: APIOpCode, noun: keyof typeof interface_data): EventListener {
+export function genHandler(
+    form: HTMLFormElement,
+    message: Element,
+    exec_mode: APIOpCode,
+    noun: keyof typeof interface_data
+): EventListener {
     return (evt: Event) => {
         if (!(evt instanceof SubmitEvent) && !(evt instanceof PointerEvent)) {
             throw new Error(`Unsupported event type ${evt.type} in event handler`)
@@ -571,15 +649,16 @@ export function genHandler(form: HTMLFormElement, message: Element, exec_mode: A
  */
 export async function submitProfileEdit(form: HTMLFormElement, message: Element, self_id: number): Promise<void> {
     message.textContent = "Processing request..."
-    disableInput(form)
     try {
         // client-side format validation with inline hints, before generating and sending the update
         if (!validateFormFields(form, false)) {
             message.textContent = "Please correct the highlighted fields and try again."
-            enableInput(form)
             return
         }
+        // snapshot the form values before disabling its inputs: disabled controls are omitted from
+        // FormData, so disabling first would drop every field (the required `name` throws first)
         const form_data = new FormData(form)
+        disableInput(form)
         // generate in non-patch mode: every profile field is present in the form and is sent on save
         const data = generateObjectForm(form_data, interface_data["contributor_profile"].interface, false, [], false)
         await updateContributor(self_id, data as Partial<Contributor>)
@@ -614,7 +693,14 @@ function _resetLookup(): void {
     _resetKeywordSearch()
 }
 
-function _nextTaskEventListener(form: HTMLFormElement, message: Element, action: Element, clear_state?: keyof typeof interface_data, reveal_search: boolean = false, relookup: boolean = false): (e: Event) => void {
+function _nextTaskEventListener(
+    form: HTMLFormElement,
+    message: Element,
+    action: Element,
+    clear_state?: keyof typeof interface_data,
+    reveal_search: boolean = false,
+    relookup: boolean = false
+): (e: Event) => void {
     return (e: Event) => {
         e.preventDefault()
         form.reset()
@@ -637,7 +723,7 @@ function _nextTaskEventListener(form: HTMLFormElement, message: Element, action:
                 _resetKeywordSearch()
             }
         }
-        message.textContent = "Your request status will show here after you press \"Submit\"."
+        message.textContent = 'Your request status will show here after you press "Submit".'
         if (clear_state) {
             clearInfo(clear_state)
         }
@@ -653,20 +739,20 @@ function _nextTaskEventListener(form: HTMLFormElement, message: Element, action:
  * admin/works/list.astro), so the mapping is explicit rather than a naive pluralization.
  */
 const admin_path_segment: Record<string, string> = {
-    "composer": "composers",
-    "composition": "works",
-    "contributor": "contributors",
+    composer: "composers",
+    composition: "works",
+    contributor: "contributors"
 }
 
 /**
  * Maps interface nouns to the DOM id prefix used by their form inputs
  */
 const form_input_prefix: Record<keyof typeof interface_data, string> = {
-    "composer": "form-composers",
-    "composition": "form-composition",
-    "contributor_partial": "form-contributors",
-    "contributor_full": "form-contributors",
-    "contributor_profile": "form-contributors",
+    composer: "form-composers",
+    composition: "form-composition",
+    contributor_partial: "form-contributors",
+    contributor_full: "form-contributors",
+    contributor_profile: "form-contributors"
 }
 
 /**
@@ -704,8 +790,13 @@ export function prefillForm(noun: keyof typeof interface_data, record: Record<st
             console.warn(`Element with id ${prefix}-${key} not found in DOM for form prefill`)
             continue
         }
-        const display = (value === null || value === undefined) ? "" : (Array.isArray(value) ? value.join(",") : String(value))
-        if (elem instanceof HTMLInputElement || elem instanceof HTMLTextAreaElement || elem instanceof HTMLSelectElement) {
+        const display =
+            value === null || value === undefined ? "" : Array.isArray(value) ? value.join(",") : String(value)
+        if (
+            elem instanceof HTMLInputElement ||
+            elem instanceof HTMLTextAreaElement ||
+            elem instanceof HTMLSelectElement
+        ) {
             elem.value = display
         } else {
             console.warn(`Element with id ${prefix}-${key} is not a form input, skipping prefill`)
@@ -713,10 +804,19 @@ export function prefillForm(noun: keyof typeof interface_data, record: Record<st
     }
 }
 
-
 // COMPONENT ATTACH FUNCTIONS
 
-function _attachNextTask(form: HTMLFormElement, message: Element, noun: keyof typeof interface_data, action_text: string, try_again: boolean, clear_state: boolean, reveal_search: boolean = false, relookup: boolean = false, edit_link?: { href: string, label: string }): void {
+function _attachNextTask(
+    form: HTMLFormElement,
+    message: Element,
+    noun: keyof typeof interface_data,
+    action_text: string,
+    try_again: boolean,
+    clear_state: boolean,
+    reveal_search: boolean = false,
+    relookup: boolean = false,
+    edit_link?: { href: string; label: string }
+): void {
     const next_task_link_text = document.createElement("p")
     // an optional edit link sits to the left of the next-task link on the same line (used after a READ so
     // the just-viewed record can be edited directly); it navigates normally, so it needs no click handler
@@ -729,20 +829,43 @@ function _attachNextTask(form: HTMLFormElement, message: Element, noun: keyof ty
     }
     const next_task_link_object = document.createElement("a")
     next_task_link_object.href = "#"
-    next_task_link_object.textContent = try_again ? `Try again >` : `${action_text} another ${interface_data[noun].name} >`
-    next_task_link_object.addEventListener("click", _nextTaskEventListener(form, message, next_task_link_text, clear_state ? noun : undefined, reveal_search, relookup))
+    next_task_link_object.textContent = try_again
+        ? `Try again >`
+        : `${action_text} another ${interface_data[noun].name} >`
+    next_task_link_object.addEventListener(
+        "click",
+        _nextTaskEventListener(
+            form,
+            message,
+            next_task_link_text,
+            clear_state ? noun : undefined,
+            reveal_search,
+            relookup
+        )
+    )
     next_task_link_text.appendChild(next_task_link_object)
     message.appendChild(next_task_link_text)
 }
 
-export async function attachNextTask(form: HTMLFormElement, message: Element, exec_mode: APIOpCode, noun: keyof typeof interface_data, try_again: boolean = false, record_id?: number): Promise<void> {
+export async function attachNextTask(
+    form: HTMLFormElement,
+    message: Element,
+    exec_mode: APIOpCode,
+    noun: keyof typeof interface_data,
+    try_again: boolean = false,
+    record_id?: number
+): Promise<void> {
     switch (exec_mode) {
         case APIOpCode.READ: {
             // after viewing a record, offer a direct edit link to the left of the next-task ("View another") link
             const segment = admin_path_segment[interface_data[noun].name]
-            const edit_link = (segment && record_id !== undefined && !try_again)
-                ? { href: `/admin/${segment}/edit?id=${record_id}`, label: `Edit this ${interface_data[noun].name} >` }
-                : undefined
+            const edit_link =
+                segment && record_id !== undefined && !try_again
+                    ? {
+                          href: `/admin/${segment}/edit?id=${record_id}`,
+                          label: `Edit this ${interface_data[noun].name} >`
+                      }
+                    : undefined
             // info pages also reveal/clear the keyword search box so the next task can search again
             _attachNextTask(form, message, noun, "View", try_again, true, true, false, edit_link)
             break

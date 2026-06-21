@@ -50,7 +50,11 @@ import { escapeHtml } from "./escape"
  * @param {string} placeholder the text to show when no contributor id is present
  * @returns {string} "id (name)", "id", or the placeholder
  */
-export function formatContributorRef(id: number | null | undefined, name: string | null | undefined, placeholder: string): string {
+export function formatContributorRef(
+    id: number | null | undefined,
+    name: string | null | undefined,
+    placeholder: string
+): string {
     if (id === null || id === undefined) return placeholder
     const trimmed = (name ?? "").trim()
     return trimmed === "" ? String(id) : `${id} (${trimmed})`
@@ -67,7 +71,11 @@ export function formatContributorRef(id: number | null | undefined, name: string
  * @param {string} placeholder the text to show when there are no contributor ids
  * @returns {string} a comma-separated list of "id (name)"/"id" entries, or the placeholder
  */
-export function formatContributorRefs(ids: number[] | null | undefined, names: string[] | null | undefined, placeholder: string): string {
+export function formatContributorRefs(
+    ids: number[] | null | undefined,
+    names: string[] | null | undefined,
+    placeholder: string
+): string {
     if (!ids || ids.length === 0) return placeholder
     return ids.map((id, index) => formatContributorRef(id, names?.[index], "")).join(", ")
 }
@@ -97,7 +105,11 @@ function anchor(href: string, label: string): string {
  * @param {string} placeholder the text to show when no contributor id is present
  * @returns {string} markup-safe HTML: an anchor, or the escaped placeholder
  */
-export function renderContributorRefLink(id: number | null | undefined, name: string | null | undefined, placeholder: string): string {
+export function renderContributorRefLink(
+    id: number | null | undefined,
+    name: string | null | undefined,
+    placeholder: string
+): string {
     if (id === null || id === undefined) return escapeHtml(placeholder)
     const trimmed = (name ?? "").trim()
     const label = trimmed === "" ? String(id) : `${id} (${trimmed})`
@@ -113,7 +125,11 @@ export function renderContributorRefLink(id: number | null | undefined, name: st
  * @param {string} placeholder the text to show when there are no contributor ids
  * @returns {string} markup-safe HTML
  */
-export function renderContributorRefLinks(ids: number[] | null | undefined, names: string[] | null | undefined, placeholder: string): string {
+export function renderContributorRefLinks(
+    ids: number[] | null | undefined,
+    names: string[] | null | undefined,
+    placeholder: string
+): string {
     if (!ids || ids.length === 0) return escapeHtml(placeholder)
     return ids.map((id, index) => renderContributorRefLink(id, names?.[index], "")).join(", ")
 }
@@ -130,7 +146,11 @@ export function renderContributorRefLinks(ids: number[] | null | undefined, name
  * @param {string} placeholder the text to show when the name is blank
  * @returns {string} markup-safe HTML
  */
-export function renderComposerNameLink(id: number | null | undefined, name: string | null | undefined, placeholder: string): string {
+export function renderComposerNameLink(
+    id: number | null | undefined,
+    name: string | null | undefined,
+    placeholder: string
+): string {
     const trimmed = (name ?? "").trim()
     const label = trimmed === "" ? placeholder : trimmed
     if (id === null || id === undefined) return escapeHtml(label)
@@ -147,10 +167,16 @@ export function renderComposerNameLink(id: number | null | undefined, name: stri
  * @param {string} placeholder the text to show when there are no composer ids
  * @returns {string} markup-safe HTML
  */
-export function renderComposerNameLinks(ids: number[] | null | undefined, names: string[] | null | undefined, placeholder: string): string {
+export function renderComposerNameLinks(
+    ids: number[] | null | undefined,
+    names: string[] | null | undefined,
+    placeholder: string
+): string {
     if (!ids || ids.length === 0) return escapeHtml(placeholder)
-    return ids.map((id, index) => {
-        const trimmed = (names?.[index] ?? "").trim()
-        return anchor(infoHref("composers", id), trimmed === "" ? String(id) : trimmed)
-    }).join(", ")
+    return ids
+        .map((id, index) => {
+            const trimmed = (names?.[index] ?? "").trim()
+            return anchor(infoHref("composers", id), trimmed === "" ? String(id) : trimmed)
+        })
+        .join(", ")
 }

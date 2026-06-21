@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/site/verinfo.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -22,23 +42,31 @@ const info = verinfo(Astro.request)
 // build timestamp arrives as an ISO string; render it in a readable local form while keeping the raw
 // ISO value as the <time datetime> for fidelity. Falls back to the raw value if it is not parseable.
 const buildDate = info.timestamp ? new Date(info.timestamp) : null
-const buildTimestampDisplay = buildDate && !isNaN(buildDate.getTime())
-    ? buildDate.toLocaleString("en-US", {
-        year: "numeric", month: "short", day: "numeric",
-        hour: "numeric", minute: "2-digit", timeZoneName: "short",
-    })
-    : (info.timestamp ?? "(unknown)")
+const buildTimestampDisplay =
+    buildDate && !isNaN(buildDate.getTime())
+        ? buildDate.toLocaleString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              timeZoneName: "short"
+          })
+        : (info.timestamp ?? "(unknown)")
 
-// render a TTL (in seconds) as a human-readable duration: "1 hour", "1 hour 30 minutes", "45 minutes",
-// "30 seconds". null/undefined render as "(not set)". The raw seconds are shown alongside by the caller.
+// render a TTL (in seconds) as a human-readable duration scaled up to the largest applicable unit, days
+// being the ceiling (weeks are deliberately excluded): "7 days", "2 hours", "1 hour 30 minutes",
+// "45 seconds". null/undefined render as "(not set)". The raw seconds are shown alongside by the caller.
 const pl = (n: number, unit: string): string => `${n} ${unit}${n === 1 ? "" : "s"}`
 const formatTtl = (seconds: number | null | undefined): string => {
     if (seconds === null || seconds === undefined) return "(not set)"
     if (seconds === 0) return "0 seconds"
     const parts: string[] = []
-    const hours = Math.floor(seconds / 3600)
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor((seconds % 86400) / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
+    if (days) parts.push(pl(days, "day"))
     if (hours) parts.push(pl(hours, "hour"))
     if (minutes) parts.push(pl(minutes, "minute"))
     if (secs) parts.push(pl(secs, "second"))
@@ -46,50 +74,101 @@ const formatTtl = (seconds: number | null | undefined): string => {
 }
 // "<human> (<n> s)", or just the human form when there is no raw value to show
 const ttlWithRaw = (seconds: number | null | undefined): string =>
-    (seconds === null || seconds === undefined) ? formatTtl(seconds) : `${formatTtl(seconds)} (${seconds} s)`
+    seconds === null || seconds === undefined ? formatTtl(seconds) : `${formatTtl(seconds)} (${seconds} s)`
 
-const yesno = (value: boolean): string => value ? "Yes" : "No"
+// render a byte count as a human-readable binary size with the raw byte value alongside: "25 MiB
+// (26214400 bytes)". null/undefined render as "(not set)"; sub-KiB values omit the redundant raw suffix.
+const formatBytes = (bytes: number | null | undefined): string => {
+    if (bytes === null || bytes === undefined) return "(not set)"
+    const units = ["bytes", "KiB", "MiB", "GiB", "TiB"]
+    let value = bytes
+    let i = 0
+    while (value >= 1024 && i < units.length - 1) {
+        value /= 1024
+        i++
+    }
+    if (i === 0) return `${bytes} ${units[0]}`
+    const human = `${value % 1 === 0 ? value : value.toFixed(1)} ${units[i]}`
+    return `${human} (${bytes} bytes)`
+}
+
+const yesno = (value: boolean): string => (value ? "Yes" : "No")
+
+// the identity-record cache TTL is delivered in milliseconds; the durations group renders in seconds
+const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-    <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Info`} description="View site build and environment information"/>
-    <AdminHead />
-</head>
-<body>
-    <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
-    <h2>Site Information</h2>
-    <div class="entity-result-container site-info-card">
-        <h3 class="entity-result-name">Site Information</h3>
-        <div id="site-info-infoline" class="site-info-infoline">
-            <strong>{info.environment.name}</strong>
-            <span>Build {info.build_id}</span>
-            <span>Tag {info.tag ? info.tag : "(none)"}</span>
-        </div>
-        <div class="site-info-details entity-result-details">
-            <div class="site-info-group">
-                <strong>Build timestamp:</strong>
-                <span>{buildDate && !isNaN(buildDate.getTime())
-                    ? <time datetime={buildDate.toISOString()}>{buildTimestampDisplay}</time>
-                    : buildTimestampDisplay}</span>
-                <strong>Build ID:</strong> <span>{info.build_id}</span>
-                <strong>Tag:</strong> <span>{info.tag ? info.tag : "(none)"}</span>
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Site Info`}
+            description="View site build and environment information"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Site Information</h2>
+            <div class="entity-result-container site-info-card">
+                <h3 class="entity-result-name">Site Information</h3>
+                <div id="site-info-infoline" class="site-info-infoline">
+                    <strong>{info.environment.name}</strong>
+                    <span>Build {info.build_id}</span>
+                    <span>
+                        {
+                            buildDate && !isNaN(buildDate.getTime()) ? (
+                                <time datetime={buildDate.toISOString()}>{buildTimestampDisplay}</time>
+                            ) : (
+                                buildTimestampDisplay
+                            )
+                        }
+                    </span>
+                    {info.tag && <span>Tag {info.tag}</span>}
+                </div>
+                <div class="site-info-details entity-result-details">
+                    {/* details are grouped by data type rather than subsystem: booleans, then durations,
+                        then other numeric quantities, then strings */}
+                    <div class="site-info-group">
+                        <strong>Self-enrollment enabled:</strong>
+                        <span>{yesno(info.settings.selfenroll)}</span>
+                        <strong>Rich error descriptions:</strong>
+                        <span>{yesno(info.settings.errordesc)}</span>
+                        <strong>Authentication service enabled:</strong>
+                        <span>{yesno(info.environment.authservice)}</span>
+                        <strong>Database writable:</strong>
+                        <span>{yesno(info.environment.db_writable)}</span>
+                    </div>
+                    <div class="site-info-group">
+                        <strong>Cache API TTL (default):</strong>
+                        <span>{ttlWithRaw(info.environment.ttls.cacheApi.default)}</span>
+                        <strong>Cache API TTL (long):</strong>
+                        <span>{ttlWithRaw(info.environment.ttls.cacheApi.long)}</span>
+                        <strong>KV cache TTL (default):</strong>
+                        <span>{ttlWithRaw(info.environment.ttls.kv.default)}</span>
+                        <strong>Identity cache TTL:</strong>
+                        <span>{ttlWithRaw(identityTtlSec)}</span>
+                        <strong>Rebuild cooldown:</strong>
+                        <span>{ttlWithRaw(info.settings.rebuild_cooldown_sec)}</span>
+                    </div>
+                    <div class="site-info-group">
+                        <strong>Max upload size:</strong>
+                        <span>{formatBytes(info.environment.limits.max_upload_bytes)}</span>
+                        <strong>Search result cap:</strong>
+                        <span>{info.environment.limits.search_result_cap} results</span>
+                        <strong>Max image width:</strong>
+                        <span>{info.environment.images.max_width} px</span>
+                        <strong>Image quality:</strong>
+                        <span>{info.environment.images.quality}</span>
+                    </div>
+                    <div class="site-info-group">
+                        <strong>Target image format:</strong>
+                        <span>{info.environment.images.format}</span>
+                    </div>
+                </div>
             </div>
-            <div class="site-info-group">
-                <strong>Self-enrollment enabled:</strong> <span>{yesno(info.settings.selfenroll)}</span>
-                <strong>Rich error descriptions:</strong> <span>{yesno(info.settings.errordesc)}</span>
-            </div>
-            <div class="site-info-group">
-                <strong>Authentication service enabled:</strong> <span>{yesno(info.environment.authservice)}</span>
-                <strong>Database writable:</strong> <span>{yesno(info.environment.db_writable)}</span>
-                <strong>Cache API TTL (default):</strong> <span>{ttlWithRaw(info.environment.ttls.cacheApi.default)}</span>
-                <strong>Cache API TTL (long):</strong> <span>{ttlWithRaw(info.environment.ttls.cacheApi.long)}</span>
-                <strong>KV cache TTL (default):</strong> <span>{ttlWithRaw(info.environment.ttls.kv.default)}</span>
-            </div>
-        </div>
-    </div>
-    </main>
-    <AdminFooter />
-</body>
+        </main>
+        <AdminFooter />
+    </body>
 </html>

@@ -1,3 +1,23 @@
+/**
+ * tests/database.test.ts
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 /// <reference path="../src/lib/api/types.d.ts" />
 
 /**
@@ -225,7 +245,11 @@ describe("contributor boolean and array round-tripping", () => {
         const id = await withCtx(ctx => addContributor(ctx, makeContributor("Activated Contributor", "act@example.com")))
 
         await withCtx(ctx => updateContributorPartial(ctx, id, { active: true }))
-        await withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] }))
+        // roles is a protected column: the data layer refuses to write it unless the caller authorizes it
+        // (the usermgmt role/admin functions pass allowProtected after their own admin check)
+        await expect(withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] })))
+            .rejects.toThrow(/protected column/)
+        await withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] }, true))
 
         const record = await withCtx(ctx => getContributor(ctx, "contributor_id", String(id)))
         expect(record!.active).toBe(true)

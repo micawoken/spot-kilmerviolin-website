@@ -1,4 +1,24 @@
 ---
+/**
+ * pages/admin/profile/deactivate.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
@@ -31,14 +51,14 @@ const has_record = identity?.id !== undefined && identity?.id !== null
     {
         has_record ? (
             <>
-                <p class="general-infohelp">Deactivating your account marks your contributor record inactive. You keep the ability to sign in, but your access becomes read-only: you will no longer be able to edit the database or manage your contributions.</p>
-                <p class="general-warning">You cannot reactivate your own account once deactivated — reactivation requires another user with the <code>userenroll</code> role (or an administrator). Make sure this is what you want before proceeding.</p>
+                <p class="general-infohelp">Deactivating your account marks your contributor record inactive. You can still sign in, but you will no longer be able to make contributions.</p>
+                <p class="general-warning">You cannot reactivate your own account once deactivated: an administrator, or a user with the <code>userenroll</code> role, must reactivate it for you.</p>
                 <div class="generic-form">
                     <form id="profile-form-deactivate" class="generic-form">
                         <fieldset>
                             <legend>Confirm Deactivation</legend>
                             <input type="checkbox" id="profile-form-deactivate-confirm" name="confirm" />
-                            <label for="profile-form-deactivate-confirm">I understand my access will become read-only and I want to deactivate my account.</label>
+                            <label for="profile-form-deactivate-confirm">I understand I will not be able to make contributions after deactivating my account.</label>
                         </fieldset>
                         <button type="submit">Deactivate my account</button>
                     </form>
@@ -63,7 +83,7 @@ const has_record = identity?.id !== undefined && identity?.id !== null
                                 message.textContent = "Please check the box to confirm you want to deactivate your account."
                                 return
                             }
-                            if (!confirm("Are you sure you want to deactivate your account? You will lose the ability to edit the database.")) {
+                            if (!confirm("Are you sure you want to deactivate your account?")) {
                                 return
                             }
                             message.textContent = "Processing request..."
