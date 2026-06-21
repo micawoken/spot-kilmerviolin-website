@@ -42,6 +42,7 @@ const identity = locals.identity
         <!-- Header -->
         <AdminHeader identity={identity} welcome={true} />
         <main class="admin-main" role="main">
+            <h2>Composers</h2>
             <p class="general-infohelp">
                 Composer records represent composers or arrangers of musical compositions. They are referenced in
                 compositions.
@@ -49,7 +50,6 @@ const identity = locals.identity
             <!-- links to database management pages -->
             <div class="flex-container">
                 <div class="column">
-                    <h2><a href="/admin/composers" class="col-header-link">Composers</a></h2>
                     <ul>
                         <li><a href="/admin/composers/create" class="col-item-link">Add new composer</a></li>
                         <li><a href="/admin/composers/info" class="col-item-link">View composer info</a></li>
