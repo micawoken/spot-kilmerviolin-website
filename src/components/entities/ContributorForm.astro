@@ -20,6 +20,11 @@
  *   (identity_email, roles, active, admin) so a user only edits their own non-protected, non-auth
  *   fields. The identity email is changed separately via /admin/profile/reset_login. Submitted by
  *   submitProfileEdit (scripts/interface.ts), not the standard PATCH edit-target flow.
+ * - github_self (optional): renders an editable GitHub Username field for self-service linkage (used by
+ *   the profile editor). Unlike show_github — the admin read-only display — this field is saved by the
+ *   form-wide Submit: submitProfileEdit applies it through the dedicated self endpoint (set/clear), so
+ *   clearing the field unlinks the account. Once an administrator authorizes the account for repository
+ *   access the field is locked client-side, and the server rejects changes regardless.
  *
  * Input ids follow the form-contributors-{param} convention, where param matches the input's
  * name attribute exactly (required by prefillForm in scripts/interface.ts)
@@ -54,6 +59,15 @@ const contributor: Partial<ContributorRecord> | null = Astro.props.contributor |
 const patch: boolean = Astro.props.patch || false;
 const show_elevate: boolean = Astro.props.show_elevate || false;
 const profile: boolean = Astro.props.profile || false;
+// show_github surfaces the linked GitHub username (a protected column edited through the dedicated linkage
+// pages, not this form). github_manage_href is where the manage link points — the admin add/edit page
+// (/admin/iam/change-gh) on the contributor editor.
+const show_github: boolean = Astro.props.show_github || false;
+const github_manage_href: string | null = Astro.props.github_manage_href || null;
+const github_username: string | null = contributor?.github_username ?? null;
+// github_self renders the editable self-service GitHub field on My Profile (saved by the form-wide Submit
+// via submitProfileEdit). It is mutually exclusive with show_github (the admin read-only display).
+const github_self: boolean = Astro.props.github_self || false;
 
 // identity context for client-side edit-permission validation (see processSubmit in scripts/interface.ts)
 const self_id: number | null = Astro.locals.identity?.id ?? null;
@@ -272,6 +286,48 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             }
         </div>
         )
+        }
+
+        {
+            show_github ? (
+                <div class="form-section">
+                    <h3 class="form-section-title">GitHub</h3>
+                    <fieldset>
+                        <legend>GitHub Username</legend>
+                        <div class="field-row">
+                            {/* disabled so it is never submitted through this form: github_username is a
+                                protected column managed via the dedicated linkage pages */}
+                            <input type="text" id="form-contributors-github_username" name="github_username_display" value={github_username ?? ""} placeholder="not linked" disabled />
+                        </div>
+                        {
+                            github_manage_href ? (
+                                <p class="general-infohelp">This is a protected field. Add or edit this user's GitHub username under <a href={github_manage_href}>Add or edit a user's GitHub username</a>. Granting repository access is a separate administrator action (Authorize for GitHub).</p>
+                            ) : null
+                        }
+                    </fieldset>
+                </div>
+            ) : null
+        }
+
+        {
+            github_self ? (
+                <div class="form-section">
+                    <h3 class="form-section-title">GitHub</h3>
+                    <fieldset>
+                        <legend>GitHub Username</legend>
+                        <div class="field-row">
+                            {/* editable self-service link; saved by the form-wide Submit (submitProfileEdit),
+                                which applies it through the dedicated self endpoint. data-original tracks the
+                                currently linked username so submit knows whether to set, clear, or skip it. */}
+                            <input type="text" id="form-contributors-github_username" name="github_username" value={github_username ?? ""} data-original={github_username ?? ""} placeholder="not linked" />
+                            <small class="general-infohelp field-inline-help">your GitHub login, e.g. octocat &mdash; clear it to unlink</small>
+                        </div>
+                        <p class="general-infohelp">Link your GitHub account so an administrator can grant you write access to the content repository. Your username is verified against GitHub when you save.</p>
+                        <p id="form-contributors-github_username-status" class="general-infohelp">Checking your current GitHub link&hellip;</p>
+                        <p class="general-warning">Once an administrator authorizes your account for repository access, you can no longer change or clear this yourself &mdash; ask an administrator. Until then, you may freely update it or remove it by clearing the field.</p>
+                    </fieldset>
+                </div>
+            ) : null
         }
 
         <div class="form-section">

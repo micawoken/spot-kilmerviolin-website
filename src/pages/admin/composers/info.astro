@@ -84,7 +84,10 @@ if (id) {
                 // record, or return to the ID-entry view to look up another (the path without the id query param)
                 use_id ? (
                     <p>
-                        <a href={`/admin/composers/edit?id=${id}`}>Edit this composer &gt;</a> |{" "}
+                        <a href={`/admin/composers/edit?id=${id}`}>Edit this composer &gt;</a>
+                        <span class="admin-nav-sep" aria-hidden="true">
+                            |
+                        </span>
                         <a href={Astro.url.pathname}>View another composer &gt;</a>
                     </p>
                 ) : null

@@ -30,8 +30,13 @@ interface __BaseEnv_Env {
 	MAX_IMAGE_WIDTH: 1600;
 	TARGET_IMAGE_FORMAT: "image/webp";
 	TARGET_IMAGE_QUALITY: 82;
+	GITHUB_REPO_OWNER: "micawoken";
+	GITHUB_REPO_NAME: "entrusting-devilish-fish";
+	PAGES_CMS_SYNC_URL: "https://pages-cms-kilmerviolin.vercel.app/api/sync/cms-access";
 	CF_ACCESS_TOKEN: string;
 	CF_DEPLOY_HOOK: string;
+	GITHUB_ADMIN_TOKEN: string;
+	PAGES_CMS_SYNC_SECRET: string;
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_Env {}

@@ -108,7 +108,11 @@ function formatBytes(bytes: number): string {
             </div>
             <!-- follow-up task links live below the card, per the entity Info convention -->
             <p>
-                <a href={`/admin/files/edit?id=${file.key}`}>Replace this file &gt;</a> | <a href={`/admin/files/delete?id=${file.key}`}>Delete this file &gt;</a> | <a href={Astro.url.pathname}>View another file &gt;</a>
+                <a href={`/admin/files/edit?id=${file.key}`}>Replace this file &gt;</a>
+                <span class="admin-nav-sep" aria-hidden="true">|</span>
+                <a href={`/admin/files/delete?id=${file.key}`}>Delete this file &gt;</a>
+                <span class="admin-nav-sep" aria-hidden="true">|</span>
+                <a href={Astro.url.pathname}>View another file &gt;</a>
             </p>
             </>
         ) : (

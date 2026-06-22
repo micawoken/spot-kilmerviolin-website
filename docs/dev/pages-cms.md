@@ -42,8 +42,54 @@ collaborator) can edit content. To keep control tight:
 - self-host so access is bounded by your own GitHub App and instance.
 
 The `cms_editor` permission and `siteeditor` role are **kept** in the codebase (`src/lib/api/types.d.ts`,
-`src/lib/api/authorize.ts`) but are currently **unused** — retained in case a future worker-hosted CMS
-gates on them again.
+`src/lib/api/authorize.ts`) and now **drive the collaborator sync below** — the worker remains the source of
+truth for who may edit content, even though the editor itself is external.
+
+## Automated collaborator sync (worker → Pages CMS)
+
+The Pages CMS `collaborator` table is kept in step with the worker's authorization state automatically, keyed
+on the shared email (`contributors.identity_email` == the email an editor signs into Pages CMS with). A
+contributor is provisioned as a CMS editor when they are an **admin**, or hold a role granting the
+`cms_editor` permission (today `siteeditor`) **and** are **active**.
+
+Two complementary paths (see `src/lib/api/cms_access_sync.ts`):
+
+1. **Real-time push.** Contributor mutations that change authorization (`activateUser`, `deactivateUser`,
+   `elevateUser`, `demoteUser`, `assignRole`, `removeRole`, `setRoles`, `removeUser`, and login-email
+   changes — all in `src/lib/public/usermgmt.ts`) fire a fire-and-forget `POST`/`DELETE` (via
+   `ctx.waitUntil`) to the Pages CMS endpoint `app/api/sync/cms-access`. A CMS outage never fails the worker
+   request — the reconcile cron repairs it.
+2. **Reconcile cron.** A Vercel cron on the Pages CMS fork (`app/api/cron/sync-cms-access`, scheduled in
+   `vercel.json`) reads the D1 `contributors` table directly via the **Cloudflare D1 REST API** (read-only
+   token) and repairs drift. It only adds/removes collaborators whose email matches a D1 contributor;
+   hand-added, non-contributor collaborators are never touched.
+
+### Configuration
+
+| Side | Name | Kind | Purpose |
+| --- | --- | --- | --- |
+| Worker | `PAGES_CMS_SYNC_URL` | var (`wrangler.jsonc`) | the fork's `/api/sync/cms-access` endpoint; blank disables the push |
+| Worker | `PAGES_CMS_SYNC_SECRET` | secret | bearer token the push authenticates with; blank disables the push |
+| Fork | `WORKER_SYNC_SECRET` | env | must equal `PAGES_CMS_SYNC_SECRET` |
+| Fork | `SYNC_OWNER` / `SYNC_REPO` | env | repo coordinates (default `micawoken` / `entrusting-devilish-fish`) |
+| Fork | `CF_ACCOUNT_ID` / `CF_D1_DATABASE_ID` | env | from the worker's `wrangler.jsonc` |
+| Fork | `CF_D1_API_TOKEN` | env | Cloudflare API token, D1 read scope, for the reconcile query |
+| Fork | `CRON_SECRET` | env | guards the cron route (Vercel sends it as `Authorization: Bearer`) |
+
+When the worker's URL/secret are unset the push cleanly no-ops (`cmsSyncConfigured`), so local/test runtimes
+are never coupled to the integration.
+
+> **Verify the D1 token scope:** confirm a Cloudflare API token scoped to **D1 → Read** is accepted by the
+> `/d1/database/{id}/query` POST endpoint for the `SELECT`. If Read is rejected, use a D1-scoped Edit token
+> restricted to this single account.
+
+### Provisioning reviewers (GitHub write) vs writers (email collaborators)
+
+Content **writers** edit through Pages CMS as email collaborators and need no GitHub repo access. Content
+**reviewers/mergers** need GitHub write to merge the PRs that drive CI/CD. The reviewer population is
+provisioned in-app through the **GitHub repository linkage** feature: the `siteeditor` role carries the
+`github_link` permission to link a GitHub username, and an administrator authorizes that account as a
+repository collaborator. See `docs/dev/github-linkage.md`.
 
 ## How `.pages.yml` maps to the on-disk files
 

@@ -78,9 +78,10 @@
            page's single <h1> (which names the error), keeping a correct heading hierarchy. */
         header .site-name {
             margin: 0;
-            font-size: 1rem;
+            font-size: 1.5rem;
+            line-height: 1.2;
             font-weight: 700;
-            color: var(--color-text-secondary);
+            color: var(--color-text);
         }
         header .site-name a {
             color: inherit;
@@ -118,6 +119,10 @@
         }
         footer p {
             margin: 0.4rem 0;
+        }
+        /* the footer nav is the first child; pull its paragraph flush to the top rule */
+        footer nav p {
+            margin-top: 0;
         }
         footer p:last-child {
             margin-bottom: 0;
@@ -157,8 +162,23 @@
         </nav>
     </main>
     <footer role="contentinfo">
-        <p>Need to report a security concern? Contact the webmaster at <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.</p>
-        <p>Administrative services are &copy; <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU GPLv3 and additional terms</a>.</p>
+        <nav role="navigation" aria-label="Administrative footer">
+            <p>
+                <a href="/admin" onclick="event.preventDefault(); history.back();">Back</a>
+                <span class="error-sep" aria-hidden="true">|</span>
+                <a href="/admin" rel="home">Admin Home</a>
+                <span class="error-sep" aria-hidden="true">|</span>
+                <a href="/admin/docs" rel="help">Help Docs</a>
+                <span class="error-sep" aria-hidden="true">|</span>
+                <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a>
+                <span class="error-sep" aria-hidden="true">|</span>
+                <a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a>
+                <span class="error-sep" aria-hidden="true">|</span>
+                <a href="/admin/security-policy" rel="security-policy">Security Policy</a>
+            </p>
+        </nav>
+        <p>{footerAccess} The time is {footerTime} ({footerTz}). Report security concerns to <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.</p>
+        <p>Thank you for using administrative services. Administrative services are &copy; {footerYear} <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU GPLv3 and additional terms</a>.</p>
     </footer>
 </body>
 </html>
