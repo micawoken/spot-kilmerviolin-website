@@ -22,10 +22,20 @@
  */
 
 import { add_user, list_users, remove_user } from "../api/access_iam_mgmt"
-import { conferFrom, requires } from "../api/authorize"
+import { conferFrom, requires, filterValidRoles } from "../api/authorize"
+import { cmsSyncConfigured, pushCmsAccess, isCmsAuthorized } from "../api/cms_access_sync"
 import { formatContribFromD1 } from "../api/common"
 import { CONTRIBUTOR, recordTypeAssertComplete, getRecord } from "../api/d1"
 import { addContributor, _getPrimitiveCacheless, updateContributorPartial } from "../api/database"
+import {
+    resolveByUsername,
+    resolveById,
+    addCollaborator,
+    removeCollaborator,
+    isAuthorized,
+    isOwner
+} from "../api/github_repo_mgmt"
+import { isValidGithubUsername } from "../api/validation"
 
 /** Whether an identity email is present in the (lowercase) Cloudflare Access user list. */
 function isEmailInAccess(email: string, accessList: string[]): boolean {
@@ -57,7 +67,11 @@ function buildContributor(
         active: active,
         admin: false,
         phases: null,
-        tags: []
+        tags: [],
+        // GitHub linkage is established separately through the self-service / admin linkage flows
+        // (lib/api/github_repo_mgmt.ts and the setGithubUsername family below), never at enrollment
+        github_username: null,
+        github_user_id: null
     }
 }
 
@@ -190,6 +204,30 @@ export async function finishUser(
 }
 
 /**
+ * Best-effort push of a contributor's current CMS-editor authorization to the external Pages CMS, keyed by
+ * their identity email. Reads the post-write contributor record (callers await the mutation first) and
+ * fires the push fire-and-forget via ctx.waitUntil, so a CMS outage never fails the worker request; the
+ * Pages CMS reconcile cron repairs any missed push. No-ops when the sync is unconfigured (see
+ * cmsSyncConfigured). See lib/api/cms_access_sync.ts and docs/dev/pages-cms.md.
+ *
+ * @param {ExecutionContext} ctx The Cloudflare Workers execution context
+ * @param {number} id The id of the contributor whose authorization state should be synced
+ */
+function syncCmsAccessForUser(ctx: ExecutionContext, id: number): void {
+    if (!cmsSyncConfigured()) {
+        return
+    }
+    ctx.waitUntil(
+        (async () => {
+            const record = await fetcher(id)
+            await pushCmsAccess(record.identity_email, isCmsAuthorized(record))
+        })().catch((error) => {
+            console.warn("Pages CMS access sync failed; the reconcile cron will repair it", error)
+        })
+    )
+}
+
+/**
  * Activates a contributor record, authorizing add permissions and limited edit permissions
  * This does not confer Access authentication, which is required for a contributor record to be used
  *
@@ -198,6 +236,7 @@ export async function finishUser(
  */
 export async function activateUser(ctx: ExecutionContext, id: number): Promise<void> {
     await updateContributorPartial(ctx, id, { active: true })
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -209,6 +248,7 @@ export async function activateUser(ctx: ExecutionContext, id: number): Promise<v
  */
 export async function deactivateUser(ctx: ExecutionContext, id: number): Promise<void> {
     await updateContributorPartial(ctx, id, { active: false })
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -220,6 +260,7 @@ export async function deactivateUser(ctx: ExecutionContext, id: number): Promise
  */
 export async function elevateUser(ctx: ExecutionContext, id: number): Promise<void> {
     await updateContributorPartial(ctx, id, { admin: true }, true)
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -231,6 +272,7 @@ export async function elevateUser(ctx: ExecutionContext, id: number): Promise<vo
  */
 export async function demoteUser(ctx: ExecutionContext, id: number): Promise<void> {
     await updateContributorPartial(ctx, id, { admin: false }, true)
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -272,7 +314,11 @@ export async function assignRole(ctx: ExecutionContext, id: number, role: string
         return
     }
     current_roles.push(role)
-    await updateContributorPartial(ctx, id, { roles: current_roles }, true)
+    // server-side guard: persist only defined roles. Every write to the roles column is filtered so an
+    // unknown role string can never reach storage, which keeps the identity permission aggregation bounded
+    // to the defined role set (see filterValidRoles / permissionsFromRoles).
+    await updateContributorPartial(ctx, id, { roles: filterValidRoles(current_roles) }, true)
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -290,6 +336,7 @@ export async function removeRole(ctx: ExecutionContext, id: number, role: string
     }
     const new_roles = record.roles.filter((r) => r !== role)
     await updateContributorPartial(ctx, id, { roles: new_roles }, true)
+    syncCmsAccessForUser(ctx, id)
 }
 
 export async function _changeLoginEmail(
@@ -306,6 +353,19 @@ export async function _changeLoginEmail(
     // update access
     await add_user(normalized_new)
     await remove_user(old_email)
+    // the CMS collaborator is keyed by email, so revoke the old email and (re)evaluate the new one; the
+    // sync reads the post-write record, which now carries normalized_new
+    if (cmsSyncConfigured()) {
+        ctx.waitUntil(
+            pushCmsAccess(old_email, false).catch((error) => {
+                console.warn(
+                    "Pages CMS access sync (old-email revoke) failed; the reconcile cron will repair it",
+                    error
+                )
+            })
+        )
+    }
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -324,14 +384,18 @@ export async function changeLoginEmail(ctx: ExecutionContext, id: number, new_em
 
 /**
  * Replaces a user's entire set of roles with the provided list (set semantics, as opposed to the
- * incremental add/remove of assignRole/removeRole). Role validity is the caller's responsibility.
+ * incremental add/remove of assignRole/removeRole). Invalid roles are filtered out server-side, so any
+ * role not defined in authorize.ts is silently dropped rather than persisted.
  *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user whose roles are to be set
  * @param {string[]} roles The complete list of roles the user should have
  */
 export async function setRoles(ctx: ExecutionContext, id: number, roles: string[]): Promise<void> {
-    await updateContributorPartial(ctx, id, { roles: roles }, true)
+    // setRoles takes an arbitrary external list, so this is the primary point that keeps unknown roles out
+    // of storage (see assignRole for the rationale and filterValidRoles / permissionsFromRoles)
+    await updateContributorPartial(ctx, id, { roles: filterValidRoles(roles) }, true)
+    syncCmsAccessForUser(ctx, id)
 }
 
 /**
@@ -424,8 +488,283 @@ export async function removeUser(ctx: ExecutionContext, identity_email: string):
         }
         // no need to type convert it, since contributor_id exists
         await updateContributorPartial(ctx, contrib_data.contributor_id as number, { active: false })
+        syncCmsAccessForUser(ctx, contrib_data.contributor_id as number)
     } catch (error) {
         // User not in D1, that's okay - just remove from Access
         return
     }
+}
+
+// GITHUB REPOSITORY LINKAGE
+//
+// A contributor may link a GitHub account (github_username) whose immutable id (github_user_id) is the
+// authoritative binding. Linking the username is convenient (self-service for users with the github_link
+// permission, or admin-managed by email); granting actual repository write access (adding the account as a
+// collaborator) is always an admin operation. Authorization is ID-primary: the stored id is resolved to the
+// account's current login before access is changed, so a reassigned username is denied and a legitimate
+// rename is followed. See lib/api/github_repo_mgmt.ts and docs/dev/github-linkage.md.
+
+/**
+ * Whether a contributor's linked GitHub account currently holds repository write access. Resolves the
+ * stored id to its current login (ID-primary) and checks collaborator/invitation status; an unlinked
+ * record, or one whose id no longer resolves to an account, is treated as not authorized.
+ */
+async function _isLinkAuthorized(record: ContributorRecord): Promise<boolean> {
+    if (record.github_user_id === null) {
+        return false
+    }
+    const account = await resolveById(record.github_user_id)
+    if (account === null) {
+        return false
+    }
+    return isAuthorized(account.login)
+}
+
+/**
+ * Core username binding: validates the username, resolves it to a GitHub account, enforces that the account
+ * is not already linked to a different contributor, and writes the username + immutable id. Callers enforce
+ * their own overwrite/authorization policy before calling this.
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the contributor id to bind the account to
+ * @param username the GitHub username to link
+ */
+async function _bindGithubUsername(ctx: ExecutionContext, id: number, username: string): Promise<void> {
+    const trimmed = username.trim()
+    if (!isValidGithubUsername(trimmed)) {
+        throw new Error("Invalid GitHub username format")
+    }
+    const account = await resolveByUsername(trimmed)
+    if (account === null) {
+        throw new Error(`GitHub user '${trimmed}' was not found`)
+    }
+    // uniqueness: a GitHub account may back at most one contributor (github_user_id is uniquely indexed)
+    const existing = await _getPrimitiveCacheless(CONTRIBUTOR, "github_user_id", String(account.id))
+    if (existing !== null && (existing.contributor_id as number) !== id) {
+        throw new Error("That GitHub account is already linked to another contributor")
+    }
+    // protected columns; the caller has performed its own permission check, so authorize the write
+    await updateContributorPartial(ctx, id, { github_username: account.login, github_user_id: account.id }, true)
+}
+
+/**
+ * Reads a contributor's GitHub linkage state (username, immutable id, and whether it currently has
+ * repository write access). Used by the read endpoints to render the linkage UI.
+ *
+ * @param id the contributor id
+ * @returns the linkage state
+ */
+export async function getGithubLink(
+    id: number
+): Promise<{ github_username: string | null; github_user_id: number | null; authorized: boolean }> {
+    const record = await fetcher(id)
+    return {
+        github_username: record.github_username,
+        github_user_id: record.github_user_id,
+        authorized: await _isLinkAuthorized(record)
+    }
+}
+
+/**
+ * Self-service: sets or changes the caller's own GitHub username. Write-once-until-authorized — once the
+ * linked account has been granted repository access, only an administrator may change it; while unauthorized
+ * the user may freely replace or clear it (self-clear if unauthorized).
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the caller's own contributor id
+ * @param username the GitHub username to link
+ */
+export async function setOwnGithubUsername(ctx: ExecutionContext, id: number, username: string): Promise<void> {
+    const record = await fetcher(id)
+    if (record.github_user_id !== null && (await _isLinkAuthorized(record))) {
+        throw new Error(
+            "Your GitHub account is authorized for repository access; an administrator must change or remove it"
+        )
+    }
+    await _bindGithubUsername(ctx, id, username)
+}
+
+/**
+ * Self-service: clears the caller's own GitHub username, allowed only while the link is not authorized for
+ * repository access (an authorized link must be removed by an administrator, which also revokes access).
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the caller's own contributor id
+ */
+export async function clearOwnGithubUsername(ctx: ExecutionContext, id: number): Promise<void> {
+    const record = await fetcher(id)
+    if (record.github_user_id === null) {
+        return
+    }
+    if (await _isLinkAuthorized(record)) {
+        throw new Error(
+            "Your GitHub account is authorized for repository access; an administrator must change or remove it"
+        )
+    }
+    await updateContributorPartial(ctx, id, { github_username: null, github_user_id: null }, true)
+}
+
+/**
+ * Admin: sets or changes a contributor's GitHub username by id. With allowOverwrite=false (the "set" flow)
+ * this refuses to replace an existing link; with allowOverwrite=true (the "change" flow) it replaces it.
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the target contributor id
+ * @param username the GitHub username to link
+ * @param allowOverwrite whether replacing an existing link is permitted
+ */
+export async function adminSetGithubUsername(
+    ctx: ExecutionContext,
+    id: number,
+    username: string,
+    allowOverwrite: boolean
+): Promise<void> {
+    const record = await fetcher(id)
+    if (record.github_user_id !== null && !allowOverwrite) {
+        throw new Error("A GitHub username is already set for this user; use the change operation to replace it")
+    }
+    await _bindGithubUsername(ctx, id, username)
+}
+
+/**
+ * Admin: removes a contributor's GitHub link entirely. Cascades by first revoking repository access for the
+ * linked account (unless it is the repository owner, who is never deauthorized), then clearing the columns.
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the target contributor id
+ */
+export async function deleteGithubLink(ctx: ExecutionContext, id: number): Promise<void> {
+    const record = await fetcher(id)
+    if (record.github_user_id !== null) {
+        const account = await resolveById(record.github_user_id)
+        const login = account?.login ?? record.github_username
+        if (login !== null && !isOwner(login)) {
+            // revoke any granted repository access before clearing the binding, so access can never be orphaned
+            await removeCollaborator(login)
+        }
+    }
+    await updateContributorPartial(ctx, id, { github_username: null, github_user_id: null }, true)
+}
+
+/**
+ * Admin: grants repository write access to a contributor's linked GitHub account (ID-primary). Resolves the
+ * stored id to its current login, adds it as a collaborator, and keeps the stored username aligned with that
+ * login (following a legitimate rename).
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the target contributor id
+ */
+export async function authorizeGithub(ctx: ExecutionContext, id: number): Promise<void> {
+    const record = await fetcher(id)
+    if (record.github_user_id === null) {
+        throw new Error("This user has no linked GitHub account to authorize")
+    }
+    const account = await resolveById(record.github_user_id)
+    if (account === null) {
+        throw new Error("The linked GitHub account no longer exists; clear and re-link the username")
+    }
+    await addCollaborator(account.login)
+    if (account.login !== record.github_username) {
+        // the account was renamed since linking; follow it so the stored username stays accurate
+        await updateContributorPartial(ctx, id, { github_username: account.login }, true)
+    }
+}
+
+/**
+ * Admin: revokes repository write access from a contributor's linked GitHub account, leaving the username
+ * link in place. Refuses to deauthorize the repository owner (self-lockout protection).
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the target contributor id
+ */
+export async function deauthorizeGithub(ctx: ExecutionContext, id: number): Promise<void> {
+    const record = await fetcher(id)
+    if (record.github_user_id === null) {
+        return
+    }
+    const account = await resolveById(record.github_user_id)
+    const login = account?.login ?? record.github_username
+    if (login === null) {
+        return
+    }
+    if (isOwner(login)) {
+        throw new Error("Refusing to revoke repository access from the repository owner")
+    }
+    await removeCollaborator(login)
+}
+
+/**
+ * Error thrown by applyGithubUsername when a github_username change cannot be applied. Carries the HTTP
+ * status the API should surface (403 when the change is blocked by the conditional-protection rule, 400 for
+ * a rejected binding such as an unknown user or one already linked to another contributor) so the caller
+ * can report it without re-deriving the cause.
+ */
+export class GithubLinkageError extends Error {
+    status: 400 | 403
+    constructor(message: string, status: 400 | 403) {
+        super(message)
+        this.name = "GithubLinkageError"
+        this.status = status
+    }
+}
+
+/**
+ * Applies a github_username change subject to the conditional-protection rule used by the contributor PATCH
+ * endpoint: while the linked account is NOT authorized for repository access the record owner (or an
+ * elevated admin) may freely set, change, or clear the username, but once the account is authorized the
+ * column becomes protected and only an elevated administrator may alter it. github_user_id is always derived
+ * server-side (never trusted from the client) — setting resolves and verifies the username against GitHub,
+ * and clearing wipes both columns (revoking repository access first when the link was authorized, so access
+ * is never orphaned).
+ *
+ * @param ctx the Cloudflare Workers execution context
+ * @param id the target contributor id
+ * @param username the GitHub username to link, or null/blank to unlink
+ * @param elevated whether the request is an elevated administrator action (admin + elevate)
+ * @returns true if a change was applied, false if the request was a no-op (unchanged, or nothing to clear)
+ * @throws {GithubLinkageError} when the change is blocked by the conditional-protection rule (403) or the
+ *   username cannot be bound (400)
+ */
+export async function applyGithubUsername(
+    ctx: ExecutionContext,
+    id: number,
+    username: string | null,
+    elevated: boolean
+): Promise<boolean> {
+    const record = await fetcher(id)
+    const authorized = record.github_user_id !== null && (await _isLinkAuthorized(record))
+    // conditional protection: an authorized link is protected and only an elevated admin may change it
+    if (authorized && !elevated) {
+        throw new GithubLinkageError(
+            "Your GitHub account is authorized for repository access; an administrator must change or remove it",
+            403
+        )
+    }
+    const trimmed = username === null ? "" : username.trim()
+    if (trimmed === "") {
+        // clear; nothing to do when already unlinked
+        if (record.github_user_id === null && record.github_username === null) {
+            return false
+        }
+        if (authorized) {
+            // an authorized link (reachable here only by an elevated admin) has its repository access revoked
+            // before the binding is cleared, so a collaborator grant is never left orphaned
+            await deleteGithubLink(ctx, id)
+        } else {
+            await updateContributorPartial(ctx, id, { github_username: null, github_user_id: null }, true)
+        }
+        return true
+    }
+    // set/replace; a username identical to the stored login is a no-op (avoids a needless GitHub round-trip)
+    if (record.github_username === trimmed) {
+        return false
+    }
+    try {
+        await _bindGithubUsername(ctx, id, trimmed)
+    } catch (error) {
+        // binding rejections (unknown user, already linked to another contributor, invalid format) are
+        // client errors; surface them as a 400 carrying the specific reason
+        throw new GithubLinkageError(error instanceof Error ? error.message : String(error), 400)
+    }
+    return true
 }

@@ -293,6 +293,12 @@ interface Identity extends BaseIdentity {
      * General information about the user
      */
     readonly userinfo: UserInfo
+    /**
+     * The aggregate permission set conferred by the identity's roles, precomputed during authorization
+     * (see buildIdentity / permissionsFromRoles). Lets access screening consult one flattened set rather
+     * than re-walking the role registry per check.
+     */
+    readonly permissions: IdentityPermissions
 }
 
 // the Identity object is constructed by authorization and is not stored as a record since it contains token-specific data
@@ -309,6 +315,10 @@ interface Identity extends BaseIdentity {
  * @property {boolean} cms_editor - Whether the role provides authorization to edit site content through the CMS.
  *   The CMS is now external (Pages CMS, see docs/dev/pages-cms.md) and is no longer gated in-app, so this
  *   permission is currently unused; it is retained for a possible future worker-hosted CMS that would gate on it.
+ * @property {boolean} github_link - Whether the role allows a user to link their own GitHub account (set/clear
+ *   their github_username) for repository write access. Gates the self-service GitHub linkage flow
+ *   (/api/v1/identity/self/github) and the permission-gated set page; the actual authorization (adding the
+ *   user as a repo collaborator) remains admin-only. Keyed to the siteeditor role. See docs/dev/github-linkage.md.
  *
  * Contribution edit lockout: by default, users are granted read-only access to entries made by others, which is enforced by the API.
  * By default, administrators bypass the lockout, but certain use-cases (such as peer review) merit a lift of this restriction so that
@@ -323,7 +333,20 @@ interface RoleProfile {
     user_addition: boolean
     conferrable: boolean
     cms_editor: boolean
+    github_link: boolean
 }
+
+/**
+ * The aggregate permission set granted to an identity: the union (logical OR) of the RoleProfile of every
+ * valid role the identity holds. Each key mirrors a RoleProfile permission and is true iff at least one
+ * held role grants it; an identity with no (valid) roles has every permission false.
+ *
+ * Defined as a mapped type over RoleProfile so the two can never drift — adding a permission to RoleProfile
+ * automatically adds it here. Exposed as Identity.permissions and consumed by access screening
+ * (see page_auth satisfiesAccess). Named IdentityPermissions to avoid colliding with the global DOM
+ * `Permissions` interface (the navigator.permissions API).
+ */
+type IdentityPermissions = { readonly [K in keyof RoleProfile]: boolean }
 
 // D1 TYPES
 
@@ -374,6 +397,12 @@ interface ContributorPrimitive {
     public_email: string | null
     identity_email: string
     image: string | null
+    // GitHub repository linkage (protected columns). github_username is the linked GitHub login;
+    // github_user_id is the immutable numeric GitHub account id resolved at set time and used as the
+    // authoritative binding (ID-primary), so a later username reassignment cannot inherit repo access.
+    // Both are null when unlinked. See docs/dev/github-linkage.md.
+    github_username: string | null
+    github_user_id: number | null
 }
 
 /**

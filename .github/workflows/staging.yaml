@@ -11,20 +11,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-      
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: npm ci
-      
+        run: pnpm install --frozen-lockfile
+
       - name: Build Astro site
-        run: npm run build
-      
+        run: pnpm run build
+
       - name: Upload staging preview version to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          packageManager: pnpm
           # Upload a non-live preview version under the "staging" alias, reachable at
           # staging-<worker>.<subdomain>.workers.dev without taking production traffic. No secrets
           # are set here: they are only used by the API, which is disabled on staging, and putting

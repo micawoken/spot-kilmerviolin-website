@@ -68,12 +68,16 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
     user: {
         children: {
             // activation (PUT /api/v1/identity/activation) is delegated to the user_activation permission
-            activate: { access: { kind: "role", roles: ["user_activation"] } },
+            activate: { access: { kind: "permission", permissions: ["user_activation"] } },
             // deactivation (DELETE /api/v1/identity/activation) remains admin-only
             deactivate: { access: { kind: "admin" } },
             // promotion/demotion (PUT/DELETE /api/v1/identity/admin) require admin
             elevate: { access: { kind: "admin" } },
-            demote: { access: { kind: "admin" } }
+            demote: { access: { kind: "admin" } },
+            // granting/revoking GitHub repository access (POST/DELETE /api/v1/identity/github/authorization)
+            // require admin
+            "authorize-gh": { access: { kind: "admin" } },
+            "deauthorize-gh": { access: { kind: "admin" } }
         }
     },
     iam: {
@@ -83,9 +87,13 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             // changing another user's login email maps to PATCH /api/v1/identity/email, which requires admin
             email: { access: { kind: "admin" } },
             // listing/adding/removing users maps to endpoints requiring the user_addition permission
-            add: { access: { kind: "role", roles: ["user_addition"] } },
-            list: { access: { kind: "role", roles: ["user_addition"] } },
-            remove: { access: { kind: "role", roles: ["user_addition"] } },
+            add: { access: { kind: "permission", permissions: ["user_addition"] } },
+            list: { access: { kind: "permission", permissions: ["user_addition"] } },
+            remove: { access: { kind: "permission", permissions: ["user_addition"] } },
+            // adding/editing/clearing another user's GitHub username (/api/v1/identity/github) requires admin.
+            // Self-service GitHub linking lives on My Profile (/admin/profile/edit), gated by github_link there.
+            "change-gh": { access: { kind: "admin" } },
+            "del-gh": { access: { kind: "admin" } },
             // "my authorization info" shows the caller their own info; reachable while inactive
             whoami: { access: { kind: "any" } }
         }
@@ -153,11 +161,7 @@ export const identity: MiddlewareHandler = async (context, next) => {
     // staging serves only public-facing pages; the admin UI and the API are disabled there.
     // Respond 404 to hide their existence (staging needs no auth secrets as a result).
     if (detectEnvironment(context.request) === "staging") {
-        return middlewareErrorResponder(
-            context.request,
-            404,
-            "This resource is not available on the staging preview."
-        )
+        return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
     }
 
     // the request path requires authentication and authorization
@@ -206,28 +210,25 @@ export const identity: MiddlewareHandler = async (context, next) => {
         // no Contributor record exists conveying authorization information
         if (!constructed_identity.enrollable) {
             // credential is inactive and not enrollable, so reject
-            return middlewareErrorResponder(context.request, 403, comment_403)
+            return middlewareErrorResponder(context.request, 403, comment_403, constructed_identity.email)
         }
         // enrollable credentials must be permissionless; verify it is
         if (constructed_identity.roles.length !== 0 || constructed_identity.admin || constructed_identity.active) {
             // enrollable credential has permissions, which should be impossible, so reject
-            return middlewareErrorResponder(context.request, 403, comment_403)
+            return middlewareErrorResponder(context.request, 403, comment_403, constructed_identity.email)
         }
         // credential is enrollable and permissionless, so can be set
     } else if (constructed_identity.allowed && constructed_identity.enrollable) {
         // also impossible - a credential cannot be both allowed and enrollable
-        return middlewareErrorResponder(context.request, 403, comment_403)
+        return middlewareErrorResponder(context.request, 403, comment_403, constructed_identity.email)
     }
     // credential is useable, so set to locals
     context.locals.identity = constructed_identity
     // page-level authorization for the admin UI (API routes enforce their own checks downstream).
     // Active-state gating happens here via the resolved access requirement: most admin pages require
     // an active caller unless they are an administrator (see ADMIN_PAGE_STRUCTURE / satisfiesAccess).
-    if (
-        path_components[0] === "admin" &&
-        !satisfiesAccess(adminPageAccess(path_components), constructed_identity)
-    ) {
-        return middlewareErrorResponder(context.request, 403, comment_403)
+    if (path_components[0] === "admin" && !satisfiesAccess(adminPageAccess(path_components), constructed_identity)) {
+        return middlewareErrorResponder(context.request, 403, comment_403, constructed_identity.email)
     }
     return next()
 }
