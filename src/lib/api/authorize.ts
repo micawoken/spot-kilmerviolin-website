@@ -37,7 +37,8 @@ export const roles: Record<string, RoleProfile> = {
         user_activation: false,
         user_addition: false,
         conferrable: true,
-        cms_editor: false
+        cms_editor: false,
+        github_link: false
     },
     userenroll: {
         overrides_lockout: false,
@@ -46,6 +47,7 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: true,
         conferrable: false,
         cms_editor: false,
+        github_link: false
     },
     siteeditor: {
         overrides_lockout: false,
@@ -53,8 +55,71 @@ export const roles: Record<string, RoleProfile> = {
         user_activation: false,
         user_addition: false,
         conferrable: false,
-        cms_editor: true
+        cms_editor: true,
+        github_link: true
     }
+}
+
+/**
+ * The canonical list of permission keys, mirroring the boolean fields of RoleProfile. It is the base for
+ * aggregating an identity's permissions (every key starts false before each held role's grants are OR-ed
+ * in) and exists because RoleProfile, being a type, has no runtime key list. The `satisfies` clause
+ * rejects a typo'd or non-permission key here, and the compile-time guard below rejects forgetting a key,
+ * so this stays in lockstep with RoleProfile.
+ */
+const PERMISSION_KEYS = [
+    "overrides_lockout",
+    "lockout_ignore_admin",
+    "user_activation",
+    "user_addition",
+    "conferrable",
+    "cms_editor",
+    "github_link"
+] as const satisfies readonly (keyof RoleProfile)[]
+
+// compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in
+// PERMISSION_KEYS, the conditional resolves to `false` and this type fails its `extends true` constraint
+type _Assert<T extends true> = T
+type _PermissionKeysExhaustive = _Assert<keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false>
+
+/**
+ * Filters a list of role names down to those defined in {@link roles}. This is the server-side guard
+ * applied on every write to the contributor roles column (see usermgmt setRoles/assignRole): only known
+ * roles are ever persisted, which keeps stale or malicious role strings out of storage and bounds the
+ * role iteration in {@link permissionsFromRoles} to the defined role set. Input order and duplicates are
+ * preserved.
+ *
+ * @param role_names - the candidate role names
+ * @returns the subset of role_names that are defined roles
+ */
+export function filterValidRoles(role_names: string[]): string[] {
+    return role_names.filter((name) => name in roles)
+}
+
+/**
+ * Aggregates the permission set granted by a list of role names: the union (logical OR) across the
+ * RoleProfile of every *valid* role in the list. An unknown role string (stale/legacy data) carries no
+ * profile and contributes nothing; the write path filters these out (see {@link filterValidRoles}), so
+ * this is a second line of defense. The returned object always carries every permission key, defaulting
+ * to false when no held role grants it.
+ *
+ * @param role_names - the identity's role names
+ * @returns the flattened Permissions set
+ */
+export function permissionsFromRoles(role_names: string[]): IdentityPermissions {
+    // start with every permission false, then OR in each valid role's grants
+    const permissions = Object.fromEntries(PERMISSION_KEYS.map((key) => [key, false])) as {
+        -readonly [K in keyof RoleProfile]: boolean
+    }
+    for (const name of role_names) {
+        const profile = roles[name]
+        // unknown roles confer nothing; only defined roles contribute permissions
+        if (!profile) continue
+        for (const key of PERMISSION_KEYS) {
+            if (profile[key]) permissions[key] = true
+        }
+    }
+    return permissions
 }
 
 /**
@@ -182,7 +247,11 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
         roles: roles,
         id: id,
         admin: admin,
-        userinfo: user_info
+        userinfo: user_info,
+        // flatten the held roles into their aggregate permission set once, here, so downstream access
+        // screening reads a single precomputed set. Iteration is bounded to the stored roles, which the
+        // write path filters to defined roles (see filterValidRoles); unknown roles confer nothing.
+        permissions: permissionsFromRoles(roles)
     }
 }
 

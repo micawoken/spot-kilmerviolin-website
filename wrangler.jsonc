@@ -30,6 +30,12 @@
 		"CF_ACCESS_LIST_ID": "1ec6a441-055b-4e2a-86e1-6693df840bbf", // points to the list reusable component used by the access policy, which is used by the access application
 		"CF_ACCOUNT_ID": "e8ee314913c32aac7227f8654f44f283", // the account ID for michaelwongmusic@gmail.com
 		"CF_ACCESS_AUD": "8ca14797bcad7607da1c09e961fc45343fc14e9dd83410327d501205cb9a6d11", // the aud for the Access policy to validate the JWT against
+		"GITHUB_REPO_OWNER": "micawoken",
+		"GITHUB_REPO_NAME": "entrusting-devilish-fish",
+		// the external Pages CMS sync endpoint that mirrors CMS-editor authorization into its collaborator
+		// table (see src/lib/api/cms_access_sync.ts, docs/dev/pages-cms.md). Set to the deployed fork URL;
+		// when blank (or PAGES_CMS_SYNC_SECRET unset) the sync no-ops. PLACEHOLDER — update to the real host.
+		"PAGES_CMS_SYNC_URL": "https://kilmer-cms.infra.mwmsc.net/api/sync/cms-access",
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"TEAM_DOMAIN": "https://mwmsc.cloudflareaccess.com", // the domain for the Access policy to validate the JWT against
 		"REBUILD_COOLDOWN_SEC": 900, // 15 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
@@ -44,7 +50,7 @@
 
 	// secret requirements
 	"secrets": {
-		"required": ["CF_ACCESS_TOKEN", "CF_DEPLOY_HOOK"]
+		"required": ["CF_ACCESS_TOKEN", "CF_DEPLOY_HOOK", "GITHUB_ADMIN_TOKEN", "PAGES_CMS_SYNC_SECRET"]
 	},
 
 	// api bindings

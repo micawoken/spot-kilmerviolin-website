@@ -215,3 +215,7 @@ dist
 /playwright/.auth/
 .playwright*
 .playwright/*
+
+# local docs
+/docs/*
+.docs/dev/*

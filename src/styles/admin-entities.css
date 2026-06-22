@@ -45,19 +45,19 @@ body {
  * Admin page chrome: banner header and contentinfo footer
  *
  * Mirrors the worker error fallback (lib/templates/error.html) so every admin page shares one look: a
- * rule-under banner whose page title sits at the left, the signed-in welcome line beside it, and the
- * profile/logout actions pushed to the right viewport edge — and the same quiet rule-over footer. The
+ * rule-under banner whose page title sits at the left and the signed-in name plus profile/logout
+ * actions are pushed to the right viewport edge — and the same quiet rule-over footer. The
  * error fallback keeps its own self-contained copy of these rules (it is inlined into the worker and
  * cannot link a bundled stylesheet); this section is the matching copy for the rendered admin pages.
  * ------------------------------------------------------------------------- */
 
-/* Banner: a single baseline-aligned row. The title and welcome line sit together at the left; the
- * actions group is pushed to the right edge with margin-left:auto (the body's 16px gutter is the
+/* Banner: a single center-aligned row. The title sits at the left; the actions group (signed-in
+ * name, My Profile, Logout) is pushed to the right edge with margin-left:auto (the body's 16px gutter is the
  * "padding" off the viewport edge). Wraps on narrow viewports (see the media block below). */
 header[role="banner"] {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
+	align-items: center;
 	column-gap: 1rem;
 	row-gap: 0.25rem;
 	border-bottom: 1px solid var(--shade-3);
@@ -78,10 +78,8 @@ header[role="banner"] h1 a {
 header[role="banner"] h1 a:hover {
 	text-decoration: underline;
 }
-/* the signed-in welcome line, immediately to the right of the title */
-.admin-header-welcome {
-	margin: 0;
-	color: var(--color-text-secondary);
+/* the signed-in name, sitting just left of the My Profile link inside the actions group */
+.admin-header-name {
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
@@ -91,7 +89,7 @@ header[role="banner"] h1 a:hover {
 	margin-left: auto;
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
+	align-items: center;
 	gap: 0.5rem;
 	color: var(--color-text-secondary);
 }
@@ -99,13 +97,14 @@ header[role="banner"] h1 a:hover {
 	color: var(--shade-6);
 }
 
-@media (max-width: 720px) {
-	/* compact the banner: the title takes its own row, with the welcome line and the actions sharing the
-	 * row beneath it (the actions still pushed to the right edge by their margin-left:auto) */
-	header[role="banner"] h1 {
-		flex: 1 1 100%;
-	}
+/* Pipe separator shared by the footer link row and the in-body follow-up task navs (e.g. the entity
+ * Info "Edit this … | View another …" links). Mirrors the worker error fallback's .error-sep
+ * (lib/templates/error.html) so every separator across the admin look reads in the one quiet shade. */
+.admin-nav-sep {
+	color: var(--shade-6);
+	margin: 0 0.5rem;
 }
+
 
 /* Footer: a quiet rule-over contentinfo block in secondary text. The sticky-footer anchoring (pushing
  * it to the viewport bottom on short pages) is the body flex column set up in AdminFooter.astro; these
@@ -953,6 +952,12 @@ form.generic-form .field-hidden {
 	border-radius: 4px;
 	padding: 0.75rem 1rem;
 	margin: 1rem 0;
+}
+/* When a callout sits directly beneath the banner, the banner's own bottom margin already supplies the
+ * gap; drop the callout's top margin so the two don't stack into a doubled space at the top. */
+header[role="banner"] + .callout-invert,
+header[role="banner"] + .callout-emphasis {
+	margin-top: 0;
 }
 .callout-invert :is(p, .general-warning),
 .callout-emphasis :is(p, .general-warning) {

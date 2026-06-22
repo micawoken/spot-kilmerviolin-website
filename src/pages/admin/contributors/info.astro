@@ -103,7 +103,10 @@ if (id) {
                     <p>
                         {may_edit ? (
                             <Fragment>
-                                <a href={`/admin/contributors/edit?id=${id}`}>Edit this contributor &gt;</a> |{" "}
+                                <a href={`/admin/contributors/edit?id=${id}`}>Edit this contributor &gt;</a>
+                                <span class="admin-nav-sep" aria-hidden="true">
+                                    |
+                                </span>{" "}
                             </Fragment>
                         ) : null}
                         <a href={Astro.url.pathname}>View another contributor &gt;</a>

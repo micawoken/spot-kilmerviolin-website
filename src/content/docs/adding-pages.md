@@ -129,7 +129,7 @@ The page becomes a route based on where you put the file:
 - Choose a clear, lowercase filename with no spaces — it becomes part of the web address.
 
 To preview your work before publishing, someone running the project locally can start the development
-server (`npm run dev`) and open the page in a browser; it updates as you edit. If you are not set up to
+server (`pnpm dev`) and open the page in a browser; it updates as you edit. If you are not set up to
 do that, you can still publish to the staging branch first (see below) to preview on the live staging
 site before it reaches production.
 
