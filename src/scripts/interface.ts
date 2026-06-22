@@ -51,7 +51,8 @@ import {
     replaceContributor,
     updateContributor,
     deleteContributor,
-    listContributor
+    listContributor,
+    updateProfile
 } from "./connector"
 import { assertCanEditContributor, errorMessage, generateObjectForm, setInfoHtml, singleParse } from "./common"
 import { validateFormFields } from "./form_validate"
@@ -661,14 +662,76 @@ export async function submitProfileEdit(form: HTMLFormElement, message: Element,
         disableInput(form)
         // generate in non-patch mode: every profile field is present in the form and is sent on save
         const data = generateObjectForm(form_data, interface_data["contributor_profile"].interface, false, [], false)
-        await updateContributor(self_id, data as Partial<Contributor>)
-        message.textContent = "Request succeeded: your profile has been updated."
+        // fold a changed self-service github_username into the same PATCH; the server treats it as a
+        // conditionally protected field (freely editable until the link is authorized) and applies it through
+        // the GitHub binding. A null value unlinks; an omitted/locked/unchanged field leaves the link alone.
+        const github_change = readProfileGithubChange(form, form_data)
+        if (github_change !== null) {
+            ;(data as Record<string, unknown>)["github_username"] = github_change.username
+        }
+        const github_failure = await updateProfile(self_id, data as Partial<Contributor>)
+        if (github_failure !== null) {
+            // the profile fields saved but the github link did not; the entered value is left in place so the
+            // user can see what was rejected, alongside the reason
+            message.textContent = `Your profile was updated, but your GitHub username was not changed: ${github_failure.github_error}`
+        } else {
+            // keep the tracked original in sync so a later save in the same session does not re-apply
+            if (github_change !== null) {
+                const input = form.querySelector("#form-contributors-github_username")
+                if (input instanceof HTMLInputElement) {
+                    input.dataset.original = github_change.username ?? ""
+                }
+            }
+            message.textContent = "Request succeeded: your profile has been updated."
+        }
         enableInput(form)
+        restoreGithubLock(form)
     } catch (error) {
         message.textContent = `Error: ${errorMessage(error)}`
         console.error(error)
         // allow the user to correct their input and retry
         enableInput(form)
+        restoreGithubLock(form)
+    }
+}
+
+/**
+ * Reads a changed self-service GitHub username from the profile editor, for folding into the profile PATCH.
+ *
+ * Returns { username } (a non-empty login, or null to unlink) only when the field is rendered and its value
+ * differs from the currently linked username (tracked in data-original). Returns null — leaving the link
+ * untouched — when the field is absent, locked (disabled, so omitted from the snapshot), or unchanged. The
+ * snapshot is read rather than the live input because submit disables the form's controls before this runs.
+ *
+ * @param {HTMLFormElement} form the profile editor form
+ * @param {FormData} form_data the snapshot taken before the form's inputs were disabled
+ * @returns {{ username: string | null } | null} the change to apply, or null when nothing changed
+ */
+function readProfileGithubChange(form: HTMLFormElement, form_data: FormData): { username: string | null } | null {
+    if (!form_data.has("github_username")) {
+        return null
+    }
+    const input = form.querySelector("#form-contributors-github_username")
+    const original = (input instanceof HTMLInputElement ? (input.dataset.original ?? "") : "").trim()
+    const next = String(form_data.get("github_username") ?? "").trim()
+    if (next === original) {
+        return null
+    }
+    return { username: next === "" ? null : next }
+}
+
+/**
+ * Re-disables the self-service GitHub field after a submit if it was locked (authorized for repository
+ * access). enableInput re-enables every control indiscriminately, so this restores the lock that the
+ * profile page applies client-side once the account is authorized (marked with data-locked). No-op when
+ * the field is absent or unlocked.
+ *
+ * @param {HTMLFormElement} form the profile editor form
+ */
+function restoreGithubLock(form: HTMLFormElement): void {
+    const input = form.querySelector("#form-contributors-github_username")
+    if (input instanceof HTMLInputElement && input.dataset.locked === "true") {
+        input.disabled = true
     }
 }
 

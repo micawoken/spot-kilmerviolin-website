@@ -22,7 +22,6 @@
  */
 
 import { authEnabled } from "./environment"
-import { requires } from "./authorize"
 import { middlewareErrorResponder } from "./http"
 
 export const comment_401 =
@@ -34,17 +33,18 @@ export const comment_403 = "Your user account is not authorized to access this r
  * API's policy in auth_check, where an administrator with an allowable record keeps full authorization
  * even while inactive); the levels describe what a non-administrator must satisfy:
  *
- *  - "admin"  : administrators only.
- *  - "role"   : an active caller holding at least one of the listed role permissions.
- *  - "active" : any active caller (the default for the navigation shell and the per-entity CRUD pages,
- *               which expose no privileged data beyond what an active contributor may already reach).
- *  - "any"    : any authenticated caller, including inactive and not-yet-enrolled ones. Reserved for the
- *               self-service flows (self-enrollment, "my authorization info", and the profile pages) that
- *               an inactive or enrollable user must still be able to reach.
+ *  - "admin"      : administrators only.
+ *  - "permission" : an active caller whose aggregate permissions include at least one of the listed
+ *                   permissions (screening reads the precomputed identity.permissions set).
+ *  - "active"     : any active caller (the default for the navigation shell and the per-entity CRUD pages,
+ *                   which expose no privileged data beyond what an active contributor may already reach).
+ *  - "any"        : any authenticated caller, including inactive and not-yet-enrolled ones. Reserved for the
+ *                   self-service flows (self-enrollment, "my authorization info", and the profile pages) that
+ *                   an inactive or enrollable user must still be able to reach.
  */
 export type AdminAccess =
     | { kind: "admin" }
-    | { kind: "role"; roles: (keyof RoleProfile)[] }
+    | { kind: "permission"; permissions: (keyof RoleProfile)[] }
     | { kind: "active" }
     | { kind: "any" }
 
@@ -63,9 +63,10 @@ export function satisfiesAccess(access: AdminAccess, identity: Identity): boolea
     switch (access.kind) {
         case "admin":
             return false
-        case "role":
-            // an active caller holding one of the accepted role permissions satisfies the requirement
-            return identity.active && access.roles.some((role) => requires(role, identity))
+        case "permission":
+            // an active caller whose aggregate permissions include one of the accepted permissions satisfies
+            // the requirement (identity.permissions is precomputed from the caller's roles in authorize.ts)
+            return identity.active && access.permissions.some((permission) => identity.permissions[permission])
         case "active":
             return identity.active
         case "any":
@@ -95,7 +96,7 @@ export function guardPage(request: Request, identity: Identity | undefined, acce
         return middlewareErrorResponder(request, 401, comment_401)
     }
     if (!satisfiesAccess(access, identity)) {
-        return middlewareErrorResponder(request, 403, comment_403)
+        return middlewareErrorResponder(request, 403, comment_403, identity.email)
     }
     return null
 }

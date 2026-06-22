@@ -50,6 +50,24 @@ export function emailFromParam(url: URL, param: string = "identity_email"): stri
     return isValidEmail(trimmed) ? trimmed : ""
 }
 
+// GitHub username rules: 1–39 characters, alphanumeric or single hyphens, may not begin or end with a
+// hyphen, and may not contain consecutive hyphens. The negative lookahead on each hyphen enforces the
+// "no trailing / no doubled hyphen" rule, while the leading class forbids a leading hyphen.
+const GITHUB_USERNAME_PATTERN = /^[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}$/
+
+/**
+ * Whether a string is a syntactically valid GitHub username (login)
+ *
+ * This is a syntax check only; it does not verify the account exists (that resolution happens server-side
+ * against the GitHub API when a username is linked). See lib/api/github_repo_mgmt.ts.
+ *
+ * @param {string} value - the candidate username
+ * @returns {boolean} - true if the trimmed value is a syntactically valid GitHub username
+ */
+export function isValidGithubUsername(value: string): boolean {
+    return GITHUB_USERNAME_PATTERN.test(value.trim())
+}
+
 /**
  * Whether a supplied string rep of a number is a positive integer
  *

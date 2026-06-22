@@ -43,6 +43,8 @@ if (denied) {
 // the profile editor always targets the caller's own record, read directly by the caller's contributor id
 const identity = Astro.locals.identity ?? null
 const self_id = identity?.id ?? null
+// surface the GitHub linkage field only to callers who may link an account (github_link permission, or admins)
+const can_link_github = identity?.admin === true || identity?.permissions?.github_link === true
 
 let contributor_data: ContributorRecord | null = null
 if (self_id !== null && self_id !== undefined) {
@@ -71,7 +73,7 @@ if (self_id !== null && self_id !== undefined) {
         contributor_data ? (
             <>
                 <p class="general-infohelp">Edit your personal information below. To change your sign-in email, use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
-                <ContributorForm profile={true} required={true} contributor={contributor_data} />
+                <ContributorForm profile={true} required={true} contributor={contributor_data} github_self={can_link_github} />
                 <p id="transaction-status">Your request status will show here after you press "Submit".</p>
                 <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>
                 <script>
@@ -94,6 +96,45 @@ if (self_id !== null && self_id !== undefined) {
                             }
                             submitProfileEdit(form, message, self_id)
                         })
+                    }
+                </script>
+                <script>
+                    // Self-service GitHub linkage now lives in the contributor form's built-in editable
+                    // GitHub field (ContributorForm github_self), saved by the form-wide Submit. This only
+                    // adds the live "current link" status line and locks the field once an administrator has
+                    // authorized the account for repository access — the only state the SSR prefill cannot
+                    // know. The server enforces the same lock regardless. The field is rendered only for
+                    // callers who may link an account, and Astro hoists this script globally, so it guards
+                    // on the input's presence before doing anything.
+                    import { getSelfGithub } from "../../../scripts/connector"
+
+                    const input = document.getElementById("form-contributors-github_username")
+                    const status = document.getElementById("form-contributors-github_username-status")
+                    if (input instanceof HTMLInputElement) {
+                        getSelfGithub()
+                            .then((state) => {
+                                if (state && state.github_username) {
+                                    // reconcile with the authoritative server state (the SSR prefill can lag)
+                                    input.value = state.github_username
+                                    input.dataset.original = state.github_username
+                                    if (state.authorized) {
+                                        // locked: only an administrator may now change or remove it. data-locked
+                                        // lets the submit handler restore this after it re-enables the form.
+                                        input.disabled = true
+                                        input.dataset.locked = "true"
+                                        if (status)
+                                            status.textContent = `Current: ${state.github_username} (authorized for repository access — ask an administrator to change or remove it).`
+                                    } else if (status) {
+                                        status.textContent = `Current: ${state.github_username} (not yet authorized for repository access).`
+                                    }
+                                } else if (status) {
+                                    status.textContent = "You have no GitHub username linked yet."
+                                }
+                            })
+                            .catch((error) => {
+                                if (status)
+                                    status.textContent = `Could not read your current GitHub link: ${error instanceof Error ? error.message : String(error)}`
+                            })
                     }
                 </script>
             </>

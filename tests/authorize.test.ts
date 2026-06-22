@@ -51,6 +51,7 @@ import authorize, {
     canAct,
     canCreate,
     withActingContributor,
+    permissionsFromRoles,
 } from "../src/lib/api/authorize.ts"
 import { exec_string } from "../src/lib/api/d1.ts"
 import { addContributor } from "../src/lib/api/database.ts"
@@ -71,13 +72,15 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
+github_username TEXT,
+github_user_id INTEGER,
 entry_date TEXT NOT NULL,
 change_date TEXT NOT NULL
 );`
 
 /** Builds an Identity, overriding only the fields a given test cares about. */
 function makeIdentity(overrides: Partial<Identity> = {}): Identity {
-    return {
+    const base = {
         sub: "sub-test",
         email: "user@example.com",
         nbf: 0,
@@ -85,12 +88,15 @@ function makeIdentity(overrides: Partial<Identity> = {}): Identity {
         allowed: true,
         active: true,
         enrollable: false,
-        roles: [],
+        roles: [] as string[],
         id: 1,
         admin: false,
         userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: "", class_year: null, major: null, bio: null, public_email: null, image: null, change_date: "" },
         ...overrides,
     }
+    // derive permissions from the (possibly overridden) roles unless a test pins them explicitly, mirroring
+    // how buildIdentity computes them during authorization
+    return { ...base, permissions: overrides.permissions ?? permissionsFromRoles(base.roles) }
 }
 
 /** Builds a contributor for seeding; distinct name/email per call to respect UNIQUE constraints. */
@@ -106,6 +112,8 @@ function makeContributor(overrides: Partial<Contributor> & Pick<Contributor, "na
         roles: [],
         tags: [],
         image: null,
+        github_username: null,
+        github_user_id: null,
         ...overrides,
     }
 }

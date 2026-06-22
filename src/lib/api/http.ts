@@ -27,7 +27,8 @@ import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
 
 // the generic HTTP error page lives in its own file (error.html) and is inlined as a raw string at
-// build time; the {errorCode}/{errorName}/{errorDescription} tokens are filled in middlewareErrorResponder
+// build time; the {errorCode}/{errorName}/{errorDescription} tokens, plus the AdminFooter-mirroring
+// {footerAccess}/{footerTime}/{footerTz}/{footerYear} footer tokens, are filled by fillErrorTemplate
 import error_http from "../templates/error.html?raw"
 
 interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {
@@ -470,16 +471,101 @@ export function checkSQLiteErrorHook(error: any): boolean {
     return error instanceof Error && error.message.match(/SQLITE_/) !== null
 }
 
-export function middlewareErrorResponder(
-    _request: Request,
+/**
+ * Minimal HTML-escaping for text interpolated into the error page's footer (e.g. a signed-in email).
+ *
+ * @param {string} value - the raw text to escape
+ * @returns {string} the text with HTML-significant characters entity-encoded
+ */
+function escapeHtml(value: string): string {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;")
+}
+
+/**
+ * Computes the dynamic footer tokens for the error fallback page so its footer mirrors the AdminFooter's
+ * live "accessing this service … / The time is …" block. The signed-in email is shown only when the
+ * caller could supply one (most error paths fire before an identity exists), matching the AdminFooter
+ * wording; the clock uses the visitor's Cloudflare-reported timezone when a request is available, else UTC.
+ *
+ * @param {Request} [request] - the originating request, read for its cf timezone (absent for page fallbacks)
+ * @param {string | null} [identity_email] - the signed-in email when known; null/undefined yields generic wording
+ * @returns {Record<string, string>} the {footerAccess}/{footerTime}/{footerTz}/{footerYear} token values
+ */
+function errorFooterTokens(request?: Request, identity_email?: string | null): Record<string, string> {
+    const now = new Date()
+    const tz: string | undefined = request
+        ? ((request as any).cf as { timezone?: string } | undefined)?.timezone
+        : undefined
+    let time_display: string
+    try {
+        time_display = now.toLocaleString("en-US", {
+            timeZone: tz || "UTC",
+            weekday: "long",
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            timeZoneName: "short"
+        })
+    } catch {
+        time_display = now.toLocaleString("en-US", { timeZone: "UTC" })
+    }
+    const access = identity_email
+        ? `You are accessing this service under email <a href="mailto:${escapeHtml(identity_email)}">${escapeHtml(identity_email)}</a>.`
+        : "You are accessing this service as an unauthenticated user."
+    return {
+        footerAccess: access,
+        footerTime: time_display,
+        footerTz: tz || "UTC",
+        footerYear: now.getFullYear().toString()
+    }
+}
+
+/**
+ * Fills the error fallback template's tokens with a status code, description, and footer values.
+ *
+ * @param {keyof typeof http_codes} code - the HTTP status code
+ * @param {string} statusText - the status code's reason phrase
+ * @param {string} description - the human-readable error description
+ * @param {Record<string, string>} footer - the footer tokens from errorFooterTokens
+ * @returns {string} the fully substituted HTML document
+ */
+function fillErrorTemplate(
     code: keyof typeof http_codes,
-    force_comment?: string
-): Response {
-    const { statusText, comment } = http_codes[code]
-    const data = error_http
+    statusText: string,
+    description: string,
+    footer: Record<string, string>
+): string {
+    return error_http
         .replaceAll("{errorCode}", code.toString())
         .replaceAll("{errorName}", statusText)
-        .replaceAll("{errorDescription}", force_comment ? force_comment : comment)
+        .replaceAll("{errorDescription}", description)
+        .replaceAll("{footerAccess}", footer.footerAccess)
+        .replaceAll("{footerTime}", footer.footerTime)
+        .replaceAll("{footerTz}", footer.footerTz)
+        .replaceAll("{footerYear}", footer.footerYear)
+}
+
+export function middlewareErrorResponder(
+    request: Request,
+    code: keyof typeof http_codes,
+    force_comment?: string,
+    identity_email?: string | null
+): Response {
+    const { statusText, comment } = http_codes[code]
+    const data = fillErrorTemplate(
+        code,
+        statusText,
+        force_comment ? force_comment : comment,
+        errorFooterTokens(request, identity_email)
+    )
     return new Response(data, {
         status: code,
         statusText: statusText,
@@ -837,10 +923,9 @@ export function isMissingTableError(error: unknown): boolean {
  */
 export function constructErrorPage(code: keyof typeof http_codes, force_comment?: string): Response {
     const { statusText, comment } = http_codes[code]
-    const data = error_http
-        .replaceAll("{errorCode}", code.toString())
-        .replaceAll("{errorName}", statusText)
-        .replaceAll("{errorDescription}", force_comment ? force_comment : comment)
+    // no request reaches this page-fallback path, so the footer renders the generic (unauthenticated,
+    // UTC) variant — see the "inject when available, else generic" footer contract in errorFooterTokens
+    const data = fillErrorTemplate(code, statusText, force_comment ? force_comment : comment, errorFooterTokens())
     return new Response(data, {
         status: code,
         statusText: statusText,
@@ -871,7 +956,7 @@ export function missingTableErrorPage(error: unknown): Response {
 export function devModeUnavailablePage(): Response {
     return constructErrorPage(
         503,
-        'Cloudflare database and storage bindings are not available in local development. Use "npm run preview" (via wrangler) to test pages that require live data.'
+        'Cloudflare database and storage bindings are not available in local development. Use "pnpm preview" (via wrangler) to test pages that require live data.'
     )
 }
 

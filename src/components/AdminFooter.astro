@@ -51,13 +51,17 @@ const tz_label: string = tz || "UTC"
 <footer role="contentinfo">
     <nav role="navigation" aria-label="Administrative footer">
         <p>
-            <a href="/admin" id="admin-footer-back">Back</a> | <a href="/admin" rel="home">Admin Home</a> | <a
-                href="/admin/docs"
-                rel="help">Help Docs</a
-            > | <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a> | <a
-                href="/admin/privacy-policy"
-                rel="privacy-policy">Privacy Policy</a
-            > | <a href="/admin/security-policy" rel="security-policy">Security Policy</a>
+            <a href="/admin" id="admin-footer-back">Back</a>
+            <span class="admin-nav-sep" aria-hidden="true">|</span>
+            <a href="/admin" rel="home">Admin Home</a>
+            <span class="admin-nav-sep" aria-hidden="true">|</span>
+            <a href="/admin/docs" rel="help">Help Docs</a>
+            <span class="admin-nav-sep" aria-hidden="true">|</span>
+            <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a>
+            <span class="admin-nav-sep" aria-hidden="true">|</span>
+            <a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a>
+            <span class="admin-nav-sep" aria-hidden="true">|</span>
+            <a href="/admin/security-policy" rel="security-policy">Security Policy</a>
         </p>
     </nav>
     <p>
@@ -72,7 +76,8 @@ const tz_label: string = tz || "UTC"
                 <> as an unauthenticated user.</>
             )
         }
-        The time is {time_display} ({tz_label}).
+        The time is {time_display} ({tz_label}). Report security concerns to{" "}
+        <a href="mailto:contact@michaelwongmusic.com">contact@michaelwongmusic.com</a>.
     </p>
     <p>
         Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()}

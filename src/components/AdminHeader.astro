@@ -24,7 +24,6 @@
 // null here so the `identity !== null` guards below also catch undefined; otherwise `undefined !== null`
 // is true and reading identity.enrollable/.active throws, blanking the page mid-render.
 const identity: Identity | null = Astro.props.identity ?? null
-const welcome: boolean = Astro.props.welcome ? Astro.props.welcome : false
 
 // the display name varies with identity status: a verified Access userinfo name when available, then the
 // sign-in email, then a generic fallback when no identity is present (e.g. local development)
@@ -34,10 +33,9 @@ const name_defined = identity?.userinfo?.ok || identity?.email
 
 <header role="banner">
     <h1><a href="/admin" style="outline: none;">Administrative Services</a></h1>
-    <p class="admin-header-welcome">
-        {welcome ? `Welcome, ${display_name}!` : name_defined ? display_name : "Unknown user"}
-    </p>
     <nav class="admin-header-actions" aria-label="Account">
+        <span class="admin-header-name">{name_defined ? display_name : "Unknown user"}</span>
+        <span class="admin-header-sep" aria-hidden="true">&middot;</span>
         <a href="/admin/profile" class="col-item-link">My Profile</a>
         <span class="admin-header-sep" aria-hidden="true">&middot;</span>
         <a href="/admin/logout" class="col-item-link">Logout</a>
