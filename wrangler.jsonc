@@ -34,8 +34,9 @@
 		"GITHUB_REPO_NAME": "entrusting-devilish-fish",
 		// the external Pages CMS sync endpoint that mirrors CMS-editor authorization into its collaborator
 		// table (see src/lib/api/cms_access_sync.ts, docs/dev/pages-cms.md). Set to the deployed fork URL;
-		// when blank (or PAGES_CMS_SYNC_SECRET unset) the sync no-ops. PLACEHOLDER — update to the real host.
-		"PAGES_CMS_SYNC_URL": "https://kilmer-cms.infra.mwmsc.net/api/sync/cms-access",
+		// when blank (or PAGES_CMS_SYNC_SECRET unset) the sync no-ops. Temporary host until a permanent
+		// (non-business) domain is chosen — the prior infra.mwmsc.net domain is being restricted to business use.
+		"PAGES_CMS_SYNC_URL": "https://cms.guest.mwmsc.net/api/sync/cms-access",
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"TEAM_DOMAIN": "https://nrnnetint.cloudflareaccess.com", // the domain for the Access policy to validate the JWT against
 		"REBUILD_COOLDOWN_SEC": 900, // 15 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
