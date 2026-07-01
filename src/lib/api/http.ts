@@ -559,6 +559,14 @@ export function middlewareErrorResponder(
     force_comment?: string,
     identity_email?: string | null
 ): Response {
+    // API routes expect the standard JSON envelope every other API response uses. Returning the HTML
+    // error page for a middleware rejection (e.g. the CSRF origin check, a 401/403, or the staging 404)
+    // makes the failure opaque to the connector's JSON parser, which surfaces only a parse error rather
+    // than the actual cause. Page navigations still receive the human-readable HTML fallback below.
+    const path_components = new URL(request.url).pathname.split("/").filter((component) => component.length > 0)
+    if (path_components[0] === "api") {
+        return constructResponse(request, null, code, force_comment)
+    }
     const { statusText, comment } = http_codes[code]
     const data = fillErrorTemplate(
         code,
