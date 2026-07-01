@@ -63,18 +63,11 @@ const no_body = results.length > 0 && typeof results[0] === "number"
 </div>
 {
     enviro === "admin" ? (
-        <script>
-            // attach event listeners
-            document.querySelectorAll(".list-result-edit-link").forEach(link => {
-                link.addEventListener("click", (event) => {
-                    event.preventDefault();
-                    const url = link.getAttribute("href");
-                    if (url) {
-                        window.location.href = url;
-                    }
-                });
-            });
-        </script>
+        // Same-origin static file (public/js/list-result-nav.js) loaded with is:inline + src, NOT an Astro
+        // <script>: the bundler inlines small self-contained Astro scripts into the document, which the
+        // admin Content-Security-Policy (script-src 'self') then blocks. An external same-origin script is
+        // covered by 'self'. defer runs it after the DOM is parsed so the edit links exist.
+        <script is:inline defer src="/js/list-result-nav.js" />
     ) : (
         <></>
     )
