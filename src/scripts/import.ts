@@ -36,9 +36,11 @@ import {
     MAX_IMPORT_ROWS,
     columnSpec,
     compositionKey,
+    normalizeName,
     indexByName,
     buildRecord,
-    flagCompositionDuplicates
+    flagCompositionDuplicates,
+    flagNameDuplicates
 } from "./import_build"
 import {
     listComposer,
@@ -59,6 +61,8 @@ interface RowState {
     tr: HTMLTableRowElement
     /** the cell that renders this row's resolution issues */
     issueCell: HTMLTableCellElement
+    /** the per-column editable inputs, so a specific field can be highlighted when it causes an issue */
+    inputs: Record<string, HTMLInputElement>
 }
 
 /** Requires an element by id, throwing a clear error if the page markup is missing it. */
@@ -91,14 +95,89 @@ export function initImport(type: ImportType): void {
     let rows: RowState[] = []
     // resolution context is only populated (and the phase-map UI shown) for compositions
     let ctx: WorksContext | null = null
+    // normalized names already present in the DB for this entity, used to flag existing-name collisions in
+    // the preview (composers/contributors only; compositions dedup on composer+name+part via ctx.existingKeys)
+    let existingNames = new Set<string>()
     // a successful server dry-run gates commit; any edit invalidates it and re-disables the commit button
     let validated = false
+
+    // Maps a server/client field token to the CSV grid column(s) it should highlight. Most tokens are the
+    // column itself; these are the composition-only cases where the API/D1 field name differs from the CSV
+    // column (composer_id → the "composer" name column; phases → the free-text period column; the nested
+    // publication_info / rating objects fan out to their flattened D1 columns, which are the CSV columns).
+    const fieldToColumns: Record<string, string[]> =
+        type === "works"
+            ? {
+                  composer_id: ["composer"],
+                  phases: ["contribution_period"],
+                  publication_info: ["publish_name", "publish_location", "publish_year", "uri_type", "uri"],
+                  rating: ["rating_suzuki", "rating_nyssma"]
+              }
+            : {}
+
+    /** The set of tokens that, when seen in an issue message, map to a grid column (for highlighting). */
+    const knownTokens = new Set<string>([...columns, ...Object.keys(fieldToColumns)])
+
+    /** Resolves a single field token to the grid column(s) it corresponds to. */
+    function columnsForToken(token: string): string[] {
+        if (token in fieldToColumns) {
+            return fieldToColumns[token]
+        }
+        return columns.includes(token) ? [token] : []
+    }
+
+    /**
+     * Extracts the grid columns implicated by an issue message. Both the client builders and the server
+     * validators name fields by token (e.g. "…parameter(s): name, type", "…invalid value for publish_year…",
+     * "unknown composer …"); any word matching a known column/field token is mapped to its grid column(s) so
+     * the exact input can be highlighted. Unmatched messages simply highlight the row without a specific box.
+     */
+    function columnsFromIssue(issue: string): string[] {
+        const found = new Set<string>()
+        for (const word of issue.match(/[A-Za-z_]+/g) ?? []) {
+            if (knownTokens.has(word)) {
+                for (const column of columnsForToken(word)) {
+                    found.add(column)
+                }
+            }
+        }
+        return Array.from(found)
+    }
+
+    /** Renders a row's issues in place: updates its status cell, row highlight, and per-field input highlights. */
+    function markRow(row: RowState, issues: string[]): void {
+        for (const input of Object.values(row.inputs)) {
+            input.classList.remove("import-input-error")
+        }
+        if (issues.length === 0) {
+            row.issueCell.textContent = "ok"
+            row.issueCell.className = "import-issue import-issue-ok"
+            row.tr.classList.remove("import-row-error")
+            return
+        }
+        row.issueCell.textContent = issues.join("; ")
+        row.issueCell.className = "import-issue import-issue-error"
+        row.tr.classList.add("import-row-error")
+        const columnsToFlag = new Set<string>()
+        for (const issue of issues) {
+            for (const column of columnsFromIssue(issue)) {
+                columnsToFlag.add(column)
+            }
+        }
+        for (const column of columnsToFlag) {
+            row.inputs[column]?.classList.add("import-input-error")
+        }
+    }
 
     /** Builds every row's record and, for compositions, flags within-file/existing duplicates. */
     function buildAll(): BuildResult[] {
         const built = rows.map((row) => buildRecord(type, row.cells, ctx))
         if (type === "works" && ctx !== null) {
             flagCompositionDuplicates(built, ctx.existingKeys)
+        } else if (type === "composers") {
+            flagNameDuplicates(built, existingNames, "composer")
+        } else if (type === "contributors") {
+            flagNameDuplicates(built, existingNames, "contributor")
         }
         return built
     }
@@ -111,12 +190,8 @@ export function initImport(type: ImportType): void {
             const row = rows[index]
             if (result.issues.length === 0) {
                 clean++
-                row.issueCell.textContent = "ok"
-                row.issueCell.className = "import-issue import-issue-ok"
-            } else {
-                row.issueCell.textContent = result.issues.join("; ")
-                row.issueCell.className = "import-issue import-issue-error"
             }
+            markRow(row, result.issues)
         })
 
         const hasIssues = clean !== rows.length
@@ -217,6 +292,7 @@ export function initImport(type: ImportType): void {
 
         const tbody = document.createElement("tbody")
         for (const row of rows) {
+            row.inputs = {}
             for (const column of columns) {
                 const td = document.createElement("td")
                 const input = document.createElement("input")
@@ -230,6 +306,7 @@ export function initImport(type: ImportType): void {
                     }
                     recompute()
                 })
+                row.inputs[column] = input
                 td.appendChild(input)
                 row.tr.appendChild(td)
             }
@@ -252,7 +329,7 @@ export function initImport(type: ImportType): void {
         const [composers, contributors, works] = await Promise.all([
             listComposer(true) as Promise<NamedRecordLike[] | null>,
             listContributor(true) as Promise<NamedRecordLike[] | null>,
-            listWork(true) as Promise<Array<{ composer_id: number; name: string }> | null>
+            listWork(true) as Promise<Array<{ composer_id: number; name: string; part: string | null }> | null>
         ])
         const composerIndex = indexByName((composers ?? []).map((record) => ({ id: record.id, name: record.name })))
         const contributorIndex = indexByName(
@@ -260,7 +337,7 @@ export function initImport(type: ImportType): void {
         )
         const existingKeys = new Set<string>()
         for (const work of works ?? []) {
-            existingKeys.add(compositionKey(work.composer_id, work.name))
+            existingKeys.add(compositionKey(work.composer_id, work.name, work.part))
         }
         return {
             composerByName: composerIndex.byName,
@@ -295,6 +372,12 @@ export function initImport(type: ImportType): void {
             }
             if (type === "works") {
                 ctx = await loadWorksContext()
+            } else {
+                // composers/contributors: load existing names so preview can flag existing-name collisions
+                const list = (await (type === "composers" ? listComposer(true) : listContributor(true))) as
+                    | NamedRecordLike[]
+                    | null
+                existingNames = new Set<string>((list ?? []).map((record) => normalizeName(record.name)))
             }
             rows = records.map((record) => {
                 // seed editable cells for exactly the known columns (ignore any tolerated extras)
@@ -303,7 +386,7 @@ export function initImport(type: ImportType): void {
                     cells[column] = record[column] ?? ""
                 }
                 const issueCell = document.createElement("td")
-                return { cells, tr: document.createElement("tr"), issueCell }
+                return { cells, tr: document.createElement("tr"), issueCell, inputs: {} }
             })
             renderPhaseMap()
             renderGrid()
@@ -324,14 +407,30 @@ export function initImport(type: ImportType): void {
             if (report.ok) {
                 validated = true
                 commitButton.disabled = false
+                // clear any stale highlights from a previous failed validation
+                for (const row of rows) {
+                    markRow(row, [])
+                }
                 statusBox.textContent = `Server validation passed for all ${report.count} row(s). You may now import.`
             } else {
                 validated = false
                 commitButton.disabled = true
-                const failures = report.rows
-                    .filter((entry) => !entry.ok)
-                    .map((entry) => `row ${entry.index + 1}: ${entry.issues.join("; ")}`)
-                statusBox.textContent = `Server validation found issues:\n${failures.join("\n")}`
+                // push each row's server issues onto that row (status cell + row/field highlight) instead of
+                // dumping them all at the bottom, then point the admin at the first affected row
+                let firstFailing: RowState | null = null
+                for (const entry of report.rows) {
+                    const row = rows[entry.index]
+                    if (row === undefined) {
+                        continue
+                    }
+                    markRow(row, entry.issues)
+                    if (!entry.ok && firstFailing === null) {
+                        firstFailing = row
+                    }
+                }
+                const failedCount = report.rows.filter((entry) => !entry.ok).length
+                statusBox.textContent = `Server validation found issues in ${failedCount} of ${report.count} row(s); see the highlighted rows below.`
+                firstFailing?.tr.scrollIntoView({ behavior: "smooth", block: "center" })
             }
         } catch (error) {
             validated = false
@@ -357,6 +456,7 @@ export function initImport(type: ImportType): void {
             // the write succeeded and consumed the file; clear the grid so the rows cannot be submitted twice
             rows = []
             ctx = null
+            existingNames = new Set<string>()
             validated = false
             fileInput.value = ""
             phaseMapBox.replaceChildren()

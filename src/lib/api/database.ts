@@ -1062,38 +1062,119 @@ export async function getComposition(
  * @throws an error if the record is invalid
  */
 /**
- * Normalizes a composition (composer_id, name) pair into a comparison key.
+ * Normalizes a composition (composer_id, name, part) triple into a comparison key.
  *
- * SQLite cannot enforce "no duplicate composition name by the same composer" through a generated column
- * (the value depends on a cross-table lookup), so a composite UNIQUE index on (composer_id, name) is the
- * database backstop and this key is the application-model mirror. Names are compared case-insensitively
- * and whitespace-trimmed so trivial variants ("Sonata" vs " sonata ") collide as intended. The NUL
- * separator cannot appear in a name, so distinct pairs never alias.
+ * A composition's identity is (composer_id, name, part): the same piece by the same composer for a different
+ * part (e.g. "Violin I" vs "Violin II") is distinct, but two rows agreeing on all three collide. SQLite
+ * cannot enforce this through a generated column (the value depends on a cross-table lookup), so a composite
+ * UNIQUE index on (composer_id, name, COALESCE(part,'')) is the database backstop and this key is the
+ * application-model mirror. Name and part are compared case-insensitively and whitespace-trimmed so trivial
+ * variants collide as intended, and a null part is treated as an empty part so two part-less rows still
+ * conflict. The NUL separator cannot appear in a name or part, so distinct triples never alias.
  *
  * @param composer_id the referenced composer id
  * @param name the composition name
- * @returns a stable key identifying the (composer, name) pair
+ * @param part the composition part, or null for a part-less work
+ * @returns a stable key identifying the (composer, name, part) triple
  */
-function compositionDuplicateKey(composer_id: number, name: string): string {
-    return `${composer_id} ${name.trim().toLowerCase()}`
+function compositionDuplicateKey(composer_id: number, name: string, part: string | null): string {
+    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
+}
+
+/** Normalizes a name for case-insensitive, whitespace-trimmed conflict comparison (mirrors the UNIQUE column). */
+function nameConflictKey(name: string): string {
+    return name.trim().toLowerCase()
 }
 
 /**
- * Enforces that no two compositions share a composer and (normalized) name, at the application model
- * level. Checks the candidate pairs against each other (catching duplicates inside a single bulk upload)
+ * Finds names in `candidates` that collide with an existing record of the same entity (by case-insensitive,
+ * trimmed name) or that repeat an earlier candidate within the same request. Both composers.name and
+ * contributors.name are UNIQUE server-side, so a collision would abort an atomic bulk insert; surfacing it
+ * here lets the endpoint dry-run and the import preview report the offending row before a write is attempted.
+ *
+ * @param existing the existing records of this entity, or null when the table is empty
+ * @param candidates the records about to be written
+ * @param label the entity noun used in the human-readable message (e.g. "composer", "contributor")
+ * @returns per-candidate findings (by index) describing each within-request or existing-name collision
+ */
+function findNameConflicts(
+    existing: Array<{ name: string }> | null,
+    candidates: Array<{ name: string }>,
+    label: string
+): Array<{ index: number; reason: "within-request" | "exists"; message: string }> {
+    const findings: Array<{ index: number; reason: "within-request" | "exists"; message: string }> = []
+    const existing_keys = new Set<string>()
+    for (const record of existing ?? []) {
+        existing_keys.add(nameConflictKey(record.name))
+    }
+    const seen = new Set<string>()
+    for (let index = 0; index < candidates.length; index++) {
+        const key = nameConflictKey(candidates[index].name)
+        if (seen.has(key)) {
+            findings.push({
+                index,
+                reason: "within-request",
+                message: `"${candidates[index].name.trim()}" appears more than once in this request`
+            })
+        } else if (existing_keys.has(key)) {
+            findings.push({
+                index,
+                reason: "exists",
+                message: `A ${label} named "${candidates[index].name.trim()}" already exists`
+            })
+        }
+        seen.add(key)
+    }
+    return findings
+}
+
+/**
+ * Conflict-detection hook for composer bulk creates: flags candidate names that already exist or repeat
+ * within the request, so the (UNIQUE) composers.name collision is reported by the dry-run/preview rather
+ * than only surfacing as an aborted atomic write.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param candidates the composer records about to be written (their names)
+ * @returns per-candidate name-conflict findings
+ */
+export async function findComposerNameConflicts(
+    ctx: ExecutionContext,
+    candidates: Array<{ name: string }>
+): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
+    return findNameConflicts(await listComposers(ctx), candidates, "composer")
+}
+
+/**
+ * Conflict-detection hook for contributor bulk creates: flags candidate names that already exist or repeat
+ * within the request (mirrors {@link findComposerNameConflicts} for the contributors.name UNIQUE column).
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param candidates the contributor records about to be written (their names)
+ * @returns per-candidate name-conflict findings
+ */
+export async function findContributorNameConflicts(
+    ctx: ExecutionContext,
+    candidates: Array<{ name: string }>
+): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
+    return findNameConflicts(await listContributors(ctx), candidates, "contributor")
+}
+
+/**
+ * Enforces that no two compositions share a composer, (normalized) name, and part, at the application model
+ * level. Checks the candidate triples against each other (catching duplicates inside a single bulk upload)
  * and against every existing composition (excluding excludeId, so a record does not conflict with itself
- * on update). This complements the composite UNIQUE index added in db_add_composition_unique.sql: the
+ * on update). This complements the composite UNIQUE index added in db_add_composition_part_unique.sql: the
  * index is the authoritative guard, while this produces a clear, early error before the write is attempted
  * and covers the cached read model uniformly across the single, batch, and update paths.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the (composer_id, name) pairs about to be written
+ * @param candidates the (composer_id, name, part) triples about to be written
  * @param excludeId a composition id to ignore among existing rows (the record being updated), if any
  * @throws an Error naming the offending composition if a duplicate is found
  */
 export async function findCompositionDuplicates(
     ctx: ExecutionContext,
-    candidates: Array<{ composer_id: number; name: string }>,
+    candidates: Array<{ composer_id: number; name: string; part: string | null }>,
     excludeId?: number
 ): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
     const findings: Array<{ index: number; reason: "within-request" | "exists"; message: string }> = []
@@ -1105,7 +1186,7 @@ export async function findCompositionDuplicates(
             if (excludeId !== undefined && composition.id === excludeId) {
                 continue
             }
-            existing_keys.add(compositionDuplicateKey(composition.composer_id, composition.name))
+            existing_keys.add(compositionDuplicateKey(composition.composer_id, composition.name, composition.part))
         }
     }
     // walk candidates in order: an earlier candidate with the same key makes a later one a within-request
@@ -1113,7 +1194,7 @@ export async function findCompositionDuplicates(
     const seen = new Set<string>()
     for (let index = 0; index < candidates.length; index++) {
         const candidate = candidates[index]
-        const key = compositionDuplicateKey(candidate.composer_id, candidate.name)
+        const key = compositionDuplicateKey(candidate.composer_id, candidate.name, candidate.part)
         if (seen.has(key)) {
             findings.push({
                 index,
@@ -1134,17 +1215,17 @@ export async function findCompositionDuplicates(
 
 /**
  * Throwing wrapper over {@link findCompositionDuplicates} used on the write paths (single add, batch add,
- * and update). Throws on the first duplicate so a write is never attempted when the (composer, name)
+ * and update). Throws on the first duplicate so a write is never attempted when the (composer, name, part)
  * invariant would be violated; the composite UNIQUE index remains the authoritative backstop.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the (composer_id, name) pairs about to be written
+ * @param candidates the (composer_id, name, part) triples about to be written
  * @param excludeId a composition id to ignore among existing rows (the record being updated), if any
  * @throws an Error naming the offending composition if a duplicate is found
  */
 async function _assertNoCompositionDuplicates(
     ctx: ExecutionContext,
-    candidates: Array<{ composer_id: number; name: string }>,
+    candidates: Array<{ composer_id: number; name: string; part: string | null }>,
     excludeId?: number
 ): Promise<void> {
     const findings = await findCompositionDuplicates(ctx, candidates, excludeId)
@@ -1154,8 +1235,10 @@ async function _assertNoCompositionDuplicates(
 }
 
 export async function addComposition(ctx: ExecutionContext, record: Composition): Promise<number> {
-    // enforce the (composer, name) uniqueness invariant before writing (mirrors the composite UNIQUE index)
-    await _assertNoCompositionDuplicates(ctx, [{ composer_id: record.composer_id, name: record.name }])
+    // enforce the (composer, name, part) uniqueness invariant before writing (mirrors the composite UNIQUE index)
+    await _assertNoCompositionDuplicates(ctx, [
+        { composer_id: record.composer_id, name: record.name, part: record.part }
+    ])
     return await _addPrimitive(ctx, COMPOSITION, record)
 }
 
@@ -1175,7 +1258,7 @@ export async function addComposition(ctx: ExecutionContext, record: Composition)
 export async function addCompositionsBatch(ctx: ExecutionContext, records: Composition[]): Promise<number[]> {
     await _assertNoCompositionDuplicates(
         ctx,
-        records.map((record) => ({ composer_id: record.composer_id, name: record.name }))
+        records.map((record) => ({ composer_id: record.composer_id, name: record.name, part: record.part }))
     )
     return await _addPrimitiveBatch(ctx, COMPOSITION, records)
 }
@@ -1190,8 +1273,12 @@ export async function addCompositionsBatch(ctx: ExecutionContext, records: Compo
  * @throws an error if the record is invalid or if the id does not exist
  */
 export async function updateComposition(ctx: ExecutionContext, id: number, record: Composition): Promise<null> {
-    // enforce (composer, name) uniqueness, ignoring this record's own existing row
-    await _assertNoCompositionDuplicates(ctx, [{ composer_id: record.composer_id, name: record.name }], id)
+    // enforce (composer, name, part) uniqueness, ignoring this record's own existing row
+    await _assertNoCompositionDuplicates(
+        ctx,
+        [{ composer_id: record.composer_id, name: record.name, part: record.part }],
+        id
+    )
     return await _updatePrimitive(ctx, COMPOSITION, id, record)
 }
 
@@ -1209,15 +1296,21 @@ export async function updateCompositionPartial(
     id: number,
     record: Partial<Composition>
 ): Promise<null> {
-    // a partial update only risks a (composer, name) collision when it changes the name or the composer;
-    // resolve the effective pair from the patch (falling back to the current row for the untouched field)
-    // and enforce uniqueness, ignoring this record's own existing row
-    if (record.name !== undefined || record.composer_id !== undefined) {
+    // a partial update only risks a (composer, name, part) collision when it changes the name, composer, or
+    // part; resolve the effective triple from the patch (falling back to the current row for untouched
+    // fields) and enforce uniqueness, ignoring this record's own existing row
+    if (record.name !== undefined || record.composer_id !== undefined || record.part !== undefined) {
         const current = await getComposition(ctx, "composition_id", id.toString())
         if (current) {
             await _assertNoCompositionDuplicates(
                 ctx,
-                [{ composer_id: record.composer_id ?? current.composer_id, name: record.name ?? current.name }],
+                [
+                    {
+                        composer_id: record.composer_id ?? current.composer_id,
+                        name: record.name ?? current.name,
+                        part: record.part !== undefined ? record.part : current.part
+                    }
+                ],
                 id
             )
         }

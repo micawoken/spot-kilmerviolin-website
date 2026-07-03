@@ -23,7 +23,12 @@
 
 import type { APIRoute } from "astro"
 import { _stateTypeAssertCompleteComposer } from "../../../lib/api/d1"
-import { addComposer, addComposersBatch, listComposers } from "../../../lib/api/database"
+import {
+    addComposer,
+    addComposersBatch,
+    listComposers,
+    findComposerNameConflicts
+} from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook, handleBulkCreate, lastModifiedHeader } from "../../../lib/api/http"
@@ -113,6 +118,11 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     }
     return handleBulkCreate<Composer>(request, api_request, {
         validate: (item) => _stateTypeAssertCompleteComposer(item, false),
+        detectConflicts: (records) =>
+            findComposerNameConflicts(
+                context.locals.cfContext,
+                records.map((record) => ({ name: record.name }))
+            ),
         commitOne: (record) => addComposer(context.locals.cfContext, record),
         commitBatch: (records) => addComposersBatch(context.locals.cfContext, records),
         location: (id) => `/api/v1/composers/${id}`
