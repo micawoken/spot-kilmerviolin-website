@@ -98,6 +98,11 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             whoami: { access: { kind: "any" } }
         }
     },
+    // the CSV bulk-import pages perform non-self assignment (e.g. naming contributors on compositions) and
+    // commit many records at once, so they are admin-only regardless of the underlying endpoint's default
+    composers: { children: { import: { access: { kind: "admin" } } } },
+    contributors: { children: { import: { access: { kind: "admin" } } } },
+    works: { children: { import: { access: { kind: "admin" } } } },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
     profile: { access: { kind: "any" } },
