@@ -147,7 +147,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         detectConflicts: (records) =>
             findCompositionDuplicates(
                 context.locals.cfContext,
-                records.map((record) => ({ composer_id: record.composer_id, name: record.name }))
+                records.map((record) => ({ composer_id: record.composer_id, name: record.name, part: record.part }))
             ),
         commitOne: (record) => addComposition(context.locals.cfContext, record),
         commitBatch: (records) => addCompositionsBatch(context.locals.cfContext, records),

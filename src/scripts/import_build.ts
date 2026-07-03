@@ -87,9 +87,13 @@ export function normalizeName(name: string): string {
     return name.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
-/** Composite dedup key for a composition: composer id + case-insensitively-normalized name. */
-export function compositionKey(composerId: number, name: string): string {
-    return `${composerId} ${normalizeName(name)}`
+/**
+ * Composite dedup key for a composition: composer id + case-insensitively-normalized name + part. A null or
+ * blank part is treated as an empty part so two part-less works still collide (mirrors the server's
+ * compositionDuplicateKey and the COALESCE(part,'') UNIQUE index).
+ */
+export function compositionKey(composerId: number, name: string, part: string | null): string {
+    return `${composerId} ${normalizeName(name)} ${normalizeName(part ?? "")}`
 }
 
 /** Parses an optional integer cell: blank → null; otherwise the parsed value, or null when unparseable. */
@@ -350,24 +354,64 @@ export function buildRecord(type: ImportType, cells: Record<string, string>, ctx
  * @param existingKeys the set of composer+name keys already present in the database
  */
 export function flagCompositionDuplicates(results: BuildResult[], existingKeys: Set<string>): void {
-    const keyCounts = new Map<string, number>()
-    for (const result of results) {
+    // a record contributes to the dedup key only once its composer resolved and it has a name; part is
+    // optional (a null/blank part is bucketed with other part-less works by compositionKey)
+    const keyOf = (result: BuildResult): string | null => {
         const composerId = result.record.composer_id
         const name = result.record.name
         if (typeof composerId === "number" && typeof name === "string" && name !== "") {
-            const key = compositionKey(composerId, name)
+            const part = result.record.part
+            return compositionKey(composerId, name, typeof part === "string" ? part : null)
+        }
+        return null
+    }
+    const keyCounts = new Map<string, number>()
+    for (const result of results) {
+        const key = keyOf(result)
+        if (key !== null) {
             keyCounts.set(key, (keyCounts.get(key) ?? 0) + 1)
         }
     }
     for (const result of results) {
-        const composerId = result.record.composer_id
-        const name = result.record.name
-        if (typeof composerId === "number" && typeof name === "string" && name !== "") {
-            const key = compositionKey(composerId, name)
+        const key = keyOf(result)
+        if (key !== null) {
             if (existingKeys.has(key)) {
-                result.issues.push("a composition with this name already exists for this composer")
+                result.issues.push("a composition with this name and part already exists for this composer")
             } else if ((keyCounts.get(key) ?? 0) > 1) {
-                result.issues.push("duplicate composition (same name and composer) within this file")
+                result.issues.push("duplicate composition (same name, composer, and part) within this file")
+            }
+        }
+    }
+}
+
+/**
+ * Flags composer/contributor rows whose name collides with an existing record (by case-insensitive,
+ * whitespace-collapsed name) or repeats another row within the file, appending an issue to each affected
+ * result in place. Both entities' names are UNIQUE server-side, so a collision would abort the atomic
+ * import; flagging it in the preview lets the file be cured before submitting. Mirrors the server's
+ * findNameConflicts.
+ *
+ * @param results the per-row build results (their records must carry a name)
+ * @param existingNames the normalized names already present in the database for this entity
+ * @param label the entity noun used in the message (e.g. "composer", "contributor")
+ */
+export function flagNameDuplicates(results: BuildResult[], existingNames: Set<string>, label: string): void {
+    const counts = new Map<string, number>()
+    for (const result of results) {
+        const name = result.record.name
+        if (typeof name === "string" && name.trim() !== "") {
+            const key = normalizeName(name)
+            counts.set(key, (counts.get(key) ?? 0) + 1)
+        }
+    }
+    for (const result of results) {
+        const name = result.record.name
+        if (typeof name === "string" && name.trim() !== "") {
+            const key = normalizeName(name)
+            if (existingNames.has(key)) {
+                result.issues.push(`a ${label} with this name already exists`)
+            } else if ((counts.get(key) ?? 0) > 1) {
+                result.issues.push(`duplicate ${label} name within this file`)
             }
         }
     }

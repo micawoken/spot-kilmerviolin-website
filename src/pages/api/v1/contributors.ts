@@ -40,7 +40,12 @@ import {
     lastModifiedHeader
 } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
-import { addContributor, addContributorsBatch, listContributors } from "../../../lib/api/database"
+import {
+    addContributor,
+    addContributorsBatch,
+    listContributors,
+    findContributorNameConflicts
+} from "../../../lib/api/database"
 import { _stateTypeAssertCompleteContributor, CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
 import { authEnabled } from "../../../lib/api/environment"
 import { resolveIdentityEmail } from "../../../lib/api/fallback"
@@ -155,6 +160,11 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             }
             return _stateTypeAssertCompleteContributor(item, false)
         },
+        detectConflicts: (records) =>
+            findContributorNameConflicts(
+                context.locals.cfContext,
+                records.map((record) => ({ name: record.name }))
+            ),
         commitOne: (record) => addContributor(context.locals.cfContext, record),
         commitBatch: (records) => addContributorsBatch(context.locals.cfContext, records),
         location: (id) => `/api/v1/contributors/${id}`

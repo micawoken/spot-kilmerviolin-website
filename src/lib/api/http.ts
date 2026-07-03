@@ -21,7 +21,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { createAPIPayload } from "./common"
+import { createAPIPayload, sanitizeInputStrings } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
 import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
@@ -540,6 +540,13 @@ export async function handleBulkCreate<T>(
     }
     const dry_run = api_request.meta?.dry_run === true
 
+    // clean up every item up front (trim whitespace, straighten curly quotes) so the sanitized data is what
+    // gets validated, conflict-checked, and committed. This is the single data-write choke point, so it
+    // covers both the single-item and bulk paths for composers/contributors/works.
+    for (let i = 0; i < payload.length; i++) {
+        payload[i] = sanitizeInputStrings(payload[i])
+    }
+
     // per-item validation, preserving original indices for reporting
     const valid: Array<{ index: number; record: T }> = []
     const validation_errors: Array<{ index: number; error: string }> = []
@@ -914,12 +921,21 @@ const sqlite_errors_extended: Record<string, SQLiteErrorMsg> = {
  * @return {[boolean, number, string]} [whether the error was processed, the HTTP status code to return, the message to return]
  */
 function processConstraintUnique(error_message: string): [boolean, number, string] {
-    // the composite index on compositions(composer_id, name) reports both columns; SQLite lists them as
-    // "compositions.composer_id, compositions.name", which the single-column regex below would misread as
-    // just composer_id. Handle it explicitly so the (composer, name) uniqueness violation gets a clear
-    // message rather than falling through to the generic default. (Mirrors _assertNoCompositionDuplicates.)
-    if (/UNIQUE constraint failed: compositions\.composer_id,\s*compositions\.name/.test(error_message)) {
-        return [true, 409, `Invalid request body: a composition with this name already exists for this composer`]
+    // the composite composition-identity index is an EXPRESSION index (composer_id, name, COALESCE(part,'')),
+    // so SQLite reports the violation by index name — "UNIQUE constraint failed: index
+    // 'idx_compositions_composer_name_part'" — rather than listing columns. Match that (and the older
+    // column-listing form of the pre-part index, in case it lingers) so the (composer, name, part) violation
+    // gets a clear message rather than falling through to the generic default. Mirrors
+    // _assertNoCompositionDuplicates.
+    if (
+        /UNIQUE constraint failed: index 'idx_compositions_composer_name_part'/.test(error_message) ||
+        /UNIQUE constraint failed: compositions\.composer_id,\s*compositions\.name/.test(error_message)
+    ) {
+        return [
+            true,
+            409,
+            `Invalid request body: a composition with this name and part already exists for this composer`
+        ]
     }
     // pulls out the column name and compares it with the schema
     const regex = /UNIQUE constraint failed: (\w+)\.(\w+)/

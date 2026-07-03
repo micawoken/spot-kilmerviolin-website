@@ -29,15 +29,17 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 
-import { exec_string, exec_stmt_batch, COMPOSER } from "../src/lib/api/d1.ts"
+import { exec_string, exec_stmt_batch, COMPOSER, _stateTypeAssertCompleteComposition } from "../src/lib/api/d1.ts"
 import { SQLStatement } from "../src/lib/api/sql.ts"
-import { WorkType } from "../src/lib/api/common.ts"
+import { WorkType, sanitizeInputStrings } from "../src/lib/api/common.ts"
 import {
     addComposersBatch,
     addContributorsBatch,
     addCompositionsBatch,
     addComposition,
     findCompositionDuplicates,
+    findComposerNameConflicts,
+    findContributorNameConflicts,
     listComposers,
     listCompositions,
     getComposer
@@ -110,7 +112,7 @@ entry_date TEXT NOT NULL,
 change_date TEXT NOT NULL
 );`
 
-const composition_unique_index = `CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name ON compositions (composer_id, name);`
+const composition_unique_index = `CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name_part ON compositions (composer_id, name, COALESCE(part, ''));`
 
 async function withCtx<T>(fn: (ctx: ExecutionContext) => Promise<T>): Promise<T> {
     const ctx = createExecutionContext()
@@ -253,9 +255,9 @@ describe("composition (composer, name) uniqueness", () => {
 
         const findings = await withCtx((ctx) =>
             findCompositionDuplicates(ctx, [
-                { composer_id: composerId, name: "Existing Work" }, // collides with the row just written
-                { composer_id: composerId, name: "New Work" },
-                { composer_id: composerId, name: "New Work" } // repeats index 1 within the request
+                { composer_id: composerId, name: "Existing Work", part: null }, // collides with the row just written
+                { composer_id: composerId, name: "New Work", part: null },
+                { composer_id: composerId, name: "New Work", part: null } // repeats index 1 within the request
             ])
         )
         expect(findings.map((finding) => ({ index: finding.index, reason: finding.reason }))).toEqual([
@@ -264,7 +266,7 @@ describe("composition (composer, name) uniqueness", () => {
         ])
     })
 
-    it("addComposition rejects a duplicate (composer, name)", async () => {
+    it("addComposition rejects a duplicate (composer, name, part)", async () => {
         const composerId = (await withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Single Dup Composer")])))[0]
         const contribId = (
             await withCtx((ctx) => addContributorsBatch(ctx, [makeContributor("Single Dup Contrib", "sdc@example.com")]))
@@ -272,6 +274,26 @@ describe("composition (composer, name) uniqueness", () => {
         await withCtx((ctx) => addComposition(ctx, makeComposition("Only Once", composerId, contribId)))
         await expect(
             withCtx((ctx) => addComposition(ctx, makeComposition("Only Once", composerId, contribId)))
+        ).rejects.toThrow(/already exists/)
+    })
+
+    it("allows the same composer+name for different parts, but rejects a repeated part", async () => {
+        const composerId = (await withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Part Composer")])))[0]
+        const contribId = (
+            await withCtx((ctx) => addContributorsBatch(ctx, [makeContributor("Part Contrib", "pc@example.com")]))
+        )[0]
+        // same name, distinct parts → both allowed
+        await withCtx((ctx) =>
+            addComposition(ctx, { ...makeComposition("Duet", composerId, contribId), part: "Violin I" })
+        )
+        await withCtx((ctx) =>
+            addComposition(ctx, { ...makeComposition("Duet", composerId, contribId), part: "Violin II" })
+        )
+        // same name AND same part → rejected
+        await expect(
+            withCtx((ctx) =>
+                addComposition(ctx, { ...makeComposition("Duet", composerId, contribId), part: "Violin I" })
+            )
         ).rejects.toThrow(/already exists/)
     })
 
@@ -291,5 +313,79 @@ describe("composition (composer, name) uniqueness", () => {
         ).rejects.toThrow()
         const after = (await withCtx((ctx) => listCompositions(ctx)))?.length ?? 0
         expect(after).toBe(before) // nothing was written
+    })
+})
+
+describe("composer/contributor name conflict detection", () => {
+    it("flags a candidate name that already exists and a within-request repeat (composers)", async () => {
+        await withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Existing Composer Name")]))
+        const findings = await withCtx((ctx) =>
+            findComposerNameConflicts(ctx, [
+                { name: "existing composer name" }, // collides with the row above (case-insensitive)
+                { name: "Fresh Composer" },
+                { name: "fresh composer" } // repeats index 1 within the request
+            ])
+        )
+        expect(findings.map((finding) => ({ index: finding.index, reason: finding.reason }))).toEqual([
+            { index: 0, reason: "exists" },
+            { index: 2, reason: "within-request" }
+        ])
+    })
+
+    it("flags an existing contributor name", async () => {
+        await withCtx((ctx) =>
+            addContributorsBatch(ctx, [makeContributor("Existing Contributor Name", "ecn@example.com")])
+        )
+        const findings = await withCtx((ctx) =>
+            findContributorNameConflicts(ctx, [{ name: "  existing contributor name " }])
+        )
+        expect(findings).toHaveLength(1)
+        expect(findings[0]).toMatchObject({ index: 0, reason: "exists" })
+    })
+})
+
+describe("composition validation", () => {
+    it("rejects a type that is not a WorkType value", () => {
+        const record = { ...makeComposition("Enum Reject", 1, 1), type: "solo" as WorkType }
+        const result = _stateTypeAssertCompleteComposition(record, false)
+        expect(typeof result).toBe("string")
+        expect(result).toMatch(/type/)
+    })
+
+    it("accepts a valid WorkType value", () => {
+        const record = { ...makeComposition("Enum Accept", 1, 1), type: WorkType.CHAMBER }
+        expect(_stateTypeAssertCompleteComposition(record, false)).toBe(record)
+    })
+
+    it("names the offending publication_info subproperty (D1 column) in the error", () => {
+        const record = {
+            ...makeComposition("Pub Detail", 1, 1),
+            type: WorkType.CHAMBER,
+            publication_info: { name: "", location: "", year: -5, uri_type: "https", uri: "" }
+        }
+        const result = _stateTypeAssertCompleteComposition(record, false)
+        expect(typeof result).toBe("string")
+        expect(result).toMatch(/publish_year/)
+    })
+})
+
+describe("sanitizeInputStrings", () => {
+    it("trims whitespace and straightens curly quotes recursively, leaving non-strings intact", () => {
+        const input = {
+            name: "  “Sonata”  ",
+            note: "  Beethoven’s  ",
+            tags: ["  a ", " b "],
+            nested: { x: "‘hi’" },
+            n: 5,
+            missing: null
+        }
+        expect(sanitizeInputStrings(input)).toEqual({
+            name: '"Sonata"',
+            note: "Beethoven's",
+            tags: ["a", "b"],
+            nested: { x: "'hi'" },
+            n: 5,
+            missing: null
+        })
     })
 })

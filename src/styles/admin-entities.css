@@ -1323,6 +1323,17 @@ main.admin-main {
 	color: #b00;
 }
 
+/* a row flagged by client resolution or the server dry-run */
+.import-grid-table tr.import-row-error td {
+	background: #fbeaea;
+}
+
+/* the specific input(s) a server/client issue named, so the exact box to fix is obvious */
+.import-grid-table input.import-input-error {
+	outline: 2px solid #b00;
+	background: #fff0f0;
+}
+
 .import-phasemap-row {
 	display: flex;
 	gap: 8px;

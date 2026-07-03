@@ -32,9 +32,11 @@ import {
     buildContributor,
     buildComposition,
     flagCompositionDuplicates,
+    flagNameDuplicates,
     indexByName,
     parsePhases,
     compositionKey,
+    normalizeName,
     type WorksContext
 } from "../src/scripts/import_build.ts"
 import { composer_csv_columns, composition_csv_columns } from "../src/scripts/types.ts"
@@ -278,28 +280,74 @@ describe("parsePhases", () => {
 
 describe("flagCompositionDuplicates", () => {
     it("flags a duplicate against the existing database", () => {
-        const existing = new Set<string>([compositionKey(10, "Invention No. 1")])
-        const results = [{ record: { composer_id: 10, name: "Invention No. 1" }, issues: [] as string[] }]
+        const existing = new Set<string>([compositionKey(10, "Invention No. 1", null)])
+        const results = [{ record: { composer_id: 10, name: "Invention No. 1", part: null }, issues: [] as string[] }]
         flagCompositionDuplicates(results, existing)
-        expect(results[0].issues).toContain("a composition with this name already exists for this composer")
+        expect(results[0].issues).toContain("a composition with this name and part already exists for this composer")
     })
 
-    it("flags two rows with the same composer and name within the file", () => {
+    it("flags two rows with the same composer, name, and part within the file", () => {
         const results = [
-            { record: { composer_id: 10, name: "Prelude" }, issues: [] as string[] },
-            { record: { composer_id: 10, name: "prelude" }, issues: [] as string[] }
+            { record: { composer_id: 10, name: "Prelude", part: "Violin I" }, issues: [] as string[] },
+            { record: { composer_id: 10, name: "prelude", part: "violin i" }, issues: [] as string[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
-        // second occurrence is flagged as a within-file duplicate (case-insensitive)
-        expect(results[1].issues).toContain("duplicate composition (same name and composer) within this file")
+        // second occurrence is flagged as a within-file duplicate (name and part compared case-insensitively)
+        expect(results[1].issues).toContain("duplicate composition (same name, composer, and part) within this file")
     })
 
     it("does not flag same-name works by different composers", () => {
         const results = [
-            { record: { composer_id: 10, name: "Prelude" }, issues: [] as string[] },
-            { record: { composer_id: 11, name: "Prelude" }, issues: [] as string[] }
+            { record: { composer_id: 10, name: "Prelude", part: null }, issues: [] as string[] },
+            { record: { composer_id: 11, name: "Prelude", part: null }, issues: [] as string[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
+        expect(results[0].issues).toEqual([])
+        expect(results[1].issues).toEqual([])
+    })
+
+    it("does not flag same-name works by the same composer with different parts", () => {
+        const results = [
+            { record: { composer_id: 10, name: "Sonata", part: "Violin I" }, issues: [] as string[] },
+            { record: { composer_id: 10, name: "Sonata", part: "Violin II" }, issues: [] as string[] }
+        ]
+        flagCompositionDuplicates(results, new Set<string>())
+        expect(results[0].issues).toEqual([])
+        expect(results[1].issues).toEqual([])
+    })
+
+    it("treats a null part and a blank part as the same part", () => {
+        const existing = new Set<string>([compositionKey(10, "Etude", null)])
+        const results = [{ record: { composer_id: 10, name: "Etude", part: "" }, issues: [] as string[] }]
+        flagCompositionDuplicates(results, existing)
+        expect(results[0].issues).toContain("a composition with this name and part already exists for this composer")
+    })
+})
+
+describe("flagNameDuplicates", () => {
+    it("flags a name that already exists in the database", () => {
+        const existing = new Set<string>([normalizeName("Amy Beach")])
+        const results = [{ record: { name: "amy   beach" }, issues: [] as string[] }]
+        flagNameDuplicates(results, existing, "composer")
+        expect(results[0].issues).toContain("a composer with this name already exists")
+    })
+
+    it("flags repeated names within the file (case-insensitive)", () => {
+        const results = [
+            { record: { name: "Ada Lovelace" }, issues: [] as string[] },
+            { record: { name: "ada lovelace" }, issues: [] as string[] }
+        ]
+        flagNameDuplicates(results, new Set<string>(), "contributor")
+        expect(results[0].issues).toContain("duplicate contributor name within this file")
+        expect(results[1].issues).toContain("duplicate contributor name within this file")
+    })
+
+    it("does not flag distinct names", () => {
+        const results = [
+            { record: { name: "Ada Lovelace" }, issues: [] as string[] },
+            { record: { name: "Grace Hopper" }, issues: [] as string[] }
+        ]
+        flagNameDuplicates(results, new Set<string>(), "contributor")
         expect(results[0].issues).toEqual([])
         expect(results[1].issues).toEqual([])
     })
