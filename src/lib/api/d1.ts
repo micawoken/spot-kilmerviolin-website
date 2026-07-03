@@ -420,6 +420,73 @@ export async function exec_string_batch(commands: string[]): Promise<D1Result[]>
 }
 
 /**
+ * Execute several SQLStatement objects in a single atomic batch.
+ *
+ * Each statement is finalized ({@link SQLStatement.finish}), prepared, and bound with its own
+ * parameters, then handed to D1's batch() API, which wraps the prepared statements in an implicit
+ * transaction: they run sequentially in the supplied order, and if any statement fails the entire
+ * batch is rolled back (no partial application). Unlike {@link exec_string_batch}, this preserves
+ * parameter binding, so it is the primitive used for atomic bulk inserts of validated records.
+ *
+ * Each returned D1Result carries its own meta (including last_row_id), so a batch of single-row
+ * INSERTs yields one id per record — the reason callers build one INSERT per record rather than a
+ * single multi-row VALUES statement (which would report only a single last_row_id).
+ *
+ * @param stmts the SQLStatement objects to execute, in order (must be non-empty)
+ * @returns an array of D1Result objects, one per statement, in the same order
+ * @throws an error if writes are disabled, or if any statement fails to finalize, prepare, or execute
+ */
+export async function exec_stmt_batch(stmts: SQLStatement[]): Promise<D1Result[]> {
+    if (stmts.length === 0) {
+        throw new Error("No SQL statements supplied for batch execution")
+    }
+    // mirror exec_stmt's write gate: a single non-SELECT verb disables the whole batch off-write
+    // environments (e.g. staging), since a batch is committed atomically as one unit
+    if (stmts.some((stmt) => stmt.verb !== "SELECT") && !dbWriteEnabled()) {
+        throw new Error("Database writes are disabled in this environment")
+    }
+    const prepared: D1PreparedStatement[] = []
+    for (const stmt of stmts) {
+        let finished: [string, Array<string | number | null>]
+        try {
+            finished = stmt.finish()
+        } catch (error) {
+            // name the operation (verb + table) that failed to finalize so the cause is identifiable
+            throw new Error(
+                `Failed to finalize ${stmt.verb} statement on table '${stmt.from}': ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error }
+            )
+        }
+        const [command, params] = finished
+        try {
+            prepared.push(env.DB_MAIN.prepare(command).bind(...params))
+        } catch (error) {
+            // mirror _exec's preparation error so the offending statement and any SQLITE_ code survive
+            throw new Error(
+                `Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error }
+            )
+        }
+    }
+
+    let results: D1Result[]
+    try {
+        results = await env.DB_MAIN.batch(prepared)
+    } catch (error) {
+        // a batch failure rolls back every statement; surface the original message for the error hook
+        throw new Error(`Failed to execute SQL batch: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+        })
+    }
+
+    // batch() resolves only when the transaction commits, but guard against a result flagged unsuccessful
+    if (results.some((result) => !result.success)) {
+        throw new Error("SQL execution did not succeed for one or more statements in the batch")
+    }
+    return results
+}
+
+/**
  * Execute several raw SQL command strings sequentially, each as its own statement.
  *
  * Unlike {@link exec_string_batch}, the statements are NOT wrapped in a transaction: each runs and
@@ -618,9 +685,13 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
         return "Record is not an object"
     }
     const r = record as { [key: string]: any }
+    // collect every field that fails its base check so the caller can report exactly what is invalid,
+    // rather than a single generic message. In complete mode an absent field fails its own base check
+    // (typeof undefined never matches a base type), so a missing required field is named here too.
+    const invalid_fields: string[] = []
     // id is nullable on inbound records: it must be a number, or absent (undefined) when not expected
     if (typeof r.id !== "number" && (typeof r.id !== "undefined" || expect_id)) {
-        return "Record has invalid types for one or more parameters"
+        invalid_fields.push("id")
     }
     for (const field in spec) {
         const value = r[field]
@@ -628,10 +699,14 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
             continue
         }
         if (spec[field].invalid(value, partial)) {
-            return "Record has invalid types for one or more parameters"
+            invalid_fields.push(field)
         }
     }
-    // validate arrays are of correct type, once all base checks have passed
+    if (invalid_fields.length > 0) {
+        return `Record has invalid or missing values for parameter(s): ${invalid_fields.join(", ")}`
+    }
+    // validate arrays are of correct type, once all base checks have passed; these carry their own
+    // field-specific messages describing the expected element type
     for (const field in spec) {
         const elementCheck = spec[field].elementCheck
         if (!elementCheck) {

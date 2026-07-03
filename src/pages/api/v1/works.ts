@@ -23,10 +23,16 @@
 
 import type { APIRoute } from "astro"
 import { _stateTypeAssertCompleteComposition } from "../../../lib/api/d1"
-import { addComposition, attachCompositionNames, listCompositions } from "../../../lib/api/database"
+import {
+    addComposition,
+    addCompositionsBatch,
+    attachCompositionNames,
+    findCompositionDuplicates,
+    listCompositions
+} from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook, handleBulkCreate, lastModifiedHeader } from "../../../lib/api/http"
 import { canCreate } from "../../../lib/api/authorize"
 import { authEnabled } from "../../../lib/api/environment"
 
@@ -100,15 +106,22 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * POST /api/v1/works
- * Creates a new work record with the provided data
+ * Creates one or more work records atomically with the provided data
  *
- * Permissions required: none
+ * Permissions required: none (but a non-admin may only create compositions on which they are a primary
+ * contributor; the CSV import that drives multi-item requests is admin-gated at the page level)
  *
- * Meta: none
- * Body: required; shape of a Composition object
+ * Meta: optional
+ * Meta fields:
+ * - bulk: {boolean} required to be true when the body carries more than one item
+ * - dry_run: {boolean} if true, validate/authorize/conflict-check every item and return a per-row report
+ *   without writing anything (backs the import preview)
+ *
+ * Body: required, Composition[] (1..MAX_BULK_ITEMS items)
+ * Response: a single item returns 201 + Location (unchanged); multiple items return 201 with the id array
  *
  * @param context - the Astro API context
- * @returns the created record, or an error message
+ * @returns the created record id(s), a per-row dry-run report, or an error
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
@@ -117,37 +130,27 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request
-    const api_request = await parseAPIRequest(request)
+    // parse api request (meta parsed so the bulk/dry_run signals are honored)
+    const api_request = await parseAPIRequest(request, [])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    // check if the payload is not null and has a length of 1
-    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
-        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
-    }
-    // validate body as complete composition record
-    const record = _stateTypeAssertCompleteComposition(api_request.payload[0], false)
-    if (typeof record === "string") {
-        return constructResponse(request, null, 400, `Invalid request body: ${record}`)
-    }
-    // a non-admin may only create a composition on which they are themselves a primary contributor;
-    // admins may name any registered users as primaries (skipped where auth is disabled, e.g. development)
-    if (authEnabled(request) && !canCreate(record, locals.identity!)) {
-        return constructResponse(
-            request,
-            null,
-            403,
-            "Forbidden: you must be a primary contributor on compositions you create"
-        )
-    }
-    try {
-        const add_response = await addComposition(context.locals.cfContext, record)
-        return constructResponse(request, add_response, 201, undefined, {
-            Location: `/api/v1/works/${add_response.toString()}`
-        })
-    } catch (error) {
-        console.error(error)
-        return constructResponseErrorHook(request, error, 500, "Unknown error")
-    }
+    // a non-admin may only create compositions on which they are themselves a primary contributor; admins
+    // may name any registered users as primaries. Skipped where auth is disabled (e.g. development).
+    const enforce_ownership = authEnabled(request)
+    return handleBulkCreate<Composition>(request, api_request, {
+        validate: (item) => _stateTypeAssertCompleteComposition(item, false),
+        authorize: (record) =>
+            enforce_ownership && !canCreate(record, locals.identity!)
+                ? "Forbidden: you must be a primary contributor on compositions you create"
+                : null,
+        detectConflicts: (records) =>
+            findCompositionDuplicates(
+                context.locals.cfContext,
+                records.map((record) => ({ composer_id: record.composer_id, name: record.name }))
+            ),
+        commitOne: (record) => addComposition(context.locals.cfContext, record),
+        commitBatch: (records) => addCompositionsBatch(context.locals.cfContext, records),
+        location: (id) => `/api/v1/works/${id}`
+    })
 }
