@@ -122,6 +122,8 @@ export enum AuthorRole {
     COMPOSER = "composer",
     ARRANGER = "arranger",
     LYRICIST = "lyricist",
+    TRANSCRIBER = "transcriber",
+    EDITOR = "editor",
     OTHER = "other"
 }
 

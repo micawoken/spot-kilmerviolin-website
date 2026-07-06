@@ -1274,7 +1274,7 @@ main.admin-main {
 }
 
 #import-error {
-	color: #b00;
+	color: var(--color-danger);
 	white-space: pre-wrap;
 }
 
@@ -1289,7 +1289,7 @@ main.admin-main {
 
 .import-grid-table th,
 .import-grid-table td {
-	border: 1px solid #ccc;
+	border: 1px solid var(--shade-4);
 	padding: 2px 4px;
 	vertical-align: top;
 }
@@ -1303,11 +1303,12 @@ main.admin-main {
 	min-width: 8ch;
 	border: none;
 	background: transparent;
+	color: inherit;
 	font: inherit;
 }
 
 .import-grid-table input:focus {
-	outline: 1px solid #666;
+	outline: 1px solid var(--shade-7);
 }
 
 .import-issue {
@@ -1316,22 +1317,22 @@ main.admin-main {
 }
 
 .import-issue-ok {
-	color: #060;
+	color: var(--color-success);
 }
 
 .import-issue-error {
-	color: #b00;
+	color: var(--color-danger);
 }
 
 /* a row flagged by client resolution or the server dry-run */
 .import-grid-table tr.import-row-error td {
-	background: #fbeaea;
+	background: var(--color-danger-bg);
 }
 
 /* the specific input(s) a server/client issue named, so the exact box to fix is obvious */
 .import-grid-table input.import-input-error {
-	outline: 2px solid #b00;
-	background: #fff0f0;
+	outline: 2px solid var(--color-danger);
+	background: var(--color-danger-bg);
 }
 
 .import-phasemap-row {
