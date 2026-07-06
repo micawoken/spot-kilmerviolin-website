@@ -33,6 +33,7 @@ import {
     contributor_csv_columns,
     composition_csv_columns,
     constructRating,
+    ratingIssues,
     constructPubInfo
 } from "./types"
 import type { BulkNoun } from "./connector"
@@ -295,6 +296,10 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
             issues.push(`contribution period "${periodRaw}" is not mapped to a phase`)
         }
     }
+
+    // a rating member that is non-blank but out of range is silently nulled by constructRating (indistinguishable
+    // from "not rated"), so check for that separately and block the row instead of dropping the data
+    issues.push(...ratingIssues(stringOrNull(cells.rating_suzuki), stringOrNull(cells.rating_nyssma)))
 
     return {
         record: {

@@ -253,6 +253,23 @@ export function constructRating(suzuki: string | null, nyssma: string | null): C
     }
 }
 
+/**
+ * Names which rating member(s) are non-blank but out of range, so a caller building a preview (e.g. the CSV
+ * import) can surface exactly what `constructRating` silently rejected instead of committing a bare `null`
+ * rating that is indistinguishable from "not rated". A blank member is never an issue; only a present-but-
+ * invalid one is.
+ */
+export function ratingIssues(suzuki: string | null, nyssma: string | null): string[] {
+    const issues: string[] = []
+    if (parseNullableRating(suzuki, 1, 10) === undefined) {
+        issues.push("invalid value for rating_suzuki (expected an integer 1-10, or blank)")
+    }
+    if (parseNullableRating(nyssma, 1, 6) === undefined) {
+        issues.push("invalid value for rating_nyssma (expected an integer 1-6, or blank)")
+    }
+    return issues
+}
+
 export function constructPubInfo(
     name: string | null,
     location: string | null,

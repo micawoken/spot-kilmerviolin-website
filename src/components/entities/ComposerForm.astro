@@ -93,6 +93,14 @@ const patch: boolean = Astro.props.patch || false
                         <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}
                             >Arranger</option
                         >
+                        <option
+                            value="transcriber"
+                            selected={composer !== null ? composer.role === "transcriber" : false}
+                            >Transcriber</option
+                        >
+                        <option value="editor" selected={composer !== null ? composer.role === "editor" : false}
+                            >Editor</option
+                        >
                     </select>
                     {
                         patch ? (

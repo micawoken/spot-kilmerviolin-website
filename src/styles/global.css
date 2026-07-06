@@ -1,3 +1,10 @@
+/* Cross-document view transitions: crossfades between page navigations instead of the browser's
+ * default blank flash. Native CSS, no JS; unsupported browsers (Firefox, Safari) just fall back to
+ * a normal navigation with no regression. */
+@view-transition {
+	navigation: auto;
+}
+
 /* root static color configs w/ light-dark() */
 :root {
 	color-scheme: light dark;
@@ -16,6 +23,11 @@
 	/* Warning accent (amber): used sparingly to flag a non-blocking caution the operator should notice,
 	 * e.g. a too-small image that will be upscaled. Deliberately colored, unlike the grayscale form errors. */
 	--color-warning: light-dark(#b45309, #fbbf24);
+	/* Danger/success accents: used where an error or ok state needs to read at a glance (e.g. the CSV
+	 * import preview grid), as opposed to the grayscale .field-error convention used in forms. */
+	--color-danger: light-dark(#b30000, #ff8080);
+	--color-danger-bg: light-dark(#fbeaea, #3a1f1f);
+	--color-success: light-dark(#006600, #6bcf6b);
 
 	/* Neutral gradations, lightest (--shade-1) to strongest (--shade-7). The
 	 * dark-scheme column inverts the ramp so "light" surfaces become dark
