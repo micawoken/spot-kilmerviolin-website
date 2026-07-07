@@ -30,10 +30,34 @@ import optimizeFiles from "./integrations/optimize-files.mjs"
 import react from "@astrojs/react"
 import markdoc from "@astrojs/markdoc"
 
+// EmDash CMS (staged migration off Pages CMS; see docs/dev/emdash-migration.md). Cloudflare-native:
+// content in its own D1 (EMDASH_DB), media in its own R2 bucket (EMDASH_MEDIA), admin at /_emdash/admin.
+import emdash from "emdash/astro"
+import { d1, r2, access } from "@emdash-cms/cloudflare"
+
 // https://astro.build/config
 export default defineConfig({
     site: "https://example.com", // will set later
-    integrations: [mdx(), sitemap(), optimizeFiles(), react(), markdoc()],
+    integrations: [
+        mdx(),
+        sitemap(),
+        optimizeFiles(),
+        react(),
+        markdoc(),
+        // EmDash runs alongside the existing flat-file content readers during the staged migration; it does
+        // not manage any route we render ourselves. Auth is delegated to Cloudflare Access (the same policy
+        // the worker manages via src/lib/api/access_iam_mgmt.ts) — passkeys are disabled. audienceEnvVar
+        // reads the existing CF_ACCESS_AUD var at runtime (the recommended pattern for Workers). No
+        // worker_loaders/sandbox block: plugins are out of scope, so this stays on the Cloudflare free plan.
+        emdash({
+            database: d1({ binding: "EMDASH_DB" }),
+            storage: r2({ binding: "EMDASH_MEDIA" }),
+            auth: access({
+                teamDomain: "nrnnetint.cloudflareaccess.com",
+                audienceEnvVar: "CF_ACCESS_AUD"
+            })
+        })
+    ],
     adapter: cloudflare(),
     trailingSlash: "never",
     output: "server", // prerender needs to be enabled on the relevant pages

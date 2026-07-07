@@ -67,6 +67,13 @@
 			"binding": "DB_MAIN",
 			"database_name": "spot-kilmerviolin-db",
 			"database_id": "ea3e0315-08a4-4495-9f8f-6839ef876ddf"
+		},
+		// EmDash CMS content store (separate from DB_MAIN to isolate the beta schema). EmDash creates and
+		// migrates its own tables automatically on first request. Provisioned via `wrangler d1 create emdash-db`.
+		{
+			"binding": "EMDASH_DB",
+			"database_name": "emdash-db",
+			"database_id": "57fc50e6-9b49-401a-b861-0f1163944e0f"
 		}
 	],
 	"kv_namespaces": [
@@ -79,6 +86,12 @@
 		{
 			"binding": "R2_FILES",
 			"bucket_name": "spot-kilmerviolin-files"
+		},
+		// EmDash CMS media library (separate from R2_FILES, the admin composition-image pool). Create with
+		// `wrangler r2 bucket create emdash-media` (owner action).
+		{
+			"binding": "EMDASH_MEDIA",
+			"bucket_name": "emdash-media"
 		}
 	],
 	"images": {
