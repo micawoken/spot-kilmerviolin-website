@@ -42,6 +42,12 @@ export const emdashAccess: MiddlewareHandler = async (context, next) => {
     if (!authEnabled(context.request)) {
         return next()
     }
+    // service credentials (EmDash API token / Access service token) were validated and delegated by
+    // identity.ts; EmDash's own auth layer authorizes them (Bearer validation with per-token scopes, or
+    // the Access adapter's role mapping), so the cms_editor page gate does not apply
+    if (context.locals.emdashServiceAuth === true) {
+        return next()
+    }
     // staging 404s /_emdash upstream in identity.ts before this middleware ever sees it
     const identity = context.locals.identity
     if (identity === undefined) {

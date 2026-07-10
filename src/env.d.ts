@@ -23,6 +23,12 @@ type Runtime = import("@astrojs/cloudflare").Runtime<Env>
 declare namespace App {
     interface Locals extends Runtime {
         identity?: Identity
+        /**
+         * Set by middleware/identity.ts when a /_emdash request authenticated with a non-browser service
+         * credential (EmDash API token or Access service-token JWT). EmDash's own auth layer validates and
+         * authorizes such credentials; middleware/emdash_access.ts then skips the cms_editor page gate.
+         */
+        emdashServiceAuth?: boolean
     }
 }
 
