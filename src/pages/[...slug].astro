@@ -42,10 +42,13 @@ export const prerender = true
 // content type over EmDash's HTTP API and fails soft to [] (so a build without CMS access still succeeds,
 // just with no content pages). Field names (title, description, content, published_at) mirror the `pages`
 // content type; the route param is EmDash's top-level item slug, normalized in fetchPublishedPages.
+//
+// The page authored with slug "home" is the site's designated home page and is routed to "/" (an undefined
+// rest-param matches the route's root) instead of "/home", so there is exactly one URL for it.
 export async function getStaticPaths() {
     const pages = await fetchPublishedPages()
     return pages.map((page) => ({
-        params: { slug: page.slug },
+        params: { slug: page.slug === "home" ? undefined : page.slug },
         props: {
             title: page.title,
             description: page.description,
