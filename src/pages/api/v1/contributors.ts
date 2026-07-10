@@ -36,10 +36,16 @@ import {
     _constructHeaders,
     constructResponse,
     constructResponseErrorHook,
+    handleBulkCreate,
     lastModifiedHeader
 } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
-import { addContributor, listContributors } from "../../../lib/api/database"
+import {
+    addContributor,
+    addContributorsBatch,
+    listContributors,
+    findContributorNameConflicts
+} from "../../../lib/api/database"
 import { _stateTypeAssertCompleteContributor, CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
 import { authEnabled } from "../../../lib/api/environment"
 import { resolveIdentityEmail } from "../../../lib/api/fallback"
@@ -116,52 +122,51 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * POST /api/v1/contributors
- * Adds a contributor record by API request, used for the administrator pages
+ * Adds one or more contributor records atomically, used for the administrator pages and CSV import
  *
  * Permissions required: *admin*
  *
- * Meta: none
- * Body: required, Contributor object
+ * Meta: optional
+ * Meta fields:
+ * - bulk: {boolean} required to be true when the body carries more than one item
+ * - dry_run: {boolean} if true, validate every item and return a per-row report without writing anything
+ *
+ * Body: required, Contributor[] (1..MAX_BULK_ITEMS items)
+ * Response: a single item returns 201 + Location (unchanged); multiple items return 201 with the id array
  *
  * @param context - the Astro API context
- * @return a Response object with the ID of the new record, or an error
+ * @return a Response object with the ID(s) of the new record(s), or an error
  *
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
-    // validate identity
+    // validate identity (admin only)
     const auth_response = auth_check(request, locals.identity, [], true)
     if (auth_response !== null) {
         return auth_response
     }
-    // pull the payload
-    const api_request = await parseAPIRequest(request)
+    // pull the payload (meta parsed so the bulk/dry_run signals are honored)
+    const api_request = await parseAPIRequest(request, [])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    // check if the payload is not null and has a length of 1
-    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
-        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
-    }
-    // a blank/omitted identity_email is replaced with a generated fallback address (see lib/api/fallback.ts)
-    // so a contributor with no real sign-in email still satisfies the identity_email NOT NULL UNIQUE
-    // constraint; an invalid name is left to fail the type assertion below
-    const raw = api_request.payload[0]
-    if (raw !== null && typeof raw === "object" && typeof raw.name === "string") {
-        raw.identity_email = resolveIdentityEmail(raw.identity_email, raw.name)
-    }
-    // validate the payload as a complete contributor record
-    const record: Contributor | string = _stateTypeAssertCompleteContributor(raw, false)
-    if (typeof record === "string") {
-        return constructResponse(request, null, 400, `Invalid request body: ${record}`)
-    }
-    // create the contributor record and return the new ID
-    try {
-        const id = await addContributor(context.locals.cfContext, record)
-        return constructResponse(request, null, 201, undefined, {
-            Location: `/api/v1/contributors/${id}`
-        })
-    } catch (error) {
-        return constructResponseErrorHook(request, error, 500, "Unknown error")
-    }
+    return handleBulkCreate<Contributor>(request, api_request, {
+        validate: (item) => {
+            // a blank/omitted identity_email is replaced with a generated fallback address (see
+            // lib/api/fallback.ts) so a contributor with no real sign-in email still satisfies the
+            // identity_email NOT NULL UNIQUE constraint; an invalid name is left to fail the assertion
+            if (item !== null && typeof item === "object" && typeof (item as any).name === "string") {
+                ;(item as any).identity_email = resolveIdentityEmail((item as any).identity_email, (item as any).name)
+            }
+            return _stateTypeAssertCompleteContributor(item, false)
+        },
+        detectConflicts: (records) =>
+            findContributorNameConflicts(
+                context.locals.cfContext,
+                records.map((record) => ({ name: record.name }))
+            ),
+        commitOne: (record) => addContributor(context.locals.cfContext, record),
+        commitBatch: (records) => addContributorsBatch(context.locals.cfContext, records),
+        location: (id) => `/api/v1/contributors/${id}`
+    })
 }

@@ -35,6 +35,22 @@ import { parseCookieHeader } from "./common.ts"
 type CredentialResult = ["cookie" | "Cf-Header" | "Auth-Header", string]
 // the credential source type is provided for convenience, but is not expected to be actually useful beyond logs
 
+// createRemoteJWKSet is meant to be created once and reused: it caches the fetched key set internally
+// (with a cooldown before refetching), so re-creating it on every call — as a request-scoped local would —
+// defeats that cache and forces a network round-trip to Access's /cdn-cgi/access/certs endpoint on every
+// request. env.TEAM_DOMAIN cannot be read at module-evaluation time (no request context yet), so the
+// singleton is built lazily on first use and reused for the isolate's remaining lifetime.
+let jwks: ReturnType<typeof createRemoteJWKSet> | undefined
+let jwksTeamDomain: string | undefined
+
+function getJWKS(team_domain: string): ReturnType<typeof createRemoteJWKSet> {
+    if (jwks === undefined || jwksTeamDomain !== team_domain) {
+        jwks = createRemoteJWKSet(new URL(`${team_domain}/cdn-cgi/access/certs`))
+        jwksTeamDomain = team_domain
+    }
+    return jwks
+}
+
 /**
  * Retrieves the Cloudflare Access JWT from a request, if it exists
  *
@@ -117,7 +133,7 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
     }
 
     try {
-        const JWKS = createRemoteJWKSet(new URL(`${env.TEAM_DOMAIN}/cdn-cgi/access/certs`))
+        const JWKS = getJWKS(env.TEAM_DOMAIN)
 
         const { payload } = await jwtVerify(token, JWKS, {
             issuer: env.TEAM_DOMAIN,

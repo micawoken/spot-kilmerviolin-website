@@ -44,6 +44,7 @@ import {
     COMPOSER,
     COMPOSITION,
     exec_stmt,
+    exec_stmt_batch,
     getRecord,
     getRecordSpecificProp,
     exec_string,
@@ -345,17 +346,7 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
         // not fail the write; the entries will also expire on their own via TTL). The Workers Cache API has
         // no store-wide purge, so invalidation is per-key against the affected table.
         if (stmt.from) {
-            // invalidate the KV backing store and the per-table Cache API entry so a simple SELECT is not
-            // repopulated from, or kept serving, stale data
-            _backfill(ctx, () => deleteKey(stmt.from!))
-            _backfill(ctx, () => deleteCacheKey("db_cache", stmt.from!))
-            if (stmt.from === CONTRIBUTOR.name) {
-                // a contributor write may change authorization-relevant fields or the identity_email
-                // mapping, so also drop authorize.ts's per-isolate identity cache. This is a synchronous
-                // in-memory Map clear (not best-effort like the cache evictions above) so it takes effect
-                // before the response; see invalidateIdentityCache for why it clears wholesale.
-                invalidateIdentityCache()
-            }
+            _invalidateTableCaches(ctx, stmt.from)
         }
         return {
             data: output.results as Record<string, string | number | null>[],
@@ -427,6 +418,26 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
 }
 
 /**
+ * Invalidate the caches backing a table after a successful write.
+ *
+ * Evicts the KV backing store and the per-table Cache API entry (both best-effort via _backfill, so a
+ * failed eviction never fails the write; entries also expire via TTL). A contributor write additionally
+ * drops authorize.ts's per-isolate identity cache synchronously (see invalidateIdentityCache), since it
+ * may change authorization-relevant fields or the identity_email mapping. Shared by the single-write
+ * path in _exec_wrap and the batch-write path in _addPrimitiveBatch so both stay consistent.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param tableName the name of the table that was written (a D1Schema.name)
+ */
+function _invalidateTableCaches(ctx: ExecutionContext, tableName: string): void {
+    _backfill(ctx, () => deleteKey(tableName))
+    _backfill(ctx, () => deleteCacheKey("db_cache", tableName))
+    if (tableName === CONTRIBUTOR.name) {
+        invalidateIdentityCache()
+    }
+}
+
+/**
  * Exported interface to execute a SQLStatement with the caching context
  *
  * @see _exec_wrap for full details
@@ -478,6 +489,63 @@ async function _addPrimitive(
     stmt.editValue(0, "change_date", now)
     const output = await _exec_wrap(stmt, ctx)
     return output.meta!.last_row_id
+}
+
+/**
+ * Internal function to add several records of one type to the database in a single atomic transaction.
+ *
+ * Builds one INSERT SQLStatement per record (mirroring _addPrimitive's per-record formatting, primary-key
+ * voiding, and entry_date/change_date stamping) and commits them all through exec_stmt_batch, which wraps
+ * the statements in a D1 transaction: either every record is inserted or none is. One INSERT per record
+ * (rather than a single multi-row VALUES) is required so each result reports its own last_row_id. On
+ * success the affected table's caches are invalidated once (see _invalidateTableCaches).
+ *
+ * The caller is responsible for validating and de-duplicating the records beforehand; this function does
+ * no per-schema business validation (e.g. the composition composer_id/name uniqueness check lives in the
+ * public addCompositionsBatch wrapper, alongside the single-record path).
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param schema the D1Schema of the records being added
+ * @param records the records to add (must be non-empty), all of the schema's type
+ * @returns the ids of the newly added records, in the same order as the input
+ * @throws an error if the schema is invalid, or if the atomic batch fails (nothing is written)
+ */
+async function _addPrimitiveBatch(
+    ctx: ExecutionContext,
+    schema: D1Schema,
+    records: Array<Contributor | Composition | Composer>
+): Promise<number[]> {
+    if (records.length === 0) {
+        throw new Error("No records supplied for batch insertion")
+    }
+    // a single timestamp for the whole batch: every record is created (and first modified) at the same instant
+    const now = new Date().toISOString()
+    const stmts = records.map((record) => {
+        const stmt = new SQLStatement(schema, "INSERT", schema.name)
+        let entry
+        switch (schema) {
+            case CONTRIBUTOR:
+                entry = formatContribToD1(record as Contributor)
+                break
+            case COMPOSER:
+                entry = formatCompToD1(record as Composer)
+                break
+            case COMPOSITION:
+                entry = formatWorkToD1(record as Composition)
+                break
+            default:
+                throw new Error("Invalid schema")
+        }
+        stmt.addValueGroup(entry)
+        stmt.voidValue(0, schema.primary_key)
+        stmt.editValue(0, "entry_date", now)
+        stmt.editValue(0, "change_date", now)
+        return stmt
+    })
+    const results = await exec_stmt_batch(stmts)
+    // the write succeeded atomically; invalidate the table's stale caches once
+    _invalidateTableCaches(ctx, schema.name)
+    return results.map((result) => result.meta!.last_row_id)
 }
 
 /**
@@ -799,6 +867,22 @@ export async function addContributor(ctx: ExecutionContext, record: Contributor)
 }
 
 /**
+ * Add several contributor records to the database in a single atomic transaction.
+ *
+ * Either every record is inserted or none is (see _addPrimitiveBatch). Records must be pre-validated by
+ * the caller; a UNIQUE name or identity_email collision (within the batch or against existing rows) fails
+ * the whole batch.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param records the contributor records to add
+ * @returns the ids of the new records, in input order
+ * @throws an error if the batch fails (nothing is written)
+ */
+export async function addContributorsBatch(ctx: ExecutionContext, records: Contributor[]): Promise<number[]> {
+    return await _addPrimitiveBatch(ctx, CONTRIBUTOR, records)
+}
+
+/**
  * Update a contributor record in the database
  *
  * @param ctx the Cloudflare Worker ExecutionContext
@@ -882,6 +966,21 @@ export async function addComposer(ctx: ExecutionContext, record: Composer): Prom
 }
 
 /**
+ * Add several composer records to the database in a single atomic transaction.
+ *
+ * Either every record is inserted or none is (see _addPrimitiveBatch). Records must be pre-validated by
+ * the caller; a UNIQUE name collision (within the batch or against existing rows) fails the whole batch.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param records the composer records to add
+ * @returns the ids of the new records, in input order
+ * @throws an error if the batch fails (nothing is written)
+ */
+export async function addComposersBatch(ctx: ExecutionContext, records: Composer[]): Promise<number[]> {
+    return await _addPrimitiveBatch(ctx, COMPOSER, records)
+}
+
+/**
  * Update a composer record in the database
  *
  * @param ctx the Cloudflare Worker ExecutionContext
@@ -962,8 +1061,206 @@ export async function getComposition(
  * @returns the id of the new record
  * @throws an error if the record is invalid
  */
+/**
+ * Normalizes a composition (composer_id, name, part) triple into a comparison key.
+ *
+ * A composition's identity is (composer_id, name, part): the same piece by the same composer for a different
+ * part (e.g. "Violin I" vs "Violin II") is distinct, but two rows agreeing on all three collide. SQLite
+ * cannot enforce this through a generated column (the value depends on a cross-table lookup), so a composite
+ * UNIQUE index on (composer_id, name, COALESCE(part,'')) is the database backstop and this key is the
+ * application-model mirror. Name and part are compared case-insensitively and whitespace-trimmed so trivial
+ * variants collide as intended, and a null part is treated as an empty part so two part-less rows still
+ * conflict. The NUL separator cannot appear in a name or part, so distinct triples never alias.
+ *
+ * @param composer_id the referenced composer id
+ * @param name the composition name
+ * @param part the composition part, or null for a part-less work
+ * @returns a stable key identifying the (composer, name, part) triple
+ */
+function compositionDuplicateKey(composer_id: number, name: string, part: string | null): string {
+    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
+}
+
+/** Normalizes a name for case-insensitive, whitespace-trimmed conflict comparison (mirrors the UNIQUE column). */
+function nameConflictKey(name: string): string {
+    return name.trim().toLowerCase()
+}
+
+/**
+ * Finds names in `candidates` that collide with an existing record of the same entity (by case-insensitive,
+ * trimmed name) or that repeat an earlier candidate within the same request. Both composers.name and
+ * contributors.name are UNIQUE server-side, so a collision would abort an atomic bulk insert; surfacing it
+ * here lets the endpoint dry-run and the import preview report the offending row before a write is attempted.
+ *
+ * @param existing the existing records of this entity, or null when the table is empty
+ * @param candidates the records about to be written
+ * @param label the entity noun used in the human-readable message (e.g. "composer", "contributor")
+ * @returns per-candidate findings (by index) describing each within-request or existing-name collision
+ */
+function findNameConflicts(
+    existing: Array<{ name: string }> | null,
+    candidates: Array<{ name: string }>,
+    label: string
+): Array<{ index: number; reason: "within-request" | "exists"; message: string }> {
+    const findings: Array<{ index: number; reason: "within-request" | "exists"; message: string }> = []
+    const existing_keys = new Set<string>()
+    for (const record of existing ?? []) {
+        existing_keys.add(nameConflictKey(record.name))
+    }
+    const seen = new Set<string>()
+    for (let index = 0; index < candidates.length; index++) {
+        const key = nameConflictKey(candidates[index].name)
+        if (seen.has(key)) {
+            findings.push({
+                index,
+                reason: "within-request",
+                message: `"${candidates[index].name.trim()}" appears more than once in this request`
+            })
+        } else if (existing_keys.has(key)) {
+            findings.push({
+                index,
+                reason: "exists",
+                message: `A ${label} named "${candidates[index].name.trim()}" already exists`
+            })
+        }
+        seen.add(key)
+    }
+    return findings
+}
+
+/**
+ * Conflict-detection hook for composer bulk creates: flags candidate names that already exist or repeat
+ * within the request, so the (UNIQUE) composers.name collision is reported by the dry-run/preview rather
+ * than only surfacing as an aborted atomic write.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param candidates the composer records about to be written (their names)
+ * @returns per-candidate name-conflict findings
+ */
+export async function findComposerNameConflicts(
+    ctx: ExecutionContext,
+    candidates: Array<{ name: string }>
+): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
+    return findNameConflicts(await listComposers(ctx), candidates, "composer")
+}
+
+/**
+ * Conflict-detection hook for contributor bulk creates: flags candidate names that already exist or repeat
+ * within the request (mirrors {@link findComposerNameConflicts} for the contributors.name UNIQUE column).
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param candidates the contributor records about to be written (their names)
+ * @returns per-candidate name-conflict findings
+ */
+export async function findContributorNameConflicts(
+    ctx: ExecutionContext,
+    candidates: Array<{ name: string }>
+): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
+    return findNameConflicts(await listContributors(ctx), candidates, "contributor")
+}
+
+/**
+ * Enforces that no two compositions share a composer, (normalized) name, and part, at the application model
+ * level. Checks the candidate triples against each other (catching duplicates inside a single bulk upload)
+ * and against every existing composition (excluding excludeId, so a record does not conflict with itself
+ * on update). This complements the composite UNIQUE index added in db_add_composition_part_unique.sql: the
+ * index is the authoritative guard, while this produces a clear, early error before the write is attempted
+ * and covers the cached read model uniformly across the single, batch, and update paths.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param candidates the (composer_id, name, part) triples about to be written
+ * @param excludeId a composition id to ignore among existing rows (the record being updated), if any
+ * @throws an Error naming the offending composition if a duplicate is found
+ */
+export async function findCompositionDuplicates(
+    ctx: ExecutionContext,
+    candidates: Array<{ composer_id: number; name: string; part: string | null }>,
+    excludeId?: number
+): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
+    const findings: Array<{ index: number; reason: "within-request" | "exists"; message: string }> = []
+    // collisions with existing compositions (excluding the record being updated, if any)
+    const existing = await listCompositions(ctx)
+    const existing_keys = new Set<string>()
+    if (existing) {
+        for (const composition of existing) {
+            if (excludeId !== undefined && composition.id === excludeId) {
+                continue
+            }
+            existing_keys.add(compositionDuplicateKey(composition.composer_id, composition.name, composition.part))
+        }
+    }
+    // walk candidates in order: an earlier candidate with the same key makes a later one a within-request
+    // duplicate; a match against existing rows is an "exists" duplicate
+    const seen = new Set<string>()
+    for (let index = 0; index < candidates.length; index++) {
+        const candidate = candidates[index]
+        const key = compositionDuplicateKey(candidate.composer_id, candidate.name, candidate.part)
+        if (seen.has(key)) {
+            findings.push({
+                index,
+                reason: "within-request",
+                message: `"${candidate.name.trim()}" appears more than once for the same composer in this request`
+            })
+        } else if (existing_keys.has(key)) {
+            findings.push({
+                index,
+                reason: "exists",
+                message: `A composition named "${candidate.name.trim()}" already exists for this composer`
+            })
+        }
+        seen.add(key)
+    }
+    return findings
+}
+
+/**
+ * Throwing wrapper over {@link findCompositionDuplicates} used on the write paths (single add, batch add,
+ * and update). Throws on the first duplicate so a write is never attempted when the (composer, name, part)
+ * invariant would be violated; the composite UNIQUE index remains the authoritative backstop.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param candidates the (composer_id, name, part) triples about to be written
+ * @param excludeId a composition id to ignore among existing rows (the record being updated), if any
+ * @throws an Error naming the offending composition if a duplicate is found
+ */
+async function _assertNoCompositionDuplicates(
+    ctx: ExecutionContext,
+    candidates: Array<{ composer_id: number; name: string; part: string | null }>,
+    excludeId?: number
+): Promise<void> {
+    const findings = await findCompositionDuplicates(ctx, candidates, excludeId)
+    if (findings.length > 0) {
+        throw new Error(findings[0].message)
+    }
+}
+
 export async function addComposition(ctx: ExecutionContext, record: Composition): Promise<number> {
+    // enforce the (composer, name, part) uniqueness invariant before writing (mirrors the composite UNIQUE index)
+    await _assertNoCompositionDuplicates(ctx, [
+        { composer_id: record.composer_id, name: record.name, part: record.part }
+    ])
     return await _addPrimitive(ctx, COMPOSITION, record)
+}
+
+/**
+ * Add several composition records to the database in a single atomic transaction.
+ *
+ * Enforces the (composer, name) uniqueness invariant across the batch and against existing rows before
+ * writing (see _assertNoCompositionDuplicates), then commits atomically (see _addPrimitiveBatch): either
+ * every record is inserted or none is. Records must otherwise be pre-validated (and their name references
+ * already resolved to ids) by the caller.
+ *
+ * @param ctx the Cloudflare Worker ExecutionContext
+ * @param records the composition records to add
+ * @returns the ids of the new records, in input order
+ * @throws an error on a duplicate (composer, name) or if the batch fails (nothing is written)
+ */
+export async function addCompositionsBatch(ctx: ExecutionContext, records: Composition[]): Promise<number[]> {
+    await _assertNoCompositionDuplicates(
+        ctx,
+        records.map((record) => ({ composer_id: record.composer_id, name: record.name, part: record.part }))
+    )
+    return await _addPrimitiveBatch(ctx, COMPOSITION, records)
 }
 
 /**
@@ -976,6 +1273,12 @@ export async function addComposition(ctx: ExecutionContext, record: Composition)
  * @throws an error if the record is invalid or if the id does not exist
  */
 export async function updateComposition(ctx: ExecutionContext, id: number, record: Composition): Promise<null> {
+    // enforce (composer, name, part) uniqueness, ignoring this record's own existing row
+    await _assertNoCompositionDuplicates(
+        ctx,
+        [{ composer_id: record.composer_id, name: record.name, part: record.part }],
+        id
+    )
     return await _updatePrimitive(ctx, COMPOSITION, id, record)
 }
 
@@ -993,6 +1296,25 @@ export async function updateCompositionPartial(
     id: number,
     record: Partial<Composition>
 ): Promise<null> {
+    // a partial update only risks a (composer, name, part) collision when it changes the name, composer, or
+    // part; resolve the effective triple from the patch (falling back to the current row for untouched
+    // fields) and enforce uniqueness, ignoring this record's own existing row
+    if (record.name !== undefined || record.composer_id !== undefined || record.part !== undefined) {
+        const current = await getComposition(ctx, "composition_id", id.toString())
+        if (current) {
+            await _assertNoCompositionDuplicates(
+                ctx,
+                [
+                    {
+                        composer_id: record.composer_id ?? current.composer_id,
+                        name: record.name ?? current.name,
+                        part: record.part !== undefined ? record.part : current.part
+                    }
+                ],
+                id
+            )
+        }
+    }
     return await _updatePrimitivePartial(ctx, COMPOSITION, id, record)
 }
 

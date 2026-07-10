@@ -66,7 +66,13 @@ export const contributor_interface_full: Record<string, FieldPair> = {
     roles: ["string[]", true],
     tags: ["string[]", true],
     active: ["boolean", false],
-    admin: ["boolean", false]
+    admin: ["boolean", false],
+    // github_username/github_user_id are protected linkage columns managed only through the dedicated,
+    // GitHub-verified linkage pages, so the create form renders no inputs for them. They are listed here
+    // as optional purely so generateObjectForm emits them as null (a new contributor is never linked);
+    // this satisfies the server's complete-mode record assertion, which rejects an absent (undefined) field.
+    github_username: ["string", true],
+    github_user_id: ["number", true]
 }
 
 export const contributor_interface_partial: Record<string, FieldPair> = {
@@ -153,6 +159,57 @@ export const interface_data: Record<
     }
 }
 
+/**
+ * CSV column schemas for the admin bulk-import pages (one entity type per file).
+ *
+ * List-valued cells (tags, contrib_addl, author_secondary) use a semicolon (";") as the in-cell separator,
+ * since the comma is the CSV field delimiter. Composition rows reference composers and contributors by
+ * NAME (resolved to ids client-side before submission); "contribution_period" is a free-text column the
+ * admin maps to phase numbers during the import preview.
+ */
+export const CSV_LIST_SEPARATOR = ";"
+
+export const composer_csv_columns = [
+    "name",
+    "role",
+    "birth_year",
+    "death_year",
+    "country",
+    "bio",
+    "image",
+    "tags"
+]
+
+// contributors import as name-only inactive placeholders; extra columns are permitted but ignored
+export const contributor_csv_columns = ["name"]
+
+export const composition_csv_columns = [
+    "name",
+    "composer", // composer name -> composer_id
+    "contrib_primary_1", // contributor name -> id (required)
+    "contrib_primary_2", // contributor name -> id (optional)
+    "contrib_addl", // ";"-separated contributor names -> ids (optional)
+    "author_secondary", // ";"-separated composer names -> ids (optional)
+    "type",
+    "part",
+    "key",
+    "range",
+    "position_highest",
+    "notes_pedagogical",
+    "notes_historical",
+    "notes_other",
+    "image",
+    "rating_suzuki",
+    "rating_nyssma",
+    "publish_name",
+    "publish_location",
+    "publish_year",
+    "uri_type",
+    "uri",
+    "contribution_period", // free-text; mapped to phases in the preview
+    "tags"
+]
+
 export const rating_constructor: Record<string, FieldPair> = {
     suzuki: ["number", false],
     nyssma: ["number", false]
@@ -194,6 +251,23 @@ export function constructRating(suzuki: string | null, nyssma: string | null): C
         suzuki: suzuki_num,
         nyssma: nyssma_num
     }
+}
+
+/**
+ * Names which rating member(s) are non-blank but out of range, so a caller building a preview (e.g. the CSV
+ * import) can surface exactly what `constructRating` silently rejected instead of committing a bare `null`
+ * rating that is indistinguishable from "not rated". A blank member is never an issue; only a present-but-
+ * invalid one is.
+ */
+export function ratingIssues(suzuki: string | null, nyssma: string | null): string[] {
+    const issues: string[] = []
+    if (parseNullableRating(suzuki, 1, 10) === undefined) {
+        issues.push("invalid value for rating_suzuki (expected an integer 1-10, or blank)")
+    }
+    if (parseNullableRating(nyssma, 1, 6) === undefined) {
+        issues.push("invalid value for rating_nyssma (expected an integer 1-6, or blank)")
+    }
+    return issues
 }
 
 export function constructPubInfo(

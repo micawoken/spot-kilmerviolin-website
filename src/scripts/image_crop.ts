@@ -1,15 +1,15 @@
 /**
  * scripts/image_crop.ts
  *
- * Shared types and constants for the image crop interface. The interactive UI itself lives in the
- * components/ImageCrop.astro component (its markup is declared statically there and wired by its own
- * scoped script); this module only holds the pieces that are shared across the boundary — the
- * CropSelection shape the connector forwards as the upload's crop_* form fields, and the canonical output
- * dimensions the client uses to decide when a (cropped) region is small enough to be upscaled.
+ * Shared types for the image crop interface. The interactive UI itself lives in the
+ * components/ImageCrop.astro component (its markup is declared statically there and wired by the static
+ * public/js/image-crop.js it loads); this module only holds the cross-boundary shapes the connector and
+ * host pages reference — the CropSelection forwarded as the upload's crop_* form fields, and the
+ * ImageCropChangeDetail carried by the component's `imagecrop:change` event.
  *
- * The canonical dimensions mirror CANON_PORTRAIT / CANON_LANDSCAPE in lib/api/images.ts — keep them in
- * sync. They live here (not imported from the server module) because that module imports
- * "cloudflare:workers", which cannot be pulled into a browser bundle.
+ * The canonical output dimensions the crop UI compares against (CLIENT_CANON / CLIENT_RATIO) now live in
+ * public/js/image-crop.js, since that static file cannot import a bundled module; they mirror
+ * CANON_PORTRAIT / CANON_LANDSCAPE in lib/api/images.ts — keep the two in sync.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -35,18 +35,6 @@ export interface CropSelection {
     y: number
     w: number
     h: number
-}
-
-/** The two canonical output shapes, in pixels, keyed by orientation (mirrors lib/api/images.ts). */
-export const CLIENT_CANON: Record<CropSelection["aspect"], { w: number; h: number }> = {
-    portrait: { w: 1280, h: 1600 },
-    landscape: { w: 1600, h: 1280 }
-}
-
-/** The width:height ratio of each canonical shape, used to aspect-lock the crop box. */
-export const CLIENT_RATIO: Record<CropSelection["aspect"], number> = {
-    portrait: CLIENT_CANON.portrait.w / CLIENT_CANON.portrait.h,
-    landscape: CLIENT_CANON.landscape.w / CLIENT_CANON.landscape.h
 }
 
 /**

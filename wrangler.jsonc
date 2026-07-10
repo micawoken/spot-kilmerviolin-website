@@ -8,7 +8,9 @@
 	"account_id": "49d973b0738799edc1a8edac208b35be",
 	// the current website route
 	"workers_dev": true,
-	"routes": [],
+	"routes": [
+		{ "pattern": "kilmer.nrnnet.xyz", "custom_domain": true }
+	],
 	// preview_urls must stay enabled for the "staging" preview alias to resolve (it otherwise
 	// defaults to follow workers_dev); set explicitly so the staging deploy does not silently break
 	"preview_urls": true,
@@ -27,9 +29,12 @@
 		"CACHE_API_TTL": 7200, // 2 hours
 		"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
 		"KV_CACHE_TTL": 57600, // 16 hours
-		"CF_ACCESS_LIST_ID": "a7696af3-f1d7-4593-85a6-1e152390562f", // points to the list reusable component used by the access policy, which is used by the access application
+		// REPLACE with the reusable Access policy ID the worker manages (Zero Trust > Access controls > Policies >
+		// your policy; the ID is the last path segment of the URL). The worker edits this policy's inline email
+		// include rules directly — it no longer references a reusable email list. See DEPLOY.md.
+		"CF_ACCESS_POLICY_ID": "a3d93ba0-643b-4dd6-b651-8ceafb66782d",
 		"CF_ACCOUNT_ID": "49d973b0738799edc1a8edac208b35be", // the account ID
-		"CF_ACCESS_AUD": "0d075cefe6325b9fe0ccc4911081ee79708d3261c24cb0dce26f40286b0dfdf6", // the aud for the Access policy to validate the JWT against
+		"CF_ACCESS_AUD": "c4cc189f52d80c62581f358cb9650e332a13613d8ed7990c3acb3dee897fb776", // the aud for the Access policy to validate the JWT against
 		"GITHUB_REPO_OWNER": "micawoken",
 		"GITHUB_REPO_NAME": "entrusting-devilish-fish",
 		// the external Pages CMS sync endpoint that mirrors CMS-editor authorization into its collaborator
@@ -54,7 +59,9 @@
 			"CF_ACCESS_TOKEN",
 			"CF_DEPLOY_HOOK",
 			"GITHUB_ADMIN_TOKEN",
-			"PAGES_CMS_SYNC_SECRET"
+			"PAGES_CMS_SYNC_SECRET",
+			"CF_ACCESS_CLIENT_ID",
+			"CF_ACCESS_CLIENT_SECRET"
 		]
 	},
 	// api bindings
@@ -67,6 +74,13 @@
 			"binding": "DB_MAIN",
 			"database_name": "spot-kilmerviolin-db",
 			"database_id": "ea3e0315-08a4-4495-9f8f-6839ef876ddf"
+		},
+		// EmDash CMS content store (separate from DB_MAIN to isolate the beta schema). EmDash creates and
+		// migrates its own tables automatically on first request. Provisioned via `wrangler d1 create emdash-db`.
+		{
+			"binding": "EMDASH_DB",
+			"database_name": "emdash-db",
+			"database_id": "57fc50e6-9b49-401a-b861-0f1163944e0f"
 		}
 	],
 	"kv_namespaces": [
@@ -79,6 +93,12 @@
 		{
 			"binding": "R2_FILES",
 			"bucket_name": "spot-kilmerviolin-files"
+		},
+		// EmDash CMS media library (separate from R2_FILES, the admin composition-image pool). Create with
+		// `wrangler r2 bucket create emdash-media` (owner action).
+		{
+			"binding": "EMDASH_MEDIA",
+			"bucket_name": "emdash-media"
 		}
 	],
 	"images": {
@@ -101,7 +121,7 @@
 			"name": "RL_API_PUBLIC", // applied to the public API, intended to backstop against overwhelming request volumes
 			"namespace_id": "1002", // applies globally to all users
 			"simple": {
-				"limit": 1000, // hits to ths rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (since those are SSR)
+				"limit": 1000, // hits to this rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (public pages are prerendered static assets served from ASSETS, so they never reach the worker)
 				"period": 60
 			}
 		},

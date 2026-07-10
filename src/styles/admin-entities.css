@@ -1257,3 +1257,96 @@ main.admin-main {
 	max-width: 100%;
 	margin: 0;
 }
+/* ----------------------------------------------------------------------------
+ * CSV bulk-import pages (admin/{composers,contributors,works}/import)
+ *
+ * The editable preview grid renders one text input per CSV column plus a per-row status/delete cell, so a
+ * file can be "cured" in place before import. The table can be wide (compositions have many columns), so it
+ * scrolls horizontally within its container rather than forcing the page wider.
+ * ------------------------------------------------------------------------- */
+
+.import-controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin: 12px 0;
+}
+
+#import-error {
+	color: var(--color-danger);
+	white-space: pre-wrap;
+}
+
+#import-grid {
+	overflow-x: auto;
+}
+
+.import-grid-table {
+	border-collapse: collapse;
+	font-size: 0.85rem;
+}
+
+.import-grid-table th,
+.import-grid-table td {
+	border: 1px solid var(--shade-4);
+	padding: 2px 4px;
+	vertical-align: top;
+}
+
+.import-grid-table th {
+	text-align: left;
+	white-space: nowrap;
+}
+
+.import-grid-table input {
+	min-width: 8ch;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+}
+
+.import-grid-table input:focus {
+	outline: 1px solid var(--shade-7);
+}
+
+.import-issue {
+	white-space: pre-wrap;
+	min-width: 20ch;
+}
+
+.import-issue-ok {
+	color: var(--color-success);
+}
+
+.import-issue-error {
+	color: var(--color-danger);
+}
+
+/* a row flagged by client resolution or the server dry-run */
+.import-grid-table tr.import-row-error td {
+	background: var(--color-danger-bg);
+}
+
+/* the specific input(s) a server/client issue named, so the exact box to fix is obvious */
+.import-grid-table input.import-input-error {
+	outline: 2px solid var(--color-danger);
+	background: var(--color-danger-bg);
+}
+
+.import-phasemap-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin: 4px 0;
+}
+
+.import-phasemap-row span {
+	min-width: 20ch;
+	font-weight: 600;
+}
+
+#transaction-status {
+	white-space: pre-wrap;
+}

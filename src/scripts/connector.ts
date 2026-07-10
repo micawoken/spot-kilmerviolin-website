@@ -229,6 +229,25 @@ function jsonInit(method: string, item?: unknown, meta?: object | null): Request
 }
 
 /**
+ * Builds a RequestInit for a bulk API call.
+ *
+ * Unlike {@link jsonInit}, the items array is sent as-is (not wrapped), and the `bulk` meta signal is set
+ * automatically (the server requires it for multi-item bodies). Extra meta (e.g. `dry_run`) is merged in.
+ *
+ * @param method the HTTP method
+ * @param items the body items to send (sent as a JSON array)
+ * @param meta optional extra request-meta merged with `{ bulk: true }`
+ * @returns the assembled fetch init
+ */
+function jsonInitBulk(method: string, items: unknown[], meta?: object | null): RequestInit {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...constructMeta({ ...(meta ?? {}), bulk: true })
+    }
+    return { method, headers, body: JSON.stringify(items) }
+}
+
+/**
  * Issues a request and returns the interpreted response payload (or null).
  *
  * @param url the request URL
@@ -260,6 +279,63 @@ async function requestVoid(
     if (payload_data !== null) {
         throw new Error(`Unexpected response payload for ${operation} operation: ${JSON.stringify(payload_data)}`)
     }
+}
+
+// BULK CREATE (CSV import)
+
+/**
+ * The noun of a bulk-creatable entity endpoint.
+ */
+export type BulkNoun = "composers" | "contributors" | "works"
+
+/**
+ * The per-row report returned by a bulk dry-run (meta.dry_run = true): the server validated, authorized,
+ * and conflict-checked every row without writing anything. `ok` is true only when every row is clean.
+ */
+export interface BulkDryRunReport {
+    dry_run: true
+    ok: boolean
+    count: number
+    rows: Array<{ index: number; ok: boolean; issues: string[] }>
+}
+
+/**
+ * POST /api/v1/{noun} with the bulk contract, dry-run mode.
+ *
+ * Submits the items for server-side validation/authorization/conflict-checking and returns the per-row
+ * report; nothing is written. Backs the import preview.
+ *
+ * @param noun the entity endpoint (composers | contributors | works)
+ * @param items the candidate records (already name-resolved for compositions)
+ * @returns the dry-run report
+ */
+export async function bulkDryRun(noun: BulkNoun, items: unknown[]): Promise<BulkDryRunReport> {
+    const payload = await requestPayload(composeUrl(noun), jsonInitBulk("POST", items, { dry_run: true }))
+    return payload as BulkDryRunReport
+}
+
+/**
+ * POST /api/v1/{noun} with the bulk contract, commit mode.
+ *
+ * Commits the items in a single atomic transaction (all-or-nothing) and returns the new ids in order. A
+ * single-item array is accepted (the server returns its Location, which is normalized here to a one-element
+ * id array) so callers need not special-case count.
+ *
+ * @param noun the entity endpoint (composers | contributors | works)
+ * @param items the records to create
+ * @returns the ids of the created records, in input order
+ */
+export async function bulkCreate(noun: BulkNoun, items: unknown[]): Promise<number[]> {
+    const payload = await requestPayload(composeUrl(noun), jsonInitBulk("POST", items), "Location")
+    if (Array.isArray(payload)) {
+        return payload as number[]
+    }
+    // single-item commit returns a Location header (normalized to a string by the parser)
+    const id = stripAPILocation(String(payload))
+    if (id !== null) {
+        return [id]
+    }
+    throw new Error(`Unexpected bulk create response: ${JSON.stringify(payload)}`)
 }
 
 // API REQUEST FUNCTIONS

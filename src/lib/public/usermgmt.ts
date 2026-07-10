@@ -663,11 +663,17 @@ export async function authorizeGithub(ctx: ExecutionContext, id: number): Promis
     if (account === null) {
         throw new Error("The linked GitHub account no longer exists; clear and re-link the username")
     }
-    await addCollaborator(account.login)
     if (account.login !== record.github_username) {
         // the account was renamed since linking; follow it so the stored username stays accurate
         await updateContributorPartial(ctx, id, { github_username: account.login }, true)
     }
+    // the repository owner already holds full access and GitHub refuses to add them as a collaborator
+    // (the PUT returns a non-2xx that would otherwise surface as a hard failure); treat authorizing the
+    // owner as a no-op, mirroring the owner protection in deauthorizeGithub / deleteGithubLink
+    if (isOwner(account.login)) {
+        return
+    }
+    await addCollaborator(account.login)
 }
 
 /**

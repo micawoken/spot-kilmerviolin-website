@@ -1,10 +1,22 @@
-name: Deploy Worker to Staging
+name: Staging preview (release gate)
+# Builds a non-live preview whenever a release into main is proposed. This is the required
+# status check on main: the PR cannot merge until this job succeeds. Triggering on the PR (not
+# on every push to staging) means a preview is built only when a release is actually proposed,
+# and only rebuilt when the PR gains new commits.
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches:
-      - staging
+      - main
+
+# One preview build per PR; cancel a superseded run when new commits arrive so redundant
+# uploads do not stack up.
+concurrency:
+  group: staging-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
-  deploy:
+  staging-preview:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 60

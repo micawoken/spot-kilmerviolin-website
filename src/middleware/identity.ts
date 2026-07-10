@@ -98,6 +98,11 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             whoami: { access: { kind: "any" } }
         }
     },
+    // the CSV bulk-import pages perform non-self assignment (e.g. naming contributors on compositions) and
+    // commit many records at once, so they are admin-only regardless of the underlying endpoint's default
+    composers: { children: { import: { access: { kind: "admin" } } } },
+    contributors: { children: { import: { access: { kind: "admin" } } } },
+    works: { children: { import: { access: { kind: "admin" } } } },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
     profile: { access: { kind: "any" } },
@@ -153,15 +158,22 @@ export const identity: MiddlewareHandler = async (context, next) => {
         return next()
     }
 
-    if (path_components.length > 0 && path_components[0] !== "api" && path_components[0] !== "admin") {
-        // the request path does not require authentication and authorization (not api, not admin)
-        return next()
+    // the app-authenticated surfaces (both 404'd on staging); /_emdash is not app-authenticated (EmDash's
+    // own Cloudflare Access adapter gates it) but is likewise hidden on the staging preview.
+    const isAppProtected = path_components[0] === "api" || path_components[0] === "admin"
+    const isEmDash = path_components[0] === "_emdash"
+
+    // staging serves only public-facing pages; the app admin UI, the API, and the EmDash CMS admin are
+    // disabled there. Respond 404 to hide their existence (staging needs no auth secrets as a result).
+    if ((isAppProtected || isEmDash) && detectEnvironment(context.request) === "staging") {
+        return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
     }
 
-    // staging serves only public-facing pages; the admin UI and the API are disabled there.
-    // Respond 404 to hide their existence (staging needs no auth secrets as a result).
-    if (detectEnvironment(context.request) === "staging") {
-        return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
+    if (!isAppProtected) {
+        // the request path does not require app authentication (not api, not admin) — EmDash routes reach
+        // here in the non-staging environments and are gated by EmDash's own Access adapter, not this
+        // middleware.
+        return next()
     }
 
     // the request path requires authentication and authorization

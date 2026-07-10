@@ -21,7 +21,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { createAPIPayload } from "./common"
+import { createAPIPayload, sanitizeInputStrings } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
 import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
@@ -189,6 +189,12 @@ export const API_headers = {
  * Content types that are safe to serve inline (everything else is downloaded)
  */
 export const INLINE_SAFE_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
+
+/**
+ * Maximum number of items a single bulk create request may carry. Bounds the size of an atomic D1 batch
+ * (and the work done validating/committing it) while comfortably covering a realistic CSV upload.
+ */
+export const MAX_BULK_ITEMS = 999
 
 /**
  * HTTP status codes used in constructResponse()
@@ -462,6 +468,168 @@ export function constructResponseErrorHook(
 }
 
 /**
+ * Per-entity behavior injected into {@link handleBulkCreate}. Keeping the create contract (envelope
+ * checks, the bulk signal gate, per-item validation, the dry-run report, and the single-vs-many response
+ * shape) in one place means the composers/contributors/works endpoints cannot drift apart; only the parts
+ * that genuinely differ (which validator, which authorization rule, which conflict check, how to commit,
+ * and the Location path) are supplied per endpoint.
+ */
+export interface BulkCreateHandlers<T> {
+    /** Validate/type-assert one raw item; return the typed record, or an error string. */
+    validate: (item: unknown) => T | string
+    /** Optional per-record authorization (e.g. works' canCreate); return an error message (→403) or null. */
+    authorize?: (record: T, index: number) => string | null
+    /**
+     * Optional conflict detection across the whole valid set (e.g. composition (composer, name) duplicates).
+     * Receives the valid records in payload order and returns issues indexed into that same array.
+     */
+    detectConflicts?: (records: T[]) => Promise<Array<{ index: number; message: string }>>
+    /** Commit exactly one record, returning its new id (used for the single-item, backward-compatible path). */
+    commitOne: (record: T) => Promise<number>
+    /** Commit many records in one atomic transaction, returning their new ids in order. */
+    commitBatch: (records: T[]) => Promise<number[]>
+    /** Build the Location header path for a newly created id (single-item responses only). */
+    location: (id: number) => string
+}
+
+/**
+ * Shared implementation of the bulk-capable create endpoints (POST composers/contributors/works).
+ *
+ * Contract:
+ * - The body must be a non-empty array of at most {@link MAX_BULK_ITEMS} items.
+ * - A request carrying more than one item must set the `bulk` meta signal (`meta.bulk = true`); a single
+ *   item needs no signal and keeps the original response shape (201 + Location header), so existing
+ *   single-record callers are unaffected.
+ * - The `dry_run` meta flag (`meta.dry_run = true`) validates, authorizes, and conflict-checks every row
+ *   and returns a per-row report **without writing anything** — this backs the import preview.
+ * - On commit, every item is validated (400 with per-index errors on any failure), authorized (403), and
+ *   conflict-checked (409) before a single atomic batch write; a single item returns its Location, many
+ *   items return the id array.
+ *
+ * @param request the inbound request (for response construction)
+ * @param api_request the parsed request (payload array + optional meta); parse with `parseAPIRequest(request, [])`
+ * @param handlers the per-entity behavior (see {@link BulkCreateHandlers})
+ * @returns the Response to return from the endpoint
+ */
+export async function handleBulkCreate<T>(
+    request: Request,
+    api_request: { payload: unknown; meta?: Record<string, string | boolean | number | null> },
+    handlers: BulkCreateHandlers<T>
+): Promise<Response> {
+    const payload = api_request.payload
+    if (payload === null || !Array.isArray(payload) || payload.length === 0) {
+        return constructResponse(request, null, 400, "Invalid request body: must be a non-empty array")
+    }
+    if (payload.length > MAX_BULK_ITEMS) {
+        return constructResponse(
+            request,
+            null,
+            400,
+            `Invalid request body: too many items (maximum ${MAX_BULK_ITEMS} per request)`
+        )
+    }
+    // multi-item writes must be explicit: this prevents a client that expects single-item semantics from
+    // accidentally committing several records, and makes the bulk contract opt-in
+    if (payload.length > 1 && api_request.meta?.bulk !== true) {
+        return constructResponse(
+            request,
+            null,
+            400,
+            "Invalid request body: multiple items require the 'bulk' meta signal (set meta.bulk = true)"
+        )
+    }
+    const dry_run = api_request.meta?.dry_run === true
+
+    // clean up every item up front (trim whitespace, straighten curly quotes) so the sanitized data is what
+    // gets validated, conflict-checked, and committed. This is the single data-write choke point, so it
+    // covers both the single-item and bulk paths for composers/contributors/works.
+    for (let i = 0; i < payload.length; i++) {
+        payload[i] = sanitizeInputStrings(payload[i])
+    }
+
+    // per-item validation, preserving original indices for reporting
+    const valid: Array<{ index: number; record: T }> = []
+    const validation_errors: Array<{ index: number; error: string }> = []
+    for (let i = 0; i < payload.length; i++) {
+        const result = handlers.validate(payload[i])
+        if (typeof result === "string") {
+            validation_errors.push({ index: i, error: result })
+        } else {
+            valid.push({ index: i, record: result })
+        }
+    }
+
+    // per-record authorization (only meaningful for records that passed validation)
+    const forbidden: Array<{ index: number; error: string }> = []
+    if (handlers.authorize) {
+        for (const { index, record } of valid) {
+            const message = handlers.authorize(record, index)
+            if (message) {
+                forbidden.push({ index, error: message })
+            }
+        }
+    }
+
+    // conflict detection across the valid set, remapped back to original payload indices
+    const conflicts: Array<{ index: number; error: string }> = []
+    if (handlers.detectConflicts && valid.length > 0) {
+        const raw = await handlers.detectConflicts(valid.map((v) => v.record))
+        for (const issue of raw) {
+            conflicts.push({ index: valid[issue.index].index, error: issue.message })
+        }
+    }
+
+    if (dry_run) {
+        // return a full per-row report; write nothing. Each row lists every issue found for it.
+        const rows = []
+        for (let i = 0; i < payload.length; i++) {
+            const issues: string[] = []
+            for (const list of [validation_errors, forbidden, conflicts]) {
+                for (const entry of list) {
+                    if (entry.index === i) {
+                        issues.push(entry.error)
+                    }
+                }
+            }
+            rows.push({ index: i, ok: issues.length === 0, issues })
+        }
+        const ok = rows.every((row) => row.ok)
+        return constructResponse(request, { dry_run: true, ok, count: payload.length, rows }, 200)
+    }
+
+    // commit path: fail with the specific reason before writing anything
+    if (validation_errors.length > 0) {
+        return constructResponse(
+            request,
+            { errors: validation_errors },
+            400,
+            "Invalid request body: one or more items are invalid"
+        )
+    }
+    if (forbidden.length > 0) {
+        return constructResponse(request, { errors: forbidden }, 403, "Forbidden: one or more items are not permitted")
+    }
+    if (conflicts.length > 0) {
+        return constructResponse(request, { errors: conflicts }, 409, "Conflict: one or more items already exist")
+    }
+
+    const records = valid.map((v) => v.record)
+    try {
+        if (records.length === 1) {
+            // single-item requests keep the original 201 + Location response for backward compatibility
+            const id = await handlers.commitOne(records[0])
+            return constructResponse(request, null, 201, undefined, { Location: handlers.location(id) })
+        }
+        const ids = await handlers.commitBatch(records)
+        return constructResponse(request, ids, 201)
+    } catch (error) {
+        // the atomic batch (or single insert) failed; the SQLite hook maps constraint violations (incl. the
+        // composite composition uniqueness index) to their proper 4xx codes, else this is an unexpected 500
+        return constructResponseErrorHook(request, error, 500, "Error adding records")
+    }
+}
+
+/**
  * Check if an error can be processed by the SQLite error hook
  *
  * @param {any} error - the error to check
@@ -559,6 +727,14 @@ export function middlewareErrorResponder(
     force_comment?: string,
     identity_email?: string | null
 ): Response {
+    // API routes expect the standard JSON envelope every other API response uses. Returning the HTML
+    // error page for a middleware rejection (e.g. the CSRF origin check, a 401/403, or the staging 404)
+    // makes the failure opaque to the connector's JSON parser, which surfaces only a parse error rather
+    // than the actual cause. Page navigations still receive the human-readable HTML fallback below.
+    const path_components = new URL(request.url).pathname.split("/").filter((component) => component.length > 0)
+    if (path_components[0] === "api") {
+        return constructResponse(request, null, code, force_comment)
+    }
     const { statusText, comment } = http_codes[code]
     const data = fillErrorTemplate(
         code,
@@ -745,6 +921,22 @@ const sqlite_errors_extended: Record<string, SQLiteErrorMsg> = {
  * @return {[boolean, number, string]} [whether the error was processed, the HTTP status code to return, the message to return]
  */
 function processConstraintUnique(error_message: string): [boolean, number, string] {
+    // the composite composition-identity index is an EXPRESSION index (composer_id, name, COALESCE(part,'')),
+    // so SQLite reports the violation by index name — "UNIQUE constraint failed: index
+    // 'idx_compositions_composer_name_part'" — rather than listing columns. Match that (and the older
+    // column-listing form of the pre-part index, in case it lingers) so the (composer, name, part) violation
+    // gets a clear message rather than falling through to the generic default. Mirrors
+    // _assertNoCompositionDuplicates.
+    if (
+        /UNIQUE constraint failed: index 'idx_compositions_composer_name_part'/.test(error_message) ||
+        /UNIQUE constraint failed: compositions\.composer_id,\s*compositions\.name/.test(error_message)
+    ) {
+        return [
+            true,
+            409,
+            `Invalid request body: a composition with this name and part already exists for this composer`
+        ]
+    }
     // pulls out the column name and compares it with the schema
     const regex = /UNIQUE constraint failed: (\w+)\.(\w+)/
     const match = error_message.match(regex)
