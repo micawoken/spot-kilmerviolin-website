@@ -14,8 +14,8 @@ The Astro worker is a Cloudflare Worker powering a website using the Astro frame
 2. Install dependencies - run *pnpm install*
 3. Log into your Cloudflare Account: *npx wrangler login*
 4. Set your secrets using *npx wrangler secret put [SECRET NAME]*
-- CF_ACCESS_TOKEN: a Cloudflare Account API token granting access to:
-  - Zero Trust (Read and Write)
+- CF_ACCESS_TOKEN: a Cloudflare Account API token scoped to:
+  - Access: Policies (Read and Edit) — account-level. This is all the worker needs to manage enrollment; it edits the reusable Access policy's inline email rules directly. Do NOT grant the broad "Zero Trust (Read and Write)" scope — the worker no longer touches Gateway lists.
 - CF_DEPLOY_HOOK: the last part of the deploy hook URL that the site can call to trigger a rebuild using Worker Builds
   - Create a deploy hook URL at cloudflare.com > Compute > Workers > (your worker) > Settings > Deploy Hooks. Only put the part after .../builds/deploy_hooks/[**secret**]
 - GITHUB_ADMIN_TOKEN: a GitHub account token granting read access to metadata and read/write access to administration
@@ -28,8 +28,9 @@ The Astro worker is a Cloudflare Worker powering a website using the Astro frame
 6. Configure your wrangler.jsonc file:
 - Set up your vars:
   - Cloudflare account ID, in both places (key "account_id", and key "CF_ACCOUNT_ID" in the vars binding)
-  - CF_ACCESS_LIST_ID: the ID of the Zero Trust reusable component, accessible at Zero Trust > Reusable Components > Lists > (your list): it is the last part of the URL, after /lists/**list_id**
-    - To create a new list: Zero Trust > Reusable Components > Lists > Create manual list; list type is email
+  - CF_ACCESS_POLICY_ID: the ID of the **reusable** Access policy the worker manages, at Zero Trust > Access controls > Policies > (your policy): it is the last part of the URL, after /policies/**policy_id**
+    - The worker adds/removes contributor emails as inline `email` include rules on this policy (no reusable email list is used). Any other rules you set on the policy (groups, service tokens, etc.) are preserved.
+    - The policy must be **reusable** (account-scoped). If your Access app still uses a legacy per-app policy, convert it first: `PUT /accounts/{account_id}/access/apps/{app_id}/policies/{policy_id}/make_reusable` (needs Access: Apps and Policies Edit for that one-time call).
   - CF_ACCESS_AUD: the AUD tag of the Zero Trust Access Policy, accessible at Zero Trust > Applications > (your application name) > Additional settings > AUD tag
     - To create an Access application: Zero Trust > Applications > Create new application
   - GITHUB_REPO_OWNER: the username of the GitHub account to host the repository
