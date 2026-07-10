@@ -38,4 +38,4 @@ export const NOT_PROVIDED = "(not provided)"
 // (scheme://host[:port]) so the scheme and port are constrained, not just the hostname — an
 // http:// or alternate-port variant of an allowed host is not accepted. Add future production
 // domains here as they come online.
-export const ALLOWED_ORIGINS: string[] = ["https://spot-kilmer-violin-website.mwmsc.workers.dev"]
+export const ALLOWED_ORIGINS: string[] = ["https://kilmer.nrnnet.xyz", "https://spot-kilmerviolin.nrnnetint.workers.dev"]

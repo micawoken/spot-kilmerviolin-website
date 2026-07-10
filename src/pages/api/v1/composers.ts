@@ -23,10 +23,15 @@
 
 import type { APIRoute } from "astro"
 import { _stateTypeAssertCompleteComposer } from "../../../lib/api/d1"
-import { addComposer, listComposers } from "../../../lib/api/database"
+import {
+    addComposer,
+    addComposersBatch,
+    listComposers,
+    findComposerNameConflicts
+} from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook, lastModifiedHeader } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook, handleBulkCreate, lastModifiedHeader } from "../../../lib/api/http"
 
 /**
  * GET /api/v1/composers
@@ -83,15 +88,20 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * POST /api/v1/composers
- * Adds a new composer record, returning the location
+ * Adds one or more composer records atomically, returning the new id(s)
  *
  * Permissions required: none
  *
- * Meta: none
- * Body: required, Composer[] single item
+ * Meta: optional
+ * Meta fields:
+ * - bulk: {boolean} required to be true when the body carries more than one item (a single item needs no signal)
+ * - dry_run: {boolean} if true, validate every item and return a per-row report without writing anything
+ *
+ * Body: required, Composer[] (1..MAX_BULK_ITEMS items)
+ * Response: a single item returns 201 + Location (unchanged); multiple items return 201 with the id array
  *
  * @param context - the Astro API context
- * @return a Response object with the ID of the new record, or an error
+ * @return a Response object with the ID(s) of the new record(s), or an error
  *
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
@@ -101,26 +111,20 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request
-    const api_request = await parseAPIRequest(request)
+    // parse api request (meta parsed so the bulk/dry_run signals are honored)
+    const api_request = await parseAPIRequest(request, [])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    // check if the payload is not null and has a length of 1
-    if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
-        return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
-    }
-    // validate the payload as a complete composer record
-    const record: Composer | string = _stateTypeAssertCompleteComposer(api_request.payload[0], false)
-    if (typeof record === "string") {
-        return constructResponse(request, null, 400, `Invalid request body: ${record}`)
-    }
-    try {
-        const new_id = await addComposer(context.locals.cfContext, record)
-        return constructResponse(request, null, 201, undefined, {
-            Location: `/api/v1/composers/${new_id}`
-        })
-    } catch (error) {
-        return constructResponseErrorHook(request, error, 500, "Error adding composer record")
-    }
+    return handleBulkCreate<Composer>(request, api_request, {
+        validate: (item) => _stateTypeAssertCompleteComposer(item, false),
+        detectConflicts: (records) =>
+            findComposerNameConflicts(
+                context.locals.cfContext,
+                records.map((record) => ({ name: record.name }))
+            ),
+        commitOne: (record) => addComposer(context.locals.cfContext, record),
+        commitBatch: (records) => addComposersBatch(context.locals.cfContext, records),
+        location: (id) => `/api/v1/composers/${id}`
+    })
 }

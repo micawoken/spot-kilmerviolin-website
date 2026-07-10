@@ -1,0 +1,34 @@
+---
+/**
+ * pages/privacy-policy.astro
+ *
+ * Static privacy policy page. Prerendered like the rest of the public site (see src/pages/[...slug].astro).
+ * Placeholder copy until the final policy text is provided.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import PublicPage from "../layouts/PublicPage.astro"
+
+export const prerender = true
+---
+
+<PublicPage title="Privacy Policy" description="How this site handles your information.">
+    <article>
+        <h1>Privacy Policy</h1>
+        <p>This page is a placeholder. The full privacy policy will be published here.</p>
+    </article>
+</PublicPage>

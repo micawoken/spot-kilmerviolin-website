@@ -122,6 +122,8 @@ export enum AuthorRole {
     COMPOSER = "composer",
     ARRANGER = "arranger",
     LYRICIST = "lyricist",
+    TRANSCRIBER = "transcriber",
+    EDITOR = "editor",
     OTHER = "other"
 }
 
@@ -698,6 +700,48 @@ export function createAPIPayload(success: boolean, payload: any | null, comment:
  */
 export function errorAPIPayload(comment: string): APIResponse {
     return createAPIPayload(false, null, comment)
+}
+
+/**
+ * Replaces the common "smart"/curly quotation marks with their straight ASCII equivalents. Word processors
+ * and spreadsheets (a likely source of pasted or CSV-imported data) auto-substitute these, which then break
+ * exact-match lookups and look inconsistent in stored text.
+ *
+ * @param value the string to normalize
+ * @returns the string with curly single/double quotes converted to ' and "
+ */
+function straightenQuotes(value: string): string {
+    return value
+        .replace(/[‘’‚‛′]/g, "'") // ‘ ’ ‚ ‛ ′ → '
+        .replace(/[“”„‟″]/g, '"') // “ ” „ ‟ ″ → "
+}
+
+/**
+ * Recursively cleans up user-supplied input for a data write: every string is trimmed of leading/trailing
+ * whitespace and has its curly quotes straightened; objects and arrays are walked and rebuilt, and all other
+ * values pass through unchanged. Returns a cleaned copy (the input is not mutated). Applied on the data POST
+ * path (see handleBulkCreate) so pasted/CSV-imported records are normalized before validation and storage;
+ * it is deliberately not wired into the generic request parser, which also serves auth/identity/command
+ * endpoints whose payloads must be preserved verbatim.
+ *
+ * @param value the value to sanitize (a record, array, or scalar)
+ * @returns a sanitized copy of the value
+ */
+export function sanitizeInputStrings<T>(value: T): T {
+    if (typeof value === "string") {
+        return straightenQuotes(value).trim() as unknown as T
+    }
+    if (Array.isArray(value)) {
+        return value.map((element) => sanitizeInputStrings(element)) as unknown as T
+    }
+    if (value !== null && typeof value === "object") {
+        const cleaned: Record<string, unknown> = {}
+        for (const [key, element] of Object.entries(value)) {
+            cleaned[key] = sanitizeInputStrings(element)
+        }
+        return cleaned as unknown as T
+    }
+    return value
 }
 
 /**

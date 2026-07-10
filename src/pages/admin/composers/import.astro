@@ -1,0 +1,70 @@
+---
+/**
+ * pages/admin/composers/import.astro
+ *
+ * Admin-only CSV bulk import for composers (upload → editable preview → server dry-run → atomic commit).
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { composer_csv_columns } from "../../../scripts/types"
+
+export const prerender = false
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Import Composers`} description="Bulk-import composers from a CSV file" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Import Composers from CSV</h2>
+            <p class="general-infohelp">
+                Upload a CSV file whose header row contains these columns (in any order):
+                <code>{composer_csv_columns.join(", ")}</code>. Optional cells may be left blank. List cells (tags)
+                separate multiple values with a semicolon (<code>;</code>). Up to 999 rows may be imported at once.
+            </p>
+            <div class="import-controls">
+                <input type="file" id="import-file" accept=".csv,text/csv" />
+                <button type="button" id="import-load">Load file</button>
+                <button type="button" id="import-validate">Validate with server</button>
+                <button type="button" id="import-commit">Import</button>
+            </div>
+            <p id="import-error"></p>
+            <div id="import-phasemap"></div>
+            <p id="import-summary"></p>
+            <div id="import-grid"></div>
+            <p id="transaction-status">Load a file to begin.</p>
+            <p class="general-helpinfo">
+                Back to <a href="/admin/composers" class="general-helpinfo-link">Composers</a>.
+            </p>
+            <script>
+                import { initImport } from "../../../scripts/import"
+                initImport("composers")
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

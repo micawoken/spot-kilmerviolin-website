@@ -1,5 +1,10 @@
+---
 /**
- * content.config.ts
+ * pages/404.astro
+ *
+ * Static Not Found page. Prerendered so that an unmatched path — including an unknown CMS slug, which no
+ * longer exists as a route now that public pages are prerendered — is served from the Cloudflare ASSETS
+ * binding with no D1 or KV lookup.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -17,22 +22,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import PublicPage from "../layouts/PublicPage.astro"
 
-import { glob } from "astro/loaders"
-import { defineCollection } from "astro:content"
-import { z } from "astro/zod"
+export const prerender = true
+---
 
-const docs = defineCollection({
-    loader: glob({ base: "./src/content/docs", pattern: "**/*.{md,mdx}" }),
-    schema: z.object({
-        title: z.string(),
-        description: z.string(),
-        author: z.string()
-    })
-})
-
-// The public-facing `pages` collection moved from flat markdoc files into EmDash (the `pages` content type
-// in EMDASH_DB) and is prerendered: src/pages/[...slug].astro reads it at build time over EmDash's HTTP
-// API (src/lib/build/emdash-api.ts). Only the internal developer `docs` collection remains a build-time
-// flat-file collection here.
-export const collections = { docs }
+<PublicPage title="Page not found" description="The page you requested does not exist.">
+    <article>
+        <h1>Page not found</h1>
+        <p>The page you requested does not exist. <a href="/">Return home</a>.</p>
+    </article>
+</PublicPage>

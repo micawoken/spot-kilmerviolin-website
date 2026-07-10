@@ -1,12 +1,13 @@
 /**
  * lib/content/nav.ts
  *
- * Build-time accessor for the header navigation links authored in the CMS (the "navigation" file, stored
- * at src/content/settings/navigation.json). The JSON is imported directly so it is baked into the Worker
- * bundle at build time — there is no per-request fetch and no runtime store to read, which keeps the
- * navigation effectively static (the worker has no filesystem to read content at runtime, and KV would
- * only add a runtime read this data does not need). A change publishes the same way page content does:
- * edit in the CMS -> commit -> rebuild bakes the new links in.
+ * Build-time accessor for the header navigation links authored in the CMS. The public site is prerendered,
+ * so this runs during `astro build` and reads EmDash's built-in `primary` menu over its HTTP API (see
+ * src/lib/build/emdash-api.ts, fetchPrimaryMenu), not the request-scoped `emdash` reader. Publishing a
+ * menu change requires a site rebuild.
+ *
+ * The header renders a flat list, so only the menu's top-level items are used (nested children are
+ * ignored). Each EmDash menu item exposes `label` and `url`, mapped here to {label, href}.
  *
  * Consumed by components/PublicHeader.astro.
  *
@@ -27,7 +28,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import navData from "../../content/settings/navigation.json"
+import { fetchPrimaryMenu } from "../build/emdash-api"
 
 /** A single header navigation entry. */
 export interface NavLink {
@@ -37,16 +38,14 @@ export interface NavLink {
     href: string
 }
 
-// the JSON is cast through unknown because an empty seed array would otherwise be inferred as never[];
-// the data is what the CMS guarantees it writes for the navigation schema.
-const data = navData as unknown as { links?: NavLink[] }
-
 /**
- * Returns the configured header navigation links, dropping any incomplete entries (an entry is only
- * usable with both a label and a destination).
+ * Returns the header navigation links from EmDash's built-in `primary` menu. fetchPrimaryMenu already
+ * drops incomplete items (an item needs both a label and a destination) and fails soft to [] when the
+ * menu is missing or the read fails; this maps each item's `url` to the component's `href`.
  *
- * @returns {NavLink[]} the navigation links to render, in authored order
+ * @returns {Promise<NavLink[]>} the navigation links to render, in authored order
  */
-export function getNav(): NavLink[] {
-    return (data.links ?? []).filter((link) => Boolean(link && link.label && link.href))
+export async function getNav(): Promise<NavLink[]> {
+    const items = await fetchPrimaryMenu()
+    return items.map((item) => ({ label: item.label, href: item.url }))
 }

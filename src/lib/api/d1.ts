@@ -420,6 +420,73 @@ export async function exec_string_batch(commands: string[]): Promise<D1Result[]>
 }
 
 /**
+ * Execute several SQLStatement objects in a single atomic batch.
+ *
+ * Each statement is finalized ({@link SQLStatement.finish}), prepared, and bound with its own
+ * parameters, then handed to D1's batch() API, which wraps the prepared statements in an implicit
+ * transaction: they run sequentially in the supplied order, and if any statement fails the entire
+ * batch is rolled back (no partial application). Unlike {@link exec_string_batch}, this preserves
+ * parameter binding, so it is the primitive used for atomic bulk inserts of validated records.
+ *
+ * Each returned D1Result carries its own meta (including last_row_id), so a batch of single-row
+ * INSERTs yields one id per record — the reason callers build one INSERT per record rather than a
+ * single multi-row VALUES statement (which would report only a single last_row_id).
+ *
+ * @param stmts the SQLStatement objects to execute, in order (must be non-empty)
+ * @returns an array of D1Result objects, one per statement, in the same order
+ * @throws an error if writes are disabled, or if any statement fails to finalize, prepare, or execute
+ */
+export async function exec_stmt_batch(stmts: SQLStatement[]): Promise<D1Result[]> {
+    if (stmts.length === 0) {
+        throw new Error("No SQL statements supplied for batch execution")
+    }
+    // mirror exec_stmt's write gate: a single non-SELECT verb disables the whole batch off-write
+    // environments (e.g. staging), since a batch is committed atomically as one unit
+    if (stmts.some((stmt) => stmt.verb !== "SELECT") && !dbWriteEnabled()) {
+        throw new Error("Database writes are disabled in this environment")
+    }
+    const prepared: D1PreparedStatement[] = []
+    for (const stmt of stmts) {
+        let finished: [string, Array<string | number | null>]
+        try {
+            finished = stmt.finish()
+        } catch (error) {
+            // name the operation (verb + table) that failed to finalize so the cause is identifiable
+            throw new Error(
+                `Failed to finalize ${stmt.verb} statement on table '${stmt.from}': ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error }
+            )
+        }
+        const [command, params] = finished
+        try {
+            prepared.push(env.DB_MAIN.prepare(command).bind(...params))
+        } catch (error) {
+            // mirror _exec's preparation error so the offending statement and any SQLITE_ code survive
+            throw new Error(
+                `Failed to prepare SQL statement [${command}]: ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error }
+            )
+        }
+    }
+
+    let results: D1Result[]
+    try {
+        results = await env.DB_MAIN.batch(prepared)
+    } catch (error) {
+        // a batch failure rolls back every statement; surface the original message for the error hook
+        throw new Error(`Failed to execute SQL batch: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+        })
+    }
+
+    // batch() resolves only when the transaction commits, but guard against a result flagged unsuccessful
+    if (results.some((result) => !result.success)) {
+        throw new Error("SQL execution did not succeed for one or more statements in the batch")
+    }
+    return results
+}
+
+/**
  * Execute several raw SQL command strings sequentially, each as its own statement.
  *
  * Unlike {@link exec_string_batch}, the statements are NOT wrapped in a transaction: each runs and
@@ -595,7 +662,7 @@ export function recordTypeAssert(
  */
 type FieldRule = {
     invalid: (value: any, partial: boolean) => boolean
-    elementCheck?: (value: any) => string | null
+    elementCheck?: (value: any, partial: boolean) => string | null
 }
 
 type RecordSpec = { [field: string]: FieldRule }
@@ -618,9 +685,13 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
         return "Record is not an object"
     }
     const r = record as { [key: string]: any }
+    // collect every field that fails its base check so the caller can report exactly what is invalid,
+    // rather than a single generic message. In complete mode an absent field fails its own base check
+    // (typeof undefined never matches a base type), so a missing required field is named here too.
+    const invalid_fields: string[] = []
     // id is nullable on inbound records: it must be a number, or absent (undefined) when not expected
     if (typeof r.id !== "number" && (typeof r.id !== "undefined" || expect_id)) {
-        return "Record has invalid types for one or more parameters"
+        invalid_fields.push("id")
     }
     for (const field in spec) {
         const value = r[field]
@@ -628,10 +699,14 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
             continue
         }
         if (spec[field].invalid(value, partial)) {
-            return "Record has invalid types for one or more parameters"
+            invalid_fields.push(field)
         }
     }
-    // validate arrays are of correct type, once all base checks have passed
+    if (invalid_fields.length > 0) {
+        return `Record has invalid or missing values for parameter(s): ${invalid_fields.join(", ")}`
+    }
+    // validate arrays are of correct type, once all base checks have passed; these carry their own
+    // field-specific messages describing the expected element type
     for (const field in spec) {
         const elementCheck = spec[field].elementCheck
         if (!elementCheck) {
@@ -641,7 +716,7 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
         if (partial && value === undefined) {
             continue
         }
-        const error = elementCheck(value)
+        const error = elementCheck(value, partial)
         if (error) {
             return error
         }
@@ -662,6 +737,10 @@ const _invalidNullableEmail = (v: any) => v !== null && (typeof v !== "string" |
 // every element of an array is a positive integer (used for id and phase-number lists)
 const _allPositiveIntegers = (v: any[]) =>
     v.every((item: any) => typeof item === "number" && Number.isInteger(item) && item >= 1)
+// membership in a string enum's VALUES (string enums have no reverse key mapping, so `v in Enum` would
+// wrongly test the enum's keys); used to enforce the closed option sets for a composition's type and key
+const _isEnumValue = (v: any, members: Record<string, string>) =>
+    typeof v === "string" && (Object.values(members) as string[]).includes(v)
 
 /** Field spec for Contributor records. */
 const CONTRIBUTOR_SPEC: RecordSpec = {
@@ -860,6 +939,87 @@ function validatePubInfo(record: unknown, partial: boolean = false): boolean {
     }
     return partial ? tests.some((test) => test) : tests.every((test) => test)
 }
+
+/**
+ * Produces a granular error message for an invalid publication_info, naming the exact offending subproperty
+ * using its D1 column name (publish_location / publish_name / publish_year / uri_type / uri) so the import
+ * preview can highlight the specific input. This never changes the accept/reject decision — it defers to
+ * {@link validatePubInfo} for that and only computes a message when the value is already known to be invalid.
+ *
+ * @param record the publication_info value (already established to be an object by the field's base check)
+ * @param partial whether a partial publication_info (at least one field) is acceptable
+ * @returns a specific error message, or null when the value is valid
+ */
+function validatePubInfoDetail(record: unknown, partial: boolean): string | null {
+    if (validatePubInfo(record, partial)) {
+        return null
+    }
+    if (typeof record !== "object" || record === null) {
+        return "Record has invalid value for publication_info (expected an object)"
+    }
+    const r = record as { [key: string]: any }
+    // present-but-malformed subproperty (including the uri_type authority checks); report the first one
+    if ("location" in r && typeof r.location !== "string") {
+        return "Record has invalid value for publish_location (expected text)"
+    }
+    if ("name" in r && typeof r.name !== "string") {
+        return "Record has invalid value for publish_name (expected text)"
+    }
+    if ("year" in r && !isValidYear(r.year)) {
+        return "Record has invalid value for publish_year (expected a valid year)"
+    }
+    if ("uri_type" in r) {
+        if (typeof r.uri_type !== "string" || !SUPPORTED_URI_TYPES.includes(r.uri_type)) {
+            return `Record has invalid value for uri_type (expected one of: ${SUPPORTED_URI_TYPES.join(", ")})`
+        }
+        if ("uri" in r && typeof r.uri === "string" && r.uri.trim() !== "" && !validateURIForType(r.uri_type, r.uri)) {
+            return "Record has invalid value for uri (does not match the selected uri_type)"
+        }
+    }
+    if ("uri" in r && typeof r.uri !== "string") {
+        return "Record has invalid value for uri (expected text)"
+    }
+    // otherwise the failure is a missing required subproperty (complete mode)
+    const required: Array<[string, boolean]> = [
+        ["publish_location", "location" in r],
+        ["publish_name", "name" in r],
+        ["publish_year", "year" in r],
+        ["uri_type", "uri_type" in r],
+        ["uri", "uri" in r]
+    ]
+    const missing = required.filter(([, present]) => !present).map(([column]) => column)
+    if (missing.length > 0) {
+        return `Record is missing required publication_info field(s): ${missing.join(", ")}`
+    }
+    return "Record has invalid value for publication_info"
+}
+
+/**
+ * Produces a granular error message for an invalid rating, naming the offending member using its D1 column
+ * name (rating_suzuki / rating_nyssma). Like {@link validatePubInfoDetail}, it defers the accept/reject
+ * decision to {@link validateCompRating} and only computes a message for an already-invalid value.
+ *
+ * @param record the rating value (already established to be a non-null object by the field's base check)
+ * @param partial whether a partial rating (a single member) is acceptable
+ * @returns a specific error message, or null when the value is valid
+ */
+function validateCompRatingDetail(record: unknown, partial: boolean): string | null {
+    if (validateCompRating(record, partial)) {
+        return null
+    }
+    if (typeof record !== "object" || record === null) {
+        return "Record has invalid value for rating (expected an object)"
+    }
+    const r = record as { [key: string]: any }
+    if ("suzuki" in r && !validateRatingMember(r.suzuki, 1, 10)) {
+        return "Record has invalid value for rating_suzuki (expected an integer 1–10, or null)"
+    }
+    if ("nyssma" in r && !validateRatingMember(r.nyssma, 1, 6)) {
+        return "Record has invalid value for rating_nyssma (expected an integer 1–6, or null)"
+    }
+    return "Record has invalid value for rating"
+}
+
 /** Field spec for Composition records. */
 const COMPOSITION_SPEC: RecordSpec = {
     name: { invalid: _invalidString },
@@ -888,9 +1048,12 @@ const COMPOSITION_SPEC: RecordSpec = {
                 ? "Record has invalid value for phases parameter (expected positive integers)"
                 : null
     },
-    type: { invalid: (v) => typeof v !== "string" && !(v in WorkType) },
+    // type is a required, closed option set: the value must be one of the WorkType enum values
+    type: { invalid: (v) => !_isEnumValue(v, WorkType) },
     part: { invalid: _invalidNullableString },
-    key: { invalid: (v) => typeof v !== "string" && !(v in Key) && v !== null },
+    // key is nullable and a blank string is tolerated (mapped to a cleared value); a non-blank value must
+    // be one of the Key enum values
+    key: { invalid: (v) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !_isEnumValue(v, Key))) },
     // range: a two-note pitch range (e.g. G3-A5); position_highest: a Roman numeral or integer. Both are
     // nullable, and a blank string is tolerated (mapped to a cleared value); a non-blank value must match.
     range: { invalid: (v) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPitchRange(v))) },
@@ -901,12 +1064,20 @@ const COMPOSITION_SPEC: RecordSpec = {
     notes_historical: { invalid: _invalidNullableString },
     notes_other: { invalid: _invalidNullableString },
     image: { invalid: _invalidNullableImage },
-    // rating is nullable only in complete mode; in partial mode a present rating must validate
-    // (mirrors the original, which dropped the !== null guard and passed partial=true to validateCompRating)
+    // rating is nullable only in complete mode; in partial mode a present rating must validate. The base
+    // check only rejects the hard cases (a non-object, or a null where null is not allowed); the granular
+    // per-member validation runs in elementCheck so the offending member (rating_suzuki / rating_nyssma) can
+    // be named. The union of the two reproduces the original accept/reject exactly.
     rating: {
-        invalid: (v, partial) => (partial ? !validateCompRating(v, true) : v !== null && !validateCompRating(v, false))
+        invalid: (v, partial) => (partial ? typeof v !== "object" || v === null : v !== null && typeof v !== "object"),
+        elementCheck: (v, partial) => (v === null ? null : validateCompRatingDetail(v, partial))
     },
-    publication_info: { invalid: (v, partial) => !validatePubInfo(v, partial) }
+    // publication_info is required and non-null; the base check only rejects a non-object, and the granular
+    // per-subproperty validation (naming publish_name/publish_year/uri_type/uri) runs in elementCheck.
+    publication_info: {
+        invalid: (v) => typeof v !== "object" || v === null,
+        elementCheck: (v, partial) => validatePubInfoDetail(v, partial)
+    }
 }
 
 /**
