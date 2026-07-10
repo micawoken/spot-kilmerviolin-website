@@ -1,0 +1,31 @@
+---
+/**
+ * pages/admin/designs/spike.astro — THROWAWAY (Phase 0 spike (b); deleted before Phase 1 merges).
+ *
+ * Minimal host page for the spike Puck editor island. Gated by the permanent `designs` node in
+ * ADMIN_PAGE_STRUCTURE (cms_editor permission) via middleware/identity.ts; local dev bypasses that
+ * middleware, and EmDash API auth is handled inside the island (dev-bypass link on 401).
+ */
+
+import SpikeEditor from "../../../spike/SpikeEditor"
+
+export const prerender = false
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex" />
+        <title>Compositor spike editor</title>
+        <style>
+            body {
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <SpikeEditor client:only="react" />
+    </body>
+</html>

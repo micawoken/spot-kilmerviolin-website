@@ -312,13 +312,9 @@ interface Identity extends BaseIdentity {
  * @property {boolean} user_activation - Whether the role allows a user to activate user accounts (their own, and others)
  * @property {boolean} user_addition - Whether the role allows a user to add new users
  * @property {boolean} conferrable - Whether the role can be conferred by a non-administrator possessing the role to another user
- * @property {boolean} cms_editor - Whether the role provides authorization to edit site content through the CMS.
- *   The CMS is now external (Pages CMS, see docs/dev/pages-cms.md) and is no longer gated in-app, so this
- *   permission is currently unused; it is retained for a possible future worker-hosted CMS that would gate on it.
- * @property {boolean} github_link - Whether the role allows a user to link their own GitHub account (set/clear
- *   their github_username) for repository write access. Gates the self-service GitHub linkage flow
- *   (/api/v1/identity/self/github) and the permission-gated set page; the actual authorization (adding the
- *   user as a repo collaborator) remains admin-only. Keyed to the siteeditor role. See docs/dev/github-linkage.md.
+ * @property {boolean} cms_editor - Whether the role provides authorization to edit site content through the
+ *   in-worker EmDash CMS at /_emdash, enforced by src/middleware/emdash_access.ts. See
+ *   docs/dev/emdash-migration.md.
  *
  * Contribution edit lockout: by default, users are granted read-only access to entries made by others, which is enforced by the API.
  * By default, administrators bypass the lockout, but certain use-cases (such as peer review) merit a lift of this restriction so that
@@ -333,7 +329,6 @@ interface RoleProfile {
     user_addition: boolean
     conferrable: boolean
     cms_editor: boolean
-    github_link: boolean
 }
 
 /**
@@ -397,12 +392,6 @@ interface ContributorPrimitive {
     public_email: string | null
     identity_email: string
     image: string | null
-    // GitHub repository linkage (protected columns). github_username is the linked GitHub login;
-    // github_user_id is the immutable numeric GitHub account id resolved at set time and used as the
-    // authoritative binding (ID-primary), so a later username reassignment cannot inherit repo access.
-    // Both are null when unlinked. See docs/dev/github-linkage.md.
-    github_username: string | null
-    github_user_id: number | null
 }
 
 /**

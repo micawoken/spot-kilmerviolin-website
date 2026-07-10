@@ -60,8 +60,6 @@ interface UserRow {
     type_href: string | null
     roles_label: string
     roles_href: string | null
-    github_label: string
-    github_href: string | null
 }
 
 /**
@@ -88,8 +86,6 @@ interface UnlinkedRow {
     info_href: string
     type_label: string
     roles_label: string
-    github_label: string
-    github_href: string | null
 }
 
 // The user list is rendered server-side. Page access is already gated by the middleware
@@ -125,9 +121,7 @@ try {
                 type_label: "—",
                 type_href: null,
                 roles_label: "—",
-                roles_href: null,
-                github_label: "—",
-                github_href: null
+                roles_href: null
             }
         }
         return {
@@ -146,10 +140,7 @@ try {
             type_href: withParam(record.admin ? "/admin/user/demote" : "/admin/user/elevate", email),
             roles_label: record.roles.length > 0 ? record.roles.join(", ") : "None",
             // link to the add/remove roles editor
-            roles_href: withParam("/admin/iam/edit", email),
-            github_label: record.github_username ?? "None",
-            // link to the add/edit GitHub username page, prefilled with the user's email
-            github_href: withParam("/admin/iam/change-gh", email)
+            roles_href: withParam("/admin/iam/edit", email)
         }
     })
     // Contributors whose identity_email is not in Access are "unlinked": they hold an authorization
@@ -178,10 +169,7 @@ try {
                 edit_href,
                 info_href: `/admin/contributors/info?id=${encodeURIComponent(String(contributor.id))}`,
                 type_label: contributor.admin ? "Administrator" : "Standard",
-                roles_label: contributor.roles.length > 0 ? contributor.roles.join(", ") : "None",
-                github_label: contributor.github_username ?? "None",
-                // a real address can be managed by email; a fallback has none, so fall back to the edit page
-                github_href: is_fallback ? edit_href : withParam("/admin/iam/change-gh", contributor.identity_email)
+                roles_label: contributor.roles.length > 0 ? contributor.roles.join(", ") : "None"
             }
         })
 } catch (e) {
@@ -220,7 +208,6 @@ try {
                                     <th>Contributor</th>
                                     <th>Type</th>
                                     <th>Roles</th>
-                                    <th>GitHub</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -258,13 +245,6 @@ try {
                                                 row.roles_label
                                             )}
                                         </td>
-                                        <td>
-                                            {row.github_href ? (
-                                                <a href={row.github_href}>{row.github_label}</a>
-                                            ) : (
-                                                row.github_label
-                                            )}
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -294,7 +274,6 @@ try {
                                             <th>Contributor</th>
                                             <th>Type</th>
                                             <th>Roles</th>
-                                            <th>GitHub</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -321,13 +300,6 @@ try {
                                                 </td>
                                                 <td>
                                                     <a href={row.edit_href}>{row.roles_label}</a>
-                                                </td>
-                                                <td>
-                                                    {row.github_href ? (
-                                                        <a href={row.github_href}>{row.github_label}</a>
-                                                    ) : (
-                                                        row.github_label
-                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

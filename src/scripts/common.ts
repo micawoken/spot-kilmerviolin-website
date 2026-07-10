@@ -28,7 +28,6 @@ import {
     isDeathYearConsistent,
     isPositiveIntegerString,
     isValidEmail,
-    isValidGithubUsername,
     isValidImageUrl,
     isValidPitchRange,
     isValidPosition,
@@ -363,9 +362,6 @@ export const validateEmailField: FieldValidator = (raw) =>
 export const validateImageField: FieldValidator = (raw) =>
     raw.trim() === "" || isValidImageUrl(raw) ? null : "enter a valid URL or pick an uploaded image"
 
-export const validateGithubField: FieldValidator = (raw) =>
-    raw.trim() === "" || isValidGithubUsername(raw) ? null : "letters, digits, single hyphens"
-
 export const validateRangeField: FieldValidator = (raw) =>
     raw.trim() === "" || isValidPitchRange(raw) ? null : "use note-note, e.g. G3-A5"
 
@@ -396,7 +392,6 @@ export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
     roles_add: validateList(false),
     roles_remove: validateList(false),
     image: validateImageField,
-    github_username: validateGithubField,
     range: validateRangeField,
     position_highest: validatePositionField,
     uri: validateUriField,

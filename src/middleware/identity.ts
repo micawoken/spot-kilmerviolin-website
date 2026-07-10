@@ -24,7 +24,7 @@
 import { env } from "cloudflare:workers"
 import type { MiddlewareHandler } from "astro"
 import { middlewareErrorResponder, failsCsrfOriginCheck } from "../lib/api/http"
-import { parseJWT, retrieveCredential } from "../lib/api/authenticate"
+import { isServiceTokenJWT, parseJWT, retrieveCredential } from "../lib/api/authenticate"
 import { authEnabled, detectEnvironment } from "../lib/api/environment"
 import authorize from "../lib/api/authorize"
 import { isFallbackEmail } from "../lib/api/fallback"
@@ -73,11 +73,7 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             deactivate: { access: { kind: "admin" } },
             // promotion/demotion (PUT/DELETE /api/v1/identity/admin) require admin
             elevate: { access: { kind: "admin" } },
-            demote: { access: { kind: "admin" } },
-            // granting/revoking GitHub repository access (POST/DELETE /api/v1/identity/github/authorization)
-            // require admin
-            "authorize-gh": { access: { kind: "admin" } },
-            "deauthorize-gh": { access: { kind: "admin" } }
+            demote: { access: { kind: "admin" } }
         }
     },
     iam: {
@@ -90,10 +86,6 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             add: { access: { kind: "permission", permissions: ["user_addition"] } },
             list: { access: { kind: "permission", permissions: ["user_addition"] } },
             remove: { access: { kind: "permission", permissions: ["user_addition"] } },
-            // adding/editing/clearing another user's GitHub username (/api/v1/identity/github) requires admin.
-            // Self-service GitHub linking lives on My Profile (/admin/profile/edit), gated by github_link there.
-            "change-gh": { access: { kind: "admin" } },
-            "del-gh": { access: { kind: "admin" } },
             // "my authorization info" shows the caller their own info; reachable while inactive
             whoami: { access: { kind: "any" } }
         }
@@ -103,6 +95,9 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
     composers: { children: { import: { access: { kind: "admin" } } } },
     contributors: { children: { import: { access: { kind: "admin" } } } },
     works: { children: { import: { access: { kind: "admin" } } } },
+    // the visual-compositor pages (design list, editor, theme) read and write EmDash design collections,
+    // so the whole tree requires the same cms_editor permission that gates /_emdash (emdash_access.ts)
+    designs: { access: { kind: "permission", permissions: ["cms_editor"] } },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
     profile: { access: { kind: "any" } },
@@ -158,8 +153,9 @@ export const identity: MiddlewareHandler = async (context, next) => {
         return next()
     }
 
-    // the app-authenticated surfaces (both 404'd on staging); /_emdash is not app-authenticated (EmDash's
-    // own Cloudflare Access adapter gates it) but is likewise hidden on the staging preview.
+    // the app-authenticated surfaces (both 404'd on staging). /_emdash also needs an identity constructed
+    // (see below) so middleware/emdash_access.ts can authorize it, on top of EmDash's own Cloudflare Access
+    // adapter.
     const isAppProtected = path_components[0] === "api" || path_components[0] === "admin"
     const isEmDash = path_components[0] === "_emdash"
 
@@ -169,14 +165,15 @@ export const identity: MiddlewareHandler = async (context, next) => {
         return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
     }
 
-    if (!isAppProtected) {
-        // the request path does not require app authentication (not api, not admin) — EmDash routes reach
-        // here in the non-staging environments and are gated by EmDash's own Access adapter, not this
-        // middleware.
+    if (!isAppProtected && !isEmDash) {
+        // the request path does not require app authentication or an identity (not api, not admin, not
+        // _emdash)
         return next()
     }
 
-    // the request path requires authentication and authorization
+    // the request path requires authentication, and identity construction. isEmDash paths only need
+    // context.locals.identity populated below for the emdash_access middleware to authorize against — this
+    // middleware performs no _emdash-specific authorization itself (see middleware/emdash_access.ts)
 
     // on local development (development build served from localhost/127.0.0.1),
     // authentication and authorization are bypassed entirely; in all other
@@ -190,6 +187,22 @@ export const identity: MiddlewareHandler = async (context, next) => {
     if (credential_data === null) {
         // no credential, unauthorized
         return middlewareErrorResponder(context.request, 401, comment_401)
+    }
+    // Non-browser service credentials on /_emdash are delegated to EmDash's own auth layer instead of the
+    // app identity flow, which cannot represent them (an EmDash API token is not an Access JWT, and an
+    // Access service-token JWT carries no email): EmDash validates Bearer tokens itself (with per-token
+    // scopes), and its Access adapter maps a service-token JWT to an EmDash role. The cms_editor gate in
+    // middleware/emdash_access.ts targets browser sessions, which authenticate via the CF_Authorization
+    // cookie and still take the identity flow below. Build-time reads (lib/build/emdash-api.ts) and the
+    // design-collection setup tooling depend on this delegation.
+    if (isEmDash) {
+        if (
+            credential_data[0] === "Auth-Header" ||
+            (credential_data[0] === "Cf-Header" && (await isServiceTokenJWT(credential_data[1], env.CF_ACCESS_AUD)))
+        ) {
+            context.locals.emdashServiceAuth = true
+            return next()
+        }
     }
     // CSRF defense for the ambient cookie credential: the CF_Authorization cookie is attached by the
     // browser to any request to this origin, so a cookie-authenticated state-changing request must

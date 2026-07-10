@@ -32,7 +32,6 @@ import {
     isDeathYearConsistent,
     isValidCountryCode,
     isValidEmail,
-    isValidGithubUsername,
     isValidImageUrl,
     isValidPitchRange,
     isValidPosition,
@@ -130,12 +129,10 @@ export const CONTRIBUTOR: D1Schema = {
         "admin",
         "image",
         "tags",
-        "github_username",
-        "github_user_id",
         "entry_date",
         "change_date"
     ],
-    index: ["contributor_id", "identity_email", "public_email", "github_user_id"],
+    index: ["contributor_id", "identity_email", "public_email"],
     repr_exclude: ["entry_date", "change_date"],
     primary_key: "contributor_id",
     type_hint: {
@@ -152,12 +149,10 @@ export const CONTRIBUTOR: D1Schema = {
         admin: "number",
         image: "string",
         tags: "string",
-        github_username: "string", // linked GitHub login, or null when unlinked
-        github_user_id: "number", // immutable GitHub account id (authoritative binding), or null
         entry_date: "string",
         change_date: "string"
     },
-    protected: ["roles", "admin", "identity_email", "github_username", "github_user_id"]
+    protected: ["roles", "admin", "identity_email"]
 }
 
 /**
@@ -771,12 +766,7 @@ const CONTRIBUTOR_SPEC: RecordSpec = {
                 : null
     },
     admin: { invalid: _invalidBoolean },
-    image: { invalid: _invalidNullableImage },
-    // github linkage columns are nullable; when present, the username must be syntactically valid and the
-    // id a positive integer. They are protected columns, so they never arrive through the generic contributor
-    // create/edit path — these checks guard the rare direct write and keep the record assertion consistent.
-    github_username: { invalid: (v) => v !== null && (typeof v !== "string" || !isValidGithubUsername(v)) },
-    github_user_id: { invalid: (v) => v !== null && (typeof v !== "number" || !Number.isInteger(v) || v < 1) }
+    image: { invalid: _invalidNullableImage }
 }
 
 /** Field spec for Composer records. */

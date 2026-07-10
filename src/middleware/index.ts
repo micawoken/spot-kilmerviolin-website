@@ -27,9 +27,11 @@ import { sequence } from "astro/middleware"
 import { requestContext } from "./context"
 import { preflight } from "./preflight"
 import { identity } from "./identity"
+import { emdashAccess } from "./emdash_access"
 import { rateLimit } from "./ratelimit"
 import { securityHeaders } from "./headers"
 
 // securityHeaders runs first so it wraps the chain and can stamp its headers onto the final response —
-// including the auth error pages identity returns — for admin routes.
-export const onRequest = sequence(securityHeaders, requestContext, preflight, identity, rateLimit)
+// including the auth error pages identity returns — for admin routes. emdashAccess runs right after
+// identity so it can authorize against the identity that identity.ts just constructed.
+export const onRequest = sequence(securityHeaders, requestContext, preflight, identity, emdashAccess, rateLimit)
