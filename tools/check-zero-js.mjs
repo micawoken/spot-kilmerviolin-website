@@ -1,18 +1,21 @@
 /**
  * tools/check-zero-js.mjs
  *
- * Verifies that prerendered design pages ship zero client JavaScript: each given HTML file (or, with
- * no arguments, the Phase 0 spike page) must contain no <astro-island> element and no <script> tag.
- * Exits non-zero naming every offending file. Part of the Phase 1 verification checklist (§6.8);
- * run manually after `pnpm build` — not wired into the build.
+ * Verifies that prerendered design pages ship zero client JavaScript: each given HTML file must
+ * contain no <astro-island> element and no <script> tag. Exits non-zero naming every offending
+ * file. Part of the Phase 1 verification checklist (§6.8); run manually after `pnpm build` — not
+ * wired into the build.
  *
- *   node tools/check-zero-js.mjs [dist/...paths to .html files]
+ *   node tools/check-zero-js.mjs dist/...paths to .html files
  */
 
 import { readFile } from "node:fs/promises"
 
 const files = process.argv.slice(2)
-if (files.length === 0) files.push("dist/client/spike/puck-render/index.html")
+if (files.length === 0) {
+    console.error("Usage: node tools/check-zero-js.mjs <dist/...paths to .html files>")
+    process.exit(1)
+}
 
 let failed = false
 for (const file of files) {
