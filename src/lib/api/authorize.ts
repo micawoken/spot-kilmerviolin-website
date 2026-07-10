@@ -37,8 +37,7 @@ export const roles: Record<string, RoleProfile> = {
         user_activation: false,
         user_addition: false,
         conferrable: true,
-        cms_editor: false,
-        github_link: false
+        cms_editor: false
     },
     userenroll: {
         overrides_lockout: false,
@@ -46,8 +45,7 @@ export const roles: Record<string, RoleProfile> = {
         user_activation: true,
         user_addition: true,
         conferrable: false,
-        cms_editor: false,
-        github_link: false
+        cms_editor: false
     },
     siteeditor: {
         overrides_lockout: false,
@@ -55,8 +53,7 @@ export const roles: Record<string, RoleProfile> = {
         user_activation: false,
         user_addition: false,
         conferrable: false,
-        cms_editor: true,
-        github_link: true
+        cms_editor: true
     }
 }
 
@@ -73,8 +70,7 @@ const PERMISSION_KEYS = [
     "user_activation",
     "user_addition",
     "conferrable",
-    "cms_editor",
-    "github_link"
+    "cms_editor"
 ] as const satisfies readonly (keyof RoleProfile)[]
 
 // compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in

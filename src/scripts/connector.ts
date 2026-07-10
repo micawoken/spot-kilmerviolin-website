@@ -611,27 +611,11 @@ export async function deleteContributor(id: number): Promise<void> {
 /**
  * PATCH /api/v1/contributors/{id} for the self-service profile editor.
  *
- * The profile editor may carry a github_username change in the same request as the ordinary profile fields.
- * The server applies the profile fields and the (conditionally protected) GitHub link together; if only the
- * GitHub portion is rejected — most commonly because the link is already authorized for repository access and
- * the caller is not an administrator — the profile fields are still saved and the server responds 200 with the
- * GitHub failure detail in the payload instead of failing the whole request. A hard failure of the profile
- * fields themselves still throws, as does a GitHub-only request whose GitHub change is rejected.
- *
  * @param id the caller's own contributor id
- * @param data the partial contributor record to apply (may include github_username)
- * @returns the GitHub failure detail when the link could not be updated, or null when everything applied
+ * @param data the partial contributor record to apply
  */
-export async function updateProfile(id: number, data: Partial<Contributor>): Promise<{ github_error: string } | null> {
-    const payload = await requestPayload(composeUrl("contributors", id.toString()), jsonInit("PATCH", data))
-    if (
-        payload &&
-        typeof payload === "object" &&
-        typeof (payload as { github_error?: unknown }).github_error === "string"
-    ) {
-        return { github_error: (payload as { github_error: string }).github_error }
-    }
-    return null
+export async function updateProfile(id: number, data: Partial<Contributor>): Promise<void> {
+    return requestVoid("updateProfile", composeUrl("contributors", id.toString()), jsonInit("PATCH", data))
 }
 
 /**
@@ -969,101 +953,4 @@ export async function enrollSelf(record: Partial<Contributor>): Promise<void> {
  */
 export async function deactivateSelf(): Promise<void> {
     return requestVoid("deactivateSelf", composeUrl("identity/self"), jsonInit("DELETE"))
-}
-
-/** The GitHub linkage state returned by the read endpoints. */
-export interface GithubLinkState {
-    github_username: string | null
-    github_user_id: number | null
-    authorized: boolean
-}
-
-/**
- * GET /api/v1/identity/self/github
- * Returns the caller's own GitHub linkage state
- */
-export async function getSelfGithub(): Promise<GithubLinkState | null> {
-    return requestPayload(composeUrl("identity/self", "github"), jsonInit("GET"))
-}
-
-/**
- * POST /api/v1/identity/self/github
- * Sets or changes the caller's own GitHub username (write-once until authorized)
- *
- * @param username the GitHub username to link
- */
-export async function setSelfGithub(username: string): Promise<void> {
-    return requestVoid("setSelfGithub", composeUrl("identity/self", "github"), jsonInit("POST", { username }))
-}
-
-/**
- * DELETE /api/v1/identity/self/github
- * Clears the caller's own GitHub username (only while unauthorized)
- */
-export async function clearSelfGithub(): Promise<void> {
-    return requestVoid("clearSelfGithub", composeUrl("identity/self", "github"), jsonInit("DELETE"))
-}
-
-/**
- * GET /api/v1/identity/github?identity_email=...
- * Reads a user's GitHub linkage state by identity email (admin)
- *
- * @param identity_email the user's identity email
- */
-export async function getIdentityGithub(identity_email: string): Promise<GithubLinkState | null> {
-    const url = `${composeUrl("identity", "github")}?identity_email=${encodeURIComponent(identity_email)}`
-    return requestPayload(url, jsonInit("GET"))
-}
-
-/**
- * POST /api/v1/identity/github
- * Sets or changes a user's GitHub username by identity email (admin)
- *
- * @param identity_email the user's identity email
- * @param username the GitHub username to link
- */
-export async function setIdentityGithub(identity_email: string, username: string): Promise<void> {
-    return requestVoid(
-        "setIdentityGithub",
-        composeUrl("identity", "github"),
-        jsonInit("POST", { identity_email, username })
-    )
-}
-
-/**
- * DELETE /api/v1/identity/github
- * Clears a user's GitHub username by identity email, revoking repository access first (admin)
- *
- * @param identity_email the user's identity email
- */
-export async function clearIdentityGithub(identity_email: string): Promise<void> {
-    return requestVoid("clearIdentityGithub", composeUrl("identity", "github"), jsonInit("DELETE", { identity_email }))
-}
-
-/**
- * POST /api/v1/identity/github/authorization
- * Grants repository write access to a user's linked GitHub account by identity email (admin)
- *
- * @param identity_email the user's identity email
- */
-export async function authorizeIdentityGithub(identity_email: string): Promise<void> {
-    return requestVoid(
-        "authorizeIdentityGithub",
-        composeUrl("identity/github", "authorization"),
-        jsonInit("POST", { identity_email })
-    )
-}
-
-/**
- * DELETE /api/v1/identity/github/authorization
- * Revokes repository write access from a user's linked GitHub account by identity email (admin)
- *
- * @param identity_email the user's identity email
- */
-export async function deauthorizeIdentityGithub(identity_email: string): Promise<void> {
-    return requestVoid(
-        "deauthorizeIdentityGithub",
-        composeUrl("identity/github", "authorization"),
-        jsonInit("DELETE", { identity_email })
-    )
 }

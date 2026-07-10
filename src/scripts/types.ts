@@ -66,13 +66,7 @@ export const contributor_interface_full: Record<string, FieldPair> = {
     roles: ["string[]", true],
     tags: ["string[]", true],
     active: ["boolean", false],
-    admin: ["boolean", false],
-    // github_username/github_user_id are protected linkage columns managed only through the dedicated,
-    // GitHub-verified linkage pages, so the create form renders no inputs for them. They are listed here
-    // as optional purely so generateObjectForm emits them as null (a new contributor is never linked);
-    // this satisfies the server's complete-mode record assertion, which rejects an absent (undefined) field.
-    github_username: ["string", true],
-    github_user_id: ["number", true]
+    admin: ["boolean", false]
 }
 
 export const contributor_interface_partial: Record<string, FieldPair> = {

@@ -60,8 +60,6 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-github_username TEXT,
-github_user_id INTEGER,
 entry_date TEXT NOT NULL,
 change_date TEXT NOT NULL
 );`
@@ -147,9 +145,7 @@ function makeContributor(name: string, identity_email: string): Contributor {
         admin: false,
         roles: [],
         tags: [],
-        image: null,
-        github_username: null,
-        github_user_id: null
+        image: null
     }
 }
 

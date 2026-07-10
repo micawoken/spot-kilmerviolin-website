@@ -48,14 +48,11 @@ const disp = (value: unknown, missing?: string): string => {
     return String(value)
 }
 
-// human-readable labels for the protected contributor columns surfaced as fields below. Protected columns
-// with no entry here (e.g. github_user_id, the internal id binding that is never rendered as a field) are
-// omitted from the notice rather than exposed by their raw name.
+// human-readable labels for the protected contributor columns surfaced as fields below.
 const protected_field_labels: Record<string, string> = {
     identity_email: "identity email",
     roles: "roles",
-    admin: "account type",
-    github_username: "GitHub username"
+    admin: "account type"
 }
 const protected_fields = CONTRIBUTOR.protected ?? []
 const protected_label = protected_fields
@@ -136,17 +133,10 @@ const protected_label = protected_fields
                         }</span
                     >
                 </p>
-                <p>
-                    <strong>GitHub username:</strong>
-                    <span id="contributor-github_username">{disp(contributor?.github_username, "(not linked)")}</span>
-                </p>
                 <p id="contributor-tags-container">
                     <strong>Tags:</strong>
                     <span id="contributor-tags">{disp(contributor?.tags)}</span>
                 </p>
-                {/* github_user_id is the internal id binding (protected, never shown); kept as a hidden
-                    target so the client READ loop (populateInfo) has somewhere to write it without warning */}
-                <span id="contributor-github_user_id" hidden></span>
             </div>
         </div>
     </div>
