@@ -1,13 +1,15 @@
 /**
  * lib/content/site.ts
  *
- * Build-time accessor for the site-wide title/description authored in the CMS (the "site_settings" file,
- * stored at src/content/settings/site.json). Like the other CMS settings files the JSON is imported
- * directly so it is baked into the build (see lib/content/nav.ts for the rationale).
+ * Build-time accessor for the site-wide title/description authored in the CMS. The public site is
+ * prerendered, so this runs during `astro build` and reads EmDash's built-in General Settings over its
+ * HTTP API (see src/lib/build/emdash-api.ts), not the request-scoped `emdash` reader (which needs a bound
+ * D1 unavailable at build). EmDash exposes `title` and `tagline` (there is no separate site description
+ * field), so the meta description maps to `tagline`. Publishing a settings change requires a site rebuild.
  *
- * The values in src/consts.ts remain the fallback defaults: a blank CMS field falls back to the
- * hardcoded constant rather than rendering an empty title/description. consts.ts is still the source of
- * truth for the admin UI and anywhere a synchronous import is needed.
+ * The values in src/consts.ts remain the fallback defaults: a blank CMS field — or an unavailable read —
+ * falls back to the hardcoded constant rather than rendering an empty title/description. consts.ts is
+ * still the source of truth for the admin UI and anywhere a synchronous import is needed.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -26,7 +28,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import siteData from "../../content/settings/site.json"
+import { fetchSettings } from "../build/emdash-api"
 import { SITE_TITLE, SITE_DESCRIPTION } from "../../consts"
 
 /** The resolved site-wide metadata. */
@@ -35,16 +37,18 @@ export interface SiteSettings {
     description: string
 }
 
-const data = siteData as { title?: string; description?: string }
-
 /**
- * Returns the site title and description, using the src/consts.ts defaults when a CMS field is blank.
+ * Returns the site title and description from EmDash's built-in General Settings, using the src/consts.ts
+ * defaults when a field is blank or the settings are unavailable. The meta description maps to EmDash's
+ * `tagline` (its settings have no dedicated description field). fetchSettings fails soft to {} on any read
+ * error, so the defaults apply.
  *
- * @returns {SiteSettings} the resolved title and description
+ * @returns {Promise<SiteSettings>} the resolved title and description
  */
-export function getSiteSettings(): SiteSettings {
+export async function getSiteSettings(): Promise<SiteSettings> {
+    const settings = await fetchSettings()
     return {
-        title: data.title?.trim() || SITE_TITLE,
-        description: data.description?.trim() || SITE_DESCRIPTION
+        title: settings.title?.trim() || SITE_TITLE,
+        description: settings.tagline?.trim() || SITE_DESCRIPTION
     }
 }

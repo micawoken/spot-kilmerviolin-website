@@ -11,6 +11,12 @@
  * Kept separate from BaseHead (and from the body-rendered AdminHeader) so this loads from the document
  * head and the public site does not ship the admin entity styles.
  *
+ * It also suppresses EmDash's floating visual-editing toolbar. EmDash injects that toolbar into every SSR
+ * HTML response for an authenticated editor (its request-context middleware runs on all non-/_emdash
+ * routes and has no path-exclude option), so it would otherwise appear on the app's own admin pages, where
+ * it is meaningless. The public site is prerendered — served as static assets that bypass the worker and
+ * its middleware — so the toolbar never reaches public pages; only /admin needs this.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,3 +38,30 @@ import "../styles/admin-entities.css"
 
 <meta name="robots" content="noindex" />
 <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+
+<!-- Suppress EmDash's injected visual-editing toolbar on admin pages (see the file header). -->
+<style is:global>
+    #emdash-toolbar {
+        display: none !important;
+    }
+</style>
+<script is:inline>
+    // Remove the EmDash toolbar node if/when its middleware injects it before </body>. The style above
+    // hides it immediately (no flash); this removes it so its inline script does no further work.
+    ;(function () {
+        function strip() {
+            document.getElementById("emdash-toolbar")?.remove()
+        }
+        const observer = new MutationObserver(() => {
+            if (document.getElementById("emdash-toolbar")) {
+                strip()
+                observer.disconnect()
+            }
+        })
+        observer.observe(document.documentElement, { childList: true, subtree: true })
+        window.addEventListener("load", () => {
+            strip()
+            observer.disconnect()
+        })
+    })()
+</script>

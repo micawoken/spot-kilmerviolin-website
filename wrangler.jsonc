@@ -8,7 +8,9 @@
 	"account_id": "49d973b0738799edc1a8edac208b35be",
 	// the current website route
 	"workers_dev": true,
-	"routes": [],
+	"routes": [
+		{ "pattern": "kilmer.nrnnet.xyz", "custom_domain": true }
+	],
 	// preview_urls must stay enabled for the "staging" preview alias to resolve (it otherwise
 	// defaults to follow workers_dev); set explicitly so the staging deploy does not silently break
 	"preview_urls": true,
@@ -54,7 +56,9 @@
 			"CF_ACCESS_TOKEN",
 			"CF_DEPLOY_HOOK",
 			"GITHUB_ADMIN_TOKEN",
-			"PAGES_CMS_SYNC_SECRET"
+			"PAGES_CMS_SYNC_SECRET",
+			"CF_ACCESS_CLIENT_ID",
+			"CF_ACCESS_CLIENT_SECRET"
 		]
 	},
 	// api bindings
@@ -114,7 +118,7 @@
 			"name": "RL_API_PUBLIC", // applied to the public API, intended to backstop against overwhelming request volumes
 			"namespace_id": "1002", // applies globally to all users
 			"simple": {
-				"limit": 1000, // hits to ths rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (since those are SSR)
+				"limit": 1000, // hits to this rate limit would only apply to public users of API endpoints and wouldn't apply to ordinary page visitors (public pages are prerendered static assets served from ASSETS, so they never reach the worker)
 				"period": 60
 			}
 		},

@@ -24,8 +24,8 @@
 import { getSiteSettings } from "../lib/content/site"
 import { getNav } from "../lib/content/nav"
 
-const { title } = getSiteSettings()
-const links = getNav()
+const { title } = await getSiteSettings()
+const links = await getNav()
 ---
 
 <header>

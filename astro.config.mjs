@@ -33,7 +33,7 @@ import markdoc from "@astrojs/markdoc"
 // EmDash CMS (staged migration off Pages CMS; see docs/dev/emdash-migration.md). Cloudflare-native:
 // content in its own D1 (EMDASH_DB), media in its own R2 bucket (EMDASH_MEDIA), admin at /_emdash/admin.
 import emdash from "emdash/astro"
-import { d1, r2, access } from "@emdash-cms/cloudflare"
+import { d1, r2, access, kvCache } from "@emdash-cms/cloudflare"
 
 // https://astro.build/config
 export default defineConfig({
@@ -51,7 +51,17 @@ export default defineConfig({
         // worker_loaders/sandbox block: plugins are out of scope, so this stays on the Cloudflare free plan.
         emdash({
             database: d1({ binding: "EMDASH_DB" }),
-            storage: r2({ binding: "EMDASH_MEDIA" }),
+            // publicUrl makes EmDash resolve media to a public URL instead of the Access-gated
+            // /_emdash/api/media/file proxy. Required now that public pages are prerendered static assets:
+            // an anonymous visitor must be able to load CMS images without passing Cloudflare Access. Set
+            // EMDASH_MEDIA_PUBLIC_URL to the emdash-media bucket's public/R2-custom-domain URL (see DEPLOY).
+            // When unset it falls back to the proxy (fine for local dev; images won't load for the public).
+            storage: r2({ binding: "EMDASH_MEDIA", publicUrl: process.env.EMDASH_MEDIA_PUBLIC_URL }),
+            // KV object cache for EmDash's own request-time reads. Public pages and chrome are now
+            // prerendered (read at build over the HTTP API, not from D1 at request time), so this no longer
+            // sits on the public hot path; it still caches EmDash's admin/preview reads. Reuses the existing
+            // KV_DB_CACHE namespace — EmDash namespaces its own keys; preview/visual-edit requests bypass it.
+            objectCache: kvCache({ binding: "KV_DB_CACHE" }),
             auth: access({
                 teamDomain: "nrnnetint.cloudflareaccess.com",
                 audienceEnvVar: "CF_ACCESS_AUD"

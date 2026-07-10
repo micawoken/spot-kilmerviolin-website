@@ -26,6 +26,17 @@ declare namespace App {
     }
 }
 
+// Build-time configuration for the CMS content fetch (src/lib/build/emdash-api.ts) and media publicUrl
+// (astro.config.mjs). Read only during `astro build` (prerendering) — never bound as wrangler runtime
+// secrets/vars. Merges with Vite's ImportMetaEnv. See .env.example.
+interface ImportMetaEnv {
+    readonly CONTENT_API_BASE?: string
+    readonly CF_ACCESS_CLIENT_ID?: string
+    readonly CF_ACCESS_CLIENT_SECRET?: string
+    readonly EMDASH_API_TOKEN?: string
+    readonly EMDASH_MEDIA_PUBLIC_URL?: string
+}
+
 declare module "jose" {
     // jose from npmjs
     interface JWTPayload {
