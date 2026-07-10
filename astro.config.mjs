@@ -30,8 +30,8 @@ import optimizeFiles from "./integrations/optimize-files.mjs"
 import react from "@astrojs/react"
 import markdoc from "@astrojs/markdoc"
 
-// EmDash CMS (staged migration off Pages CMS; see docs/dev/emdash-migration.md). Cloudflare-native:
-// content in its own D1 (EMDASH_DB), media in its own R2 bucket (EMDASH_MEDIA), admin at /_emdash/admin.
+// EmDash CMS (replaced Pages CMS; see docs/dev/emdash-migration.md). Cloudflare-native: content in its
+// own D1 (EMDASH_DB), media in its own R2 bucket (EMDASH_MEDIA), admin at /_emdash/admin.
 import emdash from "emdash/astro"
 import { d1, r2, access, kvCache } from "@emdash-cms/cloudflare"
 
@@ -49,6 +49,8 @@ export default defineConfig({
         // the worker manages via src/lib/api/access_iam_mgmt.ts) — passkeys are disabled. audienceEnvVar
         // reads the existing CF_ACCESS_AUD var at runtime (the recommended pattern for Workers). No
         // worker_loaders/sandbox block: plugins are out of scope, so this stays on the Cloudflare free plan.
+        // On top of this Access authentication, src/middleware/emdash_access.ts authorizes /_emdash
+        // in-app against the cms_editor permission (any enrolled contributor otherwise passes Access).
         emdash({
             database: d1({ binding: "EMDASH_DB" }),
             // publicUrl makes EmDash resolve media to a public URL instead of the Access-gated

@@ -73,11 +73,7 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             deactivate: { access: { kind: "admin" } },
             // promotion/demotion (PUT/DELETE /api/v1/identity/admin) require admin
             elevate: { access: { kind: "admin" } },
-            demote: { access: { kind: "admin" } },
-            // granting/revoking GitHub repository access (POST/DELETE /api/v1/identity/github/authorization)
-            // require admin
-            "authorize-gh": { access: { kind: "admin" } },
-            "deauthorize-gh": { access: { kind: "admin" } }
+            demote: { access: { kind: "admin" } }
         }
     },
     iam: {
@@ -90,10 +86,6 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             add: { access: { kind: "permission", permissions: ["user_addition"] } },
             list: { access: { kind: "permission", permissions: ["user_addition"] } },
             remove: { access: { kind: "permission", permissions: ["user_addition"] } },
-            // adding/editing/clearing another user's GitHub username (/api/v1/identity/github) requires admin.
-            // Self-service GitHub linking lives on My Profile (/admin/profile/edit), gated by github_link there.
-            "change-gh": { access: { kind: "admin" } },
-            "del-gh": { access: { kind: "admin" } },
             // "my authorization info" shows the caller their own info; reachable while inactive
             whoami: { access: { kind: "any" } }
         }
@@ -158,8 +150,9 @@ export const identity: MiddlewareHandler = async (context, next) => {
         return next()
     }
 
-    // the app-authenticated surfaces (both 404'd on staging); /_emdash is not app-authenticated (EmDash's
-    // own Cloudflare Access adapter gates it) but is likewise hidden on the staging preview.
+    // the app-authenticated surfaces (both 404'd on staging). /_emdash also needs an identity constructed
+    // (see below) so middleware/emdash_access.ts can authorize it, on top of EmDash's own Cloudflare Access
+    // adapter.
     const isAppProtected = path_components[0] === "api" || path_components[0] === "admin"
     const isEmDash = path_components[0] === "_emdash"
 
@@ -169,14 +162,15 @@ export const identity: MiddlewareHandler = async (context, next) => {
         return middlewareErrorResponder(context.request, 404, "This resource is not available on the staging preview.")
     }
 
-    if (!isAppProtected) {
-        // the request path does not require app authentication (not api, not admin) — EmDash routes reach
-        // here in the non-staging environments and are gated by EmDash's own Access adapter, not this
-        // middleware.
+    if (!isAppProtected && !isEmDash) {
+        // the request path does not require app authentication or an identity (not api, not admin, not
+        // _emdash)
         return next()
     }
 
-    // the request path requires authentication and authorization
+    // the request path requires authentication, and identity construction. isEmDash paths only need
+    // context.locals.identity populated below for the emdash_access middleware to authorize against — this
+    // middleware performs no _emdash-specific authorization itself (see middleware/emdash_access.ts)
 
     // on local development (development build served from localhost/127.0.0.1),
     // authentication and authorization are bypassed entirely; in all other

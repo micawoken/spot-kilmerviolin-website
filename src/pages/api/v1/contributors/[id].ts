@@ -45,7 +45,6 @@ import {
 import { authEnabled } from "../../../../lib/api/environment"
 import { generateFallbackEmail, resolveIdentityEmail } from "../../../../lib/api/fallback"
 import { extractUploadedFileKey, getFileMeta } from "../../../../lib/api/files"
-import { applyGithubUsername, GithubLinkageError } from "../../../../lib/public/usermgmt"
 
 /**
  * GET /api/v1/contributors/[id]
@@ -176,15 +175,6 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  *
  * Body: required, JSON object of partial contributor record with fields to update; must include the id field and value must match the ID in the URL
  *
- * github_username is *conditionally* protected: while the linked account is not yet authorized for
- * repository access the record owner may set, change, or clear it through this endpoint without elevation;
- * once authorized it is protected like the other privileged columns and only an elevated administrator may
- * change it. It is never written verbatim — the change is routed through the GitHub binding (which resolves
- * and verifies the account, deriving github_user_id). When the GitHub portion of an otherwise valid update
- * is rejected, the remaining fields are still saved and the response is a 200 carrying the GitHub failure
- * detail rather than failing the whole request; a GitHub-only request that is rejected returns the GitHub
- * failure status directly. (github_user_id itself remains unconditionally protected.)
- *
  * @param context - the Astro API context
  * @returns a Response object
  */
@@ -253,17 +243,6 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         }
         const is_elevated_admin = api_request.meta?.elevate === true && locals.identity?.admin === true
 
-        // github_username is conditionally protected (see the endpoint doc): pull it out before the generic
-        // protected-property gate so it is not blocked outright, and so it is applied through the GitHub
-        // binding rather than written verbatim. github_user_id stays in `record`, so the generic gate below
-        // still rejects any attempt to spoof the immutable id directly.
-        let github_change: { username: string | null } | undefined
-        if ("github_username" in record) {
-            const value = (record as Partial<Contributor>).github_username
-            github_change = { username: value ?? null }
-            delete (record as Partial<Contributor>).github_username
-        }
-
         // validate that properties are safe
         if (CONTRIBUTOR.protected!.some((prop) => prop in record) && !is_elevated_admin && auth_enabled) {
             // record includes protected properties, and either elevate is false or user is not admin
@@ -287,38 +266,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
                 }
             }
         }
-        // apply the non-github fields first; protected properties have already been gated by the elevate +
-        // admin check above, so authorize the data layer to write them (allowProtected). A github failure
-        // below must not roll these back, so they are committed before the github change is attempted.
-        const has_other_fields = Object.keys(record).length > 0
-        if (has_other_fields) {
-            await updateContributorPartial(context.locals.cfContext, state_id, record, true)
-        }
-
-        // apply the conditional github_username change, if requested. A failure here — most importantly the
-        // protection block for a non-admin self-edit of an already-authorized link — does not undo the fields
-        // committed above: when other fields were updated the request still succeeds (200) and carries the
-        // github failure detail; a github-only request that fails returns the github failure status directly.
-        if (github_change !== undefined) {
-            // when auth is disabled (local dev) there is no identity to elevate, so treat the caller as
-            // elevated and let the binding run; otherwise an elevated admin may override the protection
-            const elevated = !auth_enabled || is_elevated_admin
-            try {
-                await applyGithubUsername(context.locals.cfContext, state_id, github_change.username, elevated)
-            } catch (error) {
-                const status: 400 | 403 | 500 = error instanceof GithubLinkageError ? error.status : 500
-                const message = error instanceof Error ? error.message : String(error)
-                if (!(error instanceof GithubLinkageError)) {
-                    console.error("Unexpected GitHub linkage failure during contributor PATCH:", error)
-                }
-                if (has_other_fields) {
-                    // partial success: the other fields saved, the github link did not
-                    return constructResponse(request, { github_error: message, github_status: status }, 200, message)
-                }
-                // nothing else was applied; surface the github failure as the response status
-                return constructResponse(request, null, status, message)
-            }
-        }
+        await updateContributorPartial(context.locals.cfContext, state_id, record, true)
         return constructResponse(request, null, 204)
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Failed to update contributor")
