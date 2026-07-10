@@ -20,12 +20,12 @@ interface __BaseEnv_Env {
 	CACHE_API_TTL: 7200;
 	CACHE_API_TTL_LONG: 604800;
 	KV_CACHE_TTL: 57600;
-	CF_ACCESS_LIST_ID: "a7696af3-f1d7-4593-85a6-1e152390562f";
+	CF_ACCESS_POLICY_ID: "";
 	CF_ACCOUNT_ID: "49d973b0738799edc1a8edac208b35be";
-	CF_ACCESS_AUD: "0d075cefe6325b9fe0ccc4911081ee79708d3261c24cb0dce26f40286b0dfdf6";
+	CF_ACCESS_AUD: "c4cc189f52d80c62581f358cb9650e332a13613d8ed7990c3acb3dee897fb776";
 	GITHUB_REPO_OWNER: "micawoken";
 	GITHUB_REPO_NAME: "entrusting-devilish-fish";
-	PAGES_CMS_SYNC_URL: "https://kilmer-cms.infra.mwmsc.net/api/sync/cms-access";
+	PAGES_CMS_SYNC_URL: "https://cms.guest.mwmsc.net/api/sync/cms-access";
 	API_USER_SELFENROLL: true;
 	TEAM_DOMAIN: "https://nrnnetint.cloudflareaccess.com";
 	REBUILD_COOLDOWN_SEC: 900;
@@ -48,7 +48,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "CACHE_API_TTL" | "CACHE_API_TTL_LONG" | "KV_CACHE_TTL" | "CF_ACCESS_LIST_ID" | "CF_ACCOUNT_ID" | "CF_ACCESS_AUD" | "GITHUB_REPO_OWNER" | "GITHUB_REPO_NAME" | "PAGES_CMS_SYNC_URL" | "API_USER_SELFENROLL" | "TEAM_DOMAIN" | "REBUILD_COOLDOWN_SEC" | "IDENTITY_CACHE_TTL_MS" | "MAX_UPLOAD_BYTES" | "SEARCH_RESULT_CAP" | "MAX_IMAGE_WIDTH" | "TARGET_IMAGE_FORMAT" | "TARGET_IMAGE_QUALITY" | "CF_ACCESS_TOKEN" | "CF_DEPLOY_HOOK" | "GITHUB_ADMIN_TOKEN" | "PAGES_CMS_SYNC_SECRET">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "CACHE_API_TTL" | "CACHE_API_TTL_LONG" | "KV_CACHE_TTL" | "CF_ACCESS_POLICY_ID" | "CF_ACCOUNT_ID" | "CF_ACCESS_AUD" | "GITHUB_REPO_OWNER" | "GITHUB_REPO_NAME" | "PAGES_CMS_SYNC_URL" | "API_USER_SELFENROLL" | "TEAM_DOMAIN" | "REBUILD_COOLDOWN_SEC" | "IDENTITY_CACHE_TTL_MS" | "MAX_UPLOAD_BYTES" | "SEARCH_RESULT_CAP" | "MAX_IMAGE_WIDTH" | "TARGET_IMAGE_FORMAT" | "TARGET_IMAGE_QUALITY" | "CF_ACCESS_TOKEN" | "CF_DEPLOY_HOOK" | "GITHUB_ADMIN_TOKEN" | "PAGES_CMS_SYNC_SECRET">> {}
 }
 
 // Begin runtime types

@@ -134,26 +134,31 @@ interface ResponseInfo {
     }
 }
 
-interface GatewayItem {
-    created_at?: string
-    description?: string
-    value?: string
+// a Cloudflare Access policy rule that allows a single inline email; the enrollment allowlist is expressed as
+// a set of these in the policy's `include` array (see lib/api/access_iam_mgmt.ts)
+interface AccessEmailRule {
+    email: { email: string }
 }
 
-interface GatewayList {
+// any include/exclude/require rule; only AccessEmailRule is inspected, other rule types are preserved opaquely
+type AccessRule = AccessEmailRule | Record<string, unknown>
+
+// a reusable Access policy as returned by GET and accepted (minus read-only keys) by PUT. Unknown editable
+// fields are kept via the index signature so a read-modify-write round-trips without dropping settings.
+interface AccessPolicy {
     id?: string
-    count?: number
-    created_at?: string
-    description?: string
-    items: GatewayItem[]
     name?: string
-    type?: "SERIAL" | "URL" | "DOMAIN" | "EMAIL" | "IP" | "CATEGORY" | "LOCATION" | "DEVICE" | "AAGUID"
-    updated_at?: string
+    decision?: string
+    include: AccessRule[]
+    exclude?: AccessRule[]
+    require?: AccessRule[]
+    session_duration?: string
+    [key: string]: unknown
 }
 
-interface CfResponseInfoGatewayList {
+interface CfResponseInfoAccessPolicy {
     errors: ResponseInfo[]
     messages: ResponseInfo[]
     success: boolean
-    result?: GatewayList
+    result?: AccessPolicy
 }
