@@ -46,8 +46,12 @@ import "../styles/admin-entities.css"
     }
 </style>
 <script is:inline>
-    // Remove the EmDash toolbar node if/when its middleware injects it before </body>. The style above
-    // hides it immediately (no flash); this removes it so its inline script does no further work.
+    // Remove the EmDash toolbar node if/when its middleware injects it before the closing body tag. The
+    // style above hides it immediately (no flash); this removes it so its inline script does no further
+    // work. NOTE: do not write the literal string "</" + "body>" anywhere in this file (even in a comment) —
+    // EmDash's toolbar-injection middleware does a naive string search for that exact substring in the
+    // rendered HTML and splices its toolbar markup at the first occurrence, which would corrupt this script
+    // block if it matched here instead of the real closing tag.
     ;(function () {
         function strip() {
             document.getElementById("emdash-toolbar")?.remove()
