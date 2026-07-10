@@ -35,7 +35,7 @@ const TOKENS_CSS =
 const editorConfig: Config = {
     ...spikeConfig,
     root: {
-        render: ({ children }) => (
+        render: ({ children }: { children?: import("react").ReactNode }) => (
             <>
                 <style dangerouslySetInnerHTML={{ __html: TOKENS_CSS }} />
                 {children}
@@ -56,9 +56,9 @@ async function api(method: string, path: string, body?: unknown): Promise<ApiRes
         headers: { "Content-Type": "application/json", "X-EmDash-Request": "1" },
         body: body === undefined ? undefined : JSON.stringify(body)
     })
-    let json = null
+    let json: ApiResult["json"] = null
     try {
-        json = await response.json()
+        json = (await response.json()) as ApiResult["json"]
     } catch {
         /* non-JSON response */
     }
