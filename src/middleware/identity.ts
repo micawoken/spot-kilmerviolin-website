@@ -95,6 +95,9 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
     composers: { children: { import: { access: { kind: "admin" } } } },
     contributors: { children: { import: { access: { kind: "admin" } } } },
     works: { children: { import: { access: { kind: "admin" } } } },
+    // the visual-compositor pages (design list, editor, theme) read and write EmDash design collections,
+    // so the whole tree requires the same cms_editor permission that gates /_emdash (emdash_access.ts)
+    designs: { access: { kind: "permission", permissions: ["cms_editor"] } },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
     profile: { access: { kind: "any" } },
