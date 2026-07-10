@@ -1,10 +1,11 @@
 /**
  * lib/content/footer.ts
  *
- * Build-time accessor for the static footer content authored in the CMS (the "footer" file, stored at
- * src/content/settings/footer.json). The JSON is imported directly so it is baked into the build (see
- * lib/content/nav.ts for the rationale). The copyright year is computed at render time in the footer
- * component; only the static parts (organization, tagline) live here.
+ * Build-time accessor for the static footer content. EmDash has no footer concept, so the footer reuses
+ * its built-in General Settings (read over the HTTP API, see src/lib/build/emdash-api.ts fetchSettings):
+ * the copyright organization is the site `title` and the footer line is the site `tagline`. The public
+ * site is prerendered, so publishing a settings change requires a site rebuild. The copyright year is
+ * computed at render time in the footer component; only the static parts (organization, tagline) live here.
  *
  * Consumed by components/PublicFooter.astro.
  *
@@ -25,7 +26,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import footerData from "../../content/settings/footer.json"
+import { fetchSettings } from "../build/emdash-api"
+import { SITE_TITLE } from "../../consts"
 
 /** The resolved footer content; a field is null when left blank in the CMS. */
 export interface FooterContent {
@@ -33,16 +35,18 @@ export interface FooterContent {
     tagline: string | null
 }
 
-const data = footerData as { organization?: string; tagline?: string }
-
 /**
- * Returns the static footer content, normalizing blank fields to null so the component can omit them.
+ * Returns the footer content derived from EmDash's built-in General Settings: the copyright organization
+ * is the site `title` (falling back to the src/consts.ts default so the footer credit matches the header),
+ * and the footer line is the site `tagline`. Blank or missing values normalize to null so the component
+ * can omit them. Fails soft on read error.
  *
- * @returns {FooterContent} the resolved organization and tagline
+ * @returns {Promise<FooterContent>} the resolved organization and tagline
  */
-export function getFooter(): FooterContent {
+export async function getFooter(): Promise<FooterContent> {
+    const settings = await fetchSettings()
     return {
-        organization: data.organization?.trim() || null,
-        tagline: data.tagline?.trim() || null
+        organization: settings.title?.trim() || SITE_TITLE,
+        tagline: settings.tagline?.trim() || null
     }
 }

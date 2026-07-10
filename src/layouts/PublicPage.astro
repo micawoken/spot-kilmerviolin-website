@@ -39,7 +39,7 @@ interface Props {
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
 // when a page does not supply its own title/description
-const site = getSiteSettings()
+const site = await getSiteSettings()
 const { title = site.title, description = site.description, image } = Astro.props
 ---
 

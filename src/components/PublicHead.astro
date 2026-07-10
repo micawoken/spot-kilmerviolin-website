@@ -3,14 +3,13 @@
  * components/PublicHead.astro
  *
  * Shared <head> fragment for the public-facing site, the public analog of AdminHead. It carries the
- * common metadata (charset, viewport, favicon, title/description, canonical and social tags) and is
- * the single source of the staging noindex directive: on the staging preview (served from the
- * "staging" preview-alias URL, see src/lib/api/environment.ts) it emits robots=noindex so the preview
- * is never indexed, while production pages remain indexable.
+ * common metadata (charset, viewport, favicon, title/description, canonical and social tags).
  *
- * Public pages are server-rendered (astro.config.mjs output: "server", no prerender), so the
- * environment is resolved per request from the hostname here. Do not prerender public pages, or the
- * directive would be baked in at build time rather than reflecting the serving environment.
+ * Public pages are prerendered (static assets served from ASSETS), so the serving environment cannot be
+ * resolved per request here — a single build produces identical HTML for both the production domain and
+ * the "staging" preview alias. The staging preview is therefore kept out of search indexes at the edge
+ * (an X-Robots-Tag: noindex response-header rule on the staging-*.workers.dev hostname), not by a
+ * per-request meta tag. See DEPLOY.md.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -29,7 +28,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import "../styles/global.css"
-import { detectEnvironment } from "../lib/api/environment"
 
 interface Props {
     title: string
@@ -40,16 +38,12 @@ interface Props {
 const { title, description, image = "/blog-placeholder-1.jpg" } = Astro.props
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site)
-const noindex = detectEnvironment(Astro.request) === "staging"
 ---
 
 <!-- Global Metadata -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
-<!-- Keep the staging preview out of search indexes -->
-{noindex && <meta name="robots" content="noindex" />}
 
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
