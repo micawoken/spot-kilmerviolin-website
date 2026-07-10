@@ -192,13 +192,17 @@ export const identity: MiddlewareHandler = async (context, next) => {
     // app identity flow, which cannot represent them (an EmDash API token is not an Access JWT, and an
     // Access service-token JWT carries no email): EmDash validates Bearer tokens itself (with per-token
     // scopes), and its Access adapter maps a service-token JWT to an EmDash role. The cms_editor gate in
-    // middleware/emdash_access.ts targets browser sessions, which authenticate via the CF_Authorization
-    // cookie and still take the identity flow below. Build-time reads (lib/build/emdash-api.ts) and the
-    // design-collection setup tooling depend on this delegation.
+    // middleware/emdash_access.ts targets browser sessions, which take the identity flow below: a browser's
+    // CF_Authorization cookie holds a USER JWT (email present), which isServiceTokenJWT rejects, so the
+    // credential slot is deliberately not consulted — Access injects a service-token JWT as BOTH the
+    // Cf-Access-Jwt-Assertion header and a CF_Authorization cookie (observed on prod), and the cookie wins
+    // retrieveCredential's priority. Skipping the cookie CSRF origin check here is safe for the same
+    // reason: only a verified service-token JWT (never a user session) is delegated. Build-time reads
+    // (lib/build/emdash-api.ts) and the design-collection setup tooling depend on this delegation.
     if (isEmDash) {
         if (
             credential_data[0] === "Auth-Header" ||
-            (credential_data[0] === "Cf-Header" && (await isServiceTokenJWT(credential_data[1], env.CF_ACCESS_AUD)))
+            (await isServiceTokenJWT(credential_data[1], env.CF_ACCESS_AUD))
         ) {
             context.locals.emdashServiceAuth = true
             return next()
