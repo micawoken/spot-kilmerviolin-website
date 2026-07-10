@@ -182,6 +182,50 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
 }
 
 /**
+ * Determines whether verified Access JWT claims identify a service principal (a Cloudflare Access
+ * service token) rather than a user. Service-token JWTs carry a common_name claim (the token's
+ * configured name) and no email claim; user JWTs always carry an email.
+ *
+ * @param {object} payload - the verified JWT payload claims
+ * @returns {boolean} true when the claims identify a service principal
+ */
+export function isServicePrincipalClaims(payload: Record<string, unknown>): boolean {
+    return !payload.email && typeof payload.common_name === "string" && payload.common_name.length > 0
+}
+
+/**
+ * Reports whether a token is a cryptographically valid, active service-token JWT (see
+ * isServicePrincipalClaims) for the given Access audience. Returns false for user JWTs, malformed or
+ * invalid tokens, and configuration gaps — callers must then fall back to the user-identity flow, so a
+ * false here never widens access.
+ *
+ * @param {string} token - the JWT presented in the Cf-Access-Jwt-Assertion header
+ * @param {string} aud - the expected audience claim (the CF Access application audience)
+ * @returns {Promise<boolean>} a Promise resolving to true only for a valid service-token JWT
+ */
+export async function isServiceTokenJWT(token: string, aud: string): Promise<boolean> {
+    if (aud === "" || !token) {
+        return false
+    }
+    try {
+        const JWKS = getJWKS(env.TEAM_DOMAIN)
+        const { payload } = await jwtVerify(token, JWKS, {
+            issuer: env.TEAM_DOMAIN,
+            audience: aud
+        })
+        // apply the same nbf/exp policy as parseJWT: absent claims fail open, present claims are checked
+        const current_time = Math.floor(Date.now() / 1000)
+        if (current_time < (payload.nbf ?? 0) || current_time > (payload.exp ?? Infinity)) {
+            return false
+        }
+        return isServicePrincipalClaims(payload)
+    } catch {
+        // not cryptographically valid for this audience/issuer
+        return false
+    }
+}
+
+/**
  * Validates the nbf and exp claims
  *
  * @param {BaseIdentity} result - the result of JWT validation, which includes nbf and exp claims if they were provided in the JWT

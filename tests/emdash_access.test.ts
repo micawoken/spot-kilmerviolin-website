@@ -26,6 +26,7 @@
 
 import { describe, it, expect } from "vitest"
 import { permissionsFromRoles } from "../src/lib/api/authorize.ts"
+import { isServicePrincipalClaims } from "../src/lib/api/authenticate.ts"
 import { satisfiesAccess, type AdminAccess } from "../src/lib/api/page_auth.ts"
 
 const EMDASH_ACCESS: AdminAccess = { kind: "permission", permissions: ["cms_editor"] }
@@ -84,5 +85,30 @@ describe("/_emdash cms_editor gate (satisfiesAccess against EMDASH_ACCESS)", () 
 
     it("ignores unknown role strings (they confer nothing)", () => {
         expect(satisfiesAccess(EMDASH_ACCESS, buildIdentity(["bogus"], false, true))).toBe(false)
+    })
+})
+
+/**
+ * Claim classification behind the /_emdash service-credential delegation (identity.ts): a verified Access
+ * JWT is delegated to EmDash's own auth only when its claims identify a service principal — a service
+ * token's common_name with no email. Anything email-bearing or ambiguous must take the user-identity flow.
+ */
+describe("isServicePrincipalClaims (/_emdash service-credential delegation)", () => {
+    it("accepts service-token claims (common_name, no email)", () => {
+        expect(isServicePrincipalClaims({ common_name: "build-reader" })).toBe(true)
+    })
+
+    it("rejects user claims (email present)", () => {
+        expect(isServicePrincipalClaims({ email: "user@example.com" })).toBe(false)
+        expect(isServicePrincipalClaims({ email: "user@example.com", common_name: "odd" })).toBe(false)
+    })
+
+    it("rejects claims with neither email nor common_name", () => {
+        expect(isServicePrincipalClaims({})).toBe(false)
+    })
+
+    it("rejects non-string or empty common_name", () => {
+        expect(isServicePrincipalClaims({ common_name: "" })).toBe(false)
+        expect(isServicePrincipalClaims({ common_name: 42 })).toBe(false)
     })
 })
