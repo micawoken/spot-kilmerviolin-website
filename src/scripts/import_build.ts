@@ -218,9 +218,7 @@ export function buildContributor(cells: Record<string, string>): BuildResult {
             roles: [],
             tags: [],
             active: false,
-            admin: false,
-            github_username: null,
-            github_user_id: null
+            admin: false
         },
         issues
     }

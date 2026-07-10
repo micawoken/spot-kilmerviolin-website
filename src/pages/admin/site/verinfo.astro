@@ -28,7 +28,6 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 // version info is rendered server-side (the GET /api/v1/site endpoint serves API consumers)
 import verinfo from "../../../lib/api/verinfo"
 import { guardPage } from "../../../lib/api/page_auth"
-import { test as githubTokenTest } from "../../../lib/api/github_repo_mgmt"
 import { test as accessTokenTest } from "../../../lib/api/access_iam_mgmt"
 
 export const prerender = false
@@ -41,15 +40,14 @@ if (denied) {
 
 const info = verinfo(Astro.request)
 
-// Integration token health is an admin-only diagnostic: each check makes a live read against the
-// external API (GitHub / Cloudflare) to confirm the configured secret still works after a migration or
-// rotation. It is gated to administrators and skipped otherwise (including local development, where no
-// identity is present and the secrets/bindings are unavailable). test() never throws — it resolves to
-// false on any failure, so a failing integration never breaks the page render.
-let tokenHealth: { github: boolean; cloudflare: boolean } | null = null
+// Integration token health is an admin-only diagnostic: it makes a live read against the Cloudflare API
+// to confirm the configured secret still works after a migration or rotation. It is gated to
+// administrators and skipped otherwise (including local development, where no identity is present and the
+// secrets/bindings are unavailable). test() never throws — it resolves to false on any failure, so a
+// failing integration never breaks the page render.
+let tokenHealth: { cloudflare: boolean } | null = null
 if (Astro.locals.identity?.admin === true) {
-    const [github, cloudflare] = await Promise.all([githubTokenTest(), accessTokenTest()])
-    tokenHealth = { github, cloudflare }
+    tokenHealth = { cloudflare: await accessTokenTest() }
 }
 
 // build timestamp arrives as an ISO string; render it in a readable local form while keeping the raw
@@ -182,12 +180,6 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                     {
                         tokenHealth && (
                             <div class="site-info-group">
-                                <strong>GitHub admin token:</strong>
-                                <span>
-                                    {tokenHealth.github
-                                        ? "OK"
-                                        : "Failed — verify the token targets the configured repository with Administration access"}
-                                </span>
                                 <strong>Cloudflare API token:</strong>
                                 <span>
                                     {tokenHealth.cloudflare
