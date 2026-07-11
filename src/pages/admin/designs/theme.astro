@@ -1,0 +1,56 @@
+---
+/**
+ * pages/admin/designs/theme.astro
+ *
+ * The theme editor page (impl §6.5): admin chrome hosting the ThemeEditor island, which edits the
+ * single `design_theme` item's token catalog (the `--dtk-*` values every design draws from, §4.3).
+ * A form page rather than a canvas, so it keeps the normal AdminHeader/Footer chrome. Middleware
+ * already gates /admin/designs/* on cms_editor (middleware/identity.ts).
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import ThemeEditor from "../../../components/compositor/ThemeEditor"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Design Theme`} description="Edit the design token theme" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Design Theme</h2>
+            <p class="general-infohelp">
+                These tokens are the colors, type, spacing, and other values design pages choose from. Save a draft to
+                keep working, or publish to make the tokens available; published pages pick up theme changes on the next
+                rebuild. Return to the <a href="/admin/designs">Designs list</a>.
+            </p>
+            <ThemeEditor client:only="react" />
+        </main>
+        <AdminFooter />
+    </body>
+</html>
