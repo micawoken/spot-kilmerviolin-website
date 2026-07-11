@@ -1,0 +1,114 @@
+/* lib/compositor/compositor.css
+ *
+ * The single stylesheet for the frozen catalog v1 components (impl §4.5 / §6.3). Shipped identically
+ * into the Puck canvas iframe (editor) and the public build head, so a design renders the same in
+ * both. Every rule consumes only theme custom properties: `--dtk-*` (emitted by tokens.ts from the
+ * live theme) and per-component `--cmp-*` locals that catalog.tsx sets from the selected token names.
+ * No component ships freeform CSS or inline style beyond those token-var lookups (decision 4).
+ *
+ * Missing tokens fail soft: an unset `--dtk-*`/`--cmp-*` var falls back to the value in its `var(…, x)`
+ * default here, so a design referencing a token the theme lacks renders plain, never broken; lint
+ * (§6.7) surfaces the dangling reference.
+ *
+ * Copyright (C) 2026 Michael Wong. GPL-3.0-or-later; see README.md for additional terms.
+ */
+
+/* Section — full-width band. */
+.cmp-section {
+	background: var(--cmp-section-bg, transparent);
+	padding-block: var(--cmp-section-py, 0);
+	padding-inline: var(--dtk-space-md, 1rem);
+}
+
+/* Columns — CSS grid; stacks to a single column below the `md` breakpoint. The breakpoint is fixed
+ * here (768px, the §4.3 seed `md`) because CSS custom properties cannot be used in `@media` conditions,
+ * so a theme `md` change does not reflow this rule (accepted Phase 1 limitation). */
+.cmp-columns {
+	display: grid;
+	grid-template-columns: repeat(var(--cmp-columns-count, 1), 1fr);
+	gap: var(--cmp-columns-gap, 0);
+}
+.cmp-columns__col {
+	min-width: 0;
+}
+@media (max-width: 767.98px) {
+	.cmp-columns {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* Heading — one typography token spread across its sub-value properties; alignment is a fixed enum. */
+.cmp-heading {
+	font-family: var(--cmp-heading-family);
+	font-size: var(--cmp-heading-size);
+	font-weight: var(--cmp-heading-weight);
+	line-height: var(--cmp-heading-line-height);
+	letter-spacing: var(--cmp-heading-letter-spacing);
+	text-align: var(--cmp-heading-align, start);
+	margin: 0;
+}
+
+/* RichText — the parity renderer (richtext.tsx) owns its inner markup; this only scopes it. */
+.cmp-richtext {
+	font-family: var(--dtk-type-body-family);
+	font-size: var(--dtk-type-body-size);
+	line-height: var(--dtk-type-body-line-height);
+}
+
+/* Image — explicit width/height attributes prevent layout shift; aspect crops via object-fit. */
+.cmp-image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+.cmp-image[data-aspect="landscape"] {
+	aspect-ratio: 16 / 9;
+	object-fit: cover;
+	width: 100%;
+	height: auto;
+}
+.cmp-image[data-aspect="portrait"] {
+	aspect-ratio: 3 / 4;
+	object-fit: cover;
+	width: 100%;
+	height: auto;
+}
+
+/* Button — variant classes (no theme variant registry in §4.3; see catalog.tsx header). Each consumes
+ * conventional `--dtk-*` tokens and fails soft when a theme omits them. */
+.cmp-button {
+	display: inline-block;
+	padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-md, 1rem);
+	border-radius: var(--dtk-radius-md, 0);
+	border: 1px solid transparent;
+	text-decoration: none;
+	cursor: pointer;
+}
+.cmp-button--primary {
+	background: var(--dtk-color-accent, #2337ff);
+	color: var(--dtk-color-page-bg, #fff);
+}
+.cmp-button--secondary {
+	background: transparent;
+	border-color: var(--dtk-color-accent, #2337ff);
+	color: var(--dtk-color-accent, #2337ff);
+}
+.cmp-button--ghost {
+	background: transparent;
+	color: var(--dtk-color-accent, #2337ff);
+}
+.cmp-button--ghost:hover {
+	text-decoration: underline;
+}
+
+/* Spacer — empty vertical space. */
+.cmp-spacer {
+	height: var(--cmp-spacer-size, 0);
+}
+
+/* Divider — a themed horizontal rule. */
+.cmp-divider {
+	border: none;
+	border-top: 1px solid var(--cmp-divider-color, currentColor);
+	margin-block: var(--cmp-divider-space, 0);
+}
