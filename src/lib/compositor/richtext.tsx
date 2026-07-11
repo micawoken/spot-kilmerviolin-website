@@ -45,10 +45,10 @@ import type { PortableTextBlock } from "emdash"
  * a fragment. Protocol-relative `//host` is rejected. Mirrors emdash's `sanitizeHref` (utils/url.ts);
  * inlined so this renderer stays out of the emdash server-code dependency graph.
  */
-const SAFE_URL_SCHEME_RE = /^(https?:|mailto:|tel:|\/(?!\/)|#)/i
+export const SAFE_URL_SCHEME_RE = /^(https?:|mailto:|tel:|\/(?!\/)|#)/i
 
-/** Returns the url when it uses a safe scheme, otherwise "#". */
-function sanitizeHref(url: string | undefined | null): string {
+/** Returns the url when it uses a safe scheme, otherwise "#". Shared by the catalog Button and lint (§6.7). */
+export function sanitizeHref(url: string | undefined | null): string {
     return url && SAFE_URL_SCHEME_RE.test(url) ? url : "#"
 }
 
