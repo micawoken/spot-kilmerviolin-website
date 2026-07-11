@@ -45,6 +45,23 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
+<!--
+  Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
+  cross-document view transitions (see global.css) never reveal a flash of the wrong scheme. The
+  color-scheme meta tag is parsed synchronously with the rest of <head> and tells the browser which UA
+  default to use for anything not yet styled (scrollbars, form controls); the inline <style> paints the
+  exact --color-bg value from global.css (not just the UA's approximate dark canvas) since it also
+  parses synchronously, with no network round-trip. Keep the hex values below in sync with --color-bg
+  in global.css (also duplicated in lib/templates/error.html for the same reason).
+-->
+<meta name="color-scheme" content="light dark" />
+<style>
+    html { background: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+        html { background: #1a1a1a; }
+    }
+</style>
+
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
 

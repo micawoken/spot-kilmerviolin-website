@@ -1,0 +1,288 @@
+---
+/**
+ * pages/admin/designs/index.astro
+ *
+ * The visual compositor's entry point (impl §6.5): lists every `design_page` item and offers a
+ * create form. The list is read client-side from EmDash's content API (same-origin, session cookie)
+ * rather than server-side, because the design collections live in EmDash, not the app database —
+ * mirroring how the public build reads them (lib/build/emdash-api.ts). Middleware already gates the
+ * whole /admin/designs subtree on cms_editor (middleware/identity.ts), so no in-page guard is needed.
+ *
+ * Trash/restore and revision history are intentionally absent here — those live in the EmDash admin
+ * UI, which this page links to rather than duplicating (plan: "EmDash admin remains where content lives").
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Designs`} description="Manage visual design pages" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Designs</h2>
+            <p class="general-infohelp">
+                Visual design pages are laid out in the editor and stored in the CMS. Changes stay private until you
+                publish a page and rebuild the site. To trash, restore, or review revisions, use the
+                <a href="/_emdash">EmDash admin</a>. Shared theme tokens are edited on the
+                <a href="/admin/designs/theme">Theme page</a>.
+            </p>
+
+            <section class="design-create" aria-labelledby="design-create-heading">
+                <h3 id="design-create-heading">Create a design</h3>
+                <form id="design-create-form">
+                    <label>
+                        Name
+                        <input type="text" id="design-name" name="name" required autocomplete="off" />
+                    </label>
+                    <label>
+                        Slug
+                        <input
+                            type="text"
+                            id="design-slug"
+                            name="slug"
+                            autocomplete="off"
+                            placeholder="e.g. about, gallery/2026"
+                        />
+                    </label>
+                    <button type="submit" id="design-create-button">Create and open editor</button>
+                </form>
+                <p id="design-create-status" role="status" aria-live="polite"></p>
+            </section>
+
+            <section aria-labelledby="design-list-heading">
+                <h3 id="design-list-heading">Existing designs</h3>
+                <p id="design-list-status" role="status" aria-live="polite">Loading designs…</p>
+                <div id="design-list"></div>
+            </section>
+
+            <script>
+                // A real module import forces Astro to emit this as an external hashed module (never inlined),
+                // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
+                import { emptyDesignDoc } from "../../../lib/compositor/migrations"
+
+                const CONTENT_ENDPOINT = "/_emdash/api/content/design_page"
+                const EDITOR_PATH = "/admin/designs/edit"
+
+                /** The subset of an EmDash content item this list renders (see emdash ContentItem). */
+                interface DesignItem {
+                    id: string
+                    slug: string | null
+                    status: string
+                    data: Record<string, unknown> | null
+                    updatedAt: string
+                    liveRevisionId: string | null
+                    draftRevisionId: string | null
+                }
+
+                const listStatus = document.getElementById("design-list-status") as HTMLParagraphElement
+                const listContainer = document.getElementById("design-list") as HTMLDivElement
+                const createForm = document.getElementById("design-create-form") as HTMLFormElement
+                const createButton = document.getElementById("design-create-button") as HTMLButtonElement
+                const createStatus = document.getElementById("design-create-status") as HTMLParagraphElement
+                const nameInput = document.getElementById("design-name") as HTMLInputElement
+                const slugInput = document.getElementById("design-slug") as HTMLInputElement
+
+                /** Extracts a human message from an EmDash `{ error: { message } }` body, falling back to the status line. */
+                async function errorMessage(response: Response): Promise<string> {
+                    try {
+                        const body = (await response.json()) as { error?: { message?: string } }
+                        if (body.error?.message) return body.error.message
+                    } catch {
+                        // non-JSON error body; fall through to the status text
+                    }
+                    return `${response.status} ${response.statusText}`
+                }
+
+                /** Fetches every design page, following EmDash's cursor pagination to completion. */
+                async function fetchDesigns(): Promise<DesignItem[]> {
+                    const items: DesignItem[] = []
+                    let cursor: string | undefined
+                    do {
+                        const query = new URLSearchParams({ limit: "100" })
+                        if (cursor) query.set("cursor", cursor)
+                        const response = await fetch(`${CONTENT_ENDPOINT}?${query.toString()}`, {
+                            headers: { Accept: "application/json" }
+                        })
+                        if (!response.ok) throw new Error(await errorMessage(response))
+                        const body = (await response.json()) as {
+                            data?: { items?: DesignItem[]; nextCursor?: string }
+                        }
+                        if (body.data?.items) items.push(...body.data.items)
+                        cursor = body.data?.nextCursor
+                    } while (cursor)
+                    return items
+                }
+
+                /**
+                 * Publication state for the badge. List responses carry published-column data only, but the
+                 * revision ids reveal an unpublished draft staged over a published page (draft != live).
+                 */
+                function statusLabel(item: DesignItem): string {
+                    const pendingDraft = Boolean(item.draftRevisionId) && item.draftRevisionId !== item.liveRevisionId
+                    if (item.status === "published") return pendingDraft ? "Published · pending draft" : "Published"
+                    return "Draft"
+                }
+
+                function titleOf(item: DesignItem): string {
+                    const title = item.data?.title
+                    if (typeof title === "string" && title.trim() !== "") return title
+                    return item.slug ?? "(untitled)"
+                }
+
+                /** Renders the fetched designs as a table, or an empty-state message. */
+                function renderDesigns(items: DesignItem[]): void {
+                    listContainer.replaceChildren()
+                    if (items.length === 0) {
+                        listStatus.textContent = "No designs yet. Create one above to get started."
+                        return
+                    }
+                    listStatus.textContent = ""
+
+                    const table = document.createElement("table")
+                    table.className = "design-table"
+                    const head = table.createTHead().insertRow()
+                    for (const heading of ["Name", "Slug", "Status", "Updated", ""]) {
+                        const th = document.createElement("th")
+                        th.scope = "col"
+                        th.textContent = heading
+                        head.appendChild(th)
+                    }
+
+                    const body = table.createTBody()
+                    for (const item of items) {
+                        const row = body.insertRow()
+                        row.insertCell().textContent = titleOf(item)
+                        row.insertCell().textContent = item.slug ?? "—"
+                        row.insertCell().textContent = statusLabel(item)
+                        const updated = row.insertCell()
+                        updated.textContent = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "—"
+                        const actions = row.insertCell()
+                        const link = document.createElement("a")
+                        link.href = `${EDITOR_PATH}?id=${encodeURIComponent(item.id)}`
+                        link.textContent = "Open editor"
+                        actions.appendChild(link)
+                    }
+                    listContainer.appendChild(table)
+                }
+
+                async function loadDesigns(): Promise<void> {
+                    listStatus.textContent = "Loading designs…"
+                    try {
+                        renderDesigns(await fetchDesigns())
+                    } catch (error) {
+                        listStatus.textContent = `Could not load designs: ${
+                            error instanceof Error ? error.message : String(error)
+                        }`
+                        console.error(error)
+                    }
+                }
+
+                /** Creates a draft design_page seeded with an empty design doc, then opens it in the editor. */
+                async function createDesign(name: string, slug: string): Promise<void> {
+                    const payload: Record<string, unknown> = {
+                        data: { title: name, description: "", design: emptyDesignDoc() },
+                        status: "draft"
+                    }
+                    if (slug) payload.slug = slug
+
+                    const response = await fetch(CONTENT_ENDPOINT, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            // EmDash's CSRF check requires this header on every state-changing request.
+                            "X-EmDash-Request": "1"
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    if (!response.ok) throw new Error(await errorMessage(response))
+
+                    const body = (await response.json()) as { data?: { id?: string } }
+                    const id = body.data?.id
+                    if (!id) throw new Error("The design was created but no id was returned")
+                    window.location.href = `${EDITOR_PATH}?id=${encodeURIComponent(id)}`
+                }
+
+                createForm.addEventListener("submit", async (event) => {
+                    event.preventDefault()
+                    const name = nameInput.value.trim()
+                    const slug = slugInput.value.trim().replace(/^\/+|\/+$/g, "")
+                    if (!name) {
+                        createStatus.textContent = "Please enter a name."
+                        return
+                    }
+                    createButton.disabled = true
+                    createStatus.textContent = "Creating…"
+                    try {
+                        await createDesign(name, slug)
+                        // navigation happens on success; leave the button disabled while it unloads
+                    } catch (error) {
+                        createStatus.textContent = `Could not create the design: ${
+                            error instanceof Error ? error.message : String(error)
+                        }`
+                        console.error(error)
+                        createButton.disabled = false
+                    }
+                })
+
+                loadDesigns()
+            </script>
+
+            <style>
+                .design-create form {
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: end;
+                    gap: 1rem;
+                    margin-block: 1rem;
+                }
+                .design-create label {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.25rem;
+                }
+                .design-table {
+                    border-collapse: collapse;
+                    width: 100%;
+                }
+                .design-table th,
+                .design-table td {
+                    border: 1px solid var(--gray-light, #ccc);
+                    padding: 0.5rem 0.75rem;
+                    text-align: left;
+                }
+                .design-table th {
+                    background: var(--gray-light, #f0f0f0);
+                }
+            </style>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

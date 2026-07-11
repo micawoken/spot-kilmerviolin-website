@@ -511,7 +511,12 @@ export async function exec_string_sequential(commands: string[]): Promise<D1Resu
  * @throws an error if the lookup fails
  */
 export async function getRecord(schema: D1Schema, id: number): Promise<D1Result> {
-    const statement = `SELECT * FROM ${schema.name} WHERE ${schema.primary_key} = ?;`
+    // Select the schema's known columns explicitly rather than `*`. A table that carries a column not in
+    // the schema (e.g. one removed from the schema but not yet migrated out of the DB) would otherwise flow
+    // through recordTypeAssertComplete as an "extraneous parameter" and throw; on the authorization path
+    // that throw is swallowed and reads back as an unenrolled identity, locking every caller out. Selecting
+    // by column keeps code and DB decoupled. Column names are trusted schema constants, not user input.
+    const statement = `SELECT ${schema.columns.join(", ")} FROM ${schema.name} WHERE ${schema.primary_key} = ?;`
     return _exec(statement, [id.toString()])
 }
 
@@ -531,7 +536,10 @@ export async function getRecordSpecificProp(schema: D1Schema, param: string, val
     if (!schema.columns.includes(param)) {
         throw new Error(`Invalid column '${param}' for table '${schema.name}'`)
     }
-    const statement = `SELECT * FROM ${schema.name} WHERE ${param} = ?;`
+    // explicit columns, not `*` — see getRecord: selecting only schema columns tolerates a DB that still
+    // carries a since-removed column, so a schema/DB drift cannot throw in recordTypeAssertComplete and
+    // silently lock out authorization (the identity_email lookup that backs every request runs through here)
+    const statement = `SELECT ${schema.columns.join(", ")} FROM ${schema.name} WHERE ${param} = ?;`
     return _exec(statement, [value])
 }
 

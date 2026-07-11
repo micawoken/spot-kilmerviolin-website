@@ -219,3 +219,6 @@ dist
 # local docs
 /docs/*
 .docs/dev/*
+
+# editor workspace
+*.code-workspace
