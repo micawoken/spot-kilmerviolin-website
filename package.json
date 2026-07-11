@@ -3,6 +3,9 @@
   "description": "The website for the project, data here later",
   "license": "LicenseRef-proprietary",
   "private": true,
+  "imports": {
+    "#emdash/converters": "./node_modules/emdash/src/content/converters/index.ts"
+  },
   "cloudflare": {
     "label": "Astro Framework Starter",
     "products": [
