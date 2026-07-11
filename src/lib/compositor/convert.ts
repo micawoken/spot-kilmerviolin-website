@@ -31,7 +31,15 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { portableTextToProsemirror, prosemirrorToPortableText } from "emdash"
+// The converters must run in the browser (the editor island loads and saves rich text client-side), but
+// emdash's package entry pulls its server graph (astro:config/server, kysely, node:async_hooks) in with
+// it, and `emdash/client` does not re-export them. The converter modules themselves are pure — no
+// platform APIs, only type-only imports — so `#emdash/converters` (package.json `imports`) resolves
+// straight to that source for Vite, Vitest, and tsc alike, keeping emdash the single source of truth
+// rather than vendoring ~900 lines that would drift from its Portable Text schema. It reaches past
+// emdash's export map, so an upgrade that moves the file breaks the build loudly; the durable fix is for
+// emdash to export the converters from `emdash/client`.
+import { portableTextToProsemirror, prosemirrorToPortableText } from "#emdash/converters"
 import type { PortableTextBlock, ProseMirrorDocument } from "emdash"
 
 import type { DesignDoc, PuckData } from "./types"
