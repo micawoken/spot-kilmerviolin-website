@@ -2,14 +2,22 @@
 /**
  * pages/[...slug].astro
  *
- * Catch-all route for the CMS-authored public pages, stored in EmDash (the `pages` content type). The
- * page is now **prerendered**: getStaticPaths() enumerates the published pages at build time by fetching
- * EmDash's HTTP API (src/lib/build/emdash-api.ts, through a Cloudflare Access service token), and each
- * page's rich-text body is rendered through EmDash's PortableText component in the PublicPage layout.
+ * Catch-all route for the CMS-authored public pages. It now has TWO published sources (impl §6.6):
+ * the Portable-Text `pages` content type, rendered exactly as before, and the compositor's `design_page`
+ * type, rendered from a stored design document. `route-authority.ts` merges them and fails the build on
+ * any duplicate slug, so a path always has exactly one owner.
  *
- * Because only published slugs are built, an unknown path matches no route and is served the static 404
- * from the Cloudflare ASSETS binding — with no D1 or KV lookup. Publishing or editing a page requires a
- * site rebuild (the admin Rebuild button) to regenerate these static pages.
+ * The page is prerendered: getStaticPaths() enumerates both sources at build time over EmDash's HTTP API
+ * (src/lib/build/{emdash,design}-api.ts, through a Cloudflare Access service token). Because only
+ * published slugs are built, an unknown path matches no route and is served the static 404 from the
+ * Cloudflare ASSETS binding — with no D1 or KV lookup. Publishing or editing a page requires a site
+ * rebuild (the admin Rebuild button) to regenerate these static pages.
+ *
+ * Design pages ship ZERO JavaScript: Puck's `Render` is imported from `@puckeditor/core/rsc` and used with
+ * no client directive, so it server-renders to plain HTML. The theme's tokens are injected into the head
+ * as `--dtk-*` custom properties alongside the component stylesheet. A design page does NOT emit an
+ * automatic <h1>{title}</h1> — its headings come from the canvas (§4.5) — while a Portable-Text page still
+ * does, preserving the pre-compositor output.
  *
  * As a rest-parameter route this has the lowest routing priority, so explicit files (index.astro,
  * privacy-policy.astro, the /admin and /api trees) always win.
@@ -32,41 +40,91 @@
  */
 
 import { PortableText } from "emdash/ui"
+import { Render } from "@puckeditor/core/rsc"
+
 import PublicPage from "../layouts/PublicPage.astro"
 import FormattedDate from "../components/FormattedDate.astro"
 import { fetchPublishedPages } from "../lib/build/emdash-api"
+import { fetchPublishedDesignPages, fetchPublishedTheme } from "../lib/build/design-api"
+import { collectRoutes } from "../lib/build/route-authority"
+import { buildConfig, TOKEN_PROPS } from "../lib/compositor/catalog"
+import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
+import { EMPTY_TOKEN_CATALOG, tokensToCss } from "../lib/compositor/tokens"
+import compositorCss from "../lib/compositor/compositor.css?raw"
 
 export const prerender = true
 
-// Enumerate one static route per published page at build time. fetchPublishedPages reads the `pages`
-// content type over EmDash's HTTP API and fails soft to [] (so a build without CMS access still succeeds,
-// just with no content pages). Field names (title, description, content, published_at) mirror the `pages`
-// content type; the route param is EmDash's top-level item slug, normalized in fetchPublishedPages.
+// Enumerate one static route per published page across both sources. The readers fail soft to []/null (so
+// a build without CMS access still succeeds, just with no content pages), but a duplicate slug, an
+// unreadable design document, or a design that fails the a11y lint all FAIL the build — each of those
+// would otherwise ship a broken or silently-missing public page.
 //
 // The page authored with slug "home" is the site's designated home page and is routed to "/" (an undefined
 // rest-param matches the route's root) instead of "/home", so there is exactly one URL for it.
 export async function getStaticPaths() {
-    const pages = await fetchPublishedPages()
-    return pages.map((page) => ({
-        params: { slug: page.slug === "home" ? undefined : page.slug },
-        props: {
-            title: page.title,
-            description: page.description,
-            published_at: page.published_at,
-            content: page.content
+    const [pages, designPages, theme] = await Promise.all([
+        fetchPublishedPages(),
+        fetchPublishedDesignPages(),
+        fetchPublishedTheme()
+    ])
+
+    // Lint every published design before it can reach the build output. Errors are the a11y/safety rules
+    // the editor's Publish dialog already blocks on; reaching here means a design was published around the
+    // editor (API-direct), so the build is the last line of defense. Warnings are logged, not fatal.
+    for (const designPage of designPages) {
+        const findings = lintDesign(designPage.doc, theme, TOKEN_PROPS)
+        for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
+            console.warn(`[build] design "${designPage.slug}" — ${finding.path}: ${finding.message}`)
         }
+        if (hasBlockingError(findings)) {
+            const errors = findings
+                .filter((finding) => finding.severity === "error")
+                .map((finding) => `  ${finding.path}: ${finding.message}`)
+                .join("\n")
+            throw new Error(
+                `[build] design page "${designPage.slug}" fails the design lint and cannot be published:\n` +
+                    `${errors}\n` +
+                    "Fix it in /admin/designs, or unpublish the page."
+            )
+        }
+    }
+
+    return collectRoutes({ pages, designPages }).map((route) => ({
+        params: { slug: route.slug === "home" ? undefined : route.slug },
+        props: { ...route.props, theme }
     }))
 }
 
-const { title, description, published_at, content } = Astro.props
+const props = Astro.props
+
+// The theme's custom properties plus the component stylesheet, inlined into this page's head. Kept off
+// Portable-Text pages entirely — they render no compositor components. With no published theme, only the
+// component styles are emitted and token-backed declarations fall back to their initial values.
+const headCss =
+    props.kind === "design" ? `${props.theme ? tokensToCss(props.theme) : ""}\n${compositorCss}` : ""
 ---
 
-<PublicPage title={title} description={description}>
-    <article>
-        <h1>{title}</h1>
-        {published_at && (
-            <p class="last-updated">Last updated: <FormattedDate date={new Date(published_at)} /></p>
-        )}
-        <PortableText value={content} />
-    </article>
-</PublicPage>
+{
+    props.kind === "portable" ? (
+        <PublicPage title={props.title} description={props.description}>
+            <article>
+                <h1>{props.title}</h1>
+                {props.published_at && (
+                    <p class="last-updated">
+                        Last updated: <FormattedDate date={new Date(props.published_at)} />
+                    </p>
+                )}
+                <PortableText value={props.content} />
+            </article>
+        </PublicPage>
+    ) : (
+        <PublicPage title={props.title} description={props.description}>
+            <style slot="head" set:html={headCss} />
+            {/* Puck's config holds React render functions, so it cannot travel through getStaticPaths
+                props (those are serialized); it is rebuilt here from the serializable theme. The "build"
+                target swaps the two editor-only fields for passthroughs so stored Portable Text reaches
+                the renderer intact (§6.3). No client directive → server-rendered, zero JS. */}
+            <Render config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build")} data={props.doc.puck} />
+        </PublicPage>
+    )
+}

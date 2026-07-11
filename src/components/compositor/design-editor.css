@@ -1,0 +1,227 @@
+/**
+ * components/compositor/design-editor.css
+ *
+ * Chrome for the DesignEditor island (§6.5): the toolbar, conflict bar, page-settings drawer, and
+ * publish dialog that wrap Puck's own editor UI. Scoped to the host admin document (not the canvas
+ * iframe — that is styled by the injected theme tokens + compositor.css). Bundled and linked by Astro,
+ * so it is served under the admin CSP's `style-src 'self'`.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+.design-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.design-editor__bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #ddd;
+    background: #fafafa;
+    flex: 0 0 auto;
+}
+
+.design-editor__title {
+    font-size: 1rem;
+}
+
+.design-editor__status {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.design-editor__save {
+    font-size: 0.85rem;
+    color: #555;
+}
+.design-editor__save[data-state="error"] {
+    color: #b00020;
+}
+.design-editor__save[data-state="saved"] {
+    color: #1a7f37;
+}
+
+.design-editor__spacer {
+    flex: 1 1 auto;
+}
+
+.design-editor__canvas {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+}
+
+.design-editor__conflict {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: #fff3cd;
+    border-bottom: 1px solid #ffe69c;
+    flex: 0 0 auto;
+}
+
+.design-editor__fullscreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+    padding: 1rem;
+}
+
+.design-editor__drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(360px, 90vw);
+    height: 100vh;
+    background: #fff;
+    border-left: 1px solid #ddd;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+    overflow: auto;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.design-editor__drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.design-editor__drawer label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.design-editor__drawer input,
+.design-editor__drawer textarea {
+    padding: 0.4rem;
+    font: inherit;
+}
+
+.design-editor__hint {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.design-editor__modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+}
+
+.design-editor__modal {
+    background: #fff;
+    width: min(560px, 92vw);
+    max-height: 82vh;
+    overflow: auto;
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+}
+
+.design-editor__findings {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.design-editor__findings li {
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.25rem;
+    font-size: 0.9rem;
+}
+.design-editor__findings li[data-severity="error"] {
+    background: #fde8e8;
+}
+.design-editor__findings li[data-severity="warning"] {
+    background: #fff3cd;
+}
+
+.design-editor__finding-path {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.design-editor__blocked {
+    color: #b00020;
+    font-size: 0.9rem;
+}
+
+/* --- Theme editor ------------------------------------------------------------------------------- */
+
+.theme-editor__section {
+    margin-block: 1.5rem;
+}
+
+.theme-editor__table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-block: 0.5rem;
+}
+
+.theme-editor__table th,
+.theme-editor__table td {
+    border: 1px solid #ddd;
+    padding: 0.25rem 0.4rem;
+    text-align: left;
+}
+
+.theme-editor__table input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.3rem;
+    font: inherit;
+}
+
+.theme-editor__cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.theme-editor__swatch {
+    flex: 0 0 auto;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 1px solid #999;
+    border-radius: 0.15rem;
+}
+
+.theme-editor__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}

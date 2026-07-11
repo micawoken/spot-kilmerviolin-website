@@ -1,0 +1,54 @@
+---
+/**
+ * pages/admin/designs/edit.astro
+ *
+ * Full-viewport host for the visual editor (impl §6.5). Deliberately minimal — BaseHead only, no
+ * AdminHeader/Footer chrome — because the Puck editor owns the whole viewport. It resolves the
+ * `design_page` id from the query string and mounts the editor island; all loading, autosave, and
+ * publishing happen client-side against the EmDash API (see DesignEditor.tsx). Middleware already
+ * gates /admin/designs/* on cms_editor (middleware/identity.ts).
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import DesignEditor from "../../../components/compositor/DesignEditor"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+
+// A design id is required; without one there is nothing to edit, so send the user back to the list.
+const id = Astro.url.searchParams.get("id")
+if (!id) {
+    return Astro.redirect("/admin/designs")
+}
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Design`} description="Visual page editor" />
+        <style is:global>
+            body {
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <DesignEditor id={id} client:only="react" />
+    </body>
+</html>

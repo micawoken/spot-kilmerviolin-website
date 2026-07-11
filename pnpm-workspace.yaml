@@ -1,0 +1,7 @@
+# pnpm 10 reads build-script and other settings from here, not package.json's "pnpm" field.
+# onlyBuiltDependencies is the allowlist of packages whose install/build scripts may run.
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
+  - sharp
+  - workerd
