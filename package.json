@@ -51,13 +51,6 @@
   "engines": {
     "node": ">=22"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp",
-      "workerd"
-    ]
-  },
   "scripts": {
     "astro": "astro",
     "build": "astro build",
