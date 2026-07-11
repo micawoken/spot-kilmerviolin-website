@@ -47,6 +47,9 @@ const { title = site.title, description = site.description, image } = Astro.prop
 <html lang="en">
     <head>
         <PublicHead title={title} description={description} image={image} />
+        {/* Optional per-page head content. Design pages inject their theme's token custom properties
+            here (§6.6); every other caller simply leaves it empty. */}
+        <slot name="head" />
     </head>
     <body>
         <PublicHeader />

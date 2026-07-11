@@ -77,6 +77,22 @@ export interface TokenCatalog {
     breakpoints: BreakpointToken[]
 }
 
+/**
+ * A catalog with no tokens in any kind. Used by the build when no theme is published (§6.6): the design
+ * still renders structurally, every token select is empty, and no `--dtk-*` property is declared, so
+ * token-backed declarations fall back to their initial values rather than breaking the page.
+ */
+export const EMPTY_TOKEN_CATALOG: TokenCatalog = Object.freeze({
+    schemaVersion: 1,
+    colors: [],
+    typography: [],
+    space: [],
+    radius: [],
+    shadows: [],
+    borders: [],
+    breakpoints: []
+})
+
 /** The catalog keys a component field can select from. Drives `tokenVar` / `tokenSelectOptions`. */
 export type TokenKind = "colors" | "typography" | "space" | "radius" | "shadows" | "borders" | "breakpoints"
 

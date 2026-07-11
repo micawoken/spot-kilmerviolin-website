@@ -112,9 +112,12 @@ let warnedUnconfigured = false
  * responses as `{ data: T }` (see src/api/error.ts apiSuccess); errors are `{ error: {...} }` with a
  * non-2xx status. Failures are logged and swallowed so the caller can fall back.
  *
+ * Exported for `design-api.ts`, which reads the compositor collections over the same authenticated API
+ * and must not duplicate the config/auth/timeout handling.
+ *
  * @param path an absolute API path beginning with "/_emdash/api/…"
  */
-async function emdashGet<T>(path: string): Promise<T | null> {
+export async function emdashGet<T>(path: string): Promise<T | null> {
     const config = getConfig()
     if (!config) {
         if (!warnedUnconfigured) {
@@ -150,23 +153,25 @@ async function emdashGet<T>(path: string): Promise<T | null> {
 }
 
 /** EmDash content item as returned by the list API (subset; see emdash `ContentItem`). */
-interface ApiContentItem {
+export interface ApiContentItem {
     slug: string | null
     status: string
     data: Record<string, unknown> | null
 }
 
 /** Cursor-paginated list envelope (see emdash `ListResult`). */
-interface ApiListResult {
+export interface ApiListResult {
     items: ApiContentItem[]
     nextCursor?: string
 }
 
 /**
  * Normalizes an EmDash slug to a catch-all route param: trims surrounding whitespace and slashes. Returns
- * null for a missing or empty slug (such an item cannot be routed and is skipped).
+ * null for a missing or empty slug (such an item cannot be routed and is skipped). Exported so design
+ * pages normalize their slugs identically — the duplicate check in `route-authority.ts` is only sound if
+ * both route sources agree on what a slug is.
  */
-function normalizeSlug(slug: string | null): string | null {
+export function normalizeSlug(slug: string | null): string | null {
     const trimmed = slug?.trim().replace(/^\/+|\/+$/g, "")
     return trimmed ? trimmed : null
 }
