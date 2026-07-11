@@ -52,7 +52,7 @@ import type { Config, CustomFieldRender } from "@puckeditor/core"
 import type { PortableTextBlock } from "emdash"
 
 import { RichTextView, sanitizeHref } from "./richtext"
-import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind } from "./tokens"
+import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 
 /** Which config a `buildConfig` call produces: the editor island's or the static build renderer's. */
 export type CatalogTarget = "editor" | "build"
@@ -63,6 +63,22 @@ export type CatalogTarget = "editor" | "build"
  * Contributor rule 5: a new rich-text prop MUST be registered here.
  */
 export const RICH_TEXT_PROPS: Record<string, readonly string[]> = { RichText: ["body"] }
+
+/**
+ * Component type → its token-select props and the kind each draws from (§4.5), kept beside the field
+ * definitions below so the two cannot drift. The lint pass (§6.7) consumes this to flag a stored
+ * token name absent from the theme; passing it in (rather than importing lint here) keeps lint free
+ * of this module's React/Puck code and unit-testable. Optional token props (Section `background`,
+ * Divider `color`) may hold "" (None), which lint skips. Contributor rule: a new token-select field
+ * MUST be registered here.
+ */
+export const TOKEN_PROPS: TokenPropRegistry = {
+    Section: { background: "colors", paddingY: "space" },
+    Columns: { gap: "space" },
+    Heading: { typography: "typography" },
+    Spacer: { size: "space" },
+    Divider: { spaceAround: "space", color: "colors" }
+}
 
 /** The media object an Image stores (§4.5). `url` is the same-origin EmDash file endpoint. */
 export interface MediaValue {

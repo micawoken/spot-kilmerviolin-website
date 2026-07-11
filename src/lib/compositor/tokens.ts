@@ -81,6 +81,14 @@ export interface TokenCatalog {
 export type TokenKind = "colors" | "typography" | "space" | "radius" | "shadows" | "borders" | "breakpoints"
 
 /**
+ * Registry mapping a component `type` to each of its token-select props and the token kind that prop
+ * draws from (e.g. `Section.background → "colors"`). Supplied by the catalog (§6.3) so lint (§6.7)
+ * can flag a stored token name absent from the current theme without importing the catalog's
+ * React/Puck code. A component type absent from the registry has no token props.
+ */
+export type TokenPropRegistry = Record<string, Record<string, TokenKind>>
+
+/**
  * Kind → the `--dtk-<segment>-…` name segment. Deliberately terse and stable: these strings are
  * baked into stored/emitted CSS, so renaming a segment is a breaking change to every design page.
  */
