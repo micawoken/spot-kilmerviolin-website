@@ -25,6 +25,7 @@ import {
     editorFormToDesign,
     type RichTextPropRegistry
 } from "../../src/lib/compositor/convert"
+import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../src/lib/compositor/migrations"
 import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
 
 const REGISTRY: RichTextPropRegistry = { RichText: ["body"] }
@@ -180,6 +181,12 @@ describe("editorFormToDesign", () => {
     it("converts the ProseMirror working value back to a Portable Text array", () => {
         const design = editorFormToDesign(designToEditorForm(makeDoc(), REGISTRY), REGISTRY)
         expect(Array.isArray(slotChildren(design)[0].props.body)).toBe(true)
+    })
+
+    it("returns the whole envelope the editor stores — so the next read can migrate it", () => {
+        const design = editorFormToDesign(designToEditorForm(makeDoc(), REGISTRY), REGISTRY)
+        expect(design.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+        expect(() => migrateDesign(design)).not.toThrow()
     })
 })
 
