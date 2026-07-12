@@ -1,10 +1,11 @@
 /**
  * components/compositor/ThemeEditor.tsx
  *
- * The theme editor island (impl §6.5): edits the single `design_theme` item's `tokens` catalog —
- * the closed set of `--dtk-*` values every design page draws from (§4.3). Mounted `client:only="react"`
- * by `pages/admin/designs/theme.astro` inside the normal admin chrome (this is a form page, not the
- * full-viewport canvas).
+ * The theme editor (impl §6.5): edits the single `design_theme` item's `tokens` catalog — the closed
+ * set of `--dtk-*` values every design page draws from (§4.3). Mounted client-side by
+ * `pages/admin/designs/theme.astro` inside the normal admin chrome (this is a form page, not the
+ * full-viewport canvas), from a module script rather than an Astro island — the admin CSP blocks
+ * Astro's inline island bootstrap (see `pages/admin/designs/edit.astro`).
  *
  * It discovers the theme item via the content list, then GETs it by id for the draft-overlaid `tokens`
  * (editor-role read), edits every token kind as rows, and writes a draft `PUT` / `POST …/publish` the

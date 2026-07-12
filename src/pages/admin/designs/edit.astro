@@ -4,7 +4,7 @@
  *
  * Full-viewport host for the visual editor (impl §6.5). Deliberately minimal — BaseHead only, no
  * AdminHeader/Footer chrome — because the Puck editor owns the whole viewport. It resolves the
- * `design_page` id from the query string and mounts the editor island; all loading, autosave, and
+ * `design_page` id from the query string and mounts the editor below; all loading, autosave, and
  * publishing happen client-side against the EmDash API (see DesignEditor.tsx). Middleware already
  * gates /admin/designs/* on cms_editor (middleware/identity.ts).
  *
@@ -26,7 +26,7 @@
  */
 
 import BaseHead from "../../../components/BaseHead.astro"
-import DesignEditor from "../../../components/compositor/DesignEditor"
+import ReactRefreshPreamble from "../../../components/compositor/ReactRefreshPreamble.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 export const prerender = false
@@ -42,6 +42,7 @@ if (!id) {
 <html lang="en">
     <head>
         <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Edit Design`} description="Visual page editor" />
+        <ReactRefreshPreamble />
         <style is:global>
             body {
                 margin: 0;
@@ -49,6 +50,26 @@ if (!id) {
         </style>
     </head>
     <body>
-        <DesignEditor id={id} client:only="react" />
+        <div id="design-editor" data-design-id={id}></div>
+
+        <script>
+            // Mounted from this module rather than as an Astro island (`client:only="react"`): for any
+            // client directive Astro emits its island bootstrap as *inline* <script> tags, which carry no
+            // nonce or hash and so are blocked by the admin CSP's script-src 'self' (middleware/headers.ts),
+            // leaving the island unhydrated. The imports below keep this script an external hashed module,
+            // which that CSP permits. Do not reintroduce a client directive on an /admin page.
+            import { createElement } from "react"
+            import { createRoot } from "react-dom/client"
+            import DesignEditor from "../../../components/compositor/DesignEditor"
+
+            const host = document.getElementById("design-editor")
+            if (!host) throw new Error("The design editor host element is missing")
+
+            // Set from the server-resolved query param above; edit.astro redirects when it is absent.
+            const id = host.dataset.designId
+            if (!id) throw new Error("The design editor host element carries no design id")
+
+            createRoot(host).render(createElement(DesignEditor, { id }))
+        </script>
     </body>
 </html>
