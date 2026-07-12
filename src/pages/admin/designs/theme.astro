@@ -28,7 +28,7 @@ import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
-import ThemeEditor from "../../../components/compositor/ThemeEditor"
+import ReactRefreshPreamble from "../../../components/compositor/ReactRefreshPreamble.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 export const prerender = false
@@ -38,6 +38,7 @@ export const prerender = false
 <html lang="en">
     <head>
         <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Design Theme`} description="Edit the design token theme" />
+        <ReactRefreshPreamble />
         <AdminHead />
     </head>
     <body>
@@ -49,7 +50,20 @@ export const prerender = false
                 keep working, or publish to make the tokens available; published pages pick up theme changes on the next
                 rebuild. Return to the <a href="/admin/designs">Designs list</a>.
             </p>
-            <ThemeEditor client:only="react" />
+            <div id="theme-editor"></div>
+
+            <script>
+                // Mounted from this module rather than as an Astro island — see edit.astro for why a client
+                // directive cannot be used under the admin CSP (middleware/headers.ts).
+                import { createElement } from "react"
+                import { createRoot } from "react-dom/client"
+                import ThemeEditor from "../../../components/compositor/ThemeEditor"
+
+                const host = document.getElementById("theme-editor")
+                if (!host) throw new Error("The theme editor host element is missing")
+
+                createRoot(host).render(createElement(ThemeEditor, {}))
+            </script>
         </main>
         <AdminFooter />
     </body>
