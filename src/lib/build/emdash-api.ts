@@ -43,8 +43,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** A published CMS page, flattened to the fields the public route renders. */
+/**
+ * A published CMS page: the fields the untemplated route renders, plus what a design template needs to
+ * render it (the pivot's D4/D7 — a page can name a template that pulls its fields through outlets).
+ */
 export interface BuildPage {
+    /** the EmDash item id — what a `reference` field on another item points at */
+    id: string
     /** the on-site path segment(s), without a leading or trailing slash (e.g. "about", "docs/setup") */
     slug: string
     title: string
@@ -53,6 +58,17 @@ export interface BuildPage {
     content: unknown
     /** the authored publish date, or null when the field is blank */
     published_at: string | null
+    /**
+     * The entry's whole raw data record. An outlet may bind ANY field of the collection, so the named
+     * fields above cannot be the only ones carried; they stay because the untemplated render path (D3)
+     * consumes exactly them, unchanged.
+     */
+    fields: Record<string, unknown>
+    /**
+     * The `design` reference field: a `design_template` item **id**, or null when the page names no
+     * template (EmDash stores a reference as the target's id — see the pivot plan §1.9).
+     */
+    designRef: string | null
 }
 
 /** The subset of EmDash General Settings the chrome consumes. */
@@ -154,6 +170,7 @@ export async function emdashGet<T>(path: string): Promise<T | null> {
 
 /** EmDash content item as returned by the list API (subset; see emdash `ContentItem`). */
 export interface ApiContentItem {
+    id: string
     slug: string | null
     status: string
     data: Record<string, unknown> | null
@@ -177,9 +194,23 @@ export function normalizeSlug(slug: string | null): string | null {
 }
 
 /**
+ * Reads an EmDash `reference` field as the referenced item's id. A reference is stored as TEXT holding
+ * that id, so anything else (absent, blank, a non-string) means "no reference" rather than a broken one.
+ * Exported so every routed collection reads its `design` pointer identically.
+ */
+export function normalizeReference(value: unknown): string | null {
+    if (typeof value !== "string") return null
+    const trimmed = value.trim()
+    return trimmed ? trimmed : null
+}
+
+/**
  * Fetches every published entry of the `pages` content type, following cursor pagination to completion.
  * Field keys (title, description, content, published_at) mirror the `pages` content type defined in the
  * EmDash admin UI; the routable slug is EmDash's top-level item `slug`. Returns [] on any read failure.
+ *
+ * The whole `data` record is carried through as `fields` (a template's outlets may bind any field), and
+ * `design` is surfaced as `designRef` — the pivot's per-entry template pointer (D4).
  *
  * @returns {Promise<BuildPage[]>} the published pages to prerender, in API order
  */
@@ -198,11 +229,14 @@ export async function fetchPublishedPages(): Promise<BuildPage[]> {
             if (!slug) continue
             const data = item.data ?? {}
             pages.push({
+                id: item.id,
                 slug,
                 title: typeof data.title === "string" ? data.title : "",
                 description: typeof data.description === "string" ? data.description : "",
                 content: data.content ?? [],
-                published_at: typeof data.published_at === "string" ? data.published_at : null
+                published_at: typeof data.published_at === "string" ? data.published_at : null,
+                fields: data,
+                designRef: normalizeReference(data.design)
             })
         }
         cursor = result.nextCursor
