@@ -2,12 +2,14 @@
  * lib/build/design-api.ts
  *
  * Build-time reader for the compositor collections (impl §6.6), the design-page analog of
- * `emdash-api.ts`. It reuses that module's `emdashGet` (config, Access/PAT auth, timeout, fail-soft
- * logging) rather than duplicating it, so both readers authenticate identically.
+ * `emdash-api.ts`. It reuses that module's `emdashGet` (config, auth, timeout, failure policy) rather
+ * than duplicating it, so both readers authenticate and fail identically.
  *
  * Failure policy is deliberately split:
- *  - A *read* failure (no CONTENT_API_BASE, network error, non-OK response) fails SOFT to []/null, like
- *    every other build reader — the bootstrap build, before any worker exists, must still succeed.
+ *  - With no CONTENT_API_BASE (the bootstrap build) there is nothing to read; the readers return []/null
+ *    and the build still succeeds.
+ *  - A *read* failure against a CONFIGURED CMS throws (`CmsReadError`, see emdash-api.ts) — falling soft
+ *    there would drop published pages out of `dist/` and deploy that over the live site.
  *  - A *migration* failure on a published design THROWS and fails the build, naming the page. The design
  *    is present and published; rendering it wrongly, or silently dropping it, would be a regression that
  *    reaches the public site. Loud and early beats a missing page nobody notices.
