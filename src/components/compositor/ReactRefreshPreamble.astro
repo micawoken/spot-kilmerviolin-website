@@ -1,0 +1,51 @@
+---
+/**
+ * components/compositor/ReactRefreshPreamble.astro
+ *
+ * Dev-only React Fast Refresh preamble for the compositor's editor pages. Renders nothing in a
+ * production build.
+ *
+ * @astrojs/react normally installs this itself, via injectScript("before-hydration") — but Astro only
+ * emits "before-hydration" scripts on a page that hydrates an island, and the editors deliberately do
+ * not use one (Astro's island bootstrap is inline, which the admin CSP blocks — see
+ * middleware/headers.ts and pages/admin/designs/edit.astro). Without the preamble,
+ * @vitejs/plugin-react's dev transform throws "can't detect preamble" when the editor module loads and
+ * nothing mounts under `pnpm dev`.
+ *
+ * The body below mirrors `preambleCode` from @vitejs/plugin-react (its dev transform only checks that
+ * `window.$RefreshReg$` is set). Its production build emits no such check, so this is needed in dev
+ * only — and being dev-only, the inline <script> never reaches a page the admin CSP applies to. Must be
+ * placed in <head>, ahead of the module that imports the editor: module scripts run in document order.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+---
+
+{
+    import.meta.env.DEV && (
+        <script
+            type="module"
+            is:inline
+            set:html={`
+import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;
+`}
+        />
+    )
+}
