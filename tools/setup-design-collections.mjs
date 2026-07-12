@@ -5,10 +5,19 @@
  * design_theme item (impl §4.3). Standalone one-off op — NEVER part of the build; safe to run
  * repeatedly.
  *
- * Creates, only when missing, two collections that support drafts + revisions:
- *   design_theme  — one json field `tokens` (required); seeded with a starter token catalog when
- *                   the collection is empty, as a draft to review + publish in the theme UI.
- *   design_page   — string `title` (required), text `description`, json `design` (required).
+ * Creates, only when missing, three collections that support drafts + revisions:
+ *   design_theme    — one json field `tokens` (required); seeded with a starter token catalog when
+ *                     the collection is empty, as a draft to review + publish in the theme UI.
+ *   design_page     — string `title` (required), text `description`, json `design` (required).
+ *   design_template — string `title` (required), select `collection` (pages/posts, required),
+ *                     boolean `isDefault`, json `design` (required); the content-routing pivot's
+ *                     layout-that-content-flows-through (pivot §3). Seeded with the published
+ *                     "None (plain article)" sentinel item (reserved slug "none"), the explicit
+ *                     opt-out from a collection's default template (pivot §7.4).
+ *
+ * Also adds the `design` reference field (→ design_template) to the EXISTING `pages` collection —
+ * the per-entry template pointer (pivot D4). `pages` is created in the EmDash admin, not here, so
+ * its absence is a warning, never a create.
  *
  * Existing collections and fields are never deleted or mutated: a live field whose type/required
  * diverges from the spec prints a warning and is left untouched (so a hand-edited schema is
@@ -109,6 +118,48 @@ const COLLECTIONS = [
             { slug: "description", label: "Description", type: "text", required: false },
             { slug: "design", label: "Design", type: "json", required: true }
         ]
+    },
+    {
+        slug: "design_template",
+        create: {
+            slug: "design_template",
+            label: "Design Templates",
+            labelSingular: "Design Template",
+            supports: ["drafts", "revisions"],
+            hasSeo: false
+        },
+        fields: [
+            { slug: "title", label: "Title", type: "string", required: true },
+            // Which collection's entries this template renders; drives outlet field pickers and lint.
+            // Select choices ride in `validation.options` (emdash FieldValidation.options).
+            {
+                slug: "collection",
+                label: "Renders entries of",
+                type: "select",
+                required: true,
+                validation: { options: ["pages", "posts"] }
+            },
+            { slug: "isDefault", label: "Default template for its collection", type: "boolean", required: false },
+            { slug: "design", label: "Design", type: "json", required: true }
+        ]
+    }
+]
+
+/**
+ * Reference fields added to collections that exist already (created in the EmDash admin, not here).
+ * The entry-level template pointer (pivot D4): a `reference` stores the target item's id, and the
+ * target collection rides in widget `options.collection` (emdash FieldWidgetOptions.collection).
+ */
+const FIELD_ADDITIONS = [
+    {
+        collection: "pages",
+        field: {
+            slug: "design",
+            label: "Design",
+            type: "reference",
+            required: false,
+            options: { collection: "design_template" }
+        }
     }
 ]
 
@@ -157,14 +208,17 @@ const SEED_THEME = {
     ]
 }
 
-/** Creates a field via the schema API (impl §4.1 shapes). `validation` is omittable, so we don't send it. */
+/** Creates a field via the schema API (impl §4.1 shapes). `validation`/`options` are sent only when specified. */
 async function createField(collectionSlug, field) {
-    await api("POST", `/_emdash/api/schema/collections/${collectionSlug}/fields`, {
+    const body = {
         slug: field.slug,
         label: field.label,
         type: field.type,
         required: Boolean(field.required)
-    })
+    }
+    if (field.validation) body.validation = field.validation
+    if (field.options) body.options = field.options
+    await api("POST", `/_emdash/api/schema/collections/${collectionSlug}/fields`, body)
     ok(`  field ${collectionSlug}.${field.slug} (${field.type}${field.required ? ", required" : ""}) created`)
 }
 
@@ -202,6 +256,65 @@ async function ensureCollection(spec) {
     }
 }
 
+/**
+ * Adds one field to a collection this script does not own. The collection missing entirely is a
+ * warning, not a create — `pages` is authored in the EmDash admin, and creating a bare shell of it
+ * here would mask a misconfigured target.
+ */
+async function ensureFieldAddition({ collection, field }) {
+    const list = await api("GET", "/_emdash/api/schema/collections")
+    const exists = (list.json?.data?.items ?? []).some((c) => c.slug === collection)
+    if (!exists) {
+        warn(`collection ${collection} does not exist — field ${collection}.${field.slug} NOT added`)
+        return
+    }
+    const fieldList = await api("GET", `/_emdash/api/schema/collections/${collection}/fields`)
+    const live = (fieldList.json?.data?.items ?? []).find((f) => f.slug === field.slug)
+    if (!live) {
+        await createField(collection, field)
+        return
+    }
+    if (live.type !== field.type) {
+        warn(`  field ${collection}.${field.slug} diverges from spec (live type=${live.type}; spec type=${field.type}) — left untouched`)
+    } else {
+        ok(`  field ${collection}.${field.slug} matches spec`)
+    }
+}
+
+/**
+ * Seeds the reserved "None (plain article)" sentinel template (pivot §3, §7.4) and publishes it —
+ * resolution only reads published templates, and an unpublished opt-out would silently do nothing.
+ * Its (required) `collection` value is irrelevant: the sentinel is exempt from the collection-
+ * mismatch check and serves every routed collection.
+ */
+async function seedNoneSentinel() {
+    const list = await api("GET", "/_emdash/api/content/design_template?limit=100")
+    const existing = (list.json?.data?.items ?? []).find((item) => item.slug === "none")
+    if (existing) {
+        ok('design_template sentinel "none" already exists — seed skipped')
+        return
+    }
+    const created = await api("POST", "/_emdash/api/content/design_template", {
+        slug: "none",
+        status: "draft",
+        data: {
+            title: "None (plain article)",
+            collection: "pages",
+            isDefault: false,
+            // The empty design envelope (migrations.ts emptyDesignDoc; kept in sync by hand — this
+            // script is plain Node and cannot import the TS module).
+            design: { schemaVersion: 1, puck: { root: {}, content: [] } }
+        }
+    })
+    const id = created.json?.data?.item?.id
+    if (!id) {
+        console.error('FAIL the created "none" sentinel returned no id; cannot publish it')
+        process.exit(1)
+    }
+    await api("POST", `/_emdash/api/content/design_template/${id}/publish`)
+    ok('seeded and published design_template sentinel "none"')
+}
+
 /** Seeds the design_theme item (slug "default") as a draft, only when the collection has no items. */
 async function seedTheme() {
     const list = await api("GET", "/_emdash/api/content/design_theme?limit=1")
@@ -225,6 +338,8 @@ async function main() {
         ok("dev-bypass session established")
     }
     for (const spec of COLLECTIONS) await ensureCollection(spec)
+    for (const addition of FIELD_ADDITIONS) await ensureFieldAddition(addition)
+    await seedNoneSentinel()
     await seedTheme()
     console.log(`\nSetup complete against ${base}`)
 }
