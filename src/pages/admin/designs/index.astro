@@ -224,8 +224,10 @@ export const prerender = false
                     })
                     if (!response.ok) throw new Error(await errorMessage(response))
 
-                    const body = (await response.json()) as { data?: { id?: string } }
-                    const id = body.data?.id
+                    // EmDash wraps a created item as { data: { item, _rev } } — the id is on `item`, not on
+                    // `data` itself (emdash ContentResponse; same envelope fetchDesigns and DesignEditor read).
+                    const body = (await response.json()) as { data?: { item?: { id?: string } } }
+                    const id = body.data?.item?.id
                     if (!id) throw new Error("The design was created but no id was returned")
                     window.location.href = `${EDITOR_PATH}?id=${encodeURIComponent(id)}`
                 }
