@@ -112,3 +112,14 @@
 	border-top: 1px solid var(--cmp-divider-color, currentColor);
 	margin-block: var(--cmp-divider-space, 0);
 }
+
+/* Outlet placeholder — editor-canvas stand-in for a content outlet with no preview entry (pivot §4).
+ * Never reaches the public build: outlets render nothing there when no value resolves. */
+.cmp-outlet-placeholder {
+	border: 1px dashed currentColor;
+	opacity: 0.5;
+	padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-md, 1rem);
+	font-family: var(--dtk-type-body-family, monospace);
+	font-size: 0.875rem;
+	text-align: center;
+}
