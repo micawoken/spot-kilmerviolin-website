@@ -2,10 +2,12 @@
 /**
  * pages/[...slug].astro
  *
- * Catch-all route for the CMS-authored public pages. It now has TWO published sources (impl §6.6):
- * the Portable-Text `pages` content type, rendered exactly as before, and the compositor's `design_page`
- * type, rendered from a stored design document. `route-authority.ts` merges them and fails the build on
- * any duplicate slug, so a path always has exactly one owner.
+ * Catch-all route for the CMS-authored public pages. Two published sources claim slugs (impl §6.6): the
+ * `pages` content type and the compositor's `design_page` type. `route-authority.ts` merges them, fails
+ * the build on any duplicate slug so a path always has exactly one owner, and — per the content-routing
+ * pivot (D4) — resolves each `pages` entry to the design template it renders *through*, if it names one.
+ * A page that names no template renders exactly as it did before the compositor existed (D3), which is
+ * what keeps designs strictly opt-in.
  *
  * The page is prerendered: getStaticPaths() enumerates both sources at build time over EmDash's HTTP API
  * (src/lib/build/{emdash,design}-api.ts, through a Cloudflare Access service token). Because only
@@ -45,7 +47,7 @@ import { Render } from "@puckeditor/core/rsc"
 import PublicPage from "../layouts/PublicPage.astro"
 import FormattedDate from "../components/FormattedDate.astro"
 import { fetchPublishedPages } from "../lib/build/emdash-api"
-import { fetchPublishedDesignPages, fetchPublishedTheme } from "../lib/build/design-api"
+import { fetchPublishedDesignPages, fetchPublishedTemplates, fetchPublishedTheme } from "../lib/build/design-api"
 import { collectRoutes } from "../lib/build/route-authority"
 import { buildConfig, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
@@ -62,9 +64,10 @@ export const prerender = true
 // The page authored with slug "home" is the site's designated home page and is routed to "/" (an undefined
 // rest-param matches the route's root) instead of "/home", so there is exactly one URL for it.
 export async function getStaticPaths() {
-    const [pages, designPages, theme] = await Promise.all([
+    const [pages, designPages, templates, theme] = await Promise.all([
         fetchPublishedPages(),
         fetchPublishedDesignPages(),
+        fetchPublishedTemplates(),
         fetchPublishedTheme()
     ])
 
@@ -89,7 +92,12 @@ export async function getStaticPaths() {
         }
     }
 
-    return collectRoutes({ pages, designPages }).map((route) => ({
+    // Resolve every entry to the layout it renders through (D4). A broken template reference is a warning
+    // and falls back to the untemplated render; an authored-wrong pairing throws from collectRoutes.
+    const { routes, warnings } = collectRoutes({ pages, designPages, templates })
+    for (const warning of warnings) console.warn(warning)
+
+    return routes.map((route) => ({
         params: { slug: route.slug === "home" ? undefined : route.slug },
         props: { ...route.props, theme }
     }))
