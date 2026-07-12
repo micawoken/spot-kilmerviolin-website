@@ -1,8 +1,9 @@
 /**
  * components/compositor/DesignEditor.tsx
  *
- * The visual compositor's editor island (impl §6.5). Mounted `client:only="react"` by
- * `pages/admin/designs/edit.astro`; it never runs on the build/RSC path (that path uses
+ * The visual compositor's editor (impl §6.5). Mounted client-side by `pages/admin/designs/edit.astro`,
+ * from a module script rather than an Astro island — the admin CSP blocks Astro's inline island
+ * bootstrap (see that file). It never runs on the build/RSC path (that path uses
  * `buildConfig(theme, "build")` + `<Render>` instead — see catalog.tsx).
  *
  * Lifecycle: load the design item (draft-overlaid `data`, per EmDash's editor-role GET) and the
