@@ -29,6 +29,10 @@
  * a `dist/` with every published page missing and deploy it over the working site. Stopping loudly leaves
  * the previously deployed version serving.
  *
+ * Patience. Reads are deliberately slow to give up (see READ_TIMEOUT_MS). A short client timeout here does
+ * not merely fail the build — it DEGRADES THE CMS for every other caller, because aborting mid-cold-start
+ * poisons the worker isolate EmDash is initializing in. See READ_TIMEOUT_MS for the mechanism.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -110,6 +114,53 @@ function getConfig(): ApiConfig | null {
 // Emit the "not configured" warning at most once per build so the log stays readable.
 let warnedUnconfigured = false
 
+/**
+ * How long a single read may wait before the build gives up.
+ *
+ * This is sized against EmDash's WORST-CASE COLD START, not its typical response time (a healthy cold
+ * init measures ~0.4s, and a warm one ~0). The first request into a cold worker isolate claims EmDash's
+ * runtime init lock and every other request there queues behind it; a queued request only reclaims an
+ * abandoned lock after RUNTIME_INIT_DEADLINE_MS (45s) and only gives up at its maxWait (60s) — see
+ * node_modules/emdash/src/utils/init-lock.ts and astro/middleware.ts.
+ *
+ * Aborting below that budget is worse than slow: EmDash documents a client that disconnects mid-init as
+ * poisoning the isolate — the lock's release never runs, so "every subsequent request in the isolate
+ * hangs until the platform kills it". A 15s abort here therefore both failed the build AND left the CMS
+ * unresponsive to everyone else until the isolate was evicted, which is the API "flapping" we chased.
+ *
+ * 75s clears the 60s ceiling with headroom. A build has no user waiting on it, so waiting a minute for a
+ * cold CMS is strictly better than failing the deploy and degrading the live admin.
+ *
+ * Exported so a test can pin the invariant that matters — this must stay above EmDash's waiter budget.
+ */
+export const READ_TIMEOUT_MS = 75_000
+
+/** EmDash's worst-case wait for a queued request (RUNTIME_INIT_DEADLINE_MS + MAX_WAIT_HEADROOM_MS). */
+export const EMDASH_MAX_WAIT_MS = 60_000
+
+/**
+ * Total attempts per read (one initial + two retries). Retries matter because a lock reclaim surfaces as
+ * an error on the request that triggered it, while the isolate is healthy immediately afterwards — so the
+ * next attempt succeeds. Only transient failures are retried (see isRetryable).
+ */
+const READ_ATTEMPTS = 3
+
+/** Linear backoff between attempts: 3s, then 6s. */
+const RETRY_BACKOFF_MS = 3_000
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Whether a non-OK status is worth retrying. 5xx and 429 are transient (a cold or reclaiming isolate, a
+ * throttle); a 4xx is a standing fact about the request — a bad token or a missing collection will read
+ * exactly the same on the next attempt, so retrying only slows the build's failure down.
+ */
+function isRetryable(status: number): boolean {
+    return status >= 500 || status === 429
+}
+
 /** Options for a single read. */
 interface GetOptions {
     /**
@@ -147,8 +198,10 @@ export class CmsReadError extends Error {
  *    expected to answer, and a soft fallback here silently drops published pages out of `dist/`, which a
  *    deploy then publishes over the live site. A loud build failure keeps the previous version serving.
  *
+ * A transient failure is retried (see READ_ATTEMPTS); only the last reason reaches the thrown error.
+ *
  * Exported for `design-api.ts`, which reads the compositor collections over the same authenticated API
- * and must not duplicate the config/auth/timeout handling.
+ * and must not duplicate the config/auth/timeout/retry handling.
  *
  * @param path an absolute API path beginning with "/_emdash/api/…"
  * @param options see {@link GetOptions}
@@ -167,28 +220,47 @@ export async function emdashGet<T>(path: string, options: GetOptions = {}): Prom
         return null
     }
 
-    let response: Response
-    try {
-        // Bound the request so a slow or unreachable API can never hang the build.
-        response = await fetch(`${config.base}${path}`, {
-            headers: config.headers,
-            signal: AbortSignal.timeout(15000)
-        })
-    } catch (error) {
-        throw new CmsReadError(path, error instanceof Error ? `${error.name}: ${error.message}` : String(error))
+    let reason = "no attempt was made"
+
+    for (let attempt = 1; attempt <= READ_ATTEMPTS; attempt++) {
+        if (attempt > 1) {
+            console.warn(
+                `[build/emdash-api] GET ${path} failed (${reason}); retrying ` +
+                    `(attempt ${attempt} of ${READ_ATTEMPTS})`
+            )
+            await sleep(RETRY_BACKOFF_MS * (attempt - 1))
+        }
+
+        let response: Response
+        try {
+            // Generous by design — a short abort here poisons the isolate. See READ_TIMEOUT_MS.
+            response = await fetch(`${config.base}${path}`, {
+                headers: config.headers,
+                signal: AbortSignal.timeout(READ_TIMEOUT_MS)
+            })
+        } catch (error) {
+            // A network error or timeout: the CMS may be cold or mid-reclaim, so this is worth retrying.
+            reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+            continue
+        }
+
+        if (response.status === 404 && options.allowMissing) return null
+
+        if (response.ok) {
+            const body = (await response.json()) as { data?: T }
+            return body.data ?? null
+        }
+
+        reason =
+            `${response.status} ${response.statusText}` +
+            (response.status === 401 || response.status === 403
+                ? " — check the Access service token and that its EmDash role grants read permission"
+                : "")
+        // A 4xx is a standing fact about this request; retrying it only delays the failure.
+        if (!isRetryable(response.status)) break
     }
 
-    if (response.status === 404 && options.allowMissing) return null
-    if (!response.ok) {
-        throw new CmsReadError(
-            path,
-            `${response.status} ${response.statusText} — check the Access service token and that its ` +
-                "EmDash role grants read permission"
-        )
-    }
-
-    const body = (await response.json()) as { data?: T }
-    return body.data ?? null
+    throw new CmsReadError(path, reason)
 }
 
 /** EmDash content item as returned by the list API (subset; see emdash `ContentItem`). */
