@@ -130,13 +130,17 @@ export interface BuildTemplate {
  * Fetches every published `design_template`, following cursor pagination to completion, and migrates each
  * one's stored `design` envelope — the same envelope, ladder, and version as `design_page` (no fork).
  *
- * Failure policy matches `fetchPublishedDesignPages`: a *read* failure fails soft to [] (every entry then
- * falls back to its untemplated render, per D3), while a published template that cannot be migrated — or
- * that names a collection this build does not route — THROWS, naming it. Such a template is published and
- * live; entries pointing at it would silently lose their layout.
+ * The collection's ABSENCE is a legitimate state — it does not exist until the setup tooling creates it —
+ * so a 404 reads as "no templates yet" ({ allowMissing: true }) and every entry falls back to its
+ * untemplated render (D3). Any other read failure throws (`CmsReadError`), as everywhere else.
+ *
+ * A published template that cannot be migrated — or that names a collection this build does not route —
+ * also THROWS, naming it. Such a template is published and live; entries pointing at it would otherwise
+ * silently lose their layout.
  *
  * @returns {Promise<BuildTemplate[]>} the published templates, in API order
  * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
+ * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
  */
 export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
     const templates: BuildTemplate[] = []
@@ -145,7 +149,9 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
     do {
         const query = new URLSearchParams({ status: "published", limit: "100" })
         if (cursor) query.set("cursor", cursor)
-        const result = await emdashGet<ApiListResult>(`/_emdash/api/content/design_template?${query.toString()}`)
+        const result = await emdashGet<ApiListResult>(`/_emdash/api/content/design_template?${query.toString()}`, {
+            allowMissing: true
+        })
         if (!result?.items) break
 
         for (const item of result.items) {
