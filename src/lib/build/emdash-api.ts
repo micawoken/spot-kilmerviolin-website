@@ -22,9 +22,12 @@
  *   CF_ACCESS_CLIENT_SECRET  Cloudflare Access service-token client secret
  *   EMDASH_API_TOKEN         optional EmDash PAT fallback
  *
- * All reads fail soft: on missing config, a network/auth error, or a non-OK response they log loudly and
- * return empty data so the build still completes (notably the first build, before any worker is deployed).
- * Content pages are then simply not generated, and chrome falls back to the src/consts.ts defaults.
+ * Failure policy. A build with NO `CONTENT_API_BASE` (the bootstrap build, before any worker exists, and
+ * CI's staging preview) reads nothing and completes: content pages are not generated and chrome falls back
+ * to the src/consts.ts defaults. But once a CMS IS configured, a failed read **fails the build**
+ * (`CmsReadError`). Falling soft there was a live-outage hazard: a rebuild during a CMS outage would emit
+ * a `dist/` with every published page missing and deploy it over the working site. Stopping loudly leaves
+ * the previously deployed version serving.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -123,17 +126,51 @@ function getConfig(): ApiConfig | null {
 // Emit the "not configured" warning at most once per build so the log stays readable.
 let warnedUnconfigured = false
 
+/** Options for a single read. */
+interface GetOptions {
+    /**
+     * Treat a 404 as "there is nothing here" (returns null) rather than a failed read. Only for a
+     * collection whose *absence is a legitimate state* — e.g. `design_template` before the setup script
+     * has created it. Never for a collection the site's routes depend on.
+     */
+    allowMissing?: boolean
+}
+
 /**
- * GETs an EmDash API path and returns its `data` payload, or null on any failure. EmDash wraps success
- * responses as `{ data: T }` (see src/api/error.ts apiSuccess); errors are `{ error: {...} }` with a
- * non-2xx status. Failures are logged and swallowed so the caller can fall back.
+ * Thrown when the CMS is configured but a read did not succeed. Distinct from "no CMS configured", which
+ * is a legitimate state (the bootstrap build) and still returns null.
+ */
+export class CmsReadError extends Error {
+    constructor(path: string, reason: string) {
+        super(
+            `[build/emdash-api] GET ${path} failed: ${reason}\n` +
+                "CONTENT_API_BASE is set, so the CMS was expected to answer. The build is stopping rather " +
+                "than emitting a site with content missing — a fail-soft rebuild during a CMS outage would " +
+                "publish empty pages over the live ones. Check the API's health and rebuild."
+        )
+        this.name = "CmsReadError"
+    }
+}
+
+/**
+ * GETs an EmDash API path and returns its `data` payload. EmDash wraps success responses as `{ data: T }`
+ * (see src/api/error.ts apiSuccess); errors are `{ error: {...} }` with a non-2xx status.
+ *
+ * Failure policy turns on whether a CMS was configured at all:
+ *  - **No `CONTENT_API_BASE`** → returns null, with one warning. This is the bootstrap build (and CI's
+ *    staging preview), where no worker exists to read from; the site builds with no content by design.
+ *  - **Configured but the read failed** (network error, timeout, non-OK status) → **throws**. The CMS was
+ *    expected to answer, and a soft fallback here silently drops published pages out of `dist/`, which a
+ *    deploy then publishes over the live site. A loud build failure keeps the previous version serving.
  *
  * Exported for `design-api.ts`, which reads the compositor collections over the same authenticated API
  * and must not duplicate the config/auth/timeout handling.
  *
  * @param path an absolute API path beginning with "/_emdash/api/…"
+ * @param options see {@link GetOptions}
+ * @throws {CmsReadError} when a configured CMS fails to answer the read
  */
-export async function emdashGet<T>(path: string): Promise<T | null> {
+export async function emdashGet<T>(path: string, options: GetOptions = {}): Promise<T | null> {
     const config = getConfig()
     if (!config) {
         if (!warnedUnconfigured) {
@@ -146,26 +183,28 @@ export async function emdashGet<T>(path: string): Promise<T | null> {
         return null
     }
 
+    let response: Response
     try {
-        // Bound the request so a slow or unreachable API can never hang the build; a timeout fails soft
-        // like any other read error.
-        const response = await fetch(`${config.base}${path}`, {
+        // Bound the request so a slow or unreachable API can never hang the build.
+        response = await fetch(`${config.base}${path}`, {
             headers: config.headers,
             signal: AbortSignal.timeout(15000)
         })
-        if (!response.ok) {
-            console.error(
-                `[build/emdash-api] GET ${path} → ${response.status} ${response.statusText}; ` +
-                    "check the Access service token and that its EmDash role grants read permission."
-            )
-            return null
-        }
-        const body = (await response.json()) as { data?: T }
-        return body.data ?? null
     } catch (error) {
-        console.error(`[build/emdash-api] GET ${path} failed:`, error)
-        return null
+        throw new CmsReadError(path, error instanceof Error ? `${error.name}: ${error.message}` : String(error))
     }
+
+    if (response.status === 404 && options.allowMissing) return null
+    if (!response.ok) {
+        throw new CmsReadError(
+            path,
+            `${response.status} ${response.statusText} — check the Access service token and that its ` +
+                "EmDash role grants read permission"
+        )
+    }
+
+    const body = (await response.json()) as { data?: T }
+    return body.data ?? null
 }
 
 /** EmDash content item as returned by the list API (subset; see emdash `ContentItem`). */
