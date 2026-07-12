@@ -79,6 +79,18 @@ interface PageMeta {
     slug: string
 }
 
+/**
+ * The `PUT design_page/:id` body. Typed rather than a loose record so the stored `design` value is
+ * held to the `DesignDoc` envelope every reader (this editor, the build) validates with `migrateDesign` —
+ * writing the bare Puck tree here is what made a saved design unreadable on the next load.
+ */
+interface SavePayload {
+    data: { title: string; description: string; design: DesignDoc }
+    status: "draft"
+    _rev: string | undefined
+    slug?: string
+}
+
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
 async function readError(response: Response): Promise<string> {
     try {
@@ -214,8 +226,8 @@ export default function DesignEditor({ id }: { id: string }) {
         setSaveError("")
         try {
             const stored = editorFormToDesign({ schemaVersion: CURRENT_SCHEMA_VERSION, puck: working }, RICH_TEXT_PROPS)
-            const payload: Record<string, unknown> = {
-                data: { title: current.title, description: current.description, design: stored.puck },
+            const payload: SavePayload = {
+                data: { title: current.title, description: current.description, design: stored },
                 status: "draft",
                 _rev: revRef.current
             }
