@@ -39,6 +39,17 @@ describe("migrateDesign — valid input", () => {
     })
 })
 
+describe("migrateDesign — pre-envelope documents", () => {
+    it("reads a bare Puck tree (saved by the early editor) as a version-1 envelope", () => {
+        const result = migrateDesign(validDoc.puck)
+        expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+        expect(result.puck).toEqual(validDoc.puck)
+    })
+    it("does not treat a partial envelope as a bare Puck tree", () => {
+        expect(() => migrateDesign({ puck: { content: [] } })).toThrow(/schemaVersion/)
+    })
+})
+
 describe("migrateDesign — malformed input throws", () => {
     it("rejects non-objects", () => {
         expect(() => migrateDesign(null)).toThrow(/expected an object/)
