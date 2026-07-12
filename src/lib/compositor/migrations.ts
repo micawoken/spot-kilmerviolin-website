@@ -54,6 +54,22 @@ export function emptyDesignDoc(): DesignDoc {
 }
 
 /**
+ * Wraps a pre-envelope design value in a version-1 envelope; passes anything else through unchanged.
+ *
+ * An early build's editor autosaved the bare Puck tree into the `design` field instead of the
+ * envelope, so those stored documents are `{ root, content }` with no `schemaVersion` — the layout is
+ * intact, only the envelope is missing. They are read as version 1 (the only version that build could
+ * have written) and the editor's next save rewrites them in envelope form. The shape is unambiguous:
+ * an envelope always carries `schemaVersion`/`puck`, a Puck tree always carries a `content` array.
+ * Drop this once no pre-envelope documents remain in the CMS.
+ */
+function wrapPreEnvelopeDesign(raw: Record<string, unknown>): Record<string, unknown> {
+    const isPreEnvelope =
+        raw.schemaVersion === undefined && raw.puck === undefined && Array.isArray(raw.content)
+    return isPreEnvelope ? { schemaVersion: 1, puck: raw } : raw
+}
+
+/**
  * Validates and up-migrates a stored design envelope to `CURRENT_SCHEMA_VERSION`.
  *
  * Throws (with an actionable message) when `raw` is not an object, is missing a numeric
@@ -68,24 +84,25 @@ export function migrateDesign(raw: unknown): DesignDoc {
     if (!isRecord(raw)) {
         throw new Error("Invalid design document: expected an object envelope")
     }
-    if (typeof raw.schemaVersion !== "number" || !Number.isInteger(raw.schemaVersion)) {
+    const envelope = wrapPreEnvelopeDesign(raw)
+    if (typeof envelope.schemaVersion !== "number" || !Number.isInteger(envelope.schemaVersion)) {
         throw new Error("Invalid design document: missing integer 'schemaVersion'")
     }
-    if (!isRecord(raw.puck) || !Array.isArray((raw.puck as Record<string, unknown>).content)) {
+    if (!isRecord(envelope.puck) || !Array.isArray((envelope.puck as Record<string, unknown>).content)) {
         throw new Error("Invalid design document: 'puck' must be an object with a 'content' array")
     }
-    if (raw.schemaVersion > CURRENT_SCHEMA_VERSION) {
+    if (envelope.schemaVersion > CURRENT_SCHEMA_VERSION) {
         throw new Error(
-            `Design document schemaVersion ${raw.schemaVersion} is newer than this build supports ` +
+            `Design document schemaVersion ${envelope.schemaVersion} is newer than this build supports ` +
                 `(${CURRENT_SCHEMA_VERSION}); deploy the matching code before reading it`
         )
     }
-    if (raw.schemaVersion < 1) {
-        throw new Error(`Invalid design document: schemaVersion ${raw.schemaVersion} is below the minimum of 1`)
+    if (envelope.schemaVersion < 1) {
+        throw new Error(`Invalid design document: schemaVersion ${envelope.schemaVersion} is below the minimum of 1`)
     }
 
-    let version = raw.schemaVersion
-    let puck = raw.puck as PuckData
+    let version = envelope.schemaVersion
+    let puck = envelope.puck as PuckData
     while (version < CURRENT_SCHEMA_VERSION) {
         const transform = TRANSFORMS.find((candidate) => candidate.from === version)
         if (!transform) {
