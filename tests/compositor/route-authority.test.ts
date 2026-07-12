@@ -76,12 +76,13 @@ describe("collectRoutes — merging the two sources", () => {
         expect(design.doc.schemaVersion).toBe(1)
     })
 
-    it("gives a design_page a null entry — it has no content record behind it", () => {
+    it("gives a design_page a null entry and template — it has no content record behind it", () => {
         const { routes } = collectRoutes({ pages: [], designPages: [designPage("gallery")], templates: [] })
 
         const design = routes[0].props
         if (design.kind !== "design") throw new Error("expected a design route")
         expect(design.entry).toBeNull()
+        expect(design.template).toBeNull()
     })
 
     it("accepts empty sources", () => {
@@ -108,6 +109,7 @@ describe("collectRoutes — D4 template resolution", () => {
         if (props.kind !== "design") throw new Error("expected a design route")
         expect(props.doc).toBe(tpl.doc)
         expect(props.entry).toEqual({ title: "Page about", content: [] })
+        expect(props.template).toEqual({ slug: tpl.slug, collection: tpl.collection })
         expect(warnings).toEqual([])
     })
 

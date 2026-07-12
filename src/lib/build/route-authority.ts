@@ -66,6 +66,12 @@ export type RouteProps =
            * outlet placed in one is a lint error rather than a render-time concern.
            */
           entry: Record<string, unknown> | null
+          /**
+           * The template this entry renders through — what the per-pairing lint names in its errors and
+           * whose collection selects the schema it checks against (§5.5). Null for a `design_page`,
+           * which is its own layout and is linted standalone before routes are collected.
+           */
+          template: { slug: string; collection: TemplateCollection } | null
       }
 
 /** One route the build will emit: the owning slug and the props that render it. */
@@ -212,7 +218,8 @@ export function collectRoutes({ pages, designPages, templates }: RouteSources): 
                       title: page.title,
                       description: page.description,
                       doc: template.doc,
-                      entry: page.fields
+                      entry: page.fields,
+                      template: { slug: template.slug, collection: template.collection }
                   }
                 : {
                       kind: "portable",
@@ -233,7 +240,8 @@ export function collectRoutes({ pages, designPages, templates }: RouteSources): 
                 title: designPage.title,
                 description: designPage.description,
                 doc: designPage.doc,
-                entry: null
+                entry: null,
+                template: null
             }
         })
     }

@@ -63,6 +63,25 @@
     flex: 1 1 auto;
 }
 
+/* Template mode: the preview-entry picker in the toolbar. */
+.design-editor__preview {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: #555;
+}
+.design-editor__preview select {
+    font: inherit;
+    max-width: 16rem;
+}
+
+/* Template settings: the collection-default checkbox, laid out inline unlike the drawer's text fields. */
+.design-editor__drawer label.design-editor__checkbox {
+    flex-direction: row;
+    align-items: center;
+}
+
 .design-editor__canvas {
     flex: 1 1 auto;
     min-height: 0;

@@ -20,7 +20,8 @@
 
 import { describe, it, expect } from "vitest"
 
-import { lintDesign, hasBlockingError } from "../../src/lib/compositor/lint"
+import { lintDesign, hasBlockingError, type LintPairingContext, type OutletPropRegistry } from "../../src/lib/compositor/lint"
+import type { CollectionField } from "../../src/lib/build/design-api"
 import type { TokenCatalog, TokenPropRegistry } from "../../src/lib/compositor/tokens"
 import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
 
@@ -30,8 +31,17 @@ const TOKEN_PROPS: TokenPropRegistry = {
     Section: { background: "colors", paddingY: "space" },
     Columns: { gap: "space" },
     Heading: { typography: "typography" },
+    ContentText: { typography: "typography" },
     Spacer: { size: "space" },
     Divider: { spaceAround: "space", color: "colors" }
+}
+
+// The content outlets and their accepted field types (mirrors catalog.tsx OUTLET_PROPS), local for
+// the same decoupling reason.
+const OUTLET_PROPS: OutletPropRegistry = {
+    ContentText: ["string", "text"],
+    ContentRichText: ["portableText"],
+    ContentImage: ["image"]
 }
 
 const THEME: TokenCatalog = {
@@ -57,8 +67,8 @@ function heading(level: string, typography = "display", text = "Text") {
     return { type: "Heading", props: { text, level, typography, align: "start" } }
 }
 
-function lint(content: unknown[], theme: TokenCatalog | null = THEME) {
-    return lintDesign(doc(content), theme, TOKEN_PROPS)
+function lint(content: unknown[], theme: TokenCatalog | null = THEME, context?: LintPairingContext) {
+    return lintDesign(doc(content), theme, TOKEN_PROPS, OUTLET_PROPS, context)
 }
 
 /** Rule ids present in a finding set (order-preserving). */
@@ -75,7 +85,7 @@ describe("lintDesign — clean documents", () => {
 
     it("counts a single H1 nested inside a slot", () => {
         const nested = doc([{ type: "Section", props: { background: "", paddingY: "md", content: [heading("h1")] } }])
-        expect(lintDesign(nested, THEME, TOKEN_PROPS)).toEqual([])
+        expect(lintDesign(nested, THEME, TOKEN_PROPS, OUTLET_PROPS)).toEqual([])
     })
 })
 
@@ -174,5 +184,189 @@ describe("lintDesign — warnings", () => {
         ]
         const findings = lint([heading("h1"), { type: "RichText", props: { body } }])
         expect(rules(findings)).toContain("unsafe-href")
+    })
+})
+
+// --- §1.11 fix: PT blocks styled h1–h6 inside rich-text bodies feed the heading checks -------------
+
+/** A PT block styled as a heading, for RichText bodies and entry body values. */
+function ptHeading(style: string, text = "PT heading") {
+    return { _type: "block", _key: `k-${style}-${text}`, style, markDefs: [], children: [{ _type: "span", _key: "s", text, marks: [] }] }
+}
+
+describe("lintDesign — PT headings inside RichText bodies (§1.11)", () => {
+    it("accepts a page whose only H1 comes from a RichText body", () => {
+        expect(lint([{ type: "RichText", props: { body: [ptHeading("h1")] } }])).toEqual([])
+    })
+
+    it("errors when a RichText body's h1 duplicates a Heading h1", () => {
+        const findings = lint([heading("h1"), { type: "RichText", props: { body: [ptHeading("h1")] } }])
+        expect(rules(findings)).toContain("single-h1")
+    })
+
+    it("errors on a level skip across the Heading/RichText boundary (h1 → PT h3)", () => {
+        const findings = lint([heading("h1"), { type: "RichText", props: { body: [ptHeading("h3")] } }])
+        expect(rules(findings)).toContain("heading-skip")
+    })
+
+    it("ignores non-heading PT styles", () => {
+        const findings = lint([heading("h1"), { type: "RichText", props: { body: [ptHeading("normal"), ptHeading("blockquote")] } }])
+        expect(rules(findings)).not.toContain("heading-skip")
+        expect(rules(findings)).not.toContain("single-h1")
+    })
+})
+
+// --- Pairing rules (pivot §5.5) ---------------------------------------------------------------------
+
+const SCHEMA: CollectionField[] = [
+    { slug: "title", label: "Title", type: "string" },
+    { slug: "body", label: "Body", type: "portableText" },
+    { slug: "cover", label: "Cover", type: "image" },
+    { slug: "published", label: "Published", type: "boolean" }
+]
+
+const ENTRY: Record<string, unknown> = {
+    title: "Entry title",
+    body: [ptHeading("normal", "plain paragraph")],
+    cover: { id: "med_1", alt: "A violin" }
+}
+
+function contentText(field: string, level = "h1") {
+    return { type: "ContentText", props: { field, level, typography: "display", align: "start" } }
+}
+function contentRichText(field: string) {
+    return { type: "ContentRichText", props: { field } }
+}
+function contentImage(field: string) {
+    return { type: "ContentImage", props: { field, aspect: "original" } }
+}
+
+/** Lints in template mode against the standard schema/entry (overridable per test). */
+function lintTemplate(content: unknown[], context: Partial<LintPairingContext> = {}) {
+    return lint(content, THEME, { entry: ENTRY, schemaFields: SCHEMA, ...context })
+}
+
+describe("lintDesign — outlet-outside-template", () => {
+    it("errors on any outlet in a design_page doc (no pairing context)", () => {
+        const findings = lint([heading("h1"), contentText("title", "h2"), contentRichText("body"), contentImage("cover")])
+        expect(findings.filter((f) => f.rule === "outlet-outside-template")).toHaveLength(3)
+        expect(hasBlockingError(findings)).toBe(true)
+    })
+
+    it("accepts the same outlets in template mode", () => {
+        const findings = lintTemplate([contentText("title"), contentRichText("body"), contentImage("cover")])
+        expect(rules(findings)).not.toContain("outlet-outside-template")
+        expect(findings).toEqual([])
+    })
+})
+
+describe("lintDesign — dangling-outlet-field", () => {
+    it("errors on an unbound outlet", () => {
+        const findings = lintTemplate([contentText(""), contentRichText("body")])
+        const dangling = findings.filter((f) => f.rule === "dangling-outlet-field")
+        expect(dangling).toHaveLength(1)
+        expect(dangling[0].message).toContain("no content field bound")
+    })
+
+    it("errors on a field slug absent from the schema", () => {
+        const findings = lintTemplate([contentText("subtitle")])
+        expect(rules(findings)).toContain("dangling-outlet-field")
+    })
+
+    it("errors on a field whose type the outlet does not accept", () => {
+        const findings = lintTemplate([contentText("body")]) // portableText into a string/text outlet
+        const dangling = findings.filter((f) => f.rule === "dangling-outlet-field")
+        expect(dangling).toHaveLength(1)
+        expect(dangling[0].message).toContain('"portableText"')
+    })
+
+    it("skips the check when the schema could not be read (schemaFields null)", () => {
+        const findings = lintTemplate([contentText("subtitle")], { schemaFields: null, entry: null })
+        expect(rules(findings)).not.toContain("dangling-outlet-field")
+    })
+})
+
+describe("lintDesign — empty-outlet-value and content-image-alt", () => {
+    it("warns when the entry's value for a bound field is missing or empty", () => {
+        const entry = { ...ENTRY, title: "   ", body: [] }
+        const findings = lintTemplate([contentText("title"), contentRichText("body")], { entry })
+        const empty = findings.filter((f) => f.rule === "empty-outlet-value")
+        expect(empty).toHaveLength(2)
+        expect(empty.every((f) => f.severity === "warning")).toBe(true)
+    })
+
+    it("skips entry-dependent rows template-alone (entry null)", () => {
+        const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry: null })
+        expect(findings).toEqual([])
+    })
+
+    it("errors when the resolved image has no alt text", () => {
+        const entry = { ...ENTRY, cover: { id: "med_1", alt: "" } }
+        const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
+        expect(rules(findings)).toContain("content-image-alt")
+        expect(hasBlockingError(findings)).toBe(true)
+    })
+
+    it("warns (not errors) when the image value is missing entirely", () => {
+        const entry = { ...ENTRY, cover: undefined }
+        const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
+        expect(rules(findings)).toContain("empty-outlet-value")
+        expect(rules(findings)).not.toContain("content-image-alt")
+    })
+})
+
+describe("lintDesign — heading order over the combined template+entry sequence", () => {
+    it("errors when a ContentText h1 duplicates the entry body's h1", () => {
+        const entry = { ...ENTRY, body: [ptHeading("h1", "Body h1")] }
+        const findings = lintTemplate([contentText("title", "h1"), contentRichText("body")], { entry })
+        expect(rules(findings)).toContain("single-h1")
+    })
+
+    it("accepts a template whose H1 is supplied by the entry body", () => {
+        const entry = { ...ENTRY, body: [ptHeading("h1", "Body h1"), ptHeading("h2", "Body h2")] }
+        const findings = lintTemplate([contentRichText("body")], { entry })
+        expect(findings).toEqual([])
+    })
+
+    it("errors on a skip across the template/entry boundary (ContentText h1 → body h3)", () => {
+        const entry = { ...ENTRY, body: [ptHeading("h3", "Body h3")] }
+        const findings = lintTemplate([contentText("title", "h1"), contentRichText("body")], { entry })
+        expect(rules(findings)).toContain("heading-skip")
+    })
+
+    it("skips the heading checks template-alone: the entry body may supply the missing levels", () => {
+        const findings = lintTemplate([contentRichText("body")], { entry: null })
+        expect(rules(findings)).not.toContain("single-h1")
+    })
+
+    it("runs PT safety over the entry's rich-text value", () => {
+        const entry = {
+            ...ENTRY,
+            body: [
+                ptHeading("h1"),
+                {
+                    _type: "block",
+                    _key: "b2",
+                    style: "normal",
+                    markDefs: [{ _type: "link", _key: "l1", href: "javascript:void(0)" }],
+                    children: [{ _type: "span", _key: "s2", text: "click", marks: ["l1"] }]
+                }
+            ]
+        }
+        const findings = lintTemplate([contentRichText("body")], { entry })
+        expect(rules(findings)).toContain("unsafe-href")
+    })
+})
+
+describe("lintDesign — template-no-outlets", () => {
+    it("warns on a template containing zero outlets", () => {
+        const findings = lintTemplate([heading("h1"), { type: "Spacer", props: { size: "md" } }])
+        const warning = findings.filter((f) => f.rule === "template-no-outlets")
+        expect(warning).toHaveLength(1)
+        expect(warning[0].severity).toBe("warning")
+    })
+
+    it("never fires for a design_page doc", () => {
+        expect(rules(lint([heading("h1")]))).not.toContain("template-no-outlets")
     })
 })
