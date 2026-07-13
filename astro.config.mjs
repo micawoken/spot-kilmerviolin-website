@@ -66,7 +66,15 @@ export default defineConfig({
             objectCache: kvCache({ binding: "KV_DB_CACHE" }),
             auth: access({
                 teamDomain: "nrnnetint.cloudflareaccess.com",
-                audienceEnvVar: "CF_ACCESS_AUD"
+                audienceEnvVar: "CF_ACCESS_AUD",
+                // EmDash Role.EDITOR. Must be set explicitly: the adapter's default is 30, which its own
+                // doc comment mislabels as "Editor" — 30 is AUTHOR, and EDITOR is 40. At 30 a CMS editor
+                // can only touch content they authored, and `schema:read` (Editor+) is denied, which 403s
+                // the design editor's outlet field pickers (they list the collection's fields). Everyone
+                // reaching /_emdash has already passed the cms_editor gate in middleware/emdash_access.ts,
+                // so Editor is the role that gate already implies. Applied at first provisioning only
+                // (syncRoles defaults false), so an existing user's row must be migrated by hand.
+                defaultRole: 40
             })
         })
     ],

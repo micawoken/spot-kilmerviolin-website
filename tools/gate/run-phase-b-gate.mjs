@@ -5,19 +5,25 @@
  *
  *   npm run gate:phase-b
  *
- * It builds the site three times against a frozen fixture CMS (tools/gate/fixtures.mjs) and asserts:
+ * It builds the site four times against a frozen fixture CMS (tools/gate/fixtures.mjs) and asserts:
  *
  *   1. no unrecorded CMS path was requested        (else the build degraded and nothing below means anything)
  *   2. the templated build is not vacuous          (a CMS-less build emits ZERO html and would pass 3–5 trivially)
  *   3. the entry rendered THROUGH the template     (its fields reached the page via outlets)
  *   4. the templated page ships zero JavaScript    (delegated to tools/check-zero-js.mjs)
  *   5. every untemplated page is byte-identical    (D3: attaching a template to one entry moves nothing else)
- *   6. a broken pairing FAILS the build, naming entry + template + rule
+ *   6. an entry that names NO template renders through its collection's default (D4 rule 2)
+ *   7. a broken pairing FAILS the build, naming entry + template + rule
  *
  * Assertion 2 is not paranoia: `astro build` with no reachable CMS prerenders no pages at all, so a
- * "no <script> anywhere in dist/" sweep over that output passes while proving nothing. Assertion 6
+ * "no <script> anywhere in dist/" sweep over that output passes while proving nothing. Assertion 7
  * likewise checks the error TEXT, not just a non-zero exit — a build can fail for the wrong reason, and
  * the gate's actual claim is that the failure tells the author which entry, which template, and which rule.
+ *
+ * Assertion 6 exists because 3–5 all reach the template through rule 1 (the entry's own `design` pointer),
+ * which left rule 2 unexercised — and it was in fact DEAD in production: `is_default` arrives from EmDash
+ * as the number 1, and the build tested it with `=== true`. Only a fixture serving EmDash's real wire shape
+ * can catch that, so this one does.
  *
  * This overwrites the working `dist/` (gitignored) as it goes; the last build is the one that FAILS on
  * purpose, so do not expect a usable `dist/` afterwards.
@@ -209,7 +215,25 @@ record(
         : "the two builds emitted different sets of pages"
 )
 
-// --- 6. a broken pairing fails the build, naming entry + template + rule -------------------------------
+// --- 6. the collection default renders an entry that names no template (D4 rule 2) --------------------
+// Same template, same entry, reached the other way — so the page must come out BYTE-IDENTICAL to the
+// templated build's. How a template is resolved cannot change what it renders. (Unlike gate 5, the other
+// pages legitimately move here: with no pointer anywhere, every `pages` entry takes the default too.)
+const defaulted = await buildAgainst("defaulted")
+const defaultedPage = templatedPage ? defaulted.html.get(templatedPage) : undefined
+record(
+    "6. collection default renders an unpointed entry",
+    defaulted.code === 0 && templatedPage !== null && defaultedPage !== undefined && defaultedPage.equals(templated.html.get(templatedPage)),
+    defaulted.code !== 0
+        ? `THE BUILD FAILED (exit ${defaulted.code})\n${tail(defaulted.output)}`
+        : defaultedPage === undefined
+          ? `the default did not render "${TEMPLATED_SLUG}" at all — rule 2 never fired`
+          : defaultedPage.equals(templated.html.get(templatedPage))
+            ? "identical to the pointed render"
+            : "DIFFERS from the pointed render — the same template rendered the same entry two ways"
+)
+
+// --- 7. a broken pairing fails the build, naming entry + template + rule -------------------------------
 const broken = await buildAgainst("broken")
 const markers = {
     "the pairing lint": "fails the pairing lint",
@@ -223,7 +247,7 @@ const missing = Object.entries(markers)
     .map(([label]) => label)
 const brokenPassed = broken.code !== 0 && missing.length === 0
 record(
-    "6. broken pairing fails the build",
+    "7. broken pairing fails the build",
     brokenPassed,
     broken.code === 0
         ? "THE BUILD SUCCEEDED — a dangling outlet field did not fail it"
