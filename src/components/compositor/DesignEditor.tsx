@@ -249,6 +249,10 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     const [previewEntryId, setPreviewEntryId] = useState("")
     const [previewEntry, setPreviewEntry] = useState<Record<string, unknown> | null>(null)
     const [previewError, setPreviewError] = useState("")
+    // Distinct from previewError: without the schema there are no field options, so NO outlet can be
+    // bound and the template cannot pass its own publish lint. That is a blocking condition, not a
+    // degraded preview, and it must never be left to read as "this collection has no bindable fields".
+    const [schemaError, setSchemaError] = useState("")
 
     // Refs are the source of truth for saving, so the debounced timer never reads stale closures.
     const workingRef = useRef<Data | null>(null)
@@ -268,19 +272,29 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
 
                 // Template mode: load the collection schema and entry list BEFORE mounting Puck, so
                 // the outlet field pickers are populated in the config the editor first renders with.
-                // A failure here degrades, not blocks: empty pickers, dangling checks skipped.
+                // Settled independently: a schema failure must not also cost the entry list (they are
+                // unrelated reads), and each reports its own consequence — an empty field picker is
+                // indistinguishable from "this collection has nothing bindable" unless we say so.
                 let fields: CollectionField[] | null = null
                 let entryList: EntryListItem[] = []
                 if (kind === "template" && loaded.collection) {
-                    try {
-                        ;[fields, entryList] = await Promise.all([
-                            fetchSchemaFields(loaded.collection),
-                            fetchEntryList(loaded.collection)
-                        ])
-                    } catch (error) {
-                        setPreviewError(error instanceof Error ? error.message : String(error))
-                    }
+                    const [schemaResult, entriesResult] = await Promise.allSettled([
+                        fetchSchemaFields(loaded.collection),
+                        fetchEntryList(loaded.collection)
+                    ])
                     if (cancelled) return
+                    if (schemaResult.status === "fulfilled") {
+                        fields = schemaResult.value
+                    } else {
+                        const reason: unknown = schemaResult.reason
+                        setSchemaError(reason instanceof Error ? reason.message : String(reason))
+                    }
+                    if (entriesResult.status === "fulfilled") {
+                        entryList = entriesResult.value
+                    } else {
+                        const reason: unknown = entriesResult.reason
+                        setPreviewError(reason instanceof Error ? reason.message : String(reason))
+                    }
                 }
 
                 const editorForm = designToEditorForm(loaded.doc, RICH_TEXT_PROPS)
@@ -528,6 +542,16 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                     Publish…
                 </button>
             </div>
+
+            {schemaError && (
+                <div className="design-editor__conflict" role="alert">
+                    <span>
+                        The <strong>{collection}</strong> field schema could not be read, so the outlet field
+                        pickers are empty and no content can be bound (this template cannot be published until
+                        it is fixed). Reading a collection schema needs the Editor role in the CMS. {schemaError}
+                    </span>
+                </div>
+            )}
 
             {previewError && (
                 <div className="design-editor__conflict" role="alert">
