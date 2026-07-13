@@ -9,10 +9,16 @@
  * Runs on the *stored* (Portable Text) form of a design — the same shape the build reads and the
  * editor produces via `editorFormToDesign` before a publish — so rich-text bodies are PT arrays here,
  * never the editor's ProseMirror working form. The catalog-specific knowledge this pass needs (which
- * props are token selects, and of what kind) arrives as a `TokenPropRegistry` argument so this module
- * stays free of `catalog.tsx`'s React/Puck imports and unit-testable on its own; the a11y rules below
- * are inherently tied to catalog v1's component and prop names and track it directly (contributor
- * rule: extend these when the frozen catalog changes).
+ * props are token selects, and which components are content outlets accepting which field types)
+ * arrives as `TokenPropRegistry`/`OutletPropRegistry` arguments so this module stays free of
+ * `catalog.tsx`'s React/Puck imports and unit-testable on its own; the a11y rules below are inherently
+ * tied to catalog v1's component and prop names and track it directly (contributor rule: extend these
+ * when the frozen catalog changes).
+ *
+ * Pairing rules (pivot §5.5): passing a `LintPairingContext` switches the pass into template mode —
+ * outlets are legal, their field bindings are checked against the collection schema, and the
+ * entry-dependent rows run when a (preview or routed) entry is present. WITHOUT a context the doc is
+ * a `design_page`, where any outlet is an error: no pairing context will ever exist for it.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -34,9 +40,26 @@
 import { SAFE_URL_SCHEME_RE } from "./richtext"
 import { hasToken, type TokenCatalog, type TokenPropRegistry } from "./tokens"
 import { isPuckComponent, isRecord, type DesignDoc, type PuckComponent } from "./types"
+// Type-only: erased at compile, so this module stays runtime-independent of the build-side reader.
+import type { CollectionField } from "../build/design-api"
 
 /** Severity of a lint finding. `error` blocks publish and fails the build; `warning` is advisory. */
 export type LintSeverity = "error" | "warning"
+
+/** Outlet component type → the schema field types it accepts (catalog `OUTLET_PROPS`). */
+export type OutletPropRegistry = Record<string, readonly string[]>
+
+/**
+ * The template-mode pairing context (pivot §5.5). Present = the doc is a `design_template`; absent =
+ * a `design_page`, where outlets are errors. `entry` is the routed (build) or preview (editor) entry's
+ * raw fields — null lints the template alone, running structural rules only. `schemaFields` is the
+ * template collection's live schema — null means it could not be read, so the dangling-outlet-field
+ * checks are skipped (the caller warns; see design-api.ts `fetchCollectionFields`).
+ */
+export interface LintPairingContext {
+    entry: Record<string, unknown> | null
+    schemaFields: CollectionField[] | null
+}
 
 /** A single lint result: what is wrong, how bad, where, and a stable rule id for grouping/tests. */
 export interface LintFinding {
@@ -70,23 +93,41 @@ interface HeadingRef {
     path: string
 }
 
+/** Everything one walk accumulates and consults, bundled so the recursion stays readable. */
+interface LintState {
+    theme: TokenCatalog | null
+    tokenProps: TokenPropRegistry
+    outletProps: OutletPropRegistry
+    context: LintPairingContext | undefined
+    findings: LintFinding[]
+    headings: HeadingRef[]
+    outletCount: number
+}
+
+/**
+ * Pushes a `HeadingRef` for every PT block styled `h1`–`h6` in a rich-text body, in block order (the
+ * §1.11 fix): these render as real heading tags, so the single-h1/skip checks must see them.
+ */
+function collectPtHeadings(body: unknown, path: string, headings: HeadingRef[]): void {
+    if (!Array.isArray(body)) return
+    for (const block of body) {
+        if (!isRecord(block) || block._type !== "block") continue
+        const depth = headingDepth(block.style)
+        if (depth !== null) headings.push({ depth, path })
+    }
+}
+
 /**
  * Lints one component's own props (not its slots): token references, a11y, and rich-text bodies.
- * Heading occurrences are pushed to `headings` for the document-order checks run after the walk.
+ * Heading occurrences are pushed to `state.headings` for the document-order checks run after the walk.
  */
-function lintComponent(
-    component: PuckComponent,
-    path: string,
-    theme: TokenCatalog | null,
-    tokenProps: TokenPropRegistry,
-    findings: LintFinding[],
-    headings: HeadingRef[]
-): void {
+function lintComponent(component: PuckComponent, path: string, state: LintState): void {
     const { type, props } = component
+    const { theme, findings, headings } = state
 
     // Token references: a stored token name that no longer exists in the theme (warning; renders unstyled).
     if (theme) {
-        for (const [prop, kind] of Object.entries(tokenProps[type] ?? {})) {
+        for (const [prop, kind] of Object.entries(state.tokenProps[type] ?? {})) {
             const value = props[prop]
             if (typeof value === "string" && value !== "" && !hasToken(theme, kind, value)) {
                 findings.push({
@@ -97,6 +138,11 @@ function lintComponent(
                 })
             }
         }
+    }
+
+    if (type in state.outletProps) {
+        lintOutlet(component, path, state)
+        return
     }
 
     switch (type) {
@@ -141,6 +187,116 @@ function lintComponent(
         }
         case "RichText": {
             lintRichText(props.body, path, findings)
+            collectPtHeadings(props.body, path, headings)
+            break
+        }
+    }
+}
+
+/**
+ * Lints one content outlet (pivot §5.5): placement, field binding against the collection schema, and
+ * — when an entry is present — the resolved value (emptiness, image alt, PT safety, PT headings).
+ * `ContentText` contributes its heading level STRUCTURALLY (entry or not): the template places that
+ * heading for every entry it renders, so heading order is checked template-alone too.
+ */
+function lintOutlet(component: PuckComponent, path: string, state: LintState): void {
+    const { type, props } = component
+    const { context, findings, headings } = state
+    state.outletCount += 1
+
+    if (!context) {
+        findings.push({
+            severity: "error",
+            rule: "outlet-outside-template",
+            path,
+            message: `${type} is a content outlet and can only be used in a design template, not a design page`
+        })
+        return
+    }
+
+    const field = typeof props.field === "string" ? props.field : ""
+
+    // Field binding vs the collection schema (error: the outlet can never render). Skipped when the
+    // schema could not be read (schemaFields null) — the caller has already warned about that.
+    let dangling = false
+    if (context.schemaFields !== null) {
+        const accepted = state.outletProps[type]
+        const schemaField = context.schemaFields.find((candidate) => candidate.slug === field)
+        if (field === "") {
+            dangling = true
+            findings.push({
+                severity: "error",
+                rule: "dangling-outlet-field",
+                path,
+                message: `${type} has no content field bound`
+            })
+        } else if (!schemaField) {
+            dangling = true
+            findings.push({
+                severity: "error",
+                rule: "dangling-outlet-field",
+                path,
+                message: `${type} is bound to field "${field}", which does not exist in the collection schema`
+            })
+        } else if (!accepted.includes(schemaField.type)) {
+            dangling = true
+            findings.push({
+                severity: "error",
+                rule: "dangling-outlet-field",
+                path,
+                message:
+                    `${type} is bound to field "${field}" of type "${schemaField.type}"; ` +
+                    `it accepts ${accepted.join(", ")}`
+            })
+        }
+    }
+
+    if (type === "ContentText") {
+        const depth = headingDepth(props.level)
+        if (depth !== null) headings.push({ depth, path })
+    }
+
+    // Entry-dependent rows: skipped template-alone (entry null) or when the binding is already broken.
+    const entry = context.entry
+    if (!entry || field === "" || dangling) return
+    const value = entry[field]
+
+    const emptyValue = (): void => {
+        findings.push({
+            severity: "warning",
+            rule: "empty-outlet-value",
+            path,
+            message: `${type}'s field "${field}" is empty on this entry, so it renders nothing`
+        })
+    }
+
+    switch (type) {
+        case "ContentText": {
+            if (typeof value !== "string" || value.trim() === "") emptyValue()
+            break
+        }
+        case "ContentRichText": {
+            if (!Array.isArray(value) || value.length === 0) {
+                emptyValue()
+            } else {
+                lintRichText(value, path, findings)
+                collectPtHeadings(value, path, headings)
+            }
+            break
+        }
+        case "ContentImage": {
+            if (!isRecord(value) || typeof value.id !== "string") {
+                emptyValue()
+            } else if (typeof value.alt !== "string" || value.alt.trim() === "") {
+                findings.push({
+                    severity: "error",
+                    rule: "content-image-alt",
+                    path,
+                    message:
+                        `ContentImage's image (field "${field}") has no alt text — ` +
+                        "set it on the media item in the CMS"
+                })
+            }
             break
         }
     }
@@ -179,21 +335,14 @@ function lintRichText(body: unknown, path: string, findings: LintFinding[]): voi
  * its slot props (array-valued props whose elements are components). Rich-text bodies are PT arrays,
  * not component arrays, so they are not descended into here — `lintComponent` handles them directly.
  */
-function walk(
-    components: unknown[],
-    parentPath: string,
-    theme: TokenCatalog | null,
-    tokenProps: TokenPropRegistry,
-    findings: LintFinding[],
-    headings: HeadingRef[]
-): void {
+function walk(components: unknown[], parentPath: string, state: LintState): void {
     components.forEach((component, index) => {
         if (!isPuckComponent(component)) return
         const path = childPath(parentPath, component.type, index)
-        lintComponent(component, path, theme, tokenProps, findings, headings)
+        lintComponent(component, path, state)
         for (const value of Object.values(component.props)) {
             if (Array.isArray(value) && value.some(isPuckComponent)) {
-                walk(value, path, theme, tokenProps, findings, headings)
+                walk(value, path, state)
             }
         }
     })
@@ -227,25 +376,56 @@ function lintHeadings(headings: HeadingRef[], findings: LintFinding[]): void {
 }
 
 /**
- * Lints a stored design document against the theme. Returns every finding (errors and warnings) in a
- * stable order: per-component findings in document order, then the whole-page heading findings.
+ * Lints a stored design document against the theme, and — in template mode — against its pairing
+ * context (pivot §5.5). Returns every finding (errors and warnings) in a stable order: per-component
+ * findings in document order, then the whole-page heading and template-shape findings.
  *
  * @param {DesignDoc} doc - the design in stored form (rich text as Portable Text)
  * @param {TokenCatalog | null} theme - the live theme; when null, token-reference checks are skipped
  * @param {TokenPropRegistry} tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
+ * @param {OutletPropRegistry} outletProps - outlet type → accepted field types (catalog `OUTLET_PROPS`)
+ * @param {LintPairingContext} [context] - present for a `design_template` doc; absent for a `design_page`
  * @returns {LintFinding[]} - all findings; callers gate on `severity === "error"`
  */
-export function lintDesign(doc: DesignDoc, theme: TokenCatalog | null, tokenProps: TokenPropRegistry): LintFinding[] {
-    const findings: LintFinding[] = []
-    const headings: HeadingRef[] = []
+export function lintDesign(
+    doc: DesignDoc,
+    theme: TokenCatalog | null,
+    tokenProps: TokenPropRegistry,
+    outletProps: OutletPropRegistry,
+    context?: LintPairingContext
+): LintFinding[] {
+    const state: LintState = {
+        theme,
+        tokenProps,
+        outletProps,
+        context,
+        findings: [],
+        headings: [],
+        outletCount: 0
+    }
 
     const content = (doc.puck as { content?: unknown }).content
     if (Array.isArray(content)) {
-        walk(content, "", theme, tokenProps, findings, headings)
+        walk(content, "", state)
     }
-    lintHeadings(headings, findings)
+    // Heading order is a property of the COMBINED template+entry sequence (§5.5): template-alone
+    // (entry null) the sequence is incomplete — the entry body may supply the missing levels — so the
+    // checks are skipped rather than raising false blocking errors. The build always pairs an entry.
+    if (!context || context.entry) {
+        lintHeadings(state.headings, state.findings)
+    }
 
-    return findings
+    // A template with zero outlets renders identically for every entry — almost certainly a mistake.
+    if (context && state.outletCount === 0) {
+        state.findings.push({
+            severity: "warning",
+            rule: "template-no-outlets",
+            path: "root",
+            message: "This template contains no content outlets, so every entry renders identically through it"
+        })
+    }
+
+    return state.findings
 }
 
 /** Whether a finding set blocks publish / fails the build (any error present). */

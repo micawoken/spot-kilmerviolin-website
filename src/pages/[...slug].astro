@@ -47,9 +47,15 @@ import { Render } from "@puckeditor/core/rsc"
 import PublicPage from "../layouts/PublicPage.astro"
 import FormattedDate from "../components/FormattedDate.astro"
 import { fetchPublishedPages } from "../lib/build/emdash-api"
-import { fetchPublishedDesignPages, fetchPublishedTemplates, fetchPublishedTheme } from "../lib/build/design-api"
+import {
+    fetchCollectionFields,
+    fetchPublishedDesignPages,
+    fetchPublishedTemplates,
+    fetchPublishedTheme,
+    type CollectionField
+} from "../lib/build/design-api"
 import { collectRoutes } from "../lib/build/route-authority"
-import { buildConfig, TOKEN_PROPS } from "../lib/compositor/catalog"
+import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG, tokensToCss } from "../lib/compositor/tokens"
 import compositorCss from "../lib/compositor/compositor.css?raw"
@@ -75,7 +81,7 @@ export async function getStaticPaths() {
     // the editor's Publish dialog already blocks on; reaching here means a design was published around the
     // editor (API-direct), so the build is the last line of defense. Warnings are logged, not fatal.
     for (const designPage of designPages) {
-        const findings = lintDesign(designPage.doc, theme, TOKEN_PROPS)
+        const findings = lintDesign(designPage.doc, theme, TOKEN_PROPS, OUTLET_PROPS)
         for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
             console.warn(`[build] design "${designPage.slug}" — ${finding.path}: ${finding.message}`)
         }
@@ -96,6 +102,38 @@ export async function getStaticPaths() {
     // and falls back to the untemplated render; an authored-wrong pairing throws from collectRoutes.
     const { routes, warnings } = collectRoutes({ pages, designPages, templates })
     for (const warning of warnings) console.warn(warning)
+
+    // Pairing lint per (template × entry) route (§5.5) — the sharpest post-pivot edge: heading order
+    // stops being a property of one document once template and entry combine, and entries are published
+    // in the EmDash admin with no compositor lint, so this build is the FIRST gate for entry-caused
+    // failures. Schema reads fail soft to null (fetchCollectionFields warns; the dangling-field rule is
+    // skipped); lint errors fail the build naming entry + template + rule.
+    const schemaByCollection = new Map<string, CollectionField[] | null>()
+    for (const route of routes) {
+        if (route.props.kind !== "design" || !route.props.template) continue
+        const { collection } = route.props.template
+        if (!schemaByCollection.has(collection)) {
+            schemaByCollection.set(collection, await fetchCollectionFields(collection))
+        }
+        const findings = lintDesign(route.props.doc, theme, TOKEN_PROPS, OUTLET_PROPS, {
+            entry: route.props.entry,
+            schemaFields: schemaByCollection.get(collection) ?? null
+        })
+        const label = `entry "${route.slug || "(home)"}" × template "${route.props.template.slug}"`
+        for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
+            console.warn(`[build] ${label} — ${finding.rule} at ${finding.path}: ${finding.message}`)
+        }
+        if (hasBlockingError(findings)) {
+            const errors = findings
+                .filter((finding) => finding.severity === "error")
+                .map((finding) => `  ${finding.rule} at ${finding.path}: ${finding.message}`)
+                .join("\n")
+            throw new Error(
+                `[build] ${label} fails the pairing lint:\n${errors}\n` +
+                    "Fix the template in /admin/designs, or fix the entry's content in the EmDash admin."
+            )
+        }
+    }
 
     return routes.map((route) => ({
         params: { slug: route.slug === "home" ? undefined : route.slug },
@@ -131,8 +169,13 @@ const headCss =
             {/* Puck's config holds React render functions, so it cannot travel through getStaticPaths
                 props (those are serialized); it is rebuilt here from the serializable theme. The "build"
                 target swaps the two editor-only fields for passthroughs so stored Portable Text reaches
-                the renderer intact (§6.3). No client directive → server-rendered, zero JS. */}
-            <Render config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build")} data={props.doc.puck} />
+                the renderer intact (§6.3). The entry context feeds the content outlets (D7): the routed
+                entry's fields for a templated route, null for a design_page — where outlets render
+                nothing. No client directive → server-rendered, zero JS. */}
+            <Render
+                config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", { entry: props.entry })}
+                data={props.doc.puck}
+            />
         </PublicPage>
     )
 }

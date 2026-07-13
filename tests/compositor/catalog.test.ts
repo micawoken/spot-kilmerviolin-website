@@ -19,8 +19,10 @@
  */
 
 import { describe, it, expect } from "vitest"
+import { renderToStaticMarkup } from "react-dom/server"
 
-import { buildConfig, RICH_TEXT_PROPS } from "../../src/lib/compositor/catalog"
+import { buildConfig, OUTLET_PROPS, RICH_TEXT_PROPS } from "../../src/lib/compositor/catalog"
+import type { CollectionField } from "../../src/lib/build/design-api"
 import type { TokenCatalog } from "../../src/lib/compositor/tokens"
 
 const theme: TokenCatalog = {
@@ -43,15 +45,24 @@ const theme: TokenCatalog = {
 /** The frozen catalog v1 component set (§4.5). A change here is a deliberate version bump. */
 const CATALOG_V1 = ["Section", "Columns", "Heading", "RichText", "Image", "Button", "Spacer", "Divider"]
 
+/** The Phase B content outlets (pivot §4) — registered in every target alongside catalog v1. */
+const OUTLETS = ["ContentText", "ContentRichText", "ContentImage"]
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function field(config: any, component: string, prop: string): any {
     return config.components[component].fields[prop]
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function render(config: any, component: string, props: Record<string, unknown>): string {
+    return renderToStaticMarkup(config.components[component].render(props))
+}
+
 describe("buildConfig — component set", () => {
-    it("exposes exactly the frozen catalog v1 components in both targets", () => {
-        expect(Object.keys(buildConfig(theme, "editor").components).sort()).toEqual([...CATALOG_V1].sort())
-        expect(Object.keys(buildConfig(theme, "build").components).sort()).toEqual([...CATALOG_V1].sort())
+    it("exposes exactly catalog v1 plus the content outlets in both targets", () => {
+        const expected = [...CATALOG_V1, ...OUTLETS].sort()
+        expect(Object.keys(buildConfig(theme, "editor").components).sort()).toEqual(expected)
+        expect(Object.keys(buildConfig(theme, "build").components).sort()).toEqual(expected)
     })
 })
 
@@ -88,5 +99,115 @@ describe("buildConfig — editor vs build richtext field", () => {
 describe("RICH_TEXT_PROPS", () => {
     it("registers exactly RichText.body (drives convert.ts walks; contributor rule 5)", () => {
         expect(RICH_TEXT_PROPS).toEqual({ RichText: ["body"] })
+    })
+})
+
+describe("OUTLET_PROPS", () => {
+    it("registers every outlet with its accepted schema field types (contributor rule)", () => {
+        expect(OUTLET_PROPS).toEqual({
+            ContentText: ["string", "text"],
+            ContentRichText: ["portableText"],
+            ContentImage: ["image"]
+        })
+    })
+})
+
+describe("buildConfig — outlet field pickers (editor context)", () => {
+    const fields: CollectionField[] = [
+        { slug: "title", label: "Title", type: "string" },
+        { slug: "body", label: "Body", type: "portableText" },
+        { slug: "cover", label: "Cover", type: "image" },
+        { slug: "published", label: "Published", type: "boolean" }
+    ]
+    const config = buildConfig(theme, "editor", { entry: null, fields })
+
+    it("offers only fields whose type the outlet accepts, after the unbound option", () => {
+        expect(field(config, "ContentText", "field").options).toEqual([
+            { label: "— choose a field —", value: "" },
+            { label: "Title", value: "title" }
+        ])
+        expect(field(config, "ContentRichText", "field").options).toEqual([
+            { label: "— choose a field —", value: "" },
+            { label: "Body", value: "body" }
+        ])
+        expect(field(config, "ContentImage", "field").options).toEqual([
+            { label: "— choose a field —", value: "" },
+            { label: "Cover", value: "cover" }
+        ])
+    })
+
+    it("offers only the unbound option when the config has no schema context", () => {
+        expect(field(buildConfig(theme, "editor"), "ContentText", "field").options).toEqual([
+            { label: "— choose a field —", value: "" }
+        ])
+    })
+})
+
+describe("buildConfig — outlet renders resolve through the entry context (D7)", () => {
+    const entry = {
+        title: "  ",
+        headline: "From the entry",
+        body: [{ _type: "block", style: "normal", children: [{ _type: "span", text: "hello" }] }],
+        cover: { id: "med_1", alt: "A violin", width: 800, height: 600 },
+        coverWithSrc: { id: "med_2", src: "https://cdn.example/violin.jpg", alt: "" }
+    }
+
+    it("renders nothing at build with no entry context (design_page path, D3)", () => {
+        const config = buildConfig(theme, "build")
+        expect(render(config, "ContentText", { field: "headline", level: "h2", typography: "display", align: "start" })).toBe("")
+        expect(render(config, "ContentRichText", { field: "body" })).toBe("")
+        expect(render(config, "ContentImage", { field: "cover", aspect: "original" })).toBe("")
+    })
+
+    it("renders a placeholder in the editor when no value resolves", () => {
+        const config = buildConfig(theme, "editor")
+        expect(render(config, "ContentText", { field: "", level: "h2", typography: "display", align: "start" })).toContain(
+            "cmp-outlet-placeholder"
+        )
+        expect(render(config, "ContentText", { field: "", level: "h2", typography: "display", align: "start" })).toContain(
+            "not bound"
+        )
+    })
+
+    it("ContentText renders the entry value through the shared Heading markup", () => {
+        const config = buildConfig(theme, "build", { entry })
+        const html = render(config, "ContentText", { field: "headline", level: "h3", typography: "display", align: "center" })
+        expect(html).toContain("<h3")
+        expect(html).toContain("cmp-heading")
+        expect(html).toContain("From the entry")
+    })
+
+    it("ContentText treats a whitespace-only value as empty", () => {
+        const config = buildConfig(theme, "build", { entry })
+        expect(render(config, "ContentText", { field: "title", level: "h2", typography: "display", align: "start" })).toBe("")
+    })
+
+    it("ContentRichText renders the entry's PT array via the parity renderer", () => {
+        const config = buildConfig(theme, "build", { entry })
+        const html = render(config, "ContentRichText", { field: "body" })
+        expect(html).toContain("cmp-richtext")
+        expect(html).toContain("hello")
+    })
+
+    it("ContentImage falls back to the same-origin media endpoint when the value has no src", () => {
+        const config = buildConfig(theme, "build", { entry })
+        const html = render(config, "ContentImage", { field: "cover", aspect: "landscape" })
+        expect(html).toContain('src="/_emdash/api/media/file/med_1"')
+        expect(html).toContain('alt="A violin"')
+        expect(html).toContain('data-aspect="landscape"')
+        expect(html).toContain('width="800"')
+    })
+
+    it("ContentImage prefers the value's own src when present", () => {
+        const config = buildConfig(theme, "build", { entry })
+        const html = render(config, "ContentImage", { field: "coverWithSrc", aspect: "original" })
+        expect(html).toContain('src="https://cdn.example/violin.jpg"')
+    })
+
+    it("Heading and ContentText produce identical markup for the same inputs (twin contract)", () => {
+        const config = buildConfig(theme, "build", { entry })
+        const viaHeading = render(config, "Heading", { text: "From the entry", level: "h2", typography: "display", align: "start" })
+        const viaOutlet = render(config, "ContentText", { field: "headline", level: "h2", typography: "display", align: "start" })
+        expect(viaOutlet).toBe(viaHeading)
     })
 })
