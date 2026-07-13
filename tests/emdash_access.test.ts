@@ -27,11 +27,18 @@
 import { describe, it, expect } from "vitest"
 import { permissionsFromRoles } from "../src/lib/api/authorize.ts"
 import { isServicePrincipalClaims } from "../src/lib/api/authenticate.ts"
+import { isDesignSystemRequest } from "../src/lib/api/emdash_design_access.ts"
 import { satisfiesAccess, type AdminAccess } from "../src/lib/api/page_auth.ts"
 
 const EMDASH_ACCESS: AdminAccess = { kind: "permission", permissions: ["cms_editor"] }
+const DESIGN_ACCESS: AdminAccess = { kind: "permission", permissions: ["design_editor"] }
 
-function buildIdentity(roles: string[], admin: boolean, active: boolean): Identity {
+function buildIdentity(
+    roles: string[],
+    admin: boolean,
+    active: boolean,
+    permissions: IdentityPermissions = permissionsFromRoles(roles)
+): Identity {
     return {
         sub: "test-sub",
         email: "test@example.com",
@@ -56,8 +63,34 @@ function buildIdentity(roles: string[], admin: boolean, active: boolean): Identi
             image: null,
             change_date: ""
         },
-        permissions: permissionsFromRoles(roles)
+        permissions
     }
+}
+
+/**
+ * An identity holding design_editor but NOT cms_editor — the caller the /_emdash allowlist exists to bound.
+ *
+ * Its permissions are built directly rather than from a role because NO ROLE GRANTS THIS TODAY: `siteeditor`
+ * carries both permissions, so every real caller currently takes the cms_editor branch and never reaches the
+ * allowlist. The gate must nevertheless be correct BEFORE such a role exists — the day one is added, this is
+ * what stands between that user and the CMS. Testing it only through today's roles would test nothing.
+ */
+function designOnlyIdentity(): Identity {
+    return buildIdentity(["siteeditor"], false, true, {
+        ...permissionsFromRoles([]),
+        design_editor: true
+    })
+}
+
+/** Splits an /_emdash URL the way the middleware does, into the segments after "_emdash". */
+function segments(path: string): string[] {
+    return path.split("/").filter((component) => component.length > 0).slice(1)
+}
+
+/** Applies the middleware's design_editor branch: the permission AND the path allowlist, together. */
+function designEditorMayReach(method: string, path: string): boolean {
+    const identity = designOnlyIdentity()
+    return satisfiesAccess(DESIGN_ACCESS, identity) && isDesignSystemRequest(method, segments(path))
 }
 
 describe("/_emdash cms_editor gate (satisfiesAccess against EMDASH_ACCESS)", () => {
@@ -85,6 +118,111 @@ describe("/_emdash cms_editor gate (satisfiesAccess against EMDASH_ACCESS)", () 
 
     it("ignores unknown role strings (they confer nothing)", () => {
         expect(satisfiesAccess(EMDASH_ACCESS, buildIdentity(["bogus"], false, true))).toBe(false)
+    })
+})
+
+/**
+ * The design_editor branch of the /_emdash gate (middleware/emdash_access.ts + lib/api/emdash_design_access.ts).
+ *
+ * A design_editor is NOT a CMS editor. They may reach exactly the paths the design system calls and nothing
+ * else — the permission alone opens no door. The DENY cases below are the point of the whole gate: each one
+ * is a way a design editor could otherwise reach content they have no business writing, and EmDash itself
+ * would allow every one of them (their EmDash role is Editor, which the field pickers' `schema:read` needs).
+ */
+describe("/_emdash design_editor allowlist — what the design system needs", () => {
+    it("admits its own collections, including create, autosave and publish", () => {
+        expect(designEditorMayReach("GET", "/_emdash/api/content/design_template")).toBe(true)
+        expect(designEditorMayReach("POST", "/_emdash/api/content/design_template")).toBe(true)
+        expect(designEditorMayReach("PUT", "/_emdash/api/content/design_page/abc123")).toBe(true)
+        expect(designEditorMayReach("POST", "/_emdash/api/content/design_page/abc123/publish")).toBe(true)
+        expect(designEditorMayReach("PUT", "/_emdash/api/content/design_theme/thm-1")).toBe(true)
+    })
+
+    it("admits the preview-entry picker (read-only) and the outlet field pickers", () => {
+        expect(designEditorMayReach("GET", "/_emdash/api/content/pages")).toBe(true)
+        expect(designEditorMayReach("GET", "/_emdash/api/content/pages/pg-1")).toBe(true)
+        expect(designEditorMayReach("GET", "/_emdash/api/schema/collections/pages/fields")).toBe(true)
+        expect(designEditorMayReach("GET", "/_emdash/api/schema/collections/posts/fields")).toBe(true)
+    })
+
+    it("admits the media picker's reads", () => {
+        expect(designEditorMayReach("GET", "/_emdash/api/media")).toBe(true)
+        expect(designEditorMayReach("GET", "/_emdash/api/media/file/med-1")).toBe(true)
+    })
+})
+
+describe("/_emdash design_editor allowlist — what it must REFUSE", () => {
+    it("refuses the EmDash admin UI: a design editor is not a CMS editor", () => {
+        expect(designEditorMayReach("GET", "/_emdash")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/admin")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/admin/collections/pages")).toBe(false)
+    })
+
+    it("refuses every WRITE to a content collection that is not its own", () => {
+        expect(designEditorMayReach("POST", "/_emdash/api/content/pages")).toBe(false)
+        expect(designEditorMayReach("PUT", "/_emdash/api/content/pages/pg-1")).toBe(false)
+        expect(designEditorMayReach("PATCH", "/_emdash/api/content/pages/pg-1")).toBe(false)
+        expect(designEditorMayReach("DELETE", "/_emdash/api/content/pages/pg-1")).toBe(false)
+        // publishing an ENTRY is a content decision, not a design one
+        expect(designEditorMayReach("POST", "/_emdash/api/content/pages/pg-1/publish")).toBe(false)
+    })
+
+    it("refuses collections no template renders, even for a read", () => {
+        expect(designEditorMayReach("GET", "/_emdash/api/content/composers")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/api/content/settings")).toBe(false)
+    })
+
+    it("refuses schema WRITES — the field pickers only ever read", () => {
+        expect(designEditorMayReach("POST", "/_emdash/api/schema/collections/pages/fields")).toBe(false)
+        expect(designEditorMayReach("DELETE", "/_emdash/api/schema/collections/pages/fields")).toBe(false)
+        expect(designEditorMayReach("POST", "/_emdash/api/schema/collections")).toBe(false)
+    })
+
+    it("refuses media uploads — the picker only lists what a CMS editor already uploaded", () => {
+        expect(designEditorMayReach("POST", "/_emdash/api/media")).toBe(false)
+        expect(designEditorMayReach("DELETE", "/_emdash/api/media/med-1")).toBe(false)
+    })
+
+    it("refuses the rest of the CMS — settings, menus, users", () => {
+        expect(designEditorMayReach("GET", "/_emdash/api/settings")).toBe(false)
+        expect(designEditorMayReach("PUT", "/_emdash/api/settings")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/api/menus/primary")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/api/users")).toBe(false)
+    })
+
+    it("refuses an unknown endpoint: the allowlist is default-deny, so new EmDash routes are closed", () => {
+        expect(designEditorMayReach("GET", "/_emdash/api/whatever-ships-next")).toBe(false)
+    })
+
+    it("denies a caller who holds neither permission, whatever the path", () => {
+        const stranger = buildIdentity(["reviewer"], false, true)
+        expect(satisfiesAccess(DESIGN_ACCESS, stranger)).toBe(false)
+        expect(satisfiesAccess(EMDASH_ACCESS, stranger)).toBe(false)
+    })
+})
+
+/**
+ * The role -> permission mapping the gate rests on. siteeditor holds BOTH permissions, so a siteeditor keeps
+ * full CMS access exactly as before this split; design_editor is additive, never a downgrade.
+ */
+describe("design_editor role grants", () => {
+    it("grants a siteeditor both design_editor and cms_editor (no loss of access)", () => {
+        const siteeditor = buildIdentity(["siteeditor"], false, true)
+        expect(satisfiesAccess(DESIGN_ACCESS, siteeditor)).toBe(true)
+        expect(satisfiesAccess(EMDASH_ACCESS, siteeditor)).toBe(true)
+    })
+
+    it("grants an admin the design system too", () => {
+        expect(satisfiesAccess(DESIGN_ACCESS, buildIdentity([], true, true))).toBe(true)
+    })
+
+    it("denies an inactive siteeditor the design system", () => {
+        expect(satisfiesAccess(DESIGN_ACCESS, buildIdentity(["siteeditor"], false, false))).toBe(false)
+    })
+
+    it("grants no other role the design system", () => {
+        expect(satisfiesAccess(DESIGN_ACCESS, buildIdentity(["reviewer"], false, true))).toBe(false)
+        expect(satisfiesAccess(DESIGN_ACCESS, buildIdentity(["userenroll"], false, true))).toBe(false)
     })
 })
 

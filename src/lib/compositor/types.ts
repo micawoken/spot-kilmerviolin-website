@@ -34,6 +34,29 @@ import type { Data as PuckData } from "@puckeditor/core"
 export type { PuckData }
 
 /**
+ * The content collections a template can render entries of (pivot §3).
+ *
+ * Lives here, not with the build reader that validates against it, because the /_emdash authorization gate
+ * (middleware/emdash_access.ts) must bound the collections a design_editor may READ for the preview-entry
+ * picker and the outlet field pickers — and middleware cannot import a build module without pulling
+ * build-only code into the worker runtime. One list, two consumers, no drift.
+ */
+export type TemplateCollection = "pages" | "posts"
+
+export const TEMPLATE_COLLECTIONS: readonly TemplateCollection[] = ["pages", "posts"]
+
+/**
+ * Whether a string names a collection a template can render (and therefore one the design system is
+ * allowed to read entries and field schemas from).
+ *
+ * @param {string} collection - the candidate collection slug
+ * @returns {boolean} - true when it is a routable template collection
+ */
+export function isTemplateCollection(collection: string): collection is TemplateCollection {
+    return (TEMPLATE_COLLECTIONS as readonly string[]).includes(collection)
+}
+
+/**
  * The stored design envelope (impl §4.2). `schemaVersion` lives inside this JSON — atomic with
  * the layout it describes, so it travels through EmDash revisions/rollbacks — not as a DB column.
  */
@@ -75,4 +98,21 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function isPuckComponent(value: unknown): value is PuckComponent {
     return isRecord(value) && typeof value.type === "string" && isRecord(value.props)
+}
+
+/**
+ * Reads a boolean field off an EmDash API payload. Use this for EVERY EmDash boolean — a strict
+ * `value === true` check is WRONG and silently reads every set flag as false.
+ *
+ * EmDash maps a boolean field to a SQLite INTEGER column (`schema/types.ts`) and serializes true/false
+ * to 1/0 on write, but its `deserializeValue` never converts them back (`schema/zod-generator.ts`). So a
+ * field written as `true` comes back over the API as the NUMBER 1, and one written as `false` as 0 —
+ * which is also why 0 must not be treated as merely falsy-and-therefore-fine: the round trip changes the
+ * type, not just the value, and nothing in a build, a type check, or a fixture will say so.
+ *
+ * @param {unknown} value - the raw field value from an EmDash API payload
+ * @returns {boolean} - true when the field is set, for both the 1/0 and the true/false encodings
+ */
+export function cmsBoolean(value: unknown): boolean {
+    return value === true || value === 1
 }

@@ -33,7 +33,7 @@
 
 import { migrateDesign } from "../compositor/migrations"
 import { isTokenCatalog, type TokenCatalog } from "../compositor/tokens"
-import type { DesignDoc } from "../compositor/types"
+import { cmsBoolean, isTemplateCollection, TEMPLATE_COLLECTIONS, type DesignDoc, type TemplateCollection } from "../compositor/types"
 import { emdashGet, normalizeSlug, type ApiListResult } from "./emdash-api"
 
 /** A published design page, flattened to what the public route needs to render it. */
@@ -96,10 +96,9 @@ export async function fetchPublishedDesignPages(): Promise<BuildDesignPage[]> {
     return designPages
 }
 
-/** The content collections a template can render entries of (pivot §3). */
-export type TemplateCollection = "pages" | "posts"
-
-const TEMPLATE_COLLECTIONS: readonly string[] = ["pages", "posts"]
+// Re-exported so the build's existing importers (route-authority) keep their import site; the list itself
+// is owned by lib/compositor/types, which the /_emdash gate can import without dragging build code in.
+export type { TemplateCollection }
 
 /**
  * The reserved item slug of the "None (plain article)" sentinel template (pivot §3, §7.4). Referencing
@@ -159,7 +158,7 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
             const name = normalizeSlug(item.slug) ?? item.id
 
             const collection = data.collection
-            if (typeof collection !== "string" || !TEMPLATE_COLLECTIONS.includes(collection)) {
+            if (typeof collection !== "string" || !isTemplateCollection(collection)) {
                 throw new Error(
                     `[build/design-api] published design template "${name}" targets the unknown collection ` +
                         `${JSON.stringify(collection)}. Expected one of ${TEMPLATE_COLLECTIONS.join(", ")}; ` +
@@ -183,8 +182,8 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
                 id: item.id,
                 slug: name,
                 title: typeof data.title === "string" ? data.title : "",
-                collection: collection as TemplateCollection,
-                isDefault: data.is_default === true,
+                collection,
+                isDefault: cmsBoolean(data.is_default),
                 doc
             })
         }

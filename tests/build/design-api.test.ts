@@ -29,13 +29,20 @@ function json(status: number, body: unknown): Response {
     return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 }
 
-/** One `design_template` item as the list API returns it. */
+/**
+ * One `design_template` item as the list API returns it.
+ *
+ * `is_default` is 0, NOT false, because that is what EmDash actually puts on the wire: a boolean field is
+ * a SQLite INTEGER column, and while writes serialize true/false to 1/0, reads never convert them back.
+ * A fixture that hand-authors a JS boolean here only confirms our own assumption — which is exactly how
+ * the `=== true` bug reached production.
+ */
 function templateItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         id: "tpl-1",
         slug: "article",
         status: "published",
-        data: { title: "Article", collection: "pages", is_default: false, design: emptyDesignDoc(), ...overrides }
+        data: { title: "Article", collection: "pages", is_default: 0, design: emptyDesignDoc(), ...overrides }
     }
 }
 
@@ -114,7 +121,7 @@ describe("fetchPublishedTemplates — an authored-wrong template", () => {
 
 describe("fetchPublishedTemplates — a well-formed template", () => {
     it("flattens it to what the route table needs", async () => {
-        const items = [templateItem({ title: "Article", collection: "pages", is_default: true })]
+        const items = [templateItem({ title: "Article", collection: "pages", is_default: 1 })]
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
 
         const templates = await fetchPublishedTemplates()
@@ -127,5 +134,34 @@ describe("fetchPublishedTemplates — a well-formed template", () => {
             collection: "pages",
             isDefault: true
         })
+    })
+})
+
+/**
+ * The regression this guards (found on prod, 2026-07-13): EmDash serializes a boolean field to its
+ * INTEGER column as 1/0 and never deserializes it back, so `is_default` arrives as a NUMBER. Reading it
+ * with `is_default === true` made every default template read as NOT default — which silently disabled
+ * the collection-default branch of route resolution (D4) AND made the "two published defaults fail the
+ * build" invariant unfireable. Nothing else catches this: the build succeeds, types check, and a fixture
+ * that hand-authors a JS boolean passes. Only the wire shape refutes it, so the wire shape is pinned.
+ */
+describe("fetchPublishedTemplates — EmDash's 1/0 boolean encoding", () => {
+    it("reads the number 1 as a set default, so the collection default is honored at all", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [templateItem({ is_default: 1 })] } })))
+
+        await expect(fetchPublishedTemplates()).resolves.toMatchObject([{ isDefault: true }])
+    })
+
+    it("reads the number 0 as an unset default", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [templateItem({ is_default: 0 })] } })))
+
+        await expect(fetchPublishedTemplates()).resolves.toMatchObject([{ isDefault: false }])
+    })
+
+    it("still reads a real boolean, so the encoding may tighten without breaking the build", async () => {
+        const both = [templateItem({ id: "a", slug: "a", is_default: true }), templateItem({ id: "b", slug: "b", is_default: false })]
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: both } })))
+
+        await expect(fetchPublishedTemplates()).resolves.toMatchObject([{ isDefault: true }, { isDefault: false }])
     })
 })
