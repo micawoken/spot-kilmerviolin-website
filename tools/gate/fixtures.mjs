@@ -127,7 +127,10 @@ const TEMPLATE_ITEM = {
     data: {
         title: "Article",
         collection: "pages",
-        is_default: false,
+        // A NUMBER, not a boolean — what EmDash actually serves. Boolean fields are INTEGER columns whose
+        // 1/0 is never deserialized back (see cmsBoolean in lib/compositor/types.ts). `fixture()` overrides
+        // this per variant; hand-authoring a JS boolean here is what let the `=== true` bug pass the gate.
+        is_default: 0,
         design: {
             schemaVersion: 1,
             puck: {
@@ -165,7 +168,7 @@ const TEMPLATE_ITEM = {
  * are the D3 control group whose output must not move when a template exists (an EmDash reference is
  * stored as the target item's bare id — see normalizeReference in emdash-api.ts).
  */
-function pageItems({ templated }) {
+function pageItems({ pointer }) {
     return [
         {
             id: "pg-home",
@@ -195,7 +198,7 @@ function pageItems({ templated }) {
                 title: TEMPLATED_TITLE,
                 description: "A test page",
                 content: [block("c1", "h2", "A subheading"), block("c2", "normal", TEMPLATED_BODY_TEXT)],
-                ...(templated ? { design: TEMPLATE_ITEM.id } : {})
+                ...(pointer ? { design: TEMPLATE_ITEM.id } : {})
             }
         }
     ]
@@ -203,12 +206,16 @@ function pageItems({ templated }) {
 
 /**
  * @param {object} options
- * @param {boolean} options.templated - publish the template and point `content-test` at it
+ * @param {boolean} options.templated - publish the template
  * @param {boolean} [options.breakSchema] - drop the bound rich-text field from the served `pages` schema,
  *   the "renamed the field away" break the dangling-outlet-field rule exists to catch
+ * @param {boolean} [options.byDefault] - reach the template through D4 rule 2 (it is the collection's
+ *   `is_default`) instead of rule 1: NO page carries a `design` pointer, so every `pages` entry — not just
+ *   `content-test` — legitimately renders through it. Serves `is_default` as EmDash does, the number 1.
  */
-function fixture({ templated, breakSchema = false }) {
+function fixture({ templated, breakSchema = false, byDefault = false }) {
     const fields = breakSchema ? PAGE_FIELDS.filter((field) => field.slug !== BOUND_RICHTEXT_FIELD) : PAGE_FIELDS
+    const template = { ...TEMPLATE_ITEM, data: { ...TEMPLATE_ITEM.data, is_default: byDefault ? 1 : 0 } }
 
     return {
         [paths.settings]: ok({ title: "Diversifying the Violin Curriculum for Private Teaching", tagline: "Test" }),
@@ -218,13 +225,11 @@ function fixture({ templated, breakSchema = false }) {
                 { label: "Privacy", url: "/privacy-policy" }
             ]
         }),
-        [paths.pages]: ok({ items: pageItems({ templated }) }),
+        [paths.pages]: ok({ items: pageItems({ pointer: templated && !byDefault }) }),
         [paths.designPages]: ok({ items: [] }),
         [paths.theme]: ok({ items: [{ id: "thm-1", slug: "default", status: "published", data: { tokens: THEME_TOKENS } }] }),
         // Absent until the setup script runs — the state `allowMissing` exists for, and prod's state today.
-        [paths.templates]: templated
-            ? ok({ items: [TEMPLATE_ITEM] })
-            : missing("Collection not found: design_template"),
+        [paths.templates]: templated ? ok({ items: [template] }) : missing("Collection not found: design_template"),
         [paths.pageFields]: ok({ items: fields })
     }
 }
@@ -232,5 +237,6 @@ function fixture({ templated, breakSchema = false }) {
 export const FIXTURES = {
     baseline: fixture({ templated: false }),
     templated: fixture({ templated: true }),
+    defaulted: fixture({ templated: true, byDefault: true }),
     broken: fixture({ templated: true, breakSchema: true })
 }

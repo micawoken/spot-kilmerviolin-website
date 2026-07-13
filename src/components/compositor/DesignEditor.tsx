@@ -58,7 +58,7 @@ import { hasBlockingError, lintDesign, type LintFinding } from "../../lib/compos
 import type { CollectionField } from "../../lib/build/design-api"
 import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../lib/compositor/migrations"
 import { isTokenCatalog, tokensToCss, type TokenCatalog } from "../../lib/compositor/tokens"
-import type { DesignDoc } from "../../lib/compositor/types"
+import { cmsBoolean, type DesignDoc } from "../../lib/compositor/types"
 // Vite `?raw` yields the file's text (typed via astro/client). Injected into the canvas iframe below,
 // where host styles are not synced — so this is how compositor.css reaches the preview.
 import compositorCss from "../../lib/compositor/compositor.css?raw"
@@ -161,7 +161,7 @@ async function fetchDesign(endpoint: string, id: string): Promise<LoadedDesign> 
         slug: typeof item.slug === "string" ? item.slug : "",
         status: typeof item.status === "string" ? item.status : "draft",
         collection: typeof fields.collection === "string" ? fields.collection : "",
-        isDefault: fields.is_default === true
+        isDefault: cmsBoolean(fields.is_default)
     }
 }
 

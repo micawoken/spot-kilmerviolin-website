@@ -76,3 +76,20 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export function isPuckComponent(value: unknown): value is PuckComponent {
     return isRecord(value) && typeof value.type === "string" && isRecord(value.props)
 }
+
+/**
+ * Reads a boolean field off an EmDash API payload. Use this for EVERY EmDash boolean — a strict
+ * `value === true` check is WRONG and silently reads every set flag as false.
+ *
+ * EmDash maps a boolean field to a SQLite INTEGER column (`schema/types.ts`) and serializes true/false
+ * to 1/0 on write, but its `deserializeValue` never converts them back (`schema/zod-generator.ts`). So a
+ * field written as `true` comes back over the API as the NUMBER 1, and one written as `false` as 0 —
+ * which is also why 0 must not be treated as merely falsy-and-therefore-fine: the round trip changes the
+ * type, not just the value, and nothing in a build, a type check, or a fixture will say so.
+ *
+ * @param {unknown} value - the raw field value from an EmDash API payload
+ * @returns {boolean} - true when the field is set, for both the 1/0 and the true/false encodings
+ */
+export function cmsBoolean(value: unknown): boolean {
+    return value === true || value === 1
+}

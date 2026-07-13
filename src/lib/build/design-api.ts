@@ -33,7 +33,7 @@
 
 import { migrateDesign } from "../compositor/migrations"
 import { isTokenCatalog, type TokenCatalog } from "../compositor/tokens"
-import type { DesignDoc } from "../compositor/types"
+import { cmsBoolean, type DesignDoc } from "../compositor/types"
 import { emdashGet, normalizeSlug, type ApiListResult } from "./emdash-api"
 
 /** A published design page, flattened to what the public route needs to render it. */
@@ -184,7 +184,7 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
                 slug: name,
                 title: typeof data.title === "string" ? data.title : "",
                 collection: collection as TemplateCollection,
-                isDefault: data.is_default === true,
+                isDefault: cmsBoolean(data.is_default),
                 doc
             })
         }
