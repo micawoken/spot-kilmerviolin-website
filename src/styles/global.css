@@ -21,8 +21,12 @@
 	--color-link-hover: light-dark(#000d8a, #ffb784);
 
 	/* Warning accent (amber): used sparingly to flag a non-blocking caution the operator should notice,
-	 * e.g. a too-small image that will be upscaled. Deliberately colored, unlike the grayscale form errors. */
+	 * e.g. a too-small image that will be upscaled. Deliberately colored, unlike the grayscale form errors.
+	 * The -bg pairs with it the way --color-danger-bg pairs with --color-danger: a tinted surface behind a
+	 * whole cautionary block (the design editor's conflict bar, its warning-severity lint findings), not
+	 * text. Both tints stay near the page surface so they read as a wash, not a second theme. */
 	--color-warning: light-dark(#b45309, #fbbf24);
+	--color-warning-bg: light-dark(#fff3cd, #3a2f14);
 	/* Danger/success accents: used where an error or ok state needs to read at a glance (e.g. the CSV
 	 * import preview grid), as opposed to the grayscale .field-error convention used in forms. */
 	--color-danger: light-dark(#b30000, #ff8080);
