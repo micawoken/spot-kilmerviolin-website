@@ -184,7 +184,7 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
                 slug: name,
                 title: typeof data.title === "string" ? data.title : "",
                 collection: collection as TemplateCollection,
-                isDefault: data.isDefault === true,
+                isDefault: data.is_default === true,
                 doc
             })
         }
@@ -192,6 +192,56 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
     } while (cursor)
 
     return templates
+}
+
+/**
+ * One field of a collection's live schema, as the outlet field pickers and the pairing lint consume it
+ * (pivot §5.2): the slug an outlet binds, the label a picker shows, and the type that gates which
+ * outlets accept it. A subset of EmDash's schema payload; the live schema endpoint is the only ground
+ * truth for fields (pivot §1.10 — the generated emdash-env.d.ts tracks the local dev DB, not prod).
+ */
+export interface CollectionField {
+    slug: string
+    label: string
+    type: string
+}
+
+/**
+ * Fetches the live field schema of one collection, for the dangling-outlet-field lint.
+ *
+ * Fails SOFT to null — a schema-read hiccup must not fail the build; the caller skips that lint rule
+ * for the build with a loud warning instead (pivot §5.2). This is deliberately weaker than content
+ * reads (which throw): losing one advisory check for a build is recoverable, losing pages is not.
+ *
+ * @param {string} collection - the collection slug (e.g. "pages")
+ * @returns {Promise<CollectionField[] | null>} the fields, or null when the schema could not be read
+ */
+export async function fetchCollectionFields(collection: string): Promise<CollectionField[] | null> {
+    let result: { items?: Array<Record<string, unknown>> } | null
+    try {
+        result = await emdashGet<{ items?: Array<Record<string, unknown>> }>(
+            `/_emdash/api/schema/collections/${encodeURIComponent(collection)}/fields`
+        )
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        console.warn(
+            `[build/design-api] could not read the "${collection}" field schema (${reason}) — the ` +
+                "dangling-outlet-field lint is SKIPPED for this build."
+        )
+        return null
+    }
+    if (!result?.items) return null
+
+    const fields: CollectionField[] = []
+    for (const item of result.items) {
+        if (typeof item.slug !== "string" || typeof item.type !== "string") continue
+        fields.push({
+            slug: item.slug,
+            label: typeof item.label === "string" ? item.label : item.slug,
+            type: item.type
+        })
+    }
+    return fields
 }
 
 /**

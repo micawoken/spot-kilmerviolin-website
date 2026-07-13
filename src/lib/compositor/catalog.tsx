@@ -1,9 +1,9 @@
 /**
  * lib/compositor/catalog.tsx
  *
- * The single, frozen component catalog (impl §4.5 / §6.3). `buildConfig(theme, target)` is a factory
- * — select options depend on the live theme — producing the Puck `Config` that drives BOTH the editor
- * island and the static build renderer. Component render functions are pure (catalog purity rule,
+ * The single, frozen component catalog (impl §4.5 / §6.3). `buildConfig(theme, target, context?)` is a
+ * factory — select options depend on the live theme, outlet renders on the routed entry (pivot D7) —
+ * producing the Puck `Config` that drives BOTH the editor island and the static build renderer. Component render functions are pure (catalog purity rule,
  * §4.5): no hooks, no state, no browser APIs, no data fetching; every visual control stores a token
  * *name* resolved to `var(--dtk-…)` at render (decision 4), and all real styling lives in the
  * co-located `compositor.css` (class-per-component, consuming only `--dtk-*` and local `--cmp-*` vars).
@@ -53,9 +53,35 @@ import type { PortableTextBlock } from "emdash"
 
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
+import { isRecord } from "./types"
+// Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
+import type { CollectionField } from "../build/design-api"
 
 /** Which config a `buildConfig` call produces: the editor island's or the static build renderer's. */
 export type CatalogTarget = "editor" | "build"
+
+/**
+ * The per-entry context a config is built against (pivot D7). `entry` is the routed content entry's
+ * raw field record — outlet renders read `entry[field]` from this closure; null/absent means there is
+ * no entry (a `design_page`, or the template editor before a preview entry is picked). `fields` is the
+ * template's collection schema, consumed only by the editor's outlet field pickers (Puck select
+ * options are static per config, which is why the editor rebuilds the config when either changes).
+ */
+export interface BuildConfigContext {
+    entry?: Record<string, unknown> | null
+    fields?: CollectionField[]
+}
+
+/**
+ * Outlet component type → the schema field types it accepts (pivot §4). Drives the editor's field
+ * pickers and the pairing lint's dangling-outlet-field rule (which receives this as an argument, same
+ * pattern as TOKEN_PROPS). Contributor rule: a new outlet MUST register here.
+ */
+export const OUTLET_PROPS: Record<string, readonly string[]> = {
+    ContentText: ["string", "text"],
+    ContentRichText: ["portableText"],
+    ContentImage: ["image"]
+}
 
 /**
  * Component type → the names of its rich-text props (§4.4). Drives `convert.ts`'s PT ↔ ProseMirror
@@ -76,6 +102,7 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     Section: { background: "colors", paddingY: "space" },
     Columns: { gap: "space" },
     Heading: { typography: "typography" },
+    ContentText: { typography: "typography" },
     Spacer: { size: "space" },
     Divider: { spaceAround: "space", color: "colors" }
 }
@@ -302,17 +329,85 @@ interface DividerProps {
     spaceAround: string
     color: string
 }
+interface ContentTextProps {
+    field: string
+    level: "h1" | "h2" | "h3" | "h4"
+    typography: string
+    align: "start" | "center" | "end"
+}
+interface ContentRichTextProps {
+    field: string
+}
+interface ContentImageProps {
+    field: string
+    aspect: "original" | "landscape" | "portrait"
+}
+
+// --- Shared render bodies ---------------------------------------------------------------------------
+// The outlets are thin content-fed twins of existing components (pivot §4): same markup, same classes,
+// same token wiring — only where the value comes from differs. One render body each keeps them twins.
+
+/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). */
+function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
+    const Tag = level
+    return (
+        <Tag
+            className="cmp-heading"
+            style={vars({
+                "--cmp-heading-family": tokenVar("typography", typography, "family"),
+                "--cmp-heading-size": tokenVar("typography", typography, "size"),
+                "--cmp-heading-weight": tokenVar("typography", typography, "weight"),
+                "--cmp-heading-line-height": tokenVar("typography", typography, "line-height"),
+                "--cmp-heading-letter-spacing": tokenVar("typography", typography, "letter-spacing"),
+                "--cmp-heading-align": align
+            })}
+        >
+            {text}
+        </Tag>
+    )
+}
+
+/** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). */
+function renderImageTag(url: string, alt: string, width: number | undefined, height: number | undefined, aspect: string) {
+    return <img className="cmp-image" data-aspect={aspect} src={url} alt={alt} width={width} height={height} />
+}
+
+/** Neutral editor-canvas placeholder for an outlet with no preview entry to resolve against (pivot §4). */
+function OutletPlaceholder({ field }: { field: string }) {
+    return <div className="cmp-outlet-placeholder">⟨ field: {field || "not bound"} ⟩</div>
+}
 
 /**
- * Builds the Puck config for the given theme and target (§6.3). The component set and props are the
- * frozen §4.5 catalog v1; select options are drawn from `theme`. `target` governs only the two
- * editor-only fields (RichText `body`, Image `media`) per this module's header.
+ * The `field` select for an outlet: options are the template collection's schema fields (from the
+ * config context — editor-only; the build never renders field UIs), filtered to the types the outlet
+ * accepts (D5), so a design cannot bind a field that does not exist or has the wrong type.
+ */
+function outletFieldSelect(fields: CollectionField[] | undefined, accepted: readonly string[]) {
+    const options = (fields ?? [])
+        .filter((candidate) => accepted.includes(candidate.type))
+        .map((candidate) => ({ label: candidate.label, value: candidate.slug }))
+    return {
+        type: "select" as const,
+        label: "Field",
+        options: [{ label: "— choose a field —", value: "" }, ...options]
+    }
+}
+
+/**
+ * Builds the Puck config for the given theme, target, and per-entry context (§6.3, pivot D7). The
+ * component set and props are the frozen §4.5 catalog v1 plus the three content outlets (pivot §4);
+ * select options are drawn from `theme`. `target` governs only the two editor-only fields (RichText
+ * `body`, Image `media`) per this module's header. Outlet renders read the routed entry from the
+ * `context` closure — no clone-and-fill, no React context — so the zero-JS build path is untouched;
+ * with no context (a `design_page`) outlets render nothing (build) or a placeholder (editor).
  *
  * @param {TokenCatalog} theme - the live theme whose tokens populate the select fields
  * @param {CatalogTarget} target - "editor" (rich editing fields) or "build" (passthrough fields)
+ * @param {BuildConfigContext} [context] - the entry the outlets resolve against, and (editor only)
+ *   the collection schema that populates the outlet field pickers
  * @returns {Config} - the Puck config feeding the editor island or the static renderer
  */
-export function buildConfig(theme: TokenCatalog, target: CatalogTarget): Config {
+export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?: BuildConfigContext): Config {
     const isEditor = target === "editor"
 
     const components = {
@@ -397,24 +492,8 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget): Config 
                 }
             },
             defaultProps: { text: "Heading", level: "h2", typography: "display", align: "start" },
-            render: ({ text, level, typography, align }: HeadingProps) => {
-                const Tag = level
-                return (
-                    <Tag
-                        className="cmp-heading"
-                        style={vars({
-                            "--cmp-heading-family": tokenVar("typography", typography, "family"),
-                            "--cmp-heading-size": tokenVar("typography", typography, "size"),
-                            "--cmp-heading-weight": tokenVar("typography", typography, "weight"),
-                            "--cmp-heading-line-height": tokenVar("typography", typography, "line-height"),
-                            "--cmp-heading-letter-spacing": tokenVar("typography", typography, "letter-spacing"),
-                            "--cmp-heading-align": align
-                        })}
-                    >
-                        {text}
-                    </Tag>
-                )
-            }
+            render: ({ text, level, typography, align }: HeadingProps) =>
+                renderHeadingTag(text, level, typography, align)
         },
         RichText: {
             label: "Rich text",
@@ -450,16 +529,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget): Config 
             defaultProps: { alt: "", aspect: "original" },
             render: ({ media, alt, aspect }: ImageProps) => {
                 if (!media?.url) return null
-                return (
-                    <img
-                        className="cmp-image"
-                        data-aspect={aspect}
-                        src={media.url}
-                        alt={alt}
-                        width={media.width || undefined}
-                        height={media.height || undefined}
-                    />
-                )
+                return renderImageTag(media.url, alt, media.width || undefined, media.height || undefined, aspect)
             }
         },
         Button: {
@@ -508,6 +578,90 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget): Config 
                     })}
                 />
             )
+        },
+        // --- Content outlets (pivot §4, D7): read the routed entry from the `context` closure. Each is
+        // a twin of the component above it — same markup via the shared render body — differing only in
+        // where the value comes from. With no resolvable value: placeholder in the editor, nothing at build.
+        ContentText: {
+            label: "Content text",
+            fields: {
+                field: outletFieldSelect(context?.fields, OUTLET_PROPS.ContentText),
+                level: {
+                    type: "select" as const,
+                    label: "Level",
+                    options: [
+                        { label: "H1", value: "h1" },
+                        { label: "H2", value: "h2" },
+                        { label: "H3", value: "h3" },
+                        { label: "H4", value: "h4" }
+                    ]
+                },
+                typography: tokenSelect(theme, "typography", "Typography"),
+                align: {
+                    type: "select" as const,
+                    label: "Alignment",
+                    options: [
+                        { label: "Start", value: "start" },
+                        { label: "Center", value: "center" },
+                        { label: "End", value: "end" }
+                    ]
+                }
+            },
+            defaultProps: { field: "", level: "h2", typography: "display", align: "start" },
+            render: ({ field, level, typography, align }: ContentTextProps) => {
+                const value = context?.entry && field ? context.entry[field] : undefined
+                if (typeof value === "string" && value.trim() !== "") {
+                    return renderHeadingTag(value, level, typography, align)
+                }
+                return isEditor ? <OutletPlaceholder field={field} /> : null
+            }
+        },
+        ContentRichText: {
+            label: "Content rich text",
+            fields: {
+                field: outletFieldSelect(context?.fields, OUTLET_PROPS.ContentRichText)
+            },
+            defaultProps: { field: "" },
+            render: ({ field }: ContentRichTextProps) => {
+                const value = context?.entry && field ? context.entry[field] : undefined
+                if (Array.isArray(value) && value.length > 0) {
+                    return (
+                        <div className="cmp-richtext">
+                            <RichTextView value={value as PortableTextBlock[]} />
+                        </div>
+                    )
+                }
+                return isEditor ? <OutletPlaceholder field={field} /> : null
+            }
+        },
+        ContentImage: {
+            label: "Content image",
+            fields: {
+                field: outletFieldSelect(context?.fields, OUTLET_PROPS.ContentImage),
+                aspect: {
+                    type: "select" as const,
+                    label: "Aspect",
+                    options: [
+                        { label: "Original", value: "original" },
+                        { label: "Landscape", value: "landscape" },
+                        { label: "Portrait", value: "portrait" }
+                    ]
+                }
+            },
+            defaultProps: { field: "", aspect: "original" },
+            render: ({ field, aspect }: ContentImageProps) => {
+                const image = context?.entry && field ? context.entry[field] : undefined
+                // An EmDash image field value always carries the media `id`; `src` is present when the
+                // API pre-resolved a URL. Fall back to the same-origin file endpoint the picker uses.
+                if (isRecord(image) && typeof image.id === "string") {
+                    const url = typeof image.src === "string" && image.src !== "" ? image.src : mediaFileUrl(image.id)
+                    const alt = typeof image.alt === "string" ? image.alt : ""
+                    const width = typeof image.width === "number" ? image.width : undefined
+                    const height = typeof image.height === "number" ? image.height : undefined
+                    return renderImageTag(url, alt, width, height, aspect)
+                }
+                return isEditor ? <OutletPlaceholder field={field} /> : null
+            }
         }
     }
 

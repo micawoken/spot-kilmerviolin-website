@@ -14,6 +14,15 @@
  * block publishing (they would fail the build anyway) — then `POST …/publish`, offering a rebuild
  * through the same connector the manual rebuild page uses.
  *
+ * Document kinds (pivot §6 Phase B): `kind` parametrizes the same machinery over `design_page` (a
+ * URL-owning layout) and `design_template` (a layout entries of one collection render through).
+ * Template mode adds the preview-entry picker — the outlets resolve against a chosen entry of
+ * `template.collection`, fetched draft-overlaid — and rebuilds the config with `{ entry, fields }`
+ * (Puck select options are static per config, so a preview change remounts Puck from the current
+ * working tree). Its publish dialog blocks on the STRUCTURAL lint only (entry: null); the pairing
+ * rows against the preview entry are shown as advisory, because the preview is one sample — the
+ * build is the real per-(template × entry) gate.
+ *
  * Canvas styling: Puck 0.22 renders the canvas in an iframe with `syncHostStyles: false`, so the
  * theme's `--dtk-*` custom properties and `compositor.css` are injected *inside* the iframe via the
  * config's `root.render` (the mechanism confirmed in the Phase 0 spike; no iframe/head override key
@@ -42,9 +51,11 @@ import type { ReactNode } from "react"
 import { Puck } from "@puckeditor/core"
 import type { Config, Data } from "@puckeditor/core"
 
-import { buildConfig, RICH_TEXT_PROPS, TOKEN_PROPS } from "../../lib/compositor/catalog"
+import { buildConfig, OUTLET_PROPS, RICH_TEXT_PROPS, TOKEN_PROPS } from "../../lib/compositor/catalog"
 import { designToEditorForm, editorFormToDesign } from "../../lib/compositor/convert"
 import { hasBlockingError, lintDesign, type LintFinding } from "../../lib/compositor/lint"
+// Type-only: erased at compile, so the build-side reader module never enters this client bundle.
+import type { CollectionField } from "../../lib/build/design-api"
 import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../lib/compositor/migrations"
 import { isTokenCatalog, tokensToCss, type TokenCatalog } from "../../lib/compositor/tokens"
 import type { DesignDoc } from "../../lib/compositor/types"
@@ -56,13 +67,22 @@ import { rebuildSite } from "../../scripts/connector"
 import "./design-editor.css"
 
 const DESIGN_PAGE = "/_emdash/api/content/design_page"
+const DESIGN_TEMPLATE = "/_emdash/api/content/design_template"
 const DESIGN_THEME = "/_emdash/api/content/design_theme"
 const AUTOSAVE_DELAY_MS = 2000
+
+/** Which document this editor session edits; selects the endpoint and the mode-specific UI. */
+export type DocumentKind = "page" | "template"
+
+/** The content endpoint for a document kind. */
+function endpointFor(kind: DocumentKind): string {
+    return kind === "template" ? DESIGN_TEMPLATE : DESIGN_PAGE
+}
 
 /** Debounced-save state, surfaced as a small status line in the toolbar. */
 type SaveState = "idle" | "saving" | "saved" | "error"
 
-/** The design-page fields and revision token loaded for editing. */
+/** The design item's fields and revision token loaded for editing (both kinds; unused fields empty). */
 interface LoadedDesign {
     doc: DesignDoc
     rev: string | undefined
@@ -70,22 +90,28 @@ interface LoadedDesign {
     description: string
     slug: string
     status: string
+    /** template only: the collection whose entries this template renders */
+    collection: string
+    /** template only: this template is its collection's default */
+    isDefault: boolean
 }
 
-/** The page-settings fields carried into every save payload. */
+/** The settings fields carried into every save payload. `description` is page-only, `isDefault` template-only. */
 interface PageMeta {
     title: string
     description: string
     slug: string
+    isDefault: boolean
 }
 
 /**
- * The `PUT design_page/:id` body. Typed rather than a loose record so the stored `design` value is
- * held to the `DesignDoc` envelope every reader (this editor, the build) validates with `migrateDesign` —
- * writing the bare Puck tree here is what made a saved design unreadable on the next load.
+ * The `PUT design_page/:id` / `PUT design_template/:id` body. Typed rather than a loose record so the
+ * stored `design` value is held to the `DesignDoc` envelope every reader (this editor, the build)
+ * validates with `migrateDesign` — writing the bare Puck tree here is what made a saved design
+ * unreadable on the next load.
  */
 interface SavePayload {
-    data: { title: string; description: string; design: DesignDoc }
+    data: Record<string, unknown> & { title: string; design: DesignDoc }
     status: "draft"
     _rev: string | undefined
     slug?: string
@@ -117,9 +143,9 @@ async function fetchTheme(): Promise<TokenCatalog> {
     return tokens
 }
 
-/** Loads one design page by id (draft-overlaid for an editor-role caller) and its revision token. */
-async function fetchDesign(id: string): Promise<LoadedDesign> {
-    const response = await fetch(`${DESIGN_PAGE}/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } })
+/** Loads one design item by id (draft-overlaid for an editor-role caller) and its revision token. */
+async function fetchDesign(endpoint: string, id: string): Promise<LoadedDesign> {
+    const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } })
     if (!response.ok) throw new Error(`Could not load the design: ${await readError(response)}`)
     const body = (await response.json()) as {
         data?: { item?: { slug?: string | null; status?: string; data?: Record<string, unknown> | null }; _rev?: string }
@@ -133,12 +159,72 @@ async function fetchDesign(id: string): Promise<LoadedDesign> {
         title: typeof fields.title === "string" ? fields.title : "",
         description: typeof fields.description === "string" ? fields.description : "",
         slug: typeof item.slug === "string" ? item.slug : "",
-        status: typeof item.status === "string" ? item.status : "draft"
+        status: typeof item.status === "string" ? item.status : "draft",
+        collection: typeof fields.collection === "string" ? fields.collection : "",
+        isDefault: fields.is_default === true
     }
 }
 
-/** The design island. `id` is the `design_page` item id, resolved server-side from the URL query. */
-export default function DesignEditor({ id }: { id: string }) {
+/** One row of the preview-entry picker: enough to label and fetch an entry of the template's collection. */
+interface EntryListItem {
+    id: string
+    label: string
+}
+
+/** Lists entries of one collection for the preview picker (same-origin, first 100 — plenty here). */
+async function fetchEntryList(collection: string): Promise<EntryListItem[]> {
+    const response = await fetch(`/_emdash/api/content/${encodeURIComponent(collection)}?limit=100`, {
+        headers: { Accept: "application/json" }
+    })
+    if (!response.ok) throw new Error(`Could not list ${collection}: ${await readError(response)}`)
+    const body = (await response.json()) as {
+        data?: { items?: Array<{ id?: string; slug?: string | null; data?: Record<string, unknown> | null }> }
+    }
+    const entries: EntryListItem[] = []
+    for (const item of body.data?.items ?? []) {
+        if (typeof item.id !== "string") continue
+        const title = item.data?.title
+        entries.push({
+            id: item.id,
+            label: typeof title === "string" && title !== "" ? title : (item.slug ?? item.id)
+        })
+    }
+    return entries
+}
+
+/** Fetches one entry draft-overlaid (editor-role GET) and returns its raw field record. */
+async function fetchEntryFields(collection: string, entryId: string): Promise<Record<string, unknown>> {
+    const response = await fetch(
+        `/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(entryId)}`,
+        { headers: { Accept: "application/json" } }
+    )
+    if (!response.ok) throw new Error(`Could not load the preview entry: ${await readError(response)}`)
+    const body = (await response.json()) as { data?: { item?: { data?: Record<string, unknown> | null } } }
+    return body.data?.item?.data ?? {}
+}
+
+/** Fetches one collection's live field schema for the outlet field pickers (same shape as design-api's). */
+async function fetchSchemaFields(collection: string): Promise<CollectionField[]> {
+    const response = await fetch(`/_emdash/api/schema/collections/${encodeURIComponent(collection)}/fields`, {
+        headers: { Accept: "application/json" }
+    })
+    if (!response.ok) throw new Error(`Could not load the ${collection} schema: ${await readError(response)}`)
+    const body = (await response.json()) as { data?: { items?: Array<Record<string, unknown>> } }
+    const fields: CollectionField[] = []
+    for (const item of body.data?.items ?? []) {
+        if (typeof item.slug !== "string" || typeof item.type !== "string") continue
+        fields.push({ slug: item.slug, label: typeof item.label === "string" ? item.label : item.slug, type: item.type })
+    }
+    return fields
+}
+
+/**
+ * The design island. `id` is the item id (resolved server-side from the URL query); `kind` selects
+ * the collection edited — `design_page` (default) or `design_template` (`edit?…&type=template`).
+ */
+export default function DesignEditor({ id, kind = "page" }: { id: string; kind?: DocumentKind }) {
+    const endpoint = endpointFor(kind)
+
     const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading")
     const [loadError, setLoadError] = useState("")
 
@@ -146,7 +232,7 @@ export default function DesignEditor({ id }: { id: string }) {
     const [initialData, setInitialData] = useState<Data | null>(null)
     const [reloadKey, setReloadKey] = useState(0)
 
-    const [meta, setMeta] = useState<PageMeta>({ title: "", description: "", slug: "" })
+    const [meta, setMeta] = useState<PageMeta>({ title: "", description: "", slug: "", isDefault: false })
     const [status, setStatus] = useState("draft")
 
     const [saveState, setSaveState] = useState<SaveState>("idle")
@@ -156,10 +242,19 @@ export default function DesignEditor({ id }: { id: string }) {
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [publishOpen, setPublishOpen] = useState(false)
 
+    // Template mode: the collection schema (outlet field pickers + structural lint) and preview entry.
+    const [collection, setCollection] = useState("")
+    const [schemaFields, setSchemaFields] = useState<CollectionField[] | null>(null)
+    const [entries, setEntries] = useState<EntryListItem[]>([])
+    const [previewEntryId, setPreviewEntryId] = useState("")
+    const [previewEntry, setPreviewEntry] = useState<Record<string, unknown> | null>(null)
+    const [previewError, setPreviewError] = useState("")
+
     // Refs are the source of truth for saving, so the debounced timer never reads stale closures.
     const workingRef = useRef<Data | null>(null)
     const revRef = useRef<string | undefined>(undefined)
-    const metaRef = useRef<PageMeta>({ title: "", description: "", slug: "" })
+    const metaRef = useRef<PageMeta>({ title: "", description: "", slug: "", isDefault: false })
+    const collectionRef = useRef("")
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const skipFirstChangeRef = useRef(true)
 
@@ -167,18 +262,45 @@ export default function DesignEditor({ id }: { id: string }) {
     useEffect(() => {
         let cancelled = false
         setPhase("loading")
-        Promise.all([fetchTheme(), fetchDesign(id)])
-            .then(([loadedTheme, loaded]) => {
+        Promise.all([fetchTheme(), fetchDesign(endpoint, id)])
+            .then(async ([loadedTheme, loaded]) => {
                 if (cancelled) return
+
+                // Template mode: load the collection schema and entry list BEFORE mounting Puck, so
+                // the outlet field pickers are populated in the config the editor first renders with.
+                // A failure here degrades, not blocks: empty pickers, dangling checks skipped.
+                let fields: CollectionField[] | null = null
+                let entryList: EntryListItem[] = []
+                if (kind === "template" && loaded.collection) {
+                    try {
+                        ;[fields, entryList] = await Promise.all([
+                            fetchSchemaFields(loaded.collection),
+                            fetchEntryList(loaded.collection)
+                        ])
+                    } catch (error) {
+                        setPreviewError(error instanceof Error ? error.message : String(error))
+                    }
+                    if (cancelled) return
+                }
+
                 const editorForm = designToEditorForm(loaded.doc, RICH_TEXT_PROPS)
                 workingRef.current = editorForm.puck
                 revRef.current = loaded.rev
-                metaRef.current = { title: loaded.title, description: loaded.description, slug: loaded.slug }
+                metaRef.current = {
+                    title: loaded.title,
+                    description: loaded.description,
+                    slug: loaded.slug,
+                    isDefault: loaded.isDefault
+                }
+                collectionRef.current = loaded.collection
                 skipFirstChangeRef.current = true
                 setTheme(loadedTheme)
                 setInitialData(editorForm.puck)
                 setMeta(metaRef.current)
                 setStatus(loaded.status)
+                setCollection(loaded.collection)
+                setSchemaFields(fields)
+                setEntries(entryList)
                 setPhase("ready")
             })
             .catch((error: unknown) => {
@@ -189,7 +311,7 @@ export default function DesignEditor({ id }: { id: string }) {
         return () => {
             cancelled = true
         }
-    }, [id])
+    }, [endpoint, id, kind])
 
     // Clear a pending autosave timer on unmount.
     useEffect(() => {
@@ -201,7 +323,9 @@ export default function DesignEditor({ id }: { id: string }) {
     // --- Config (with in-iframe token + component CSS) -------------------------------------------
     const config = useMemo<Config>(() => {
         if (!theme) return { components: {} } as unknown as Config
-        const base = buildConfig(theme, "editor") as unknown as Record<string, unknown>
+        const context =
+            kind === "template" ? { entry: previewEntry, fields: schemaFields ?? undefined } : undefined
+        const base = buildConfig(theme, "editor", context) as unknown as Record<string, unknown>
         const canvasCss = `${tokensToCss(theme)}\n${compositorCss}`
         const rootRender = ({ children }: { children?: ReactNode }) => (
             <>
@@ -210,7 +334,7 @@ export default function DesignEditor({ id }: { id: string }) {
             </>
         )
         return { ...base, root: { render: rootRender } } as unknown as Config
-    }, [theme])
+    }, [theme, kind, previewEntry, schemaFields])
 
     // --- Save ------------------------------------------------------------------------------------
     const save = useCallback(async (): Promise<void> => {
@@ -227,12 +351,20 @@ export default function DesignEditor({ id }: { id: string }) {
         try {
             const stored = editorFormToDesign({ schemaVersion: CURRENT_SCHEMA_VERSION, puck: working }, RICH_TEXT_PROPS)
             const payload: SavePayload = {
-                data: { title: current.title, description: current.description, design: stored },
+                data:
+                    kind === "template"
+                        ? {
+                              title: current.title,
+                              collection: collectionRef.current,
+                              is_default: current.isDefault,
+                              design: stored
+                          }
+                        : { title: current.title, description: current.description, design: stored },
                 status: "draft",
                 _rev: revRef.current
             }
             if (current.slug) payload.slug = current.slug
-            const response = await fetch(`${DESIGN_PAGE}/${encodeURIComponent(id)}`, {
+            const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Accept: "application/json", "X-EmDash-Request": "1" },
                 body: JSON.stringify(payload)
@@ -251,7 +383,7 @@ export default function DesignEditor({ id }: { id: string }) {
             setSaveState("error")
             setSaveError(error instanceof Error ? error.message : String(error))
         }
-    }, [id])
+    }, [endpoint, id, kind])
 
     const scheduleSave = useCallback(() => {
         if (timerRef.current) clearTimeout(timerRef.current)
@@ -288,22 +420,50 @@ export default function DesignEditor({ id }: { id: string }) {
     // --- Conflict resolution ---------------------------------------------------------------------
     const reloadFromServer = useCallback(async () => {
         try {
-            const loaded = await fetchDesign(id)
+            const loaded = await fetchDesign(endpoint, id)
             const editorForm = designToEditorForm(loaded.doc, RICH_TEXT_PROPS)
             workingRef.current = editorForm.puck
             revRef.current = loaded.rev
-            metaRef.current = { title: loaded.title, description: loaded.description, slug: loaded.slug }
+            metaRef.current = {
+                title: loaded.title,
+                description: loaded.description,
+                slug: loaded.slug,
+                isDefault: loaded.isDefault
+            }
+            collectionRef.current = loaded.collection
             skipFirstChangeRef.current = true
             setInitialData(editorForm.puck)
             setMeta(metaRef.current)
             setStatus(loaded.status)
+            setCollection(loaded.collection)
             setConflict(false)
             setSaveState("idle")
             setReloadKey((key) => key + 1) // remount Puck with the reloaded data
         } catch (error) {
             setSaveError(error instanceof Error ? error.message : String(error))
         }
-    }, [id])
+    }, [endpoint, id])
+
+    // --- Preview entry (template mode) -------------------------------------------------------------
+    // Puck select options are static per config, so a context change must rebuild the config AND
+    // remount Puck — from the CURRENT working tree (not the loaded initialData), or unsaved canvas
+    // edits would be silently dropped by the remount.
+    const pickPreviewEntry = useCallback(
+        async (entryId: string) => {
+            setPreviewEntryId(entryId)
+            setPreviewError("")
+            try {
+                const entryFields = entryId ? await fetchEntryFields(collection, entryId) : null
+                if (workingRef.current) setInitialData(workingRef.current)
+                skipFirstChangeRef.current = true
+                setPreviewEntry(entryFields)
+                setReloadKey((key) => key + 1)
+            } catch (error) {
+                setPreviewError(error instanceof Error ? error.message : String(error))
+            }
+        },
+        [collection]
+    )
 
     const overwriteServer = useCallback(async () => {
         // Blind write: dropping `_rev` bypasses the concurrency check (EmDash permits it).
@@ -313,11 +473,22 @@ export default function DesignEditor({ id }: { id: string }) {
     }, [save])
 
     // --- Publish ---------------------------------------------------------------------------------
-    const lintFindings = useMemo<LintFinding[]>(() => {
-        if (!publishOpen || !workingRef.current) return []
+    // Template mode blocks on the STRUCTURAL pass only (entry: null); the pass against the preview
+    // entry is displayed as advisory — the preview is one sample, and the build gates every real
+    // (template × entry) pairing. Page mode blocks on everything, as before.
+    const lint = useMemo<{ findings: LintFinding[]; blocked: boolean }>(() => {
+        if (!publishOpen || !workingRef.current) return { findings: [], blocked: false }
         const stored = editorFormToDesign({ schemaVersion: CURRENT_SCHEMA_VERSION, puck: workingRef.current }, RICH_TEXT_PROPS)
-        return lintDesign(stored, theme, TOKEN_PROPS)
-    }, [publishOpen, theme])
+        if (kind === "template") {
+            const structural = lintDesign(stored, theme, TOKEN_PROPS, OUTLET_PROPS, { entry: null, schemaFields })
+            const findings = previewEntry
+                ? lintDesign(stored, theme, TOKEN_PROPS, OUTLET_PROPS, { entry: previewEntry, schemaFields })
+                : structural
+            return { findings, blocked: hasBlockingError(structural) }
+        }
+        const findings = lintDesign(stored, theme, TOKEN_PROPS, OUTLET_PROPS)
+        return { findings, blocked: hasBlockingError(findings) }
+    }, [publishOpen, theme, kind, schemaFields, previewEntry])
 
     if (phase === "loading") {
         return <FullScreenMessage title="Loading design…" />
@@ -333,16 +504,36 @@ export default function DesignEditor({ id }: { id: string }) {
                     ← Designs
                 </a>
                 <strong className="design-editor__title">{meta.title || "(untitled)"}</strong>
+                {kind === "template" && <span className="design-editor__status">Template · {collection}</span>}
                 <span className="design-editor__status">{status === "published" ? "Published" : "Draft"}</span>
                 <SaveIndicator state={saveState} error={saveError} />
                 <span className="design-editor__spacer" />
+                {kind === "template" && (
+                    <label className="design-editor__preview">
+                        Preview entry{" "}
+                        <select value={previewEntryId} onChange={(event) => void pickPreviewEntry(event.target.value)}>
+                            <option value="">— none —</option>
+                            {entries.map((entry) => (
+                                <option key={entry.id} value={entry.id}>
+                                    {entry.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
                 <button type="button" onClick={() => setSettingsOpen(true)}>
-                    Page settings
+                    {kind === "template" ? "Template settings" : "Page settings"}
                 </button>
                 <button type="button" onClick={() => setPublishOpen(true)}>
                     Publish…
                 </button>
             </div>
+
+            {previewError && (
+                <div className="design-editor__conflict" role="alert">
+                    <span>{previewError}</span>
+                </div>
+            )}
 
             {conflict && (
                 <div className="design-editor__conflict" role="alert">
@@ -370,14 +561,22 @@ export default function DesignEditor({ id }: { id: string }) {
             </div>
 
             {settingsOpen && (
-                <PageSettingsDrawer meta={meta} onChange={updateMeta} onClose={() => setSettingsOpen(false)} />
+                <PageSettingsDrawer
+                    kind={kind}
+                    collection={collection}
+                    meta={meta}
+                    onChange={updateMeta}
+                    onClose={() => setSettingsOpen(false)}
+                />
             )}
 
             {publishOpen && (
                 <PublishDialog
-                    findings={lintFindings}
+                    findings={lint.findings}
+                    blocked={lint.blocked}
+                    pairingAdvisory={kind === "template"}
                     flushSave={save}
-                    publish={() => publishDesign(id)}
+                    publish={() => publishDesign(endpoint, id)}
                     onClose={() => setPublishOpen(false)}
                     onPublished={() => setStatus("published")}
                 />
@@ -386,9 +585,9 @@ export default function DesignEditor({ id }: { id: string }) {
     )
 }
 
-/** POST the publish transition for a design page. */
-async function publishDesign(id: string): Promise<void> {
-    const response = await fetch(`${DESIGN_PAGE}/${encodeURIComponent(id)}/publish`, {
+/** POST the publish transition for a design item. */
+async function publishDesign(endpoint: string, id: string): Promise<void> {
+    const response = await fetch(`${endpoint}/${encodeURIComponent(id)}/publish`, {
         method: "POST",
         headers: { Accept: "application/json", "X-EmDash-Request": "1" }
     })
@@ -421,20 +620,30 @@ function SaveIndicator({ state, error }: { state: SaveState; error: string }) {
     )
 }
 
-/** Page-settings drawer: title, description, slug. Edits are saved through the design's autosave. */
+/**
+ * Settings drawer, saved through the design's autosave. Page mode: title, description, slug (a route).
+ * Template mode: title, slug (an identifier, never a route — no URL hint), the collection (read-only;
+ * changing it would silently invalidate every outlet binding — recreate the template instead), and the
+ * collection-default flag (D4).
+ */
 function PageSettingsDrawer({
+    kind,
+    collection,
     meta,
     onChange,
     onClose
 }: {
+    kind: DocumentKind
+    collection: string
     meta: PageMeta
     onChange: (patch: Partial<PageMeta>) => void
     onClose: () => void
 }) {
+    const heading = kind === "template" ? "Template settings" : "Page settings"
     return (
-        <div className="design-editor__drawer" role="dialog" aria-label="Page settings">
+        <div className="design-editor__drawer" role="dialog" aria-label={heading}>
             <div className="design-editor__drawer-head">
-                <h2>Page settings</h2>
+                <h2>{heading}</h2>
                 <button type="button" onClick={onClose}>
                     Close
                 </button>
@@ -443,33 +652,64 @@ function PageSettingsDrawer({
                 Title
                 <input type="text" value={meta.title} onChange={(event) => onChange({ title: event.target.value })} />
             </label>
-            <label>
-                Description
-                <textarea value={meta.description} onChange={(event) => onChange({ description: event.target.value })} />
-            </label>
+            {kind === "page" && (
+                <label>
+                    Description
+                    <textarea value={meta.description} onChange={(event) => onChange({ description: event.target.value })} />
+                </label>
+            )}
             <label>
                 Slug
                 <input type="text" value={meta.slug} onChange={(event) => onChange({ slug: event.target.value })} />
             </label>
-            <p className="design-editor__hint">
-                The public URL changes when a new slug is published and the site is rebuilt.
-            </p>
+            {kind === "page" ? (
+                <p className="design-editor__hint">
+                    The public URL changes when a new slug is published and the site is rebuilt.
+                </p>
+            ) : (
+                <>
+                    <p className="design-editor__hint">
+                        A template slug is an identifier, not a URL — entries keep their own addresses.
+                    </p>
+                    <p className="design-editor__hint">
+                        Renders entries of: <strong>{collection || "(unset)"}</strong>
+                    </p>
+                    <label className="design-editor__checkbox">
+                        <input
+                            type="checkbox"
+                            checked={meta.isDefault}
+                            onChange={(event) => onChange({ isDefault: event.target.checked })}
+                        />{" "}
+                        Default template for this collection
+                    </label>
+                    <p className="design-editor__hint">
+                        Entries that name no template render through the collection default. Only one
+                        published template per collection may be the default — two fail the build.
+                    </p>
+                </>
+            )}
         </div>
     )
 }
 
 /**
- * Publish dialog: shows the lint findings, blocks publish on any a11y/safety error, then publishes and
- * offers a rebuild. A last save is flushed before publishing so the published revision is current.
+ * Publish dialog: shows the lint findings, blocks publish per `blocked` (computed by the caller — page
+ * mode blocks on every error; template mode on structural errors only, with the preview-entry pairing
+ * rows advisory), then publishes and offers a rebuild. A last save is flushed before publishing so the
+ * published revision is current.
  */
 function PublishDialog({
     findings,
+    blocked,
+    pairingAdvisory,
     flushSave,
     publish,
     onClose,
     onPublished
 }: {
     findings: LintFinding[]
+    blocked: boolean
+    pairingAdvisory: boolean
     flushSave: () => Promise<void>
     publish: () => Promise<void>
     onClose: () => void
@@ -479,7 +719,6 @@ function PublishDialog({
     const [message, setMessage] = useState("")
     const [rebuildState, setRebuildState] = useState<"idle" | "rebuilding" | "done" | "error">("idle")
     const [rebuildMessage, setRebuildMessage] = useState("")
-    const blocked = hasBlockingError(findings)
 
     const doPublish = async () => {
         setStep("publishing")
@@ -532,6 +771,14 @@ function PublishDialog({
                 {blocked && step === "review" && (
                     <p className="design-editor__blocked">
                         Fix the errors above before publishing — they would otherwise fail the site build.
+                    </p>
+                )}
+
+                {pairingAdvisory && !blocked && step === "review" && findings.some((f) => f.severity === "error") && (
+                    <p className="design-editor__hint">
+                        The errors above come from pairing with the preview entry — they do not block
+                        publishing this template, but the site build fails on any published entry that
+                        pairs like this.
                     </p>
                 )}
 

@@ -36,6 +36,9 @@ const id = Astro.url.searchParams.get("id")
 if (!id) {
     return Astro.redirect("/admin/designs")
 }
+
+// `type=template` edits a design_template; anything else (or nothing) edits a design_page.
+const kind = Astro.url.searchParams.get("type") === "template" ? "template" : "page"
 ---
 
 <!doctype html>
@@ -50,7 +53,7 @@ if (!id) {
         </style>
     </head>
     <body>
-        <div id="design-editor" data-design-id={id}></div>
+        <div id="design-editor" data-design-id={id} data-design-kind={kind}></div>
 
         <script>
             // Mounted from this module rather than as an Astro island (`client:only="react"`): for any
@@ -65,11 +68,12 @@ if (!id) {
             const host = document.getElementById("design-editor")
             if (!host) throw new Error("The design editor host element is missing")
 
-            // Set from the server-resolved query param above; edit.astro redirects when it is absent.
+            // Set from the server-resolved query params above; edit.astro redirects when the id is absent.
             const id = host.dataset.designId
             if (!id) throw new Error("The design editor host element carries no design id")
+            const kind = host.dataset.designKind === "template" ? ("template" as const) : ("page" as const)
 
-            createRoot(host).render(createElement(DesignEditor, { id }))
+            createRoot(host).render(createElement(DesignEditor, { id, kind }))
         </script>
     </body>
 </html>
