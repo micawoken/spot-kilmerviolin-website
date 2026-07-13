@@ -135,7 +135,7 @@ function indexTemplates(templates: BuildTemplate[]): {
         throw new Error(
             "[build/route-authority] a collection cannot have two default templates:\n" +
                 `${detail}\n` +
-                "Clear isDefault on all but one of each, then rebuild."
+                "Clear is_default on all but one of each, then rebuild."
         )
     }
 

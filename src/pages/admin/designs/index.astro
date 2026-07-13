@@ -275,7 +275,7 @@ export const prerender = false
                         row.insertCell().textContent = item.slug ?? "—"
                         const collection = item.data?.collection
                         row.insertCell().textContent = typeof collection === "string" ? collection : "—"
-                        row.insertCell().textContent = item.data?.isDefault === true ? "Yes" : ""
+                        row.insertCell().textContent = item.data?.is_default === true ? "Yes" : ""
                         row.insertCell().textContent = statusLabel(item)
                         const updated = row.insertCell()
                         updated.textContent = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "—"
@@ -310,7 +310,7 @@ export const prerender = false
                             "X-EmDash-Request": "1"
                         },
                         body: JSON.stringify({
-                            data: { title: name, collection, isDefault: false, design: emptyDesignDoc() },
+                            data: { title: name, collection, is_default: false, design: emptyDesignDoc() },
                             status: "draft"
                         })
                     })

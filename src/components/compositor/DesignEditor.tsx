@@ -161,7 +161,7 @@ async function fetchDesign(endpoint: string, id: string): Promise<LoadedDesign> 
         slug: typeof item.slug === "string" ? item.slug : "",
         status: typeof item.status === "string" ? item.status : "draft",
         collection: typeof fields.collection === "string" ? fields.collection : "",
-        isDefault: fields.isDefault === true
+        isDefault: fields.is_default === true
     }
 }
 
@@ -353,7 +353,12 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
             const payload: SavePayload = {
                 data:
                     kind === "template"
-                        ? { title: current.title, collection: collectionRef.current, isDefault: current.isDefault, design: stored }
+                        ? {
+                              title: current.title,
+                              collection: collectionRef.current,
+                              is_default: current.isDefault,
+                              design: stored
+                          }
                         : { title: current.title, description: current.description, design: stored },
                 status: "draft",
                 _rev: revRef.current

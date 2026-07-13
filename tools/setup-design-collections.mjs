@@ -10,7 +10,7 @@
  *                     the collection is empty, as a draft to review + publish in the theme UI.
  *   design_page     — string `title` (required), text `description`, json `design` (required).
  *   design_template — string `title` (required), select `collection` (pages/posts, required),
- *                     boolean `isDefault`, json `design` (required); the content-routing pivot's
+ *                     boolean `is_default`, json `design` (required); the content-routing pivot's
  *                     layout-that-content-flows-through (pivot §3). Seeded with the published
  *                     "None (plain article)" sentinel item (reserved slug "none"), the explicit
  *                     opt-out from a collection's default template (pivot §7.4).
@@ -139,7 +139,8 @@ const COLLECTIONS = [
                 required: true,
                 validation: { options: ["pages", "posts"] }
             },
-            { slug: "isDefault", label: "Default template for its collection", type: "boolean", required: false },
+            // Field slugs must match /^[a-z][a-z0-9_]*$/ (emdash api/schemas/common.ts) — no camelCase.
+            { slug: "is_default", label: "Default template for its collection", type: "boolean", required: false },
             { slug: "design", label: "Design", type: "json", required: true }
         ]
     }
@@ -300,7 +301,7 @@ async function seedNoneSentinel() {
         data: {
             title: "None (plain article)",
             collection: "pages",
-            isDefault: false,
+            is_default: false,
             // The empty design envelope (migrations.ts emptyDesignDoc; kept in sync by hand — this
             // script is plain Node and cannot import the TS module).
             design: { schemaVersion: 1, puck: { root: {}, content: [] } }
@@ -332,7 +333,39 @@ async function seedTheme() {
     console.log("\nReminder: review and publish the seeded theme in the Design → Theme UI before designing pages.")
 }
 
+/**
+ * EmDash rejects any collection or field slug outside this pattern (api/schemas/common.ts `slugPattern`).
+ * Notably it forbids camelCase, and it rejects each field as the script POSTs it — so an illegal slug
+ * authored below would otherwise be found only *after* earlier writes had already landed, leaving a
+ * half-created collection on the server. Checked up front so the run is all-or-nothing.
+ */
+const SLUG_PATTERN = /^[a-z][a-z0-9_]*$/
+
+function assertSlugsAreLegal() {
+    const illegal = []
+    for (const spec of COLLECTIONS) {
+        if (!SLUG_PATTERN.test(spec.slug)) illegal.push(`collection "${spec.slug}"`)
+        for (const field of spec.fields) {
+            if (!SLUG_PATTERN.test(field.slug)) illegal.push(`field ${spec.slug}.${field.slug}`)
+        }
+    }
+    for (const addition of FIELD_ADDITIONS) {
+        if (!SLUG_PATTERN.test(addition.field.slug)) {
+            illegal.push(`field ${addition.collection}.${addition.field.slug}`)
+        }
+    }
+    if (illegal.length > 0) {
+        console.error(
+            `FAIL these slugs do not match ${SLUG_PATTERN} and EmDash would reject them:\n` +
+                illegal.map((entry) => `  ${entry}`).join("\n") +
+                "\nNothing was written. Fix the slugs above and re-run."
+        )
+        process.exit(1)
+    }
+}
+
 async function main() {
+    assertSlugsAreLegal()
     if (useDevBypass) {
         await api("GET", "/_emdash/api/setup/dev-bypass")
         ok("dev-bypass session established")

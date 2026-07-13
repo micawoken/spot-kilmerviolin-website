@@ -35,7 +35,7 @@ function templateItem(overrides: Record<string, unknown> = {}): Record<string, u
         id: "tpl-1",
         slug: "article",
         status: "published",
-        data: { title: "Article", collection: "pages", isDefault: false, design: emptyDesignDoc(), ...overrides }
+        data: { title: "Article", collection: "pages", is_default: false, design: emptyDesignDoc(), ...overrides }
     }
 }
 
@@ -114,7 +114,7 @@ describe("fetchPublishedTemplates — an authored-wrong template", () => {
 
 describe("fetchPublishedTemplates — a well-formed template", () => {
     it("flattens it to what the route table needs", async () => {
-        const items = [templateItem({ title: "Article", collection: "pages", isDefault: true })]
+        const items = [templateItem({ title: "Article", collection: "pages", is_default: true })]
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
 
         const templates = await fetchPublishedTemplates()

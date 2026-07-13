@@ -184,7 +184,7 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
                 slug: name,
                 title: typeof data.title === "string" ? data.title : "",
                 collection: collection as TemplateCollection,
-                isDefault: data.isDefault === true,
+                isDefault: data.is_default === true,
                 doc
             })
         }

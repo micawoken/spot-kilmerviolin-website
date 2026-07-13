@@ -127,7 +127,7 @@ const TEMPLATE_ITEM = {
     data: {
         title: "Article",
         collection: "pages",
-        isDefault: false,
+        is_default: false,
         design: {
             schemaVersion: 1,
             puck: {
