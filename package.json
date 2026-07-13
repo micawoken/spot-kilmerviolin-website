@@ -63,6 +63,7 @@
     "dev": "astro dev",
     "format": "prettier --write \"src/**/*.{ts,astro}\"",
     "format:check": "prettier --check \"src/**/*.{ts,astro}\"",
+    "gate:phase-b": "node tools/gate/run-phase-b-gate.mjs",
     "preview": "astro build && wrangler dev",
     "test": "vitest run"
   },
