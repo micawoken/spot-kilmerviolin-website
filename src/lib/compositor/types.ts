@@ -34,6 +34,29 @@ import type { Data as PuckData } from "@puckeditor/core"
 export type { PuckData }
 
 /**
+ * The content collections a template can render entries of (pivot §3).
+ *
+ * Lives here, not with the build reader that validates against it, because the /_emdash authorization gate
+ * (middleware/emdash_access.ts) must bound the collections a design_editor may READ for the preview-entry
+ * picker and the outlet field pickers — and middleware cannot import a build module without pulling
+ * build-only code into the worker runtime. One list, two consumers, no drift.
+ */
+export type TemplateCollection = "pages" | "posts"
+
+export const TEMPLATE_COLLECTIONS: readonly TemplateCollection[] = ["pages", "posts"]
+
+/**
+ * Whether a string names a collection a template can render (and therefore one the design system is
+ * allowed to read entries and field schemas from).
+ *
+ * @param {string} collection - the candidate collection slug
+ * @returns {boolean} - true when it is a routable template collection
+ */
+export function isTemplateCollection(collection: string): collection is TemplateCollection {
+    return (TEMPLATE_COLLECTIONS as readonly string[]).includes(collection)
+}
+
+/**
  * The stored design envelope (impl §4.2). `schemaVersion` lives inside this JSON — atomic with
  * the layout it describes, so it travels through EmDash revisions/rollbacks — not as a DB column.
  */
