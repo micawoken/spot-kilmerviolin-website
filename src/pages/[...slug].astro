@@ -173,7 +173,10 @@ const headCss =
                 entry's fields for a templated route, null for a design_page — where outlets render
                 nothing. No client directive → server-rendered, zero JS. */}
             <Render
-                config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", { entry: props.entry })}
+                config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
+                    entry: props.entry,
+                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+                })}
                 data={props.doc.puck}
             />
         </PublicPage>

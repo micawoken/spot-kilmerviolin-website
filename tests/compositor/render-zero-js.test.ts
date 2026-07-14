@@ -56,8 +56,12 @@ const entry = {
             children: [{ _type: "span", _key: "s1", text: "Body text from the entry.", marks: [] }]
         }
     ],
-    cover: { id: "med_9", alt: "Cover art", width: 640, height: 480 }
+    // EmDash's real local-media wire shape: `src` stripped on persist, key at `meta.storageKey`.
+    cover: { id: "med_9", alt: "Cover art", width: 640, height: 480, provider: "local", meta: { storageKey: "med_9.jpg" } }
 }
+
+/** The public media origin a prerendered page must reference (EMDASH_MEDIA_PUBLIC_URL). */
+const MEDIA_ORIGIN = "https://store.example.test"
 
 /** A template doc exercising a slot plus every content outlet, in stored (build-path) form. */
 const templatedDoc = {
@@ -83,14 +87,18 @@ const templatedDoc = {
 } as unknown as PuckData
 
 describe("templated render path — zero client JS", () => {
-    const config = buildConfig(theme, "build", { entry })
+    const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
     const html = renderToStaticMarkup(createElement(Render, { config, data: templatedDoc }))
 
     it("renders the entry's values through the outlets", () => {
         expect(html).toContain("The routed entry")
         expect(html).toContain("Body text from the entry.")
-        expect(html).toContain("/_emdash/api/media/file/med_9")
+        expect(html).toContain(`src="${MEDIA_ORIGIN}/med_9.jpg"`)
         expect(html).toContain('alt="Cover art"')
+    })
+
+    it("references no Access-gated URL — every visitor of a prerendered page is anonymous", () => {
+        expect(html).not.toContain("/_emdash")
     })
 
     it("emits no client JavaScript or island markers", () => {

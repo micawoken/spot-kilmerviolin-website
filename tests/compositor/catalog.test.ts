@@ -144,12 +144,20 @@ describe("buildConfig — outlet field pickers (editor context)", () => {
 })
 
 describe("buildConfig — outlet renders resolve through the entry context (D7)", () => {
+    const MEDIA_ORIGIN = "https://store.example.test"
+
     const entry = {
         title: "  ",
         headline: "From the entry",
         body: [{ _type: "block", style: "normal", children: [{ _type: "span", text: "hello" }] }],
-        cover: { id: "med_1", alt: "A violin", width: 800, height: 600 },
-        coverWithSrc: { id: "med_2", src: "https://cdn.example/violin.jpg", alt: "" }
+        // The LOCAL-media wire shape EmDash actually serves: `src` stripped on persist, key at
+        // `meta.storageKey` (emdash/src/media/normalize.ts). An earlier fixture here invented a bare
+        // `id` and the assertions pinned the resulting 404-and-Access-gated URL as correct behavior.
+        cover: { id: "med_1", alt: "A violin", width: 800, height: 600, provider: "local", meta: { storageKey: "med_1.jpg" } },
+        // An external provider's value: already a public absolute URL, passed through untouched.
+        coverWithSrc: { id: "med_2", src: "https://cdn.example/violin.jpg", alt: "" },
+        // An id and nothing else — no usable handle at all (the file route is keyed by storage key).
+        coverIdOnly: { id: "med_3", alt: "Orphan" }
     }
 
     it("renders nothing at build with no entry context (design_page path, D3)", () => {
@@ -189,19 +197,26 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         expect(html).toContain("hello")
     })
 
-    it("ContentImage falls back to the same-origin media endpoint when the value has no src", () => {
-        const config = buildConfig(theme, "build", { entry })
+    it("ContentImage resolves local media through the PUBLIC origin, never the Access-gated proxy", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
         const html = render(config, "ContentImage", { field: "cover", aspect: "landscape" })
-        expect(html).toContain('src="/_emdash/api/media/file/med_1"')
+        expect(html).toContain(`src="${MEDIA_ORIGIN}/med_1.jpg"`)
         expect(html).toContain('alt="A violin"')
         expect(html).toContain('data-aspect="landscape"')
         expect(html).toContain('width="800"')
+        // A prerendered page is served to anonymous visitors; /_emdash 302s them to an Access login.
+        expect(html).not.toContain("/_emdash")
     })
 
-    it("ContentImage prefers the value's own src when present", () => {
-        const config = buildConfig(theme, "build", { entry })
+    it("ContentImage passes an external provider's absolute URL through untouched", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
         const html = render(config, "ContentImage", { field: "coverWithSrc", aspect: "original" })
         expect(html).toContain('src="https://cdn.example/violin.jpg"')
+    })
+
+    it("ContentImage renders nothing for a value carrying only a media id (no usable handle)", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
+        expect(render(config, "ContentImage", { field: "coverIdOnly", aspect: "original" })).toBe("")
     })
 
     it("Heading and ContentText produce identical markup for the same inputs (twin contract)", () => {
