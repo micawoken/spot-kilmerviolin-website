@@ -15,9 +15,10 @@
  *                     "None (plain article)" sentinel item (reserved slug "none"), the explicit
  *                     opt-out from a collection's default template (pivot §7.4).
  *
- * Also adds the `design` reference field (→ design_template) to the EXISTING `pages` collection —
- * the per-entry template pointer (pivot D4). `pages` is created in the EmDash admin, not here, so
- * its absence is a warning, never a create.
+ * Also adds the `design` reference field (→ design_template) to the EXISTING `pages` and `posts`
+ * collections — the per-entry template pointer (pivot D4). Neither is created here (`pages` is
+ * authored in the EmDash admin; `posts` is an EmDash seed collection), so the absence of either is a
+ * warning, never a create.
  *
  * Existing collections and fields are never deleted or mutated: a live field whose type/required
  * diverges from the spec prints a warning and is left untouched (so a hand-edited schema is
@@ -150,18 +151,21 @@ const COLLECTIONS = [
  * Reference fields added to collections that exist already (created in the EmDash admin, not here).
  * The entry-level template pointer (pivot D4): a `reference` stores the target item's id, and the
  * target collection rides in widget `options.collection` (emdash FieldWidgetOptions.collection).
+ *
+ * Both routed collections get the identical field — `posts` (pivot D8/Phase C) is not a special case,
+ * which is the point: routing a collection through a template costs one reference field and nothing else.
  */
+const DESIGN_REFERENCE_FIELD = {
+    slug: "design",
+    label: "Design",
+    type: "reference",
+    required: false,
+    options: { collection: "design_template" }
+}
+
 const FIELD_ADDITIONS = [
-    {
-        collection: "pages",
-        field: {
-            slug: "design",
-            label: "Design",
-            type: "reference",
-            required: false,
-            options: { collection: "design_template" }
-        }
-    }
+    { collection: "pages", field: DESIGN_REFERENCE_FIELD },
+    { collection: "posts", field: DESIGN_REFERENCE_FIELD }
 ]
 
 /**

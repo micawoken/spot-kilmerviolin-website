@@ -11,14 +11,16 @@
  *              outlet binds — i.e. "someone renamed the field away" (pivot Phase B gate 5).
  *
  * The content is synthetic, not recorded from prod: it keeps the gate deterministic and keeps prod's
- * content out of the repo. The `pages` FIELD SCHEMA, however, mirrors the live one (verified against
- * /_emdash/api/schema/collections/pages/fields on 2026-07-12: title/string, content/portableText,
- * description/string, plus the `design` reference the setup script adds). That fidelity is the point —
- * the outlet↔field type gate (OUTLET_PROPS in catalog.tsx) is only meaningful if the type strings here
- * are the ones EmDash really emits.
+ * content out of the repo. The FIELD SCHEMAS, however, mirror the live ones (verified against
+ * /_emdash/api/schema/collections/{pages,posts}/fields — `pages` on 2026-07-12, `posts` on 2026-07-14).
+ * That fidelity is the point — the outlet↔field type gate (OUTLET_PROPS in catalog.tsx) is only
+ * meaningful if the type strings here are the ones EmDash really emits.
  *
- * `pages` has no `image` field, so no ContentImage outlet appears here; binding one would mean inventing
- * a schema field prod does not have, and the fixture would then be asserting against a fiction.
+ * Every variant also serves ONE published post, routed at `/posts/first-post` (Phase C). It carries a
+ * `featured_image`, the only `image` field either routed collection defines — so the templated variants
+ * are the first and only place a ContentImage outlet, and therefore a media URL, reaches a real
+ * `astro build`. Its value is served in EmDash's real wire shape (no `src`; the key at `meta.storageKey`),
+ * because a fixture that invents a bare-id image is precisely what let the media bug ship.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -50,14 +52,42 @@ export const TEMPLATED_BODY_TEXT = "Body copy pulled through the rich-text outle
 /** The rich-text field the template binds — and the one the "broken" variant removes from the schema. */
 export const BOUND_RICHTEXT_FIELD = "content"
 
+/** The image field the posts template's ContentImage outlet binds. */
+export const BOUND_IMAGE_FIELD = "featured_image"
+
+/** Strings the templated POST must render through its outlets. */
+export const POST_TITLE = "First Post"
+export const POST_BODY_TEXT = "Post body pulled through the rich-text outlet."
+export const POST_IMAGE_ALT = "A violin on a table"
+
+/** The routed path of the templated post (Phase C: posts take the `/posts/` prefix, pivot §7.2). */
+export const TEMPLATED_POST_SLUG = "posts/first-post"
+
+/**
+ * The media origin the gate builds against. Deliberately NOT the real one: the assertion is that the
+ * emitted `<img>` points at whatever `EMDASH_MEDIA_PUBLIC_URL` names, so a fixed fake proves the build
+ * read the variable rather than coincidentally matching prod.
+ */
+export const MEDIA_BASE = "https://media.gate.test"
+
+/**
+ * The storage key of the post's `featured_image`. It lives at `meta.storageKey` with **no `src`** —
+ * EmDash strips `src` when persisting local (R2) media, and the media `id` is NOT a usable handle (the
+ * file route 404s on it). This is the wire shape that made the hand-rolled `/_emdash/api/media/file/{id}`
+ * URL wrong twice over; a fixture inventing a bare-id value is what let three tests assert the bug.
+ */
+export const MEDIA_STORAGE_KEY = "01KWYQ8FZ3N4P5R6S7T8V9W0XY.jpg"
+
 const paths = {
     settings: "/_emdash/api/settings",
     menu: "/_emdash/api/menus/primary",
     pages: "/_emdash/api/content/pages?status=published&limit=100",
+    posts: "/_emdash/api/content/posts?status=published&limit=100",
     designPages: "/_emdash/api/content/design_page?status=published&limit=100",
     theme: "/_emdash/api/content/design_theme?status=published&limit=1",
     templates: "/_emdash/api/content/design_template?status=published&limit=100",
-    pageFields: "/_emdash/api/schema/collections/pages/fields"
+    pageFields: "/_emdash/api/schema/collections/pages/fields",
+    postFields: "/_emdash/api/schema/collections/posts/fields"
 }
 
 /** EmDash wraps every success in `{ data: … }` (emdashGet unwraps it). */
@@ -77,6 +107,20 @@ const PAGE_FIELDS = [
     { slug: "title", label: "Title", type: "string", required: true },
     { slug: "content", label: "Content", type: "portableText", required: false },
     { slug: "description", label: "Description", type: "string", required: true },
+    { slug: "design", label: "Design", type: "reference", required: false }
+]
+
+/**
+ * Mirrors the live `posts` schema (probed on prod 2026-07-14), plus the same `design` reference. Note
+ * `featured_image` — the ONE `image` field either routed collection defines, and therefore the only field
+ * a `ContentImage` outlet can bind anywhere on the site. That is why media reaches a real `astro build`
+ * for the first time in Phase C, and why the media assertion lives on the post.
+ */
+const POST_FIELDS = [
+    { slug: "title", label: "Title", type: "string", required: true },
+    { slug: "featured_image", label: "Featured Image", type: "image", required: false },
+    { slug: "content", label: "Content", type: "portableText", required: false },
+    { slug: "excerpt", label: "Excerpt", type: "text", required: false },
     { slug: "design", label: "Design", type: "reference", required: false }
 ]
 
@@ -164,6 +208,83 @@ const TEMPLATE_ITEM = {
 }
 
 /**
+ * The posts template. Same three outlets as the article template plus a **ContentImage** bound to
+ * `featured_image` — the only binding in the whole gate that renders a media URL, and the reason this
+ * template exists. Its heading sequence (one h1 from the template, no heading in the post's body) is
+ * deliberately legal, so a media failure cannot be mistaken for a heading-order finding.
+ */
+const POST_TEMPLATE_ITEM = {
+    id: "tpl-post",
+    slug: "post",
+    status: "published",
+    data: {
+        title: "Post",
+        collection: "posts",
+        is_default: 0,
+        design: {
+            schemaVersion: 1,
+            puck: {
+                root: { props: {} },
+                content: [
+                    {
+                        type: "Section",
+                        props: {
+                            id: "ps-1",
+                            background: "",
+                            paddingY: "md",
+                            content: [
+                                {
+                                    type: "ContentText",
+                                    props: {
+                                        id: "pc-1",
+                                        field: "title",
+                                        level: "h1",
+                                        typography: "display",
+                                        align: "start"
+                                    }
+                                },
+                                {
+                                    type: "ContentImage",
+                                    props: { id: "pc-2", field: BOUND_IMAGE_FIELD, aspect: "original" }
+                                },
+                                { type: "ContentRichText", props: { id: "pc-3", field: BOUND_RICHTEXT_FIELD } }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}
+
+/**
+ * The one published post. Its `featured_image` carries the storage key at `meta.storageKey` and no `src`,
+ * exactly as EmDash serves local media — see MEDIA_STORAGE_KEY.
+ */
+function postItems({ pointer }) {
+    return [
+        {
+            id: "pst-first",
+            slug: "first-post",
+            status: "published",
+            data: {
+                title: POST_TITLE,
+                excerpt: "A short blurb.",
+                content: [block("p1", "normal", POST_BODY_TEXT)],
+                featured_image: {
+                    id: "med-1",
+                    alt: POST_IMAGE_ALT,
+                    width: 1200,
+                    height: 800,
+                    meta: { storageKey: MEDIA_STORAGE_KEY }
+                },
+                ...(pointer ? { design: POST_TEMPLATE_ITEM.id } : {})
+            }
+        }
+    ]
+}
+
+/**
  * The published pages. Only `content-test` ever carries a `design` pointer; `home` and `privacy-policy`
  * are the D3 control group whose output must not move when a template exists (an EmDash reference is
  * stored as the target item's bare id — see normalizeReference in emdash-api.ts).
@@ -216,6 +337,9 @@ function pageItems({ pointer }) {
 function fixture({ templated, breakSchema = false, byDefault = false }) {
     const fields = breakSchema ? PAGE_FIELDS.filter((field) => field.slug !== BOUND_RICHTEXT_FIELD) : PAGE_FIELDS
     const template = { ...TEMPLATE_ITEM, data: { ...TEMPLATE_ITEM.data, is_default: byDefault ? 1 : 0 } }
+    // The post reaches its template by POINTER only. Leaving the posts template non-default keeps the
+    // `defaulted` variant a clean single-variable test of the pages default (D4 rule 2).
+    const pointed = templated && !byDefault
 
     return {
         [paths.settings]: ok({ title: "Diversifying the Violin Curriculum for Private Teaching", tagline: "Test" }),
@@ -225,12 +349,16 @@ function fixture({ templated, breakSchema = false, byDefault = false }) {
                 { label: "Privacy", url: "/privacy-policy" }
             ]
         }),
-        [paths.pages]: ok({ items: pageItems({ pointer: templated && !byDefault }) }),
+        [paths.pages]: ok({ items: pageItems({ pointer: pointed }) }),
+        [paths.posts]: ok({ items: postItems({ pointer: pointed }) }),
         [paths.designPages]: ok({ items: [] }),
         [paths.theme]: ok({ items: [{ id: "thm-1", slug: "default", status: "published", data: { tokens: THEME_TOKENS } }] }),
         // Absent until the setup script runs — the state `allowMissing` exists for, and prod's state today.
-        [paths.templates]: templated ? ok({ items: [template] }) : missing("Collection not found: design_template"),
-        [paths.pageFields]: ok({ items: fields })
+        [paths.templates]: templated
+            ? ok({ items: [template, POST_TEMPLATE_ITEM] })
+            : missing("Collection not found: design_template"),
+        [paths.pageFields]: ok({ items: fields }),
+        [paths.postFields]: ok({ items: POST_FIELDS })
     }
 }
 
