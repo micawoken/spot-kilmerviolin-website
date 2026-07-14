@@ -4,9 +4,12 @@
  *
  * Drop-in for the <head> of admin pages that render the entity components (Info / Form / List views
  * and the search boxes). It:
- *   - pulls in the admin-only stylesheet that styles those components and sets the admin typeface,
- *   - preloads the Inter variable font so admin text does not flash an fallback face, and
+ *   - pulls in the admin-only stylesheet that styles those components,
+ *   - loads the admin typeface via <AdminTypeface /> (the face plus its required preload), and
  *   - emits the noindex robots directive every admin page needs (so pages no longer repeat it).
+ *
+ * The typeface is a separate component because the visual editor needs it WITHOUT the entity styles;
+ * see AdminTypeface.astro.
  *
  * Kept separate from BaseHead (and from the body-rendered AdminHeader) so this loads from the document
  * head and the public site does not ship the admin entity styles.
@@ -33,11 +36,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import AdminTypeface from "./AdminTypeface.astro"
 import "../styles/admin-entities.css"
 ---
 
 <meta name="robots" content="noindex" />
-<link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+<AdminTypeface />
 
 <!-- Suppress EmDash's injected visual-editing toolbar on admin pages (see the file header). -->
 <style is:global>
