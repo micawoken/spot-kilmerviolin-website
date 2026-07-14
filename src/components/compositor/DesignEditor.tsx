@@ -64,6 +64,10 @@ import { cmsBoolean, type DesignDoc } from "../../lib/compositor/types"
 import compositorCss from "../../lib/compositor/compositor.css?raw"
 import { rebuildSite } from "../../scripts/connector"
 
+// puck-theme.css rebinds Puck's own semantic color tokens to the app's palette (it ships no dark mode);
+// design-editor.css styles the chrome we wrap it in. Both are unlayered, so they win over Puck's
+// `@layer puck-tokens` defaults without !important — see puck-theme.css.
+import "./puck-theme.css"
 import "./design-editor.css"
 
 const DESIGN_PAGE = "/_emdash/api/content/design_page"
