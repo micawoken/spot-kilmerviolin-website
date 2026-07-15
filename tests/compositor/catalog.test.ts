@@ -143,6 +143,33 @@ describe("buildConfig — outlet field pickers (editor context)", () => {
     })
 })
 
+describe("buildConfig — Button drives theme-authored variants through --cmp-button-* locals", () => {
+    const config = buildConfig(theme, "build")
+
+    it("its variant field is a token select over buttonVariants", () => {
+        // Empty here because this theme declares none — the point is it is a token select, not a fixed enum.
+        expect(field(config, "Button", "variant").type).toBe("select")
+        expect(field(config, "Button", "variant").options).toEqual([])
+    })
+
+    it("renders .cmp-button carrying the --cmp-button-* vars, and no modifier class", () => {
+        const html = render(config, "Button", { label: "Go", href: "/x", variant: "primary" })
+        expect(html).toContain('class="cmp-button"')
+        expect(html).not.toContain("cmp-button--")
+        expect(html).toContain("--cmp-button-bg:var(--dtk-btn-primary-bg)")
+        expect(html).toContain("--cmp-button-text:var(--dtk-btn-primary-text)")
+        expect(html).toContain("--cmp-button-radius:var(--dtk-btn-primary-radius)")
+        expect(html).toContain("--cmp-button-border-color:var(--dtk-btn-primary-border-color)")
+        expect(html).toContain(">Go</a>")
+    })
+
+    it("still renders an unknown variant name (unset vars, no throw)", () => {
+        const html = render(config, "Button", { label: "Go", href: "/x", variant: "does-not-exist" })
+        expect(html).toContain('class="cmp-button"')
+        expect(html).toContain("--cmp-button-bg:var(--dtk-btn-does-not-exist-bg)")
+    })
+})
+
 describe("buildConfig — outlet renders resolve through the entry context (D7)", () => {
     const MEDIA_ORIGIN = "https://store.example.test"
 

@@ -165,7 +165,11 @@ const DESIGN_REFERENCE_FIELD = {
 
 const FIELD_ADDITIONS = [
     { collection: "pages", field: DESIGN_REFERENCE_FIELD },
-    { collection: "posts", field: DESIGN_REFERENCE_FIELD }
+    { collection: "posts", field: DESIGN_REFERENCE_FIELD },
+    // pivot DD3: without an image-typed field on `pages`, the ContentImage outlet cannot bind or render on
+    // prod's only collection with real content. A plain field addition (not the reference field above);
+    // ensureFieldAddition creates it idempotently.
+    { collection: "pages", field: { slug: "featured_image", label: "Featured image", type: "image", required: false } }
 ]
 
 /**
@@ -178,7 +182,9 @@ const SEED_THEME = {
     colors: [
         { name: "page-bg", value: "light-dark(#ffffff, #1a1a1a)" },
         { name: "text", value: "light-dark(#222222, #e6e6e6)" },
-        { name: "accent", value: "light-dark(#2337ff, #ff9e5e)" }
+        { name: "accent", value: "light-dark(#2337ff, #ff9e5e)" },
+        // A literal transparent, so a button variant can name it (a bare CSS keyword is not a token).
+        { name: "transparent", value: "transparent" }
     ],
     typography: [
         {
@@ -205,11 +211,23 @@ const SEED_THEME = {
     ],
     radius: [{ name: "md", value: "0.5rem" }],
     shadows: [{ name: "md", value: "0 1px 3px rgba(0, 0, 0, 0.12)" }],
-    borders: [{ name: "default", width: "1px", style: "solid", colorRef: "text" }],
+    borders: [
+        { name: "default", width: "1px", style: "solid", colorRef: "text" },
+        // An accent-colored border, so the `secondary` button variant reproduces the old accent outline.
+        { name: "accent", width: "1px", style: "solid", colorRef: "accent" }
+    ],
     breakpoints: [
         { name: "sm", minWidth: "640px" },
         { name: "md", minWidth: "768px" },
         { name: "lg", minWidth: "1024px" }
+    ],
+    // Theme-authored button styles (impl §6.3/§7.4). These reference tokens above and reproduce the old
+    // hardcoded primary/secondary/ghost look exactly. Fresh-install seed only — prod's existing theme is
+    // updated by a separate content op (plan-compositor-phase-d.md §2.3), NOT by this script.
+    buttonVariants: [
+        { name: "primary", background: "accent", text: "page-bg", radius: "md", paddingX: "md", paddingY: "sm" },
+        { name: "secondary", background: "transparent", text: "accent", radius: "md", paddingX: "md", paddingY: "sm", border: "accent" },
+        { name: "ghost", background: "transparent", text: "accent", radius: "md", paddingX: "md", paddingY: "sm" }
     ]
 }
 

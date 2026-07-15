@@ -24,6 +24,7 @@ import {
     hasToken,
     isTokenCatalog,
     isValidTokenName,
+    lintTokenCatalog,
     tokenSelectOptions,
     tokensToCss,
     tokenVar,
@@ -158,5 +159,75 @@ describe("isTokenCatalog", () => {
         expect(isTokenCatalog({ ...catalog, borders: [{ name: "b", width: "1px", style: "solid" }] })).toBe(false)
         const { breakpoints: _omit, ...withoutBreakpoints } = catalog
         expect(isTokenCatalog(withoutBreakpoints)).toBe(false)
+    })
+})
+
+// --- Phase D: theme-authored button variants -------------------------------------------------------
+
+/** A variant naming only tokens that exist in `catalog` above; used across the buttonVariants tests. */
+const primary = { name: "primary", background: "accent", text: "page-bg", radius: "md", paddingX: "md", paddingY: "md" }
+const secondary = { name: "secondary", background: "page-bg", text: "accent", radius: "md", paddingX: "md", paddingY: "md", border: "default" }
+const withVariants: TokenCatalog = { ...catalog, buttonVariants: [primary, secondary] }
+
+describe("isTokenCatalog — buttonVariants is optional (trap A)", () => {
+    it("ACCEPTS a catalog that omits buttonVariants entirely", () => {
+        // The single most important guard in Phase D: the live published theme predates the key, and a
+        // rejection here would make fetchPublishedTheme return null and unstyle every design page silently.
+        expect("buttonVariants" in catalog).toBe(false)
+        expect(isTokenCatalog(catalog)).toBe(true)
+    })
+    it("accepts a catalog with valid buttonVariants (border optional)", () => {
+        expect(isTokenCatalog(withVariants)).toBe(true)
+    })
+    it("rejects a present-but-malformed buttonVariants", () => {
+        expect(isTokenCatalog({ ...catalog, buttonVariants: [{ name: "x" }] })).toBe(false)
+        expect(isTokenCatalog({ ...catalog, buttonVariants: [{ ...primary, background: 1 }] })).toBe(false)
+        expect(isTokenCatalog({ ...catalog, buttonVariants: "nope" })).toBe(false)
+    })
+})
+
+describe("hasToken / tokenSelectOptions with buttonVariants absent (no throw)", () => {
+    it("returns false / [] when the key is missing rather than throwing", () => {
+        expect(hasToken(catalog, "buttonVariants", "primary")).toBe(false)
+        expect(tokenSelectOptions(catalog, "buttonVariants")).toEqual([])
+    })
+    it("reads variants when present", () => {
+        expect(hasToken(withVariants, "buttonVariants", "primary")).toBe(true)
+        expect(tokenSelectOptions(withVariants, "buttonVariants")).toEqual([
+            { label: "primary", value: "primary" },
+            { label: "secondary", value: "secondary" }
+        ])
+    })
+})
+
+describe("tokensToCss — button variants", () => {
+    it("emits one var() per sub-value, resolving each ref to the referenced token's property", () => {
+        const css = tokensToCss(withVariants)
+        expect(css).toContain("--dtk-btn-primary-bg: var(--dtk-color-accent);")
+        expect(css).toContain("--dtk-btn-primary-text: var(--dtk-color-page-bg);")
+        expect(css).toContain("--dtk-btn-primary-radius: var(--dtk-radius-md);")
+        expect(css).toContain("--dtk-btn-primary-pad-x: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-btn-primary-pad-y: var(--dtk-space-md);")
+    })
+    it("emits border sub-props only for a variant that names a border", () => {
+        const css = tokensToCss(withVariants)
+        expect(css).not.toContain("--dtk-btn-primary-border-width")
+        expect(css).toContain("--dtk-btn-secondary-border-width: var(--dtk-border-default-width);")
+        expect(css).toContain("--dtk-btn-secondary-border-style: var(--dtk-border-default-style);")
+        expect(css).toContain("--dtk-btn-secondary-border-color: var(--dtk-border-default-color);")
+    })
+    it("emits nothing for a catalog with no variants", () => {
+        expect(tokensToCss(catalog)).not.toContain("--dtk-btn")
+    })
+})
+
+describe("lintTokenCatalog", () => {
+    it("returns no findings when every variant ref resolves", () => {
+        expect(lintTokenCatalog(withVariants)).toEqual([])
+    })
+    it("flags a variant field whose ref names a token not in the catalog", () => {
+        const bad: TokenCatalog = { ...catalog, buttonVariants: [{ ...primary, background: "ghost-color" }] }
+        const findings = lintTokenCatalog(bad)
+        expect(findings).toEqual([{ variant: "primary", field: "background", ref: "ghost-color", kind: "colors" }])
     })
 })
