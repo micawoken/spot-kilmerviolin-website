@@ -29,6 +29,7 @@ import {
     tokensToCss,
     tokenVar,
     tokenVarName,
+    webFontsHref,
     type TokenCatalog
 } from "../../src/lib/compositor/tokens"
 
@@ -229,5 +230,44 @@ describe("lintTokenCatalog", () => {
         const bad: TokenCatalog = { ...catalog, buttonVariants: [{ ...primary, background: "ghost-color" }] }
         const findings = lintTokenCatalog(bad)
         expect(findings).toEqual([{ variant: "primary", field: "background", ref: "ghost-color", kind: "colors" }])
+    })
+})
+
+// --- Web fonts -------------------------------------------------------------------------------------
+
+describe("isTokenCatalog — fonts is optional (trap A)", () => {
+    it("ACCEPTS a catalog that omits fonts entirely", () => {
+        expect("fonts" in catalog).toBe(false)
+        expect(isTokenCatalog(catalog)).toBe(true)
+    })
+    it("accepts a catalog with valid fonts (weights optional)", () => {
+        expect(isTokenCatalog({ ...catalog, fonts: [{ family: "Inter", weights: [400, 700] }, { family: "Lora" }] })).toBe(true)
+    })
+    it("rejects a present-but-malformed fonts", () => {
+        expect(isTokenCatalog({ ...catalog, fonts: [{ weights: [400] }] })).toBe(false)
+        expect(isTokenCatalog({ ...catalog, fonts: [{ family: "Inter", weights: ["400"] }] })).toBe(false)
+        expect(isTokenCatalog({ ...catalog, fonts: "nope" })).toBe(false)
+    })
+})
+
+describe("webFontsHref", () => {
+    it("builds a css2 URL with each family's weights, sorted, deduped, and display=swap", () => {
+        const href = webFontsHref([
+            { family: "Playfair Display", weights: [700, 400, 400] },
+            { family: "Inter" }
+        ])
+        expect(href).toBe(
+            "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400&display=swap"
+        )
+    })
+    it("returns null when there is no valid font", () => {
+        expect(webFontsHref([])).toBeNull()
+        // a family with URL-unsafe characters cannot be trusted into the href and is skipped
+        expect(webFontsHref([{ family: "Evil</style>", weights: [400] }])).toBeNull()
+    })
+    it("drops non-integer and out-of-range weights, defaulting to 400", () => {
+        expect(webFontsHref([{ family: "Inter", weights: [0, 1500, 350.5] }])).toBe(
+            "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap"
+        )
     })
 })

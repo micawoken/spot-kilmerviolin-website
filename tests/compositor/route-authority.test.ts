@@ -146,6 +146,24 @@ describe("collectRoutes — D4 template resolution", () => {
         expect(warnings).toEqual([])
     })
 
+    it("resolves the design pointer by the template's slug, not only its id", () => {
+        // EmDash's reference field is a raw text box, so authors type the readable slug ("tpl-t1"), not
+        // the opaque id ("t1"). Both must resolve; this covers the slug path (the id path is above).
+        const tpl = template("t1")
+        const { routes, warnings } = collectRoutes({
+            pages: [page("about", { designRef: tpl.slug })],
+            posts: [],
+            designPages: [],
+            templates: [tpl]
+        })
+
+        const props = routes[0].props
+        if (props.kind !== "design") throw new Error("expected a design route")
+        expect(props.doc).toBe(tpl.doc)
+        expect(props.template).toEqual({ slug: tpl.slug, collection: tpl.collection })
+        expect(warnings).toEqual([])
+    })
+
     it("falls back to the collection's default template when the entry names none", () => {
         const fallback = template("t-default", { isDefault: true })
         const { routes } = collectRoutes({ pages: [page("about")], posts: [], designPages: [], templates: [fallback] })
