@@ -20,11 +20,11 @@
  * `RichText.render` distinguishes the two by `Array.isArray(body)` (§6.3). The media picker is likewise
  * editor-only and attached only in the editor target, keeping its browser code off the build path.
  *
- * Button `variant` (§4.5 gap): §4.5 describes `variant` as "select from theme button variants
- * (color+radius+space token bundle)", but the §4.3 TokenCatalog defines no button-variant registry.
- * Phase 1 ships `variant` as a fixed select (primary/secondary/ghost) styled in `compositor.css`
- * against conventional `--dtk-*` tokens; a theme-defined variant bundle is a change request against
- * `plan-visual-compositor.md`, not a catalog expansion (contributor rule 3).
+ * Button `variant` (Phase D): `variant` is a token select over the theme's `buttonVariants` (§4.3), each
+ * a bundle of color/radius/space/border references (impl §6.3/§7.4's deferred item, delivered). The
+ * render maps the chosen variant name into `--cmp-button-*` locals that `compositor.css` applies; no
+ * variant styling is hardcoded. The theme is authored with its variants BEFORE this code deploys, so a
+ * `Button.variant` never dangles at build (see plan-compositor-phase-d.md §2.1 trap B).
  *
  * Known canvas-vs-build diffs (accepted, §8): canvas shows unoptimized R2 originals (identical URL in
  * Phase 1); site chrome (header/footer) is absent in the canvas; fonts may load differently.
@@ -112,7 +112,8 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     Heading: { typography: "typography" },
     ContentText: { typography: "typography" },
     Spacer: { size: "space" },
-    Divider: { spaceAround: "space", color: "colors" }
+    Divider: { spaceAround: "space", color: "colors" },
+    Button: { variant: "buttonVariants" }
 }
 
 /**
@@ -328,7 +329,8 @@ interface ImageProps {
 interface ButtonProps {
     label: string
     href: string
-    variant: "primary" | "secondary" | "ghost"
+    /** a `buttonVariants` token name (theme-authored), not a fixed union. */
+    variant: string
 }
 interface SpacerProps {
     size: string
@@ -553,19 +555,27 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             fields: {
                 label: { type: "text" as const, label: "Label" },
                 href: { type: "text" as const, label: "Link URL" },
-                variant: {
-                    type: "select" as const,
-                    label: "Variant",
-                    options: [
-                        { label: "Primary", value: "primary" },
-                        { label: "Secondary", value: "secondary" },
-                        { label: "Ghost", value: "ghost" }
-                    ]
-                }
+                variant: tokenSelect(theme, "buttonVariants", "Variant")
             },
+            // "primary" is a seeded variant name (theme is authored before this code deploys), so the
+            // default resolves. The render stays pure — it maps a variant name into `--cmp-button-*`
+            // locals and never sees the theme, exactly like Spacer/Divider (catalog purity rule).
             defaultProps: { label: "Button", href: "#", variant: "primary" },
             render: ({ label, href, variant }: ButtonProps) => (
-                <a className={`cmp-button cmp-button--${variant}`} href={sanitizeHref(href)}>
+                <a
+                    className="cmp-button"
+                    href={sanitizeHref(href)}
+                    style={vars({
+                        "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
+                        "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
+                        "--cmp-button-radius": tokenVar("buttonVariants", variant, "radius"),
+                        "--cmp-button-pad-x": tokenVar("buttonVariants", variant, "pad-x"),
+                        "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
+                        "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
+                        "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
+                        "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color")
+                    })}
+                >
                     {label}
                 </a>
             )

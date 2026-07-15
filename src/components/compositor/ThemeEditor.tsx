@@ -31,7 +31,11 @@
 
 import { useEffect, useState } from "react"
 
+import { TOKEN_PROPS } from "../../lib/compositor/catalog"
+import { collectTokenUsage } from "../../lib/compositor/lint"
+import { migrateDesign } from "../../lib/compositor/migrations"
 import { isTokenCatalog, type TokenCatalog, type TokenKind } from "../../lib/compositor/tokens"
+import type { DesignDoc } from "../../lib/compositor/types"
 
 import "./design-editor.css"
 
@@ -43,6 +47,12 @@ interface FieldSpec {
     label: string
     color?: boolean
     optional?: boolean
+    /**
+     * When set, this field holds a REFERENCE to another token (by name) of that kind, and renders as a
+     * `<select>` of the names currently in that kind rather than a free-text input — making a dangling
+     * reference unrepresentable in the editor (§3.1), which is stronger than linting it after the fact.
+     */
+    refKind?: TokenKind
 }
 
 /** Editable row: every token value is a string in the form; optional empties are dropped on save. */
@@ -79,7 +89,20 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
             { key: "colorRef", label: "Color token" }
         ]
     },
-    { kind: "breakpoints", label: "Breakpoints", fields: [{ key: "name", label: "Name" }, { key: "minWidth", label: "Min width" }] }
+    { kind: "breakpoints", label: "Breakpoints", fields: [{ key: "name", label: "Name" }, { key: "minWidth", label: "Min width" }] },
+    {
+        kind: "buttonVariants",
+        label: "Button variants",
+        fields: [
+            { key: "name", label: "Name" },
+            { key: "background", label: "Background", refKind: "colors" },
+            { key: "text", label: "Text", refKind: "colors" },
+            { key: "border", label: "Border", refKind: "borders", optional: true },
+            { key: "radius", label: "Radius", refKind: "radius" },
+            { key: "paddingX", label: "Padding X", refKind: "space" },
+            { key: "paddingY", label: "Padding Y", refKind: "space" }
+        ]
+    }
 ]
 
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
@@ -98,8 +121,9 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
     const rows: Partial<Record<TokenKind, Row[]>> = {}
     for (const section of SECTIONS) {
         // The rows are edited generically (kind → fields), so the token unions are read as bags of
-        // fields; every read below is typeof-guarded, so widening away the union is safe here.
-        rows[section.kind] = (catalog[section.kind] as unknown as Array<Record<string, unknown>>).map((token) => {
+        // fields; every read below is typeof-guarded, so widening away the union is safe here. `?? []`
+        // covers optional kinds (buttonVariants) absent from a theme that predates them.
+        rows[section.kind] = ((catalog[section.kind] ?? []) as unknown as Array<Record<string, unknown>>).map((token) => {
             const row: Row = {}
             for (const field of section.fields) {
                 const value = token[field.key]
@@ -153,6 +177,62 @@ async function fetchTheme(): Promise<{ id: string; catalog: TokenCatalog; rev: s
     return { id, catalog: tokens, rev: getBody.data?._rev, count: items.length }
 }
 
+/** The design collections whose token references the usage scan counts. Drafts count too (see below). */
+const USAGE_COLLECTIONS = ["design_page", "design_template"] as const
+
+/**
+ * Scans every design (pages and templates, INCLUDING drafts — a draft referencing a token breaks the
+ * moment it is published) for token references, so the editor can tell how many designs a rename or
+ * removal would strip. Fail-soft: any read error propagates to the caller, which falls back to the
+ * static prose warning rather than breaking the editor over a lost advisory count.
+ */
+async function fetchDesignUsage(): Promise<Map<string, string[]>> {
+    const docs: { label: string; doc: DesignDoc }[] = []
+    for (const collection of USAGE_COLLECTIONS) {
+        const res = await fetch(`/_emdash/api/content/${collection}?limit=100`, { headers: { Accept: "application/json" } })
+        if (!res.ok) throw new Error(`Could not list ${collection}: ${await readError(res)}`)
+        const body = (await res.json()) as {
+            data?: { items?: Array<{ id: string; slug?: string; data?: { title?: unknown; design?: unknown } }> }
+        }
+        for (const item of body.data?.items ?? []) {
+            const title = item.data?.title
+            const label = typeof title === "string" && title.trim() !== "" ? title : (item.slug ?? item.id)
+            docs.push({ label, doc: migrateDesign(item.data?.design) })
+        }
+    }
+    return collectTokenUsage(docs, TOKEN_PROPS)
+}
+
+/**
+ * A token-reference select: the names available in the referenced kind, plus a way to represent an unset
+ * choice and a now-missing reference — so a stored value is never silently rewritten to the first option.
+ */
+function RefSelect({
+    names,
+    value,
+    optional,
+    onChange
+}: {
+    names: string[]
+    value: string
+    optional?: boolean
+    onChange: (value: string) => void
+}) {
+    const available = names.filter((name) => name !== "")
+    const missing = value !== "" && !available.includes(value)
+    return (
+        <select value={value} onChange={(event) => onChange(event.target.value)}>
+            {(optional || value === "") && <option value="">{optional ? "— none —" : "— choose —"}</option>}
+            {missing && <option value={value}>{value} (missing)</option>}
+            {available.map((name) => (
+                <option key={name} value={name}>
+                    {name}
+                </option>
+            ))}
+        </select>
+    )
+}
+
 /** The theme editor. */
 export default function ThemeEditor() {
     const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading")
@@ -163,6 +243,9 @@ export default function ThemeEditor() {
     const [editable, setEditable] = useState<EditableCatalog | null>(null)
     const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
     const [message, setMessage] = useState("")
+    // `"<kind>:<name>"` → design labels using that token; null when the scan has not (yet) succeeded, in
+    // which case the editor falls back to the static rename warning (fetchDesignUsage is fail-soft).
+    const [usage, setUsage] = useState<Map<string, string[]> | null>(null)
 
     useEffect(() => {
         let cancelled = false
@@ -185,6 +268,22 @@ export default function ThemeEditor() {
         }
     }, [])
 
+    // The usage scan loads independently of the theme: a failed scan degrades to the static warning, it
+    // never blocks editing. Left null on any error so the fallback prose shows.
+    useEffect(() => {
+        let cancelled = false
+        fetchDesignUsage()
+            .then((map) => {
+                if (!cancelled) setUsage(map)
+            })
+            .catch(() => {
+                if (!cancelled) setUsage(null)
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [])
+
     if (phase === "loading") return <p>Loading theme…</p>
     if (phase === "error" || !editable) return <p className="design-editor__blocked">{loadError}</p>
 
@@ -201,7 +300,21 @@ export default function ThemeEditor() {
         setEditable((current) => (current ? { ...current, [kind]: [...current[kind], blankRow(kind)] } : current))
     }
 
+    /** The distinct design labels referencing the token (kind, name), or [] when unknown/unused. */
+    const usageLabels = (kind: TokenKind, name: string): string[] => (name ? (usage?.get(`${kind}:${name}`) ?? []) : [])
+
     const removeRow = (kind: TokenKind, index: number) => {
+        // Naming which designs would lose the style is the whole point of the scan (§3.1): a silent
+        // removal is what the static warning could never prevent. Only guard when we actually know of uses.
+        const name = editable[kind][index]?.name ?? ""
+        const labels = usageLabels(kind, name)
+        if (labels.length > 0) {
+            const confirmed = window.confirm(
+                `"${name}" is used by ${labels.length} design${labels.length === 1 ? "" : "s"}: ${labels.join(", ")}.\n` +
+                    "Removing it strips that style until each design is updated. Remove anyway?"
+            )
+            if (!confirmed) return
+        }
         setEditable((current) =>
             current ? { ...current, [kind]: current[kind].filter((_, position) => position !== index) } : current
         )
@@ -249,10 +362,12 @@ export default function ThemeEditor() {
                     EmDash admin to avoid ambiguity.
                 </p>
             )}
-            <p className="general-warning">
-                Renaming or removing a token breaks any design that references the old name — that style is lost until
-                the design is updated. Changes apply to published pages only after you publish and rebuild.
-            </p>
+            {usage === null && (
+                <p className="general-warning">
+                    Renaming or removing a token breaks any design that references the old name — that style is lost until
+                    the design is updated. Changes apply to published pages only after you publish and rebuild.
+                </p>
+            )}
 
             {SECTIONS.map((section) => (
                 <section key={section.kind} className="theme-editor__section">
@@ -269,33 +384,50 @@ export default function ThemeEditor() {
                             </tr>
                         </thead>
                         <tbody>
-                            {editable[section.kind].map((row, index) => (
-                                <tr key={index}>
-                                    {section.fields.map((field) => (
-                                        <td key={field.key}>
-                                            <span className="theme-editor__cell">
-                                                {field.color && (
-                                                    <span
-                                                        className="theme-editor__swatch"
-                                                        style={{ background: row[field.key] || "transparent" }}
-                                                        aria-hidden="true"
-                                                    />
-                                                )}
-                                                <input
-                                                    type="text"
-                                                    value={row[field.key] ?? ""}
-                                                    onChange={(event) => setCell(section.kind, index, field.key, event.target.value)}
-                                                />
-                                            </span>
+                            {editable[section.kind].map((row, index) => {
+                                const nameUses = usageLabels(section.kind, row.name ?? "")
+                                return (
+                                    <tr key={index}>
+                                        {section.fields.map((field) => (
+                                            <td key={field.key}>
+                                                <span className="theme-editor__cell">
+                                                    {field.color && (
+                                                        <span
+                                                            className="theme-editor__swatch"
+                                                            style={{ background: row[field.key] || "transparent" }}
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                    {field.refKind ? (
+                                                        <RefSelect
+                                                            names={editable[field.refKind].map((r) => r.name)}
+                                                            value={row[field.key] ?? ""}
+                                                            optional={field.optional}
+                                                            onChange={(value) => setCell(section.kind, index, field.key, value)}
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            type="text"
+                                                            value={row[field.key] ?? ""}
+                                                            onChange={(event) => setCell(section.kind, index, field.key, event.target.value)}
+                                                        />
+                                                    )}
+                                                    {field.key === "name" && nameUses.length > 0 && (
+                                                        <small className="theme-editor__usage" title={nameUses.join(", ")}>
+                                                            used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
+                                                        </small>
+                                                    )}
+                                                </span>
+                                            </td>
+                                        ))}
+                                        <td>
+                                            <button type="button" onClick={() => removeRow(section.kind, index)}>
+                                                Remove
+                                            </button>
                                         </td>
-                                    ))}
-                                    <td>
-                                        <button type="button" onClick={() => removeRow(section.kind, index)}>
-                                            Remove
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                                    </tr>
+                                )
+                            })}
                         </tbody>
                     </table>
                     <button type="button" onClick={() => addRow(section.kind)}>
