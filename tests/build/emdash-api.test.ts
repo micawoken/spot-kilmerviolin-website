@@ -25,7 +25,8 @@ import {
     EMDASH_MAX_WAIT_MS,
     READ_TIMEOUT_MS,
     emdashGet,
-    fetchPublishedPages
+    fetchPublishedPages,
+    fetchPublishedPosts
 } from "../../src/lib/build/emdash-api"
 
 /** A JSON Response, as EmDash's API would return it. */
@@ -189,5 +190,86 @@ describe("fetchPublishedPages — an outage must not look like an empty site", (
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [] } })))
 
         await expect(fetchPublishedPages()).resolves.toEqual([])
+    })
+})
+
+describe("fetchPublishedPosts — the same shape, out of a differently-shaped collection", () => {
+    /** One published post, as EmDash's list API serves it. */
+    const postItem = {
+        id: "post-1",
+        slug: "first-post",
+        status: "published",
+        data: {
+            title: "First Post",
+            excerpt: "A short blurb.",
+            content: [{ _type: "block", _key: "a", style: "normal", children: [] }],
+            featured_image: { id: "med-1", alt: "A violin", meta: { storageKey: "01KWY.jpg" } },
+            design: "tpl-1"
+        }
+    }
+
+    it("reads the posts collection", async () => {
+        withCms()
+        const fetchSpy = vi.fn().mockResolvedValue(json(200, { data: { items: [] } }))
+        vi.stubGlobal("fetch", fetchSpy)
+
+        await fetchPublishedPosts()
+
+        expect(fetchSpy.mock.calls[0][0]).toContain("/_emdash/api/content/posts?")
+        expect(fetchSpy.mock.calls[0][0]).toContain("status=published")
+    })
+
+    it("maps `excerpt` onto description — posts have no `description` field", async () => {
+        withCms()
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
+
+        const [post] = await fetchPublishedPosts()
+
+        expect(post.description).toBe("A short blurb.")
+    })
+
+    it("has no published_at: the field does not exist on posts, so the D3 render shows no date", async () => {
+        withCms()
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
+
+        const [post] = await fetchPublishedPosts()
+
+        expect(post.published_at).toBeNull()
+    })
+
+    it("carries featured_image through in `fields` — the only image field an outlet can bind", async () => {
+        withCms()
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
+
+        const [post] = await fetchPublishedPosts()
+
+        // ContentImage reads the raw field value out of `fields`; losing it here would make the outlet
+        // unbindable everywhere, since `pages` defines no image field at all.
+        expect(post.fields.featured_image).toEqual(postItem.data.featured_image)
+    })
+
+    it("surfaces the design pointer, so a post can name a template like any entry", async () => {
+        withCms()
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
+
+        const [post] = await fetchPublishedPosts()
+
+        expect(post.designRef).toBe("tpl-1")
+        expect(post.slug).toBe("first-post")
+    })
+
+    it("throws on a read failure rather than building a site with every post missing", async () => {
+        withCms()
+        vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("socket hang up")))
+
+        await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(CmsReadError)
+    })
+
+    it("throws on a 404: posts is a seed collection, so its absence means the wrong CMS", async () => {
+        withCms()
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { message: "not found" } })))
+
+        // Deliberately NOT allowMissing (unlike design_template, which does not exist until setup runs).
+        await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(CmsReadError)
     })
 })

@@ -2,12 +2,12 @@
 /**
  * pages/[...slug].astro
  *
- * Catch-all route for the CMS-authored public pages. Two published sources claim slugs (impl §6.6): the
- * `pages` content type and the compositor's `design_page` type. `route-authority.ts` merges them, fails
- * the build on any duplicate slug so a path always has exactly one owner, and — per the content-routing
- * pivot (D4) — resolves each `pages` entry to the design template it renders *through*, if it names one.
- * A page that names no template renders exactly as it did before the compositor existed (D3), which is
- * what keeps designs strictly opt-in.
+ * Catch-all route for the CMS-authored public pages. Three published sources claim slugs (impl §6.6): the
+ * `pages` and `posts` content types (posts under a `/posts/` prefix) and the compositor's `design_page`
+ * type. `route-authority.ts` merges them, fails the build on any duplicate slug so a path always has
+ * exactly one owner, and — per the content-routing pivot (D4) — resolves each entry to the design template
+ * it renders *through*, if it names one. An entry that names no template renders exactly as it did before
+ * the compositor existed (D3), which is what keeps designs strictly opt-in.
  *
  * The page is prerendered: getStaticPaths() enumerates both sources at build time over EmDash's HTTP API
  * (src/lib/build/{emdash,design}-api.ts, through a Cloudflare Access service token). Because only
@@ -46,7 +46,7 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../layouts/PublicPage.astro"
 import FormattedDate from "../components/FormattedDate.astro"
-import { fetchPublishedPages } from "../lib/build/emdash-api"
+import { fetchPublishedPages, fetchPublishedPosts } from "../lib/build/emdash-api"
 import {
     fetchCollectionFields,
     fetchPublishedDesignPages,
@@ -70,8 +70,9 @@ export const prerender = true
 // The page authored with slug "home" is the site's designated home page and is routed to "/" (an undefined
 // rest-param matches the route's root) instead of "/home", so there is exactly one URL for it.
 export async function getStaticPaths() {
-    const [pages, designPages, templates, theme] = await Promise.all([
+    const [pages, posts, designPages, templates, theme] = await Promise.all([
         fetchPublishedPages(),
+        fetchPublishedPosts(),
         fetchPublishedDesignPages(),
         fetchPublishedTemplates(),
         fetchPublishedTheme()
@@ -100,7 +101,7 @@ export async function getStaticPaths() {
 
     // Resolve every entry to the layout it renders through (D4). A broken template reference is a warning
     // and falls back to the untemplated render; an authored-wrong pairing throws from collectRoutes.
-    const { routes, warnings } = collectRoutes({ pages, designPages, templates })
+    const { routes, warnings } = collectRoutes({ pages, posts, designPages, templates })
     for (const warning of warnings) console.warn(warning)
 
     // Pairing lint per (template × entry) route (§5.5) — the sharpest post-pivot edge: heading order
@@ -146,8 +147,7 @@ const props = Astro.props
 // The theme's custom properties plus the component stylesheet, inlined into this page's head. Kept off
 // Portable-Text pages entirely — they render no compositor components. With no published theme, only the
 // component styles are emitted and token-backed declarations fall back to their initial values.
-const headCss =
-    props.kind === "design" ? `${props.theme ? tokensToCss(props.theme) : ""}\n${compositorCss}` : ""
+const headCss = props.kind === "design" ? `${props.theme ? tokensToCss(props.theme) : ""}\n${compositorCss}` : ""
 ---
 
 {
@@ -173,7 +173,10 @@ const headCss =
                 entry's fields for a templated route, null for a design_page — where outlets render
                 nothing. No client directive → server-rendered, zero JS. */}
             <Render
-                config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", { entry: props.entry })}
+                config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
+                    entry: props.entry,
+                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+                })}
                 data={props.doc.puck}
             />
         </PublicPage>

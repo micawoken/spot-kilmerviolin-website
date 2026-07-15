@@ -43,6 +43,25 @@ function page(slug: string, overrides: Partial<BuildPage> = {}): BuildPage {
     }
 }
 
+/**
+ * A published `posts` entry. Same {@link BuildPage} shape as a page — the reader normalizes the
+ * collections' differing field names — so what distinguishes a post here is purely which source array it
+ * arrives in, which is exactly the property these tests exercise.
+ */
+function post(slug: string, overrides: Partial<BuildPage> = {}): BuildPage {
+    return {
+        id: `post-${slug}`,
+        slug,
+        title: `Post ${slug}`,
+        description: "",
+        content: [],
+        published_at: null,
+        fields: { title: `Post ${slug}`, content: [] },
+        designRef: null,
+        ...overrides
+    }
+}
+
 function designPage(slug: string): BuildDesignPage {
     return { slug, title: `Design ${slug}`, description: "", doc: doc() }
 }
@@ -55,7 +74,12 @@ const NONE = template("none-id", { slug: TEMPLATE_NONE_SLUG, title: "None (plain
 
 describe("collectRoutes — merging the two sources", () => {
     it("emits one route per slug, portable pages before design pages", () => {
-        const { routes } = collectRoutes({ pages: [page("about")], designPages: [designPage("gallery")], templates: [] })
+        const { routes } = collectRoutes({
+            pages: [page("about")],
+            posts: [],
+            designPages: [designPage("gallery")],
+            templates: []
+        })
 
         expect(routes.map((route) => route.slug)).toEqual(["about", "gallery"])
         expect(routes[0].props.kind).toBe("portable")
@@ -63,7 +87,12 @@ describe("collectRoutes — merging the two sources", () => {
     })
 
     it("carries the props each kind renders from", () => {
-        const { routes } = collectRoutes({ pages: [page("about")], designPages: [designPage("gallery")], templates: [] })
+        const { routes } = collectRoutes({
+            pages: [page("about")],
+            posts: [],
+            designPages: [designPage("gallery")],
+            templates: []
+        })
 
         const portable = routes[0].props
         if (portable.kind !== "portable") throw new Error("expected a portable route")
@@ -77,7 +106,7 @@ describe("collectRoutes — merging the two sources", () => {
     })
 
     it("gives a design_page a null entry and template — it has no content record behind it", () => {
-        const { routes } = collectRoutes({ pages: [], designPages: [designPage("gallery")], templates: [] })
+        const { routes } = collectRoutes({ pages: [], posts: [], designPages: [designPage("gallery")], templates: [] })
 
         const design = routes[0].props
         if (design.kind !== "design") throw new Error("expected a design route")
@@ -86,12 +115,15 @@ describe("collectRoutes — merging the two sources", () => {
     })
 
     it("accepts empty sources", () => {
-        expect(collectRoutes({ pages: [], designPages: [], templates: [] })).toEqual({ routes: [], warnings: [] })
+        expect(collectRoutes({ pages: [], posts: [], designPages: [], templates: [] })).toEqual({
+            routes: [],
+            warnings: []
+        })
     })
 
     it("does not treat distinct slugs as collisions", () => {
         expect(() =>
-            collectRoutes({ pages: [page("a"), page("b")], designPages: [designPage("c")], templates: [] })
+            collectRoutes({ pages: [page("a"), page("b")], posts: [], designPages: [designPage("c")], templates: [] })
         ).not.toThrow()
     })
 })
@@ -101,6 +133,7 @@ describe("collectRoutes — D4 template resolution", () => {
         const tpl = template("t1")
         const { routes, warnings } = collectRoutes({
             pages: [page("about", { designRef: "t1" })],
+            posts: [],
             designPages: [],
             templates: [tpl]
         })
@@ -115,7 +148,7 @@ describe("collectRoutes — D4 template resolution", () => {
 
     it("falls back to the collection's default template when the entry names none", () => {
         const fallback = template("t-default", { isDefault: true })
-        const { routes } = collectRoutes({ pages: [page("about")], designPages: [], templates: [fallback] })
+        const { routes } = collectRoutes({ pages: [page("about")], posts: [], designPages: [], templates: [fallback] })
 
         const props = routes[0].props
         if (props.kind !== "design") throw new Error("expected a design route")
@@ -127,6 +160,7 @@ describe("collectRoutes — D4 template resolution", () => {
         const fallback = template("t-default", { isDefault: true })
         const { routes } = collectRoutes({
             pages: [page("about", { designRef: "t-chosen" })],
+            posts: [],
             designPages: [],
             templates: [chosen, fallback]
         })
@@ -137,14 +171,24 @@ describe("collectRoutes — D4 template resolution", () => {
     })
 
     it("renders bare (D3) when there is no reference and no default", () => {
-        const { routes } = collectRoutes({ pages: [page("about")], designPages: [], templates: [template("t1")] })
+        const { routes } = collectRoutes({
+            pages: [page("about")],
+            posts: [],
+            designPages: [],
+            templates: [template("t1")]
+        })
 
         expect(routes[0].props.kind).toBe("portable")
     })
 
     it("ignores a default template belonging to another collection", () => {
         const postsDefault = template("t-posts", { collection: "posts", isDefault: true })
-        const { routes } = collectRoutes({ pages: [page("about")], designPages: [], templates: [postsDefault] })
+        const { routes } = collectRoutes({
+            pages: [page("about")],
+            posts: [],
+            designPages: [],
+            templates: [postsDefault]
+        })
 
         expect(routes[0].props.kind).toBe("portable")
     })
@@ -154,6 +198,7 @@ describe("collectRoutes — a broken reference falls soft to D3", () => {
     it("renders bare and warns when the named template is not published", () => {
         const { routes, warnings } = collectRoutes({
             pages: [page("about", { designRef: "ghost" })],
+            posts: [],
             designPages: [],
             templates: []
         })
@@ -168,6 +213,7 @@ describe("collectRoutes — a broken reference falls soft to D3", () => {
         const fallback = template("t-default", { isDefault: true })
         const { routes, warnings } = collectRoutes({
             pages: [page("about", { designRef: "ghost" })],
+            posts: [],
             designPages: [],
             templates: [fallback]
         })
@@ -183,6 +229,7 @@ describe("collectRoutes — the None sentinel opts an entry out", () => {
         const fallback = template("t-default", { isDefault: true })
         const { routes, warnings } = collectRoutes({
             pages: [page("about", { designRef: NONE.id })],
+            posts: [],
             designPages: [],
             templates: [NONE, fallback]
         })
@@ -194,6 +241,7 @@ describe("collectRoutes — the None sentinel opts an entry out", () => {
     it("renders bare when the sentinel is itself the collection default", () => {
         const { routes } = collectRoutes({
             pages: [page("about")],
+            posts: [],
             designPages: [],
             templates: [template(NONE.id, { slug: TEMPLATE_NONE_SLUG, isDefault: true })]
         })
@@ -204,7 +252,12 @@ describe("collectRoutes — the None sentinel opts an entry out", () => {
     it("is exempt from the collection-mismatch check — one sentinel serves every collection", () => {
         const sentinel = template("none-id", { slug: TEMPLATE_NONE_SLUG, collection: "posts" })
         expect(() =>
-            collectRoutes({ pages: [page("about", { designRef: "none-id" })], designPages: [], templates: [sentinel] })
+            collectRoutes({
+                pages: [page("about", { designRef: "none-id" })],
+                posts: [],
+                designPages: [],
+                templates: [sentinel]
+            })
         ).not.toThrow()
     })
 })
@@ -215,6 +268,7 @@ describe("collectRoutes — authored-wrong pairings fail the build", () => {
         expect(() =>
             collectRoutes({
                 pages: [page("about", { designRef: "t-posts" })],
+                posts: [],
                 designPages: [],
                 templates: [postsTemplate]
             })
@@ -225,6 +279,7 @@ describe("collectRoutes — authored-wrong pairings fail the build", () => {
         expect(() =>
             collectRoutes({
                 pages: [],
+                posts: [],
                 designPages: [],
                 templates: [
                     template("t1", { isDefault: true }),
@@ -238,6 +293,7 @@ describe("collectRoutes — authored-wrong pairings fail the build", () => {
         expect(() =>
             collectRoutes({
                 pages: [],
+                posts: [],
                 designPages: [],
                 templates: [
                     template("t1", { isDefault: true }),
@@ -251,19 +307,19 @@ describe("collectRoutes — authored-wrong pairings fail the build", () => {
 describe("collectRoutes — duplicate slugs fail the build", () => {
     it("throws when a design page claims a slug an existing page owns", () => {
         expect(() =>
-            collectRoutes({ pages: [page("about")], designPages: [designPage("about")], templates: [] })
+            collectRoutes({ pages: [page("about")], posts: [], designPages: [designPage("about")], templates: [] })
         ).toThrow(/duplicate slug/i)
     })
 
     it("names the offending slug and both claimants", () => {
         expect(() =>
-            collectRoutes({ pages: [page("about")], designPages: [designPage("about")], templates: [] })
+            collectRoutes({ pages: [page("about")], posts: [], designPages: [designPage("about")], templates: [] })
         ).toThrow(/"about" claimed 2× by pages, design_page/)
     })
 
     it("catches a collision within a single source", () => {
         expect(() =>
-            collectRoutes({ pages: [], designPages: [designPage("dup"), designPage("dup")], templates: [] })
+            collectRoutes({ pages: [], posts: [], designPages: [designPage("dup"), designPage("dup")], templates: [] })
         ).toThrow(/"dup" claimed 2× by design_page, design_page/)
     })
 
@@ -272,6 +328,7 @@ describe("collectRoutes — duplicate slugs fail the build", () => {
         try {
             collectRoutes({
                 pages: [page("one"), page("two"), page("ok")],
+                posts: [],
                 designPages: [designPage("one"), designPage("two")],
                 templates: []
             })
@@ -283,5 +340,115 @@ describe("collectRoutes — duplicate slugs fail the build", () => {
         expect(message).toContain('"one"')
         expect(message).toContain('"two"')
         expect(message).not.toContain('"ok"')
+    })
+})
+
+describe("collectRoutes — posts are routed under the /posts/ prefix", () => {
+    it("prefixes a post's slug, and leaves a page's alone", () => {
+        const { routes } = collectRoutes({
+            pages: [page("about")],
+            posts: [post("first")],
+            designPages: [],
+            templates: []
+        })
+
+        expect(routes.map((route) => route.slug)).toEqual(["about", "posts/first"])
+    })
+
+    it("renders an unpointed post bare (D3), like any other entry", () => {
+        const { routes } = collectRoutes({ pages: [], posts: [post("first")], designPages: [], templates: [] })
+
+        expect(routes[0].props.kind).toBe("portable")
+    })
+
+    it("renders a post through the posts template it names", () => {
+        const tpl = template("t-posts", { collection: "posts" })
+        const { routes, warnings } = collectRoutes({
+            pages: [],
+            posts: [post("first", { designRef: "t-posts" })],
+            designPages: [],
+            templates: [tpl]
+        })
+
+        const props = routes[0].props
+        if (props.kind !== "design") throw new Error("expected a design route")
+        expect(routes[0].slug).toBe("posts/first")
+        expect(props.doc).toBe(tpl.doc)
+        expect(props.template).toEqual({ slug: tpl.slug, collection: "posts" })
+        expect(warnings).toEqual([])
+    })
+
+    it("renders a post through the posts collection default", () => {
+        const fallback = template("t-posts", { collection: "posts", isDefault: true })
+        const { routes } = collectRoutes({ pages: [], posts: [post("first")], designPages: [], templates: [fallback] })
+
+        const props = routes[0].props
+        if (props.kind !== "design") throw new Error("expected a design route")
+        expect(props.doc).toBe(fallback.doc)
+    })
+
+    it("does not apply the pages default to a post", () => {
+        const pagesDefault = template("t-pages", { collection: "pages", isDefault: true })
+        const { routes } = collectRoutes({
+            pages: [],
+            posts: [post("first")],
+            designPages: [],
+            templates: [pagesDefault]
+        })
+
+        expect(routes[0].props.kind).toBe("portable")
+    })
+
+    it("throws when a post names a template that renders pages", () => {
+        const pagesTemplate = template("t-pages", { collection: "pages" })
+        expect(() =>
+            collectRoutes({
+                pages: [],
+                posts: [post("first", { designRef: "t-pages" })],
+                designPages: [],
+                templates: [pagesTemplate]
+            })
+        ).toThrow(/renders pages entries/)
+    })
+
+    it("names the ROUTED slug in a broken-reference warning, not the bare one", () => {
+        // "first" is not findable in the site; /posts/first is. The warning has to name the URL.
+        const { warnings } = collectRoutes({
+            pages: [],
+            posts: [post("first", { designRef: "ghost" })],
+            designPages: [],
+            templates: []
+        })
+
+        expect(warnings).toHaveLength(1)
+        expect(warnings[0]).toContain("posts/first")
+    })
+
+    it("does not route a post named 'home' to /, which only a page may claim", () => {
+        const { routes } = collectRoutes({ pages: [], posts: [post("home")], designPages: [], templates: [] })
+
+        expect(routes[0].slug).toBe("posts/home")
+    })
+})
+
+describe("collectRoutes — the prefix keeps the collision check meaningful", () => {
+    it("catches a page that claims a post's prefixed path", () => {
+        // The whole reason the prefix is applied at route collection: both sources are compared on the
+        // path they really own, so this is a collision rather than two silent claimants on one URL.
+        expect(() =>
+            collectRoutes({ pages: [page("posts/first")], posts: [post("first")], designPages: [], templates: [] })
+        ).toThrow(/"posts\/first" claimed 2× by pages, posts/)
+    })
+
+    it("does not collide a post with a same-named page", () => {
+        expect(() =>
+            collectRoutes({ pages: [page("first")], posts: [post("first")], designPages: [], templates: [] })
+        ).not.toThrow()
+    })
+
+    it("catches a collision between two posts", () => {
+        expect(() =>
+            collectRoutes({ pages: [], posts: [post("dup"), post("dup")], designPages: [], templates: [] })
+        ).toThrow(/"posts\/dup" claimed 2× by posts, posts/)
     })
 })

@@ -37,6 +37,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { mediaSource } from "./media"
 import { SAFE_URL_SCHEME_RE } from "./richtext"
 import { hasToken, type TokenCatalog, type TokenPropRegistry } from "./tokens"
 import { isPuckComponent, isRecord, type DesignDoc, type PuckComponent } from "./types"
@@ -285,7 +286,10 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
             break
         }
         case "ContentImage": {
-            if (!isRecord(value) || typeof value.id !== "string") {
+            // The renderer's own predicate (media.ts): a bare media `id` is NOT a usable handle — the file
+            // route is keyed by storage key and 404s on an id — so "empty" means "resolves to no source",
+            // not "has no id". Keep this in step with ContentImage's render or lint stops predicting it.
+            if (!isRecord(value) || mediaSource(value) === null) {
                 emptyValue()
             } else if (typeof value.alt !== "string" || value.alt.trim() === "") {
                 findings.push({

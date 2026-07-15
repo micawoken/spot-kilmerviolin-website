@@ -51,8 +51,12 @@
  */
 
 /**
- * A published CMS page: the fields the untemplated route renders, plus what a design template needs to
- * render it (the pivot's D4/D7 — a page can name a template that pulls its fields through outlets).
+ * A published entry of a routed content collection (`pages` or `posts`): the fields the untemplated route
+ * renders, plus what a design template needs to render it (the pivot's D4/D7 — an entry can name a
+ * template that pulls its fields through outlets).
+ *
+ * One shape serves both collections. Where they differ, the reader normalizes (see
+ * {@link fetchPublishedPosts}): a post's `excerpt` lands in `description`, and it has no `published_at`.
  */
 export interface BuildPage {
     /** the EmDash item id — what a `reference` field on another item points at */
@@ -316,34 +320,42 @@ export function normalizeReference(value: unknown): string | null {
 }
 
 /**
- * Fetches every published entry of the `pages` content type, following cursor pagination to completion.
- * Field keys (title, description, content, published_at) mirror the `pages` content type defined in the
- * EmDash admin UI; the routable slug is EmDash's top-level item `slug`. Returns [] on any read failure.
+ * Fetches every published entry of one routed content collection, following cursor pagination to
+ * completion. The routable slug is EmDash's top-level item `slug`; an item without one cannot be reached
+ * by any URL and is skipped rather than treated as fatal.
  *
  * The whole `data` record is carried through as `fields` (a template's outlets may bind any field), and
  * `design` is surfaced as `designRef` — the pivot's per-entry template pointer (D4).
  *
- * @returns {Promise<BuildPage[]>} the published pages to prerender, in API order
+ * The two routed collections do not agree on which field holds the meta description, so that one key is a
+ * parameter; everything else is read by the same name from both. A field the collection does not define
+ * (`posts` has no `published_at`) simply reads as absent, which is the D3 render's "no value" state.
+ *
+ * @param {string} collection - the EmDash collection slug ("pages" or "posts")
+ * @param {string} descriptionField - the field whose value becomes the page's meta description
+ * @returns {Promise<BuildPage[]>} the published entries to prerender, in API order
+ * @throws {CmsReadError} when a configured CMS fails the read
  */
-export async function fetchPublishedPages(): Promise<BuildPage[]> {
-    const pages: BuildPage[] = []
+async function fetchPublishedEntries(collection: string, descriptionField: string): Promise<BuildPage[]> {
+    const entries: BuildPage[] = []
     let cursor: string | undefined
 
     do {
         const query = new URLSearchParams({ status: "published", limit: "100" })
         if (cursor) query.set("cursor", cursor)
-        const result = await emdashGet<ApiListResult>(`/_emdash/api/content/pages?${query.toString()}`)
+        const result = await emdashGet<ApiListResult>(`/_emdash/api/content/${collection}?${query.toString()}`)
         if (!result?.items) break
 
         for (const item of result.items) {
             const slug = normalizeSlug(item.slug)
             if (!slug) continue
             const data = item.data ?? {}
-            pages.push({
+            const description = data[descriptionField]
+            entries.push({
                 id: item.id,
                 slug,
                 title: typeof data.title === "string" ? data.title : "",
-                description: typeof data.description === "string" ? data.description : "",
+                description: typeof description === "string" ? description : "",
                 content: data.content ?? [],
                 published_at: typeof data.published_at === "string" ? data.published_at : null,
                 fields: data,
@@ -353,7 +365,35 @@ export async function fetchPublishedPages(): Promise<BuildPage[]> {
         cursor = result.nextCursor
     } while (cursor)
 
-    return pages
+    return entries
+}
+
+/**
+ * Fetches every published `pages` entry. Field keys (title, description, content, published_at) mirror
+ * the `pages` content type defined in the EmDash admin UI.
+ *
+ * @returns {Promise<BuildPage[]>} the published pages to prerender, in API order
+ */
+export function fetchPublishedPages(): Promise<BuildPage[]> {
+    return fetchPublishedEntries("pages", "description")
+}
+
+/**
+ * Fetches every published `posts` entry (pivot D8 — posts route through the same pipeline as pages).
+ *
+ * `posts` is shaped differently from `pages`: its blurb field is **`excerpt`**, and it has **no
+ * `published_at`**, so a post carries no "last updated" date into the untemplated render. It does have a
+ * `featured_image`, the only `image` field either routed collection defines — and therefore the only
+ * field a `ContentImage` outlet can bind to anywhere on the site.
+ *
+ * The collection is read fail-LOUD (no `allowMissing`), like `pages` and unlike `design_template`: it is
+ * an EmDash seed collection that exists in every environment, so a 404 here means the CMS is not the one
+ * this build thinks it is, and quietly emitting a site with every post missing is the hazard #32 closed.
+ *
+ * @returns {Promise<BuildPage[]>} the published posts to prerender, in API order
+ */
+export function fetchPublishedPosts(): Promise<BuildPage[]> {
+    return fetchPublishedEntries("posts", "excerpt")
 }
 
 /**

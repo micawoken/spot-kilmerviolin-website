@@ -5,11 +5,12 @@
  * pivot). It answers two questions for every published slug: **who owns this path**, and **what layout
  * does it render through**.
  *
- * Ownership. Two CMS collections claim routes — the Portable-Text `pages` type and the compositor's
- * `design_page` type — and nothing in EmDash stops an author from giving a design page the same slug as
- * an existing page. Two URLs cannot both own one path, and picking a winner silently would mean an
- * author's published page vanishes with no signal. So a duplicate slug **fails the build**, naming every
- * collision at once (not just the first) so one build reveals the full extent of the problem.
+ * Ownership. Three CMS collections claim routes — the content types `pages` and `posts` (the latter under
+ * a `/posts/` prefix, pivot §7.2) and the compositor's `design_page` — and nothing in EmDash stops an
+ * author from giving a design page the same slug as an existing page. Two URLs cannot both own one path,
+ * and picking a winner silently would mean an author's published page vanishes with no signal. So a
+ * duplicate slug **fails the build**, naming every collision at once (not just the first) so one build
+ * reveals the full extent of the problem.
  *
  * Layout (the pivot's D4). Content owns the URL; a `design_template` is a layout that content flows
  * *through*. Per entry, in order:
@@ -84,6 +85,7 @@ export interface RouteEntry {
 /** The published route sources and the templates they may render through, as read by the build APIs. */
 export interface RouteSources {
     pages: BuildPage[]
+    posts: BuildPage[]
     designPages: BuildDesignPage[]
     templates: BuildTemplate[]
 }
@@ -98,7 +100,21 @@ export interface RouteTable {
 }
 
 /** Human name for a source, used only in the duplicate-slug error. */
-type SourceName = "pages" | "design_page"
+type SourceName = TemplateCollection | "design_page"
+
+/**
+ * Posts are routed under a `/posts/` prefix (pivot §7.2, owner-decided), and the prefix is applied HERE —
+ * at route collection — not in the reader and not in the route file. That placement is the whole point:
+ * the slug this module compares is the one the URL actually has, so a `pages` entry authored with the
+ * slug "posts/x" still collides with the post "x" and fails the build, instead of two sources silently
+ * claiming one path.
+ */
+export const POSTS_PREFIX = "posts"
+
+/** The public path a routed entry claims: the post prefix applied, or a page's slug as authored. */
+function routedSlug(collection: TemplateCollection, slug: string): string {
+    return collection === "posts" ? `${POSTS_PREFIX}/${slug}` : slug
+}
 
 /** The sentinel template means "render bare" (D3), not "render through a layout". */
 function isNoneSentinel(template: BuildTemplate): boolean {
@@ -147,11 +163,15 @@ function indexTemplates(templates: BuildTemplate[]): {
  * because it names no template, because its collection has no default, or because either resolves to the
  * "None" sentinel.
  *
+ * @param {BuildPage} entry - the published entry being routed
+ * @param {TemplateCollection} collection - the collection it came from (which templates may render it)
+ * @param {string} slug - the entry's routed slug, so a message names the URL an author can actually find
  * @throws {Error} when the entry's named template renders a different collection (authored wrong)
  */
 function resolveTemplate(
     entry: BuildPage,
     collection: TemplateCollection,
+    slug: string,
     index: ReturnType<typeof indexTemplates>,
     warnings: string[]
 ): BuildTemplate | null {
@@ -161,7 +181,7 @@ function resolveTemplate(
             // Draft, deleted, or garbage. Fall to D3 — NOT to the collection default: the author chose a
             // specific layout, and silently substituting another one hides the breakage.
             warnings.push(
-                `[build/route-authority] "${entry.slug}" names design template ${entry.designRef}, which is ` +
+                `[build/route-authority] "${slug}" names design template ${entry.designRef}, which is ` +
                     "not published (draft, deleted, or an invalid reference). The page renders without a " +
                     "design; publish the template or clear the field."
             )
@@ -170,7 +190,7 @@ function resolveTemplate(
         if (isNoneSentinel(named)) return null
         if (named.collection !== collection) {
             throw new Error(
-                `[build/route-authority] "${entry.slug}" (in ${collection}) names design template ` +
+                `[build/route-authority] "${slug}" (in ${collection}) names design template ` +
                     `"${named.slug}", which renders ${named.collection} entries. A template's outlets bind ` +
                     "to its own collection's fields, so it cannot render this entry. Point the page at a " +
                     `${collection} template, or change the template's collection.`
@@ -188,12 +208,16 @@ function resolveTemplate(
  * Merges the published route sources into one route table: every entry resolved to the layout it renders
  * through (D4), with duplicate slugs failing the build.
  *
- * @param {RouteSources} sources - the published pages, design pages, and design templates
- * @returns {RouteTable} - one route per slug (pages first, then design pages) plus fail-soft warnings
+ * Pages and posts differ only in the slug they claim (posts take the `/posts/` prefix) and the collection
+ * a template must declare to render them. Everything else — D4 resolution, the collision check, the
+ * design/portable split — is collection-agnostic, which is what makes adding a routed collection cheap.
+ *
+ * @param {RouteSources} sources - the published pages, posts, design pages, and design templates
+ * @returns {RouteTable} - one route per slug (entries first, then design pages) plus fail-soft warnings
  * @throws {Error} when a slug is claimed twice, a collection has two default templates, or an entry names
  *   a template belonging to another collection
  */
-export function collectRoutes({ pages, designPages, templates }: RouteSources): RouteTable {
+export function collectRoutes({ pages, posts, designPages, templates }: RouteSources): RouteTable {
     const index = indexTemplates(templates)
     const warnings: string[] = []
 
@@ -207,29 +231,33 @@ export function collectRoutes({ pages, designPages, templates }: RouteSources): 
 
     const routes: RouteEntry[] = []
 
-    for (const page of pages) {
-        claim(page.slug, "pages")
-        const template = resolveTemplate(page, "pages", index, warnings)
+    const routeEntry = (entry: BuildPage, collection: TemplateCollection) => {
+        const slug = routedSlug(collection, entry.slug)
+        claim(slug, collection)
+        const template = resolveTemplate(entry, collection, slug, index, warnings)
         routes.push({
-            slug: page.slug,
+            slug,
             props: template
                 ? {
                       kind: "design",
-                      title: page.title,
-                      description: page.description,
+                      title: entry.title,
+                      description: entry.description,
                       doc: template.doc,
-                      entry: page.fields,
+                      entry: entry.fields,
                       template: { slug: template.slug, collection: template.collection }
                   }
                 : {
                       kind: "portable",
-                      title: page.title,
-                      description: page.description,
-                      published_at: page.published_at,
-                      content: page.content
+                      title: entry.title,
+                      description: entry.description,
+                      published_at: entry.published_at,
+                      content: entry.content
                   }
         })
     }
+
+    for (const page of pages) routeEntry(page, "pages")
+    for (const post of posts) routeEntry(post, "posts")
 
     for (const designPage of designPages) {
         claim(designPage.slug, "design_page")
