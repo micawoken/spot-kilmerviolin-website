@@ -54,6 +54,7 @@ import type { PortableTextBlock } from "emdash"
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
+import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl } from "./media"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 
@@ -70,6 +71,13 @@ export type CatalogTarget = "editor" | "build"
 export interface BuildConfigContext {
     entry?: Record<string, unknown> | null
     fields?: CollectionField[]
+    /**
+     * The public media origin (`EMDASH_MEDIA_PUBLIC_URL`), required on the **build** target whenever a
+     * design renders media: a prerendered page is served to anonymous visitors, and the `/_emdash` media
+     * proxy sits behind Cloudflare Access (see `media.ts`). The editor target ignores it and uses the
+     * proxy, which is correct for an authenticated admin.
+     */
+    mediaBaseUrl?: string
 }
 
 /**
@@ -107,10 +115,14 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     Divider: { spaceAround: "space", color: "colors" }
 }
 
-/** The media object an Image stores (§4.5). `url` is the same-origin EmDash file endpoint. */
+/**
+ * The media object an Image stores (§4.5). It holds the **storage key**, never a baked URL: the URL a
+ * key resolves to differs by render target (public origin at build, Access-gated proxy in the editor),
+ * so baking one in would hard-code the wrong answer for the other. See `media.ts`.
+ */
 export interface MediaValue {
     mediaId: string
-    url: string
+    storageKey: string
     alt: string
     width: number
     height: number
@@ -144,16 +156,12 @@ function tokenSelect(theme: TokenCatalog, kind: TokenKind, label: string, option
 /** A media list row from GET /_emdash/api/media (subset of EmDash's MediaItem). */
 interface MediaListItem {
     id: string
+    storageKey: string
     filename: string
     alt: string | null
     width: number | null
     height: number | null
     mimeType: string
-}
-
-/** Builds the same-origin file URL EmDash serves a media item from (resolved to R2 on read). */
-function mediaFileUrl(id: string): string {
-    return `/_emdash/api/media/file/${id}`
 }
 
 // Rendered by Puck as a React component (AutoField mounts `<FieldComponent />`), so hooks are valid.
@@ -185,7 +193,7 @@ const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ value, o
     const pick = (item: MediaListItem) => {
         onChange({
             mediaId: item.id,
-            url: mediaFileUrl(item.id),
+            storageKey: item.storageKey,
             alt: item.alt ?? "",
             width: item.width ?? 0,
             height: item.height ?? 0
@@ -205,9 +213,9 @@ const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ value, o
             >
                 {value ? `Change image (${value.alt || value.mediaId})` : "Choose image…"}
             </button>
-            {value?.url && (
+            {value?.storageKey && isSafeStorageKey(value.storageKey) && (
                 <img
-                    src={value.url}
+                    src={proxyMediaUrl(value.storageKey)}
                     alt={value.alt}
                     style={{ marginTop: "0.5rem", maxWidth: "100%", height: "auto", display: "block" }}
                 />
@@ -272,7 +280,7 @@ const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ value, o
                                     style={{ padding: 0, border: "1px solid #ddd", cursor: "pointer", background: "none" }}
                                 >
                                     <img
-                                        src={mediaFileUrl(item.id)}
+                                        src={proxyMediaUrl(item.storageKey)}
                                         alt={item.alt ?? item.filename}
                                         style={{ width: "100%", height: "90px", objectFit: "cover", display: "block" }}
                                     />
@@ -410,6 +418,13 @@ function outletFieldSelect(fields: CollectionField[] | undefined, accepted: read
 export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?: BuildConfigContext): Config {
     const isEditor = target === "editor"
 
+    // One storage key resolves to a different URL per target: the public media origin at build (a
+    // prerendered page is served to anonymous visitors and the /_emdash proxy is Access-gated), the
+    // same-origin proxy in the editor (the admin is authenticated through Access, and the public origin
+    // is not in the client bundle). See media.ts — getting this backwards ships a broken <img>.
+    const resolveMediaUrl = (storageKey: string) =>
+        isEditor ? proxyMediaUrl(storageKey) : publicMediaUrl(storageKey, context?.mediaBaseUrl)
+
     const components = {
         Section: {
             label: "Section",
@@ -528,8 +543,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             },
             defaultProps: { alt: "", aspect: "original" },
             render: ({ media, alt, aspect }: ImageProps) => {
-                if (!media?.url) return null
-                return renderImageTag(media.url, alt, media.width || undefined, media.height || undefined, aspect)
+                if (!media?.storageKey || !isSafeStorageKey(media.storageKey)) return null
+                const url = resolveMediaUrl(media.storageKey)
+                return renderImageTag(url, alt, media.width || undefined, media.height || undefined, aspect)
             }
         },
         Button: {
@@ -651,10 +667,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { field: "", aspect: "original" },
             render: ({ field, aspect }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
-                // An EmDash image field value always carries the media `id`; `src` is present when the
-                // API pre-resolved a URL. Fall back to the same-origin file endpoint the picker uses.
-                if (isRecord(image) && typeof image.id === "string") {
-                    const url = typeof image.src === "string" && image.src !== "" ? image.src : mediaFileUrl(image.id)
+                // For local media EmDash strips `src` on persist and carries the key at `meta.storageKey`
+                // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it.
+                const source = mediaSource(image)
+                if (source && isRecord(image)) {
+                    const url = source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url
                     const alt = typeof image.alt === "string" ? image.alt : ""
                     const width = typeof image.width === "number" ? image.width : undefined
                     const height = typeof image.height === "number" ? image.height : undefined

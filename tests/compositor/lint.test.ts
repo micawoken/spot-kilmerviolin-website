@@ -228,7 +228,9 @@ const SCHEMA: CollectionField[] = [
 const ENTRY: Record<string, unknown> = {
     title: "Entry title",
     body: [ptHeading("normal", "plain paragraph")],
-    cover: { id: "med_1", alt: "A violin" }
+    // The real local-media wire shape: `src` stripped, key at `meta.storageKey`. A bare `id` resolves to
+    // NOTHING (the file route is keyed by the storage key), which is why lint treats it as empty.
+    cover: { id: "med_1", alt: "A violin", provider: "local", meta: { storageKey: "med_1.jpg" } }
 }
 
 function contentText(field: string, level = "h1") {
@@ -301,7 +303,7 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
     })
 
     it("errors when the resolved image has no alt text", () => {
-        const entry = { ...ENTRY, cover: { id: "med_1", alt: "" } }
+        const entry = { ...ENTRY, cover: { id: "med_1", alt: "", provider: "local", meta: { storageKey: "med_1.jpg" } } }
         const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
         expect(rules(findings)).toContain("content-image-alt")
         expect(hasBlockingError(findings)).toBe(true)
@@ -312,6 +314,14 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
         const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
         expect(rules(findings)).toContain("empty-outlet-value")
         expect(rules(findings)).not.toContain("content-image-alt")
+    })
+
+    it("warns when the image value carries only a media id — it resolves to nothing at render", () => {
+        // Lint must predict the renderer: a bare id is not a usable handle, so this renders no <img>.
+        // Reporting it as "present" would let a silently-imageless page publish clean.
+        const entry = { ...ENTRY, cover: { id: "med_1", alt: "A violin" } }
+        const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
+        expect(rules(findings)).toContain("empty-outlet-value")
     })
 })
 

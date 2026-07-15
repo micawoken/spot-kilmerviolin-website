@@ -1,7 +1,7 @@
 /**
  * tools/gate/run-phase-b-gate.mjs
  *
- * The compositor pivot's Phase B gate (plan §6, gates 2 and 5), executable and re-runnable:
+ * The compositor pivot's Phase B and C gate (plan §6, gates 2, 5 and 6), executable and re-runnable:
  *
  *   npm run gate:phase-b
  *
@@ -10,10 +10,11 @@
  *   1. no unrecorded CMS path was requested        (else the build degraded and nothing below means anything)
  *   2. the templated build is not vacuous          (a CMS-less build emits ZERO html and would pass 3–5 trivially)
  *   3. the entry rendered THROUGH the template     (its fields reached the page via outlets)
- *   4. the templated page ships zero JavaScript    (delegated to tools/check-zero-js.mjs)
+ *   4. the templated page and post ship zero JS    (delegated to tools/check-zero-js.mjs)
  *   5. every untemplated page is byte-identical    (D3: attaching a template to one entry moves nothing else)
  *   6. an entry that names NO template renders through its collection's default (D4 rule 2)
  *   7. a broken pairing FAILS the build, naming entry + template + rule
+ *   8. a post's image resolves to the PUBLIC media origin, and no page links the Access-gated proxy
  *
  * Assertion 2 is not paranoia: `astro build` with no reachable CMS prerenders no pages at all, so a
  * "no <script> anywhere in dist/" sweep over that output passes while proving nothing. Assertion 7
@@ -24,6 +25,10 @@
  * which left rule 2 unexercised — and it was in fact DEAD in production: `is_default` arrives from EmDash
  * as the number 1, and the build tested it with `=== true`. Only a fixture serving EmDash's real wire shape
  * can catch that, so this one does.
+ *
+ * Assertion 8 is Phase C's whole point. `posts.featured_image` is the only image field either routed
+ * collection defines, so a post is the first entry that can prove a rendered <img> is reachable by an
+ * anonymous visitor. A same-origin `/_emdash/api/media/file/…` URL is not: it 302s to an Access login.
  *
  * This overwrites the working `dist/` (gitignored) as it goes; the last build is the one that FAILS on
  * purpose, so do not expect a usable `dist/` afterwards.
@@ -57,8 +62,17 @@ import {
     TEMPLATE_SLUG,
     TEMPLATED_TITLE,
     TEMPLATED_BODY_TEXT,
-    BOUND_RICHTEXT_FIELD
+    BOUND_RICHTEXT_FIELD,
+    TEMPLATED_POST_SLUG,
+    POST_TITLE,
+    POST_BODY_TEXT,
+    POST_IMAGE_ALT,
+    MEDIA_BASE,
+    MEDIA_STORAGE_KEY
 } from "./fixtures.mjs"
+
+/** EmDash's same-origin media proxy — Access-gated, so it must NEVER appear in a prerendered page. */
+const INTERNAL_MEDIA_PREFIX = "/_emdash/api/media/file/"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const astroBin = join(root, "node_modules", "astro", "bin", "astro.mjs")
@@ -81,8 +95,10 @@ function build(base) {
     return new Promise((resolve) => {
         const child = spawn(process.execPath, [astroBin, "build"], {
             cwd: root,
-            // A shell CONTENT_API_BASE overrides .env, which is what isolates this from prod.
-            env: { ...process.env, CONTENT_API_BASE: base },
+            // A shell CONTENT_API_BASE overrides .env, which is what isolates this from prod. The media
+            // origin is pinned the same way and to a FAKE host, so assertion 8 proves the build actually
+            // read EMDASH_MEDIA_PUBLIC_URL rather than coincidentally matching the real origin.
+            env: { ...process.env, CONTENT_API_BASE: base, EMDASH_MEDIA_PUBLIC_URL: MEDIA_BASE },
             stdio: ["ignore", "pipe", "pipe"]
         })
         let output = ""
@@ -109,10 +125,10 @@ function snapshotHtml() {
     return files
 }
 
-/** The templated entry's page, however the configured build format spells it. */
-function findTemplatedPage(files) {
+/** One routed entry's page, however the configured build format spells it. */
+function findPage(files, slug) {
     for (const path of files.keys()) {
-        if (path === `${TEMPLATED_SLUG}/index.html` || path === `${TEMPLATED_SLUG}.html`) return path
+        if (path === `${slug}/index.html` || path === `${slug}.html`) return path
     }
     return null
 }
@@ -163,11 +179,13 @@ record(
 )
 
 // --- 2. not vacuous -------------------------------------------------------------------------------
-const templatedPage = findTemplatedPage(templated.html)
+const templatedPage = findPage(templated.html, TEMPLATED_SLUG)
+const templatedPost = findPage(templated.html, TEMPLATED_POST_SLUG)
 record(
     "2. templated build emitted pages",
-    templated.html.size > 0 && templatedPage !== null,
-    `${templated.html.size} html file(s); "${TEMPLATED_SLUG}" page: ${templatedPage ?? "MISSING"}`
+    templated.html.size > 0 && templatedPage !== null && templatedPost !== null,
+    `${templated.html.size} html file(s); "${TEMPLATED_SLUG}" page: ${templatedPage ?? "MISSING"}; ` +
+        `"${TEMPLATED_POST_SLUG}" page: ${templatedPost ?? "MISSING"}`
 )
 
 // --- 3. the entry rendered through the template ----------------------------------------------------
@@ -191,16 +209,27 @@ if (templatedPage) {
     record("3. entry rendered through the template", false, "no templated page to inspect")
 }
 
-// --- 4. zero JS on the templated page ---------------------------------------------------------------
-if (templatedPage) {
-    const zeroJs = await runZeroJsCheck(join(distClient, templatedPage))
-    record("4. templated page ships zero JS", zeroJs.code === 0, zeroJs.output.trim().split("\n").pop() ?? "")
-} else {
-    record("4. templated page ships zero JS", false, "no templated page to check")
+// --- 4. zero JS on both templated entries ------------------------------------------------------------
+// The post carries an <img> outlet the page does not, and an image component is the easiest place to
+// smuggle a hydrated island in — so it is checked in its own right, not by proxy.
+for (const [label, path] of [
+    ["page", templatedPage],
+    ["post", templatedPost]
+]) {
+    const name = `4. templated ${label} ships zero JS`
+    if (!path) {
+        record(name, false, `no templated ${label} to check`)
+        continue
+    }
+    const zeroJs = await runZeroJsCheck(join(distClient, path))
+    record(name, zeroJs.code === 0, zeroJs.output.trim().split("\n").pop() ?? "")
 }
 
 // --- 5. every untemplated page is untouched (D3) -----------------------------------------------------
-const others = [...baseline.html.keys()].filter((path) => path !== templatedPage)
+// Both templated entries are excluded: each one legitimately changes between the two builds — that is
+// what assertion 3 proves. Everything else must not move.
+const templatedPaths = new Set([templatedPage, templatedPost].filter(Boolean))
+const others = [...baseline.html.keys()].filter((path) => !templatedPaths.has(path))
 const sameSet =
     baseline.html.size === templated.html.size &&
     [...baseline.html.keys()].every((path) => templated.html.has(path))
@@ -257,6 +286,34 @@ record(
             `failed, but the error never named: ${missing.join(", ")}\n${tail(broken.output)}`
 )
 
+// --- 8. the post's image is reachable by an anonymous visitor (media through the public origin) --------
+// MEDIA_BASE is a host that does not exist. If the emitted <img> carries it, the build genuinely read
+// EMDASH_MEDIA_PUBLIC_URL out of its environment; if it carried the real origin instead, .env had won and
+// the assertion would be proving nothing about the code under test.
+if (templatedPost) {
+    const html = templated.html.get(templatedPost).toString("utf8")
+    const expectedSrc = `${MEDIA_BASE}/${MEDIA_STORAGE_KEY}`
+
+    const titleInH1 = new RegExp(`<h1[^>]*>[\\s\\S]*?${POST_TITLE}[\\s\\S]*?</h1>`, "i").test(html)
+    const bodyPresent = html.includes(POST_BODY_TEXT)
+    const imagePresent = html.includes(expectedSrc) && html.includes(POST_IMAGE_ALT)
+    // The whole dist/, not just this page: one Access-gated URL anywhere is a broken image in production.
+    const gated = [...templated.html.entries()]
+        .filter(([, bytes]) => bytes.toString("utf8").includes(INTERNAL_MEDIA_PREFIX))
+        .map(([path]) => path)
+
+    record(
+        "8. the post's media resolves to the public origin",
+        titleInH1 && bodyPresent && imagePresent && gated.length === 0,
+        `title in <h1>: ${titleInH1}; body text: ${bodyPresent}; <img src="${expectedSrc}">: ${imagePresent}; ` +
+            (gated.length === 0
+                ? `no ${INTERNAL_MEDIA_PREFIX} URL anywhere in dist/`
+                : `ACCESS-GATED media URL in: ${gated.join(", ")}`)
+    )
+} else {
+    record("8. the post's media resolves to the public origin", false, "no templated post to inspect")
+}
+
 // --- report -------------------------------------------------------------------------------------------
 console.log("\n" + "─".repeat(72))
 for (const { name, passed, detail } of results) {
@@ -266,7 +323,7 @@ console.log("─".repeat(72))
 
 const failed = results.filter((result) => !result.passed)
 if (failed.length > 0) {
-    console.error(`\nPHASE B GATE FAILED — ${failed.length} of ${results.length} assertion(s)\n`)
+    console.error(`\nPHASE B/C GATE FAILED — ${failed.length} of ${results.length} assertion(s)\n`)
     process.exit(1)
 }
-console.log("\nPHASE B GATE PASSED (plan §6 gates 2 and 5)\n")
+console.log("\nPHASE B/C GATE PASSED (plan §6 gates 2, 5 and 6)\n")
