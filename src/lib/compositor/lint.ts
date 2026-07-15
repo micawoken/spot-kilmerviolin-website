@@ -100,6 +100,8 @@ interface LintState {
     tokenProps: TokenPropRegistry
     outletProps: OutletPropRegistry
     context: LintPairingContext | undefined
+    /** true when linting a document about to be published — hardens `unknown-token` to an error (DD2). */
+    published: boolean
     findings: LintFinding[]
     headings: HeadingRef[]
     outletCount: number
@@ -126,13 +128,16 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
     const { type, props } = component
     const { theme, findings, headings } = state
 
-    // Token references: a stored token name that no longer exists in the theme (warning; renders unstyled).
+    // Token references: a stored token name that no longer exists in the theme. On a PUBLISHED document
+    // this is an error — it ships a visibly-unstyled element, the failure the 2026-07-14 homepage incident
+    // taught us to catch at the gate (DD2). In the editor (draft) it stays a warning: the author may be
+    // mid-rename and must not be blocked on a token they are about to fix.
     if (theme) {
         for (const [prop, kind] of Object.entries(state.tokenProps[type] ?? {})) {
             const value = props[prop]
             if (typeof value === "string" && value !== "" && !hasToken(theme, kind, value)) {
                 findings.push({
-                    severity: "warning",
+                    severity: state.published ? "error" : "warning",
                     rule: "unknown-token",
                     path,
                     message: `${prop} references ${kind} token "${value}", which is not in the theme`
@@ -389,6 +394,9 @@ function lintHeadings(headings: HeadingRef[], findings: LintFinding[]): void {
  * @param {TokenPropRegistry} tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
  * @param {OutletPropRegistry} outletProps - outlet type → accepted field types (catalog `OUTLET_PROPS`)
  * @param {LintPairingContext} [context] - present for a `design_template` doc; absent for a `design_page`
+ * @param {boolean} [published=false] - true for a document being published (build gate), which promotes
+ *   the `unknown-token` finding to an error (DD2); false (the default, and the editor's intent) keeps it
+ *   a warning so an author mid-rename is not blocked
  * @returns {LintFinding[]} - all findings; callers gate on `severity === "error"`
  */
 export function lintDesign(
@@ -396,13 +404,15 @@ export function lintDesign(
     theme: TokenCatalog | null,
     tokenProps: TokenPropRegistry,
     outletProps: OutletPropRegistry,
-    context?: LintPairingContext
+    context?: LintPairingContext,
+    published = false
 ): LintFinding[] {
     const state: LintState = {
         theme,
         tokenProps,
         outletProps,
         context,
+        published,
         findings: [],
         headings: [],
         outletCount: 0
@@ -435,4 +445,47 @@ export function lintDesign(
 /** Whether a finding set blocks publish / fails the build (any error present). */
 export function hasBlockingError(findings: LintFinding[]): boolean {
     return findings.some((finding) => finding.severity === "error")
+}
+
+/**
+ * Every token a set of designs references, as `"<kind>:<name>"` → the design labels that use it. Powers
+ * the theme editor's rename/remove guard (§3.1): before a token is renamed or removed, the editor can
+ * name exactly which designs would lose that style. Pure and catalog-agnostic (takes `TokenPropRegistry`
+ * as an argument, same decoupling as `lintDesign`); walks the stored Puck tree exactly like `walk`.
+ *
+ * @param {{ label: string; doc: DesignDoc }[]} docs - the designs to scan, each with a display label
+ * @param {TokenPropRegistry} tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
+ * @returns {Map<string, string[]>} - `"<kind>:<name>"` → the distinct design labels referencing it
+ */
+export function collectTokenUsage(
+    docs: { label: string; doc: DesignDoc }[],
+    tokenProps: TokenPropRegistry
+): Map<string, string[]> {
+    const usage = new Map<string, string[]>()
+
+    const record = (key: string, label: string): void => {
+        const labels = usage.get(key)
+        if (!labels) usage.set(key, [label])
+        else if (!labels.includes(label)) labels.push(label)
+    }
+
+    const visit = (components: unknown[], label: string): void => {
+        for (const component of components) {
+            if (!isPuckComponent(component)) continue
+            for (const [prop, kind] of Object.entries(tokenProps[component.type] ?? {})) {
+                const value = component.props[prop]
+                if (typeof value === "string" && value !== "") record(`${kind}:${value}`, label)
+            }
+            for (const value of Object.values(component.props)) {
+                if (Array.isArray(value) && value.some(isPuckComponent)) visit(value, label)
+            }
+        }
+    }
+
+    for (const { label, doc } of docs) {
+        const content = (doc.puck as { content?: unknown }).content
+        if (Array.isArray(content)) visit(content, label)
+    }
+
+    return usage
 }

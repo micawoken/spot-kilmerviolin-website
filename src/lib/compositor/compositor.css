@@ -74,31 +74,19 @@
 	height: auto;
 }
 
-/* Button — variant classes (no theme variant registry in §4.3; see catalog.tsx header). Each consumes
- * conventional `--dtk-*` tokens and fails soft when a theme omits them. */
+/* Button — a theme-authored variant (§4.3 buttonVariants) resolved by catalog.tsx into these `--cmp-button-*`
+ * locals. The literal fallbacks matter: with no theme at all a button degrades to a plain, legible,
+ * borderless link — visible and recoverable (the fail-soft philosophy, tokens.ts), not a broken page. */
 .cmp-button {
 	display: inline-block;
-	padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-md, 1rem);
-	border-radius: var(--dtk-radius-md, 0);
-	border: 1px solid transparent;
+	padding: var(--cmp-button-pad-y, 0.5rem) var(--cmp-button-pad-x, 1rem);
+	background: var(--cmp-button-bg, transparent);
+	color: var(--cmp-button-text, currentColor);
+	border: var(--cmp-button-border-width, 1px) var(--cmp-button-border-style, solid)
+		var(--cmp-button-border-color, transparent);
+	border-radius: var(--cmp-button-radius, 0);
 	text-decoration: none;
 	cursor: pointer;
-}
-.cmp-button--primary {
-	background: var(--dtk-color-accent, #2337ff);
-	color: var(--dtk-color-page-bg, #fff);
-}
-.cmp-button--secondary {
-	background: transparent;
-	border-color: var(--dtk-color-accent, #2337ff);
-	color: var(--dtk-color-accent, #2337ff);
-}
-.cmp-button--ghost {
-	background: transparent;
-	color: var(--dtk-color-accent, #2337ff);
-}
-.cmp-button--ghost:hover {
-	text-decoration: underline;
 }
 
 /* Spacer — empty vertical space. */

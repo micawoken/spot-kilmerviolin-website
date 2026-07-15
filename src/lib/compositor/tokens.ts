@@ -61,6 +61,27 @@ export interface BreakpointToken {
 }
 
 /**
+ * A named button style: a bundle of references to other tokens (mirrors `BorderToken.colorRef`).
+ * Emitted as one `--dtk-btn-<name>-…` custom property per sub-value, each resolving to the referenced
+ * token's own property, so renaming a referenced token flows through here fail-soft (an unset var).
+ */
+export interface ButtonVariantToken {
+    name: string
+    /** names a `colors` token */
+    background: string
+    /** names a `colors` token */
+    text: string
+    /** names a `borders` token; omit for no border */
+    border?: string
+    /** names a `radius` token */
+    radius: string
+    /** names a `space` token */
+    paddingX: string
+    /** names a `space` token */
+    paddingY: string
+}
+
+/**
  * The theme's token catalog — the value of the single `design_theme` item's `tokens` field
  * (impl §4.3). A closed set of token types (plan decision 7); `modes` is a documented schema
  * door for dark mode, intentionally not built in Phase 1.
@@ -75,6 +96,12 @@ export interface TokenCatalog {
     shadows: ValueToken[]
     borders: BorderToken[]
     breakpoints: BreakpointToken[]
+    /**
+     * Theme-authored button styles. OPTIONAL and normalized to `[]` on read: a live theme predating this
+     * field must still validate, or `fetchPublishedTheme` would reject the whole catalog and unstyle every
+     * design page (see `isTokenCatalog`). New keys added to this interface must follow the same pattern.
+     */
+    buttonVariants?: ButtonVariantToken[]
 }
 
 /**
@@ -90,11 +117,20 @@ export const EMPTY_TOKEN_CATALOG: TokenCatalog = Object.freeze({
     radius: [],
     shadows: [],
     borders: [],
-    breakpoints: []
+    breakpoints: [],
+    buttonVariants: []
 })
 
 /** The catalog keys a component field can select from. Drives `tokenVar` / `tokenSelectOptions`. */
-export type TokenKind = "colors" | "typography" | "space" | "radius" | "shadows" | "borders" | "breakpoints"
+export type TokenKind =
+    | "colors"
+    | "typography"
+    | "space"
+    | "radius"
+    | "shadows"
+    | "borders"
+    | "breakpoints"
+    | "buttonVariants"
 
 /**
  * Registry mapping a component `type` to each of its token-select props and the token kind that prop
@@ -115,7 +151,8 @@ const KIND_SEGMENT: Record<TokenKind, string> = {
     radius: "radius",
     shadows: "shadow",
     borders: "border",
-    breakpoints: "breakpoint"
+    breakpoints: "breakpoint",
+    buttonVariants: "btn"
 }
 
 /**
@@ -173,7 +210,7 @@ export function tokenVar(kind: TokenKind, name: string, sub?: string): string {
  * @returns {boolean} - true if a token with that name exists under that kind
  */
 export function hasToken(catalog: TokenCatalog, kind: TokenKind, name: string): boolean {
-    return catalog[kind].some((token) => token.name === name)
+    return (catalog[kind] ?? []).some((token) => token.name === name)
 }
 
 /**
@@ -185,7 +222,7 @@ export function hasToken(catalog: TokenCatalog, kind: TokenKind, name: string): 
  * @returns {{ label: string; value: string }[]} - select options for the kind's tokens
  */
 export function tokenSelectOptions(catalog: TokenCatalog, kind: TokenKind): { label: string; value: string }[] {
-    return catalog[kind].map((token) => ({ label: token.name, value: token.name }))
+    return (catalog[kind] ?? []).map((token) => ({ label: token.name, value: token.name }))
 }
 
 /**
@@ -232,6 +269,28 @@ export function tokensToCss(catalog: TokenCatalog): string {
         // colorRef resolves to the color token's own property; a dangling ref yields an unset var.
         lines.push(`${tokenVarName("borders", token.name, "color")}: ${tokenVar("colors", token.colorRef)};`)
     }
+    // Each variant field references another token, emitted as a var() to that token's own property
+    // (like borders' colorRef). A dangling ref yields an unset var, not a crash; the border sub-values
+    // are emitted only when `border` names a token, so a border-less variant inherits the CSS fallback.
+    for (const variant of catalog.buttonVariants ?? []) {
+        if (!isValidTokenName(variant.name)) continue
+        lines.push(`${tokenVarName("buttonVariants", variant.name, "bg")}: ${tokenVar("colors", variant.background)};`)
+        lines.push(`${tokenVarName("buttonVariants", variant.name, "text")}: ${tokenVar("colors", variant.text)};`)
+        lines.push(`${tokenVarName("buttonVariants", variant.name, "radius")}: ${tokenVar("radius", variant.radius)};`)
+        lines.push(`${tokenVarName("buttonVariants", variant.name, "pad-x")}: ${tokenVar("space", variant.paddingX)};`)
+        lines.push(`${tokenVarName("buttonVariants", variant.name, "pad-y")}: ${tokenVar("space", variant.paddingY)};`)
+        if (variant.border !== undefined && variant.border !== "") {
+            lines.push(
+                `${tokenVarName("buttonVariants", variant.name, "border-width")}: ${tokenVar("borders", variant.border, "width")};`
+            )
+            lines.push(
+                `${tokenVarName("buttonVariants", variant.name, "border-style")}: ${tokenVar("borders", variant.border, "style")};`
+            )
+            lines.push(
+                `${tokenVarName("buttonVariants", variant.name, "border-color")}: ${tokenVar("borders", variant.border, "color")};`
+            )
+        }
+    }
 
     return `:root {\n${lines.map((line) => `    ${line}`).join("\n")}\n}`
 }
@@ -271,6 +330,19 @@ function isBreakpointToken(value: unknown): value is BreakpointToken {
     return isRecord(value) && typeof value.name === "string" && typeof value.minWidth === "string"
 }
 
+function isButtonVariantToken(value: unknown): value is ButtonVariantToken {
+    return (
+        isRecord(value) &&
+        typeof value.name === "string" &&
+        typeof value.background === "string" &&
+        typeof value.text === "string" &&
+        typeof value.radius === "string" &&
+        typeof value.paddingX === "string" &&
+        typeof value.paddingY === "string" &&
+        (value.border === undefined || typeof value.border === "string")
+    )
+}
+
 /**
  * Whether a value is a structurally valid TokenCatalog. Used to validate the stored `design_theme`
  * item before use (theme editor §6.5, build fetch §6.6). Structural only — it does not check that
@@ -289,6 +361,47 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
         isArrayOf(value.radius, isValueToken) &&
         isArrayOf(value.shadows, isValueToken) &&
         isArrayOf(value.borders, isBorderToken) &&
-        isArrayOf(value.breakpoints, isBreakpointToken)
+        isArrayOf(value.breakpoints, isBreakpointToken) &&
+        // Optional (trap A): a theme predating buttonVariants must validate, or the whole catalog is
+        // rejected and every design page renders unstyled. Present-but-malformed is still a rejection.
+        (value.buttonVariants === undefined || isArrayOf(value.buttonVariants, isButtonVariantToken))
     )
+}
+
+/** One dangling reference from a button variant to a token that is not in the catalog. */
+export interface TokenCatalogFinding {
+    variant: string
+    /** the variant field carrying the dangling reference (e.g. "background", "border") */
+    field: string
+    /** the referenced token name that does not exist */
+    ref: string
+    /** the kind the reference should have resolved against */
+    kind: TokenKind
+}
+
+/**
+ * Lints a theme's own internal references: each button variant references color/space/radius/border
+ * tokens by name, and this reports any whose target is absent. This is the second-order dangle the
+ * design-level `unknown-token` rule cannot see — that rule checks a `Button.variant` names a variant
+ * that exists; this checks the variant's own refs. Structural only, like `isTokenCatalog`.
+ *
+ * @param {TokenCatalog} catalog - the theme catalog
+ * @returns {TokenCatalogFinding[]} - one finding per dangling variant reference, in catalog order
+ */
+export function lintTokenCatalog(catalog: TokenCatalog): TokenCatalogFinding[] {
+    const findings: TokenCatalogFinding[] = []
+    for (const variant of catalog.buttonVariants ?? []) {
+        const refs: Array<[field: string, ref: string, kind: TokenKind]> = [
+            ["background", variant.background, "colors"],
+            ["text", variant.text, "colors"],
+            ["radius", variant.radius, "radius"],
+            ["paddingX", variant.paddingX, "space"],
+            ["paddingY", variant.paddingY, "space"]
+        ]
+        if (variant.border !== undefined && variant.border !== "") refs.push(["border", variant.border, "borders"])
+        for (const [field, ref, kind] of refs) {
+            if (!hasToken(catalog, kind, ref)) findings.push({ variant: variant.name, field, ref, kind })
+        }
+    }
+    return findings
 }

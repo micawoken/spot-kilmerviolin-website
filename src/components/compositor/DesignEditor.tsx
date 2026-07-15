@@ -494,6 +494,10 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     // Template mode blocks on the STRUCTURAL pass only (entry: null); the pass against the preview
     // entry is displayed as advisory — the preview is one sample, and the build gates every real
     // (template × entry) pairing. Page mode blocks on everything, as before.
+    //
+    // `published` is left at its default (false), so `unknown-token` stays a WARNING here (DD2): an author
+    // mid-rename must not be blocked on a token they are about to fix. The build re-lints with
+    // published: true and fails there if a dangling token actually reaches a published document.
     const lint = useMemo<{ findings: LintFinding[]; blocked: boolean }>(() => {
         if (!publishOpen || !workingRef.current) return { findings: [], blocked: false }
         const stored = editorFormToDesign({ schemaVersion: CURRENT_SCHEMA_VERSION, puck: workingRef.current }, RICH_TEXT_PROPS)

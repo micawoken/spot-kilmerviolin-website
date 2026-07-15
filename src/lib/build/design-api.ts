@@ -32,7 +32,7 @@
  */
 
 import { migrateDesign } from "../compositor/migrations"
-import { isTokenCatalog, type TokenCatalog } from "../compositor/tokens"
+import { isTokenCatalog, lintTokenCatalog, type TokenCatalog } from "../compositor/tokens"
 import { cmsBoolean, isTemplateCollection, TEMPLATE_COLLECTIONS, type DesignDoc, type TemplateCollection } from "../compositor/types"
 import { emdashGet, normalizeSlug, type ApiListResult } from "./emdash-api"
 
@@ -273,6 +273,17 @@ export async function fetchPublishedTheme(): Promise<TokenCatalog | null> {
                 "will render without any design tokens. Re-save the theme in /admin/designs/theme."
         )
         return null
+    }
+
+    // A button variant whose reference names a deleted token is an authoring bug the owner should see —
+    // but the emitted var() already fails soft (renders the CSS fallback), so warn, do not throw. This is
+    // narrower than the design-level unknown-token rule (DD2): that fails the build on a DESIGN referencing
+    // a missing token; this is a cosmetic THEME-internal dangle.
+    for (const finding of lintTokenCatalog(tokens)) {
+        console.warn(
+            `[build/design-api] button variant "${finding.variant}" ${finding.field} references ` +
+                `${finding.kind} token "${finding.ref}", which is not in the theme — it will render its CSS fallback.`
+        )
     }
 
     return tokens

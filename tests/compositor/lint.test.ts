@@ -20,7 +20,7 @@
 
 import { describe, it, expect } from "vitest"
 
-import { lintDesign, hasBlockingError, type LintPairingContext, type OutletPropRegistry } from "../../src/lib/compositor/lint"
+import { collectTokenUsage, lintDesign, hasBlockingError, type LintPairingContext, type OutletPropRegistry } from "../../src/lib/compositor/lint"
 import type { CollectionField } from "../../src/lib/build/design-api"
 import type { TokenCatalog, TokenPropRegistry } from "../../src/lib/compositor/tokens"
 import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
@@ -33,7 +33,8 @@ const TOKEN_PROPS: TokenPropRegistry = {
     Heading: { typography: "typography" },
     ContentText: { typography: "typography" },
     Spacer: { size: "space" },
-    Divider: { spaceAround: "space", color: "colors" }
+    Divider: { spaceAround: "space", color: "colors" },
+    Button: { variant: "buttonVariants" }
 }
 
 // The content outlets and their accepted field types (mirrors catalog.tsx OUTLET_PROPS), local for
@@ -378,5 +379,70 @@ describe("lintDesign — template-no-outlets", () => {
 
     it("never fires for a design_page doc", () => {
         expect(rules(lint([heading("h1")]))).not.toContain("template-no-outlets")
+    })
+})
+
+// --- Phase D: unknown-token severity by publication state (DD2) -------------------------------------
+
+describe("lintDesign — unknown-token fires on Button.variant and hardens when published", () => {
+    // THEME declares no buttonVariants, so any Button.variant is a dangling reference.
+    const button = { type: "Button", props: { label: "Go", href: "/x", variant: "primary" } }
+
+    it("fires unknown-token on a Button.variant absent from the theme", () => {
+        const findings = lintDesign(doc([heading("h1"), button]), THEME, TOKEN_PROPS, OUTLET_PROPS)
+        const unknown = findings.filter((f) => f.rule === "unknown-token")
+        expect(unknown).toHaveLength(1)
+        expect(unknown[0].message).toContain("buttonVariants")
+    })
+
+    it("is a WARNING for a draft (published omitted/false) — does not block the editor", () => {
+        const findings = lintDesign(doc([heading("h1"), button]), THEME, TOKEN_PROPS, OUTLET_PROPS, undefined, false)
+        const unknown = findings.filter((f) => f.rule === "unknown-token")
+        expect(unknown[0].severity).toBe("warning")
+        expect(hasBlockingError(findings)).toBe(false)
+    })
+
+    it("is an ERROR when published — fails the build (DD2)", () => {
+        const findings = lintDesign(doc([heading("h1"), button]), THEME, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
+        const unknown = findings.filter((f) => f.rule === "unknown-token")
+        expect(unknown[0].severity).toBe("error")
+        expect(hasBlockingError(findings)).toBe(true)
+    })
+})
+
+describe("collectTokenUsage", () => {
+    it("maps each token reference to the distinct design labels using it", () => {
+        const docs = [
+            { label: "Home", doc: doc([{ type: "Section", props: { background: "accent", paddingY: "md", content: [heading("h1")] } }]) },
+            {
+                label: "About",
+                doc: doc([
+                    { type: "Section", props: { background: "accent", paddingY: "sm", content: [] } },
+                    { type: "Button", props: { label: "Go", href: "/x", variant: "primary" } }
+                ])
+            }
+        ]
+        const usage = collectTokenUsage(docs, TOKEN_PROPS)
+        expect(usage.get("colors:accent")).toEqual(["Home", "About"])
+        expect(usage.get("space:md")).toEqual(["Home"])
+        expect(usage.get("typography:display")).toEqual(["Home"])
+        expect(usage.get("space:sm")).toEqual(["About"])
+        expect(usage.get("buttonVariants:primary")).toEqual(["About"])
+        expect(usage.get("colors:missing")).toBeUndefined()
+    })
+
+    it("records a label once per token even when it references it twice (and recurses into slots)", () => {
+        const twice = doc([
+            { type: "Section", props: { background: "accent", paddingY: "md", content: [{ type: "Divider", props: { spaceAround: "md", color: "accent" } }] } }
+        ])
+        const usage = collectTokenUsage([{ label: "Dup", doc: twice }], TOKEN_PROPS)
+        expect(usage.get("colors:accent")).toEqual(["Dup"])
+    })
+
+    it("skips empty ('') token props (the None option)", () => {
+        const withNone = doc([{ type: "Section", props: { background: "", paddingY: "md", content: [] } }])
+        const usage = collectTokenUsage([{ label: "X", doc: withNone }], TOKEN_PROPS)
+        expect(usage.has("colors:")).toBe(false)
+        expect(usage.get("space:md")).toEqual(["X"])
     })
 })

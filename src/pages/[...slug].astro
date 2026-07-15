@@ -82,7 +82,7 @@ export async function getStaticPaths() {
     // the editor's Publish dialog already blocks on; reaching here means a design was published around the
     // editor (API-direct), so the build is the last line of defense. Warnings are logged, not fatal.
     for (const designPage of designPages) {
-        const findings = lintDesign(designPage.doc, theme, TOKEN_PROPS, OUTLET_PROPS)
+        const findings = lintDesign(designPage.doc, theme, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
         for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
             console.warn(`[build] design "${designPage.slug}" — ${finding.path}: ${finding.message}`)
         }
@@ -116,10 +116,14 @@ export async function getStaticPaths() {
         if (!schemaByCollection.has(collection)) {
             schemaByCollection.set(collection, await fetchCollectionFields(collection))
         }
-        const findings = lintDesign(route.props.doc, theme, TOKEN_PROPS, OUTLET_PROPS, {
-            entry: route.props.entry,
-            schemaFields: schemaByCollection.get(collection) ?? null
-        })
+        const findings = lintDesign(
+            route.props.doc,
+            theme,
+            TOKEN_PROPS,
+            OUTLET_PROPS,
+            { entry: route.props.entry, schemaFields: schemaByCollection.get(collection) ?? null },
+            true
+        )
         const label = `entry "${route.slug || "(home)"}" × template "${route.props.template.slug}"`
         for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
             console.warn(`[build] ${label} — ${finding.rule} at ${finding.path}: ${finding.message}`)
