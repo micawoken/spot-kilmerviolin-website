@@ -186,6 +186,13 @@ describe("lintDesign — warnings", () => {
         const findings = lint([heading("h1"), { type: "RichText", props: { body } }])
         expect(rules(findings)).toContain("unsafe-href")
     })
+
+    it("errors when a rich-text body is a raw string, not a Portable Text array", () => {
+        // The exact defect this rule exists to catch: convert.ts failing to convert Puck's HTML-string
+        // richtext value, so the raw string reaches storage and would render as literal text.
+        const findings = lint([{ type: "RichText", props: { body: "<p>This is <strong>bold</strong>.</p>" } }])
+        expect(rules(findings)).toContain("richtext-not-portable-text")
+    })
 })
 
 // --- §1.11 fix: PT blocks styled h1–h6 inside rich-text bodies feed the heading checks -------------

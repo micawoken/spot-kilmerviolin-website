@@ -39,9 +39,11 @@
 // rather than vendoring ~900 lines that would drift from its Portable Text schema. It reaches past
 // emdash's export map, so an upgrade that moves the file breaks the build loudly; the durable fix is for
 // emdash to export the converters from `emdash/client`.
+import { generateJSON } from "@tiptap/html"
 import { portableTextToProsemirror, prosemirrorToPortableText } from "#emdash/converters"
 import type { PortableTextBlock, ProseMirrorDocument } from "emdash"
 
+import { RICH_TEXT_EXTENSIONS } from "./richtext-extensions"
 import type { DesignDoc, PuckData } from "./types"
 import { isPuckComponent, isRecord } from "./types"
 
@@ -59,8 +61,17 @@ function portableTextToEditor(value: unknown): unknown {
     return Array.isArray(value) ? portableTextToProsemirror(value as PortableTextBlock[]) : value
 }
 
-/** ProseMirror document → PT block array. Non-doc values pass through (defensive against double conversion). */
+/**
+ * ProseMirror document → PT block array. Puck's richtext field's actual working value is an HTML
+ * string (`editor.getHTML()`), not a ProseMirror JSON doc, despite the field's own name — so a string
+ * is parsed with the same Tiptap schema the editor edits it with (RICH_TEXT_EXTENSIONS) before handing
+ * it to the PT converter. A `{type: "doc"}` value is converted directly; anything else (e.g. already-PT,
+ * or an empty default) passes through, defensive against double conversion.
+ */
 function editorToPortableText(value: unknown): unknown {
+    if (typeof value === "string") {
+        return prosemirrorToPortableText(generateJSON(value, RICH_TEXT_EXTENSIONS) as unknown as ProseMirrorDocument)
+    }
     return isRecord(value) && value.type === "doc" ? prosemirrorToPortableText(value as unknown as ProseMirrorDocument) : value
 }
 
