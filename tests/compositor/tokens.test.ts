@@ -250,6 +250,21 @@ describe("isTokenCatalog — fonts is optional (trap A)", () => {
     })
 })
 
+describe("isTokenCatalog — colorScheme is optional (trap A)", () => {
+    it("ACCEPTS a catalog that omits colorScheme entirely", () => {
+        expect("colorScheme" in catalog).toBe(false)
+        expect(isTokenCatalog(catalog)).toBe(true)
+    })
+    it("accepts either literal", () => {
+        expect(isTokenCatalog({ ...catalog, colorScheme: "adaptive" })).toBe(true)
+        expect(isTokenCatalog({ ...catalog, colorScheme: "fixed" })).toBe(true)
+    })
+    it("rejects a present-but-unrecognized colorScheme", () => {
+        expect(isTokenCatalog({ ...catalog, colorScheme: "auto" })).toBe(false)
+        expect(isTokenCatalog({ ...catalog, colorScheme: true })).toBe(false)
+    })
+})
+
 describe("webFontsHref", () => {
     it("builds a css2 URL with each family's weights, sorted, deduped, and display=swap", () => {
         const href = webFontsHref([
