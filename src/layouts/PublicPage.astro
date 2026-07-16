@@ -30,7 +30,11 @@ import PublicHead from "../components/PublicHead.astro"
 import PublicHeader from "../components/PublicHeader.astro"
 import PublicFooter from "../components/PublicFooter.astro"
 import { getSiteSettings } from "../lib/content/site"
-import { getWebFontLinks } from "../lib/content/fonts"
+import { getThemeHead } from "../lib/content/theme-head"
+// Binds the shared public chrome (body, PublicHeader, PublicFooter) to the theme's --dtk-* tokens, each
+// with a styles/global.css --color-* fallback. Public-only: never imported by the admin (BaseHead), so the
+// admin keeps its built-in palette. Loaded after global.css (imported by PublicHead) so its body rule wins.
+import "../styles/public-chrome.css"
 
 interface Props {
     title?: string
@@ -43,8 +47,10 @@ interface Props {
 const site = await getSiteSettings()
 const { title = site.title, description = site.description, image } = Astro.props
 
-// site-wide web fonts authored in the design theme; empty (no links) when none is authored
-const fonts = await getWebFontLinks()
+// The theme's whole-page head contribution — the web-font links and the --dtk-* custom-property block —
+// from a single theme read. Emitted on every public page (not just design pages) so the chrome binding in
+// public-chrome.css has tokens to resolve site-wide. Empty (no links, no tokens) when no theme is authored.
+const themeHead = await getThemeHead()
 ---
 
 <!doctype html>
@@ -53,16 +59,20 @@ const fonts = await getWebFontLinks()
         <PublicHead title={title} description={description} image={image} />
         {/* Site-wide web fonts (design theme → fonts). Preconnect before the render-blocking stylesheet
             so the font arrives sooner; both are omitted entirely when no font is authored. */}
-        {fonts.stylesheet && (
+        {themeHead.stylesheet && (
             <>
-                {fonts.preconnect.map((origin) => (
+                {themeHead.preconnect.map((origin) => (
                     <link rel="preconnect" href={origin} crossorigin />
                 ))}
-                <link rel="stylesheet" href={fonts.stylesheet} />
+                <link rel="stylesheet" href={themeHead.stylesheet} />
             </>
         )}
-        {/* Optional per-page head content. Design pages inject their theme's token custom properties
-            here (§6.6); every other caller simply leaves it empty. */}
+        {/* The theme's --dtk-* custom properties, emitted site-wide so both the chrome (public-chrome.css)
+            and any compositor design page resolve their token references. Omitted when no theme is
+            published, leaving every binding on its --color-* fallback. */}
+        {themeHead.tokenCss && <style set:html={themeHead.tokenCss} />}
+        {/* Optional per-page head content. Design pages inject the compositor component stylesheet here;
+            every other caller simply leaves it empty. */}
         <slot name="head" />
     </head>
     <body>
