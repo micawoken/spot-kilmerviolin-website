@@ -228,6 +228,27 @@
 
 /* --- Theme editor ------------------------------------------------------------------------------- */
 
+/* The raw/friendly switch sits above every section as a single global toggle. */
+.theme-editor__viewbar {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-block: 0.5rem;
+    border-bottom: 1px solid var(--shade-3);
+}
+
+.theme-editor__switch {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.theme-editor__switch input {
+    width: auto;
+}
+
 .theme-editor__section {
     margin-block: 1.5rem;
 }
@@ -267,6 +288,145 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
+}
+
+/* Number + unit: the number field stretches, the unit select stays its own width. The table's
+ * `input { width: 100% }` still applies to the number field, so only the select needs sizing. */
+.theme-editor__length {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+}
+
+.theme-editor__length select {
+    flex: 0 0 auto;
+    font: inherit;
+}
+
+/* Adaptive colors show a light and a dark channel stacked; fixed shows a single channel. */
+.theme-editor__color {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+}
+
+.theme-editor__channel-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+/* The native picker keeps its intrinsic size; the text field takes the rest. */
+.theme-editor__channel {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+}
+
+.theme-editor__channel input[type="color"] {
+    flex: 0 0 auto;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border: 1px solid var(--shade-4);
+    border-radius: 0.25rem;
+    background: none;
+}
+
+/* The clamp builder stacks its min/ideal/max rows; the fixed variant is a single length + a button. */
+.theme-editor__clamp {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+}
+
+.theme-editor__clamp--fixed {
+    flex-direction: row;
+    align-items: center;
+}
+
+.theme-editor__sub-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+/* A borderless inline button for the mode toggles in the clamp/shadow builders — reads as a link, not a
+ * primary action, so it does not compete with Save/Publish. */
+.theme-editor__linkbtn {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--color-link, var(--color-text));
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Each shadow layer is a wrapping row of small labeled controls; layers stack. */
+.theme-editor__shadow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.theme-editor__shadow-layer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    padding: 0.4rem;
+    border: 1px solid var(--shade-3);
+    border-radius: 0.25rem;
+}
+
+/* Inside a shadow layer the length controls should size to content, not stretch to the row. */
+.theme-editor__shadow-layer .theme-editor__length,
+.theme-editor__shadow-layer .theme-editor__channel {
+    width: auto;
+}
+
+.theme-editor__shadow-layer .theme-editor__length input[type="number"] {
+    width: 4rem;
+}
+
+.theme-editor__shadow-layer .theme-editor__channel input[type="text"] {
+    width: 9rem;
+}
+
+/* Family picker: the dropdown, and the revealed custom text field stacked under it. */
+.theme-editor__family {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+}
+
+.theme-editor__family select {
+    font: inherit;
+}
+
+/* The adaptive/fixed switch sits above the colors table. */
+.theme-editor__scheme {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-block: 0.5rem;
+}
+
+.theme-editor__scheme select {
+    font: inherit;
 }
 
 /* The swatch shows an AUTHORED token value, which may be any color including one matching the page, so
