@@ -57,7 +57,7 @@ import {
 import { collectRoutes } from "../lib/build/route-authority"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
-import { EMPTY_TOKEN_CATALOG, tokensToCss } from "../lib/compositor/tokens"
+import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
 import compositorCss from "../lib/compositor/compositor.css?raw"
 
 export const prerender = true
@@ -148,10 +148,11 @@ export async function getStaticPaths() {
 
 const props = Astro.props
 
-// The theme's custom properties plus the component stylesheet, inlined into this page's head. Kept off
-// Portable-Text pages entirely — they render no compositor components. With no published theme, only the
-// component styles are emitted and token-backed declarations fall back to their initial values.
-const headCss = props.kind === "design" ? `${props.theme ? tokensToCss(props.theme) : ""}\n${compositorCss}` : ""
+// The compositor component stylesheet, inlined into this design page's head. The theme's --dtk-* token
+// block is emitted site-wide by PublicPage (getThemeHead), so it is not repeated here. Kept off
+// Portable-Text pages entirely — they render no compositor components. With no published theme, the
+// component styles' token-backed declarations fall back to their initial values.
+const headCss = props.kind === "design" ? compositorCss : ""
 ---
 
 {
