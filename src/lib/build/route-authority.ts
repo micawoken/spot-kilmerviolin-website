@@ -122,20 +122,29 @@ function isNoneSentinel(template: BuildTemplate): boolean {
 }
 
 /**
- * Indexes the published templates by id and by the collection each one defaults, rejecting an ambiguous
- * default: if two published templates both claim `isDefault` for one collection, no rule can choose
- * between them, and every entry of that collection would render through a coin-flip.
+ * Indexes the published templates by id, by slug, and by the collection each one defaults, rejecting an
+ * ambiguous default: if two published templates both claim `isDefault` for one collection, no rule can
+ * choose between them, and every entry of that collection would render through a coin-flip.
+ *
+ * A template is indexed by both id and slug because an entry's `design` pointer may hold either (§ D4):
+ * EmDash's reference field is a raw text box, so an author types the human-readable slug ("article"),
+ * while a value stored the EmDash-native way is the item id. Slugs are unique within the single
+ * `design_template` collection (EmDash enforces per-collection slug uniqueness), so `bySlug` is
+ * unambiguous, and the id and slug key spaces do not overlap (ids are opaque, slugs are words).
  */
 function indexTemplates(templates: BuildTemplate[]): {
     byId: Map<string, BuildTemplate>
+    bySlug: Map<string, BuildTemplate>
     defaults: Map<TemplateCollection, BuildTemplate>
 } {
     const byId = new Map<string, BuildTemplate>()
+    const bySlug = new Map<string, BuildTemplate>()
     const defaults = new Map<TemplateCollection, BuildTemplate>()
     const rivals = new Map<TemplateCollection, string[]>()
 
     for (const template of templates) {
         byId.set(template.id, template)
+        bySlug.set(template.slug, template)
         if (!template.isDefault) continue
         const claimed = rivals.get(template.collection) ?? []
         claimed.push(template.slug)
@@ -155,7 +164,7 @@ function indexTemplates(templates: BuildTemplate[]): {
         )
     }
 
-    return { byId, defaults }
+    return { byId, bySlug, defaults }
 }
 
 /**
@@ -176,14 +185,17 @@ function resolveTemplate(
     warnings: string[]
 ): BuildTemplate | null {
     if (entry.designRef) {
-        const named = index.byId.get(entry.designRef)
+        // The pointer holds either the template's slug (what an author types into EmDash's reference text
+        // box) or its EmDash-native item id. The two key spaces are disjoint, so a single lookup by both
+        // resolves whichever was stored, without a migration of existing id-valued pointers.
+        const named = index.byId.get(entry.designRef) ?? index.bySlug.get(entry.designRef)
         if (!named) {
             // Draft, deleted, or garbage. Fall to D3 — NOT to the collection default: the author chose a
             // specific layout, and silently substituting another one hides the breakage.
             warnings.push(
-                `[build/route-authority] "${slug}" names design template ${entry.designRef}, which is ` +
-                    "not published (draft, deleted, or an invalid reference). The page renders without a " +
-                    "design; publish the template or clear the field."
+                `[build/route-authority] "${slug}" names design template "${entry.designRef}", which is ` +
+                    "not published (draft, deleted, or an invalid slug/id reference). The page renders " +
+                    "without a design; publish the template or clear the field."
             )
             return null
         }

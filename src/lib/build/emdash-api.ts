@@ -76,8 +76,10 @@ export interface BuildPage {
      */
     fields: Record<string, unknown>
     /**
-     * The `design` reference field: a `design_template` item **id**, or null when the page names no
-     * template (EmDash stores a reference as the target's id — see the pivot plan §1.9).
+     * The `design` reference field: the `design_template` the entry renders through, or null when it
+     * names none. EmDash's reference field is a raw text box, so this holds whatever the author typed —
+     * either the template's **slug** (the human-readable key, e.g. "article") or its item **id**.
+     * `route-authority` resolves both (the key spaces are disjoint), so either works.
      */
     designRef: string | null
 }
@@ -413,13 +415,15 @@ interface ApiMenu {
 }
 
 /**
- * Fetches the top-level items of the `primary` menu, keeping only entries with both a label and a URL
- * (a flat header ignores nested children). Returns [] when the menu is missing or the read fails.
+ * Fetches the top-level items of a named EmDash menu, keeping only entries with both a label and a URL
+ * (a flat list ignores nested children). Returns [] when the menu is missing or the read fails, so a site
+ * with no such menu authored simply renders no links rather than failing the build.
  *
- * @returns {Promise<BuildMenuItem[]>} the header links in authored order
+ * @param {string} name - the EmDash menu name (e.g. "primary" for the header, "footer" for the footer)
+ * @returns {Promise<BuildMenuItem[]>} the menu's links in authored order
  */
-export async function fetchPrimaryMenu(): Promise<BuildMenuItem[]> {
-    const menu = await emdashGet<ApiMenu>("/_emdash/api/menus/primary")
+export async function fetchMenu(name: string): Promise<BuildMenuItem[]> {
+    const menu = await emdashGet<ApiMenu>(`/_emdash/api/menus/${name}`)
     return (menu?.items ?? [])
         .filter((item): item is { label: string; url: string } => Boolean(item.label) && Boolean(item.url))
         .map((item) => ({ label: item.label, url: item.url }))

@@ -58,8 +58,18 @@ interface FieldSpec {
 /** Editable row: every token value is a string in the form; optional empties are dropped on save. */
 type Row = Record<string, string>
 
-/** The catalog as edited: rows per kind plus the preserved catalog schema version. */
-type EditableCatalog = { schemaVersion: number } & Record<TokenKind, Row[]>
+/**
+ * A web-font row. Fonts are not tokens (not a `TokenKind`), so they sit beside the kind-keyed rows and
+ * are edited/serialized separately. `weights` is a comma-separated string in the form and is parsed to a
+ * `number[]` on save — storing it as a string would fail `isTokenCatalog` and unstyle every design page.
+ */
+interface FontRow {
+    family: string
+    weights: string
+}
+
+/** The catalog as edited: rows per kind, the web-font rows, and the preserved catalog schema version. */
+type EditableCatalog = { schemaVersion: number; fonts: FontRow[] } & Record<TokenKind, Row[]>
 
 /** The token kinds and their fields (§4.3), in the order they render. Drives load, edit, and save. */
 const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> = [
@@ -132,7 +142,11 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
             return row
         })
     }
-    return { schemaVersion: catalog.schemaVersion, ...(rows as Record<TokenKind, Row[]>) }
+    const fonts: FontRow[] = (catalog.fonts ?? []).map((font) => ({
+        family: font.family,
+        weights: (font.weights ?? []).join(", ")
+    }))
+    return { schemaVersion: catalog.schemaVersion, fonts, ...(rows as Record<TokenKind, Row[]>) }
 }
 
 /** Rebuilds the stored catalog from the edited rows, dropping empty optional fields. */
@@ -149,6 +163,23 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
             return token
         })
     }
+    // Fonts are serialized apart from the kind loop: `weights` is parsed from its comma-separated string
+    // to distinct positive integers (a non-number is dropped), and a font with no valid weight omits the
+    // key so it defaults to 400 on render. A blank family drops the whole row.
+    catalog.fonts = editable.fonts
+        .map((row) => {
+            const family = row.family.trim()
+            const weights = [
+                ...new Set(
+                    row.weights
+                        .split(",")
+                        .map((weight) => Number.parseInt(weight.trim(), 10))
+                        .filter((weight) => Number.isInteger(weight) && weight > 0 && weight <= 1000)
+                )
+            ]
+            return weights.length > 0 ? { family, weights } : { family }
+        })
+        .filter((font) => font.family !== "")
     return catalog as unknown as TokenCatalog
 }
 
@@ -320,6 +351,25 @@ export default function ThemeEditor() {
         )
     }
 
+    const setFont = (index: number, key: keyof FontRow, value: string) => {
+        setEditable((current) => {
+            if (!current) return current
+            const fonts = current.fonts.slice()
+            fonts[index] = { ...fonts[index], [key]: value }
+            return { ...current, fonts }
+        })
+    }
+
+    const addFont = () => {
+        setEditable((current) => (current ? { ...current, fonts: [...current.fonts, { family: "", weights: "" }] } : current))
+    }
+
+    const removeFont = (index: number) => {
+        setEditable((current) =>
+            current ? { ...current, fonts: current.fonts.filter((_, position) => position !== index) } : current
+        )
+    }
+
     const write = async (publish: boolean) => {
         setSaveState("saving")
         setMessage("")
@@ -435,6 +485,58 @@ export default function ThemeEditor() {
                     </button>
                 </section>
             ))}
+
+            <section className="theme-editor__section">
+                <h3>Web fonts</h3>
+                <p className="theme-editor__hint">
+                    Loads a font from Google Fonts for the whole site. Enter the family name exactly as Google lists it
+                    (e.g. “Playfair Display”) and the weights to load, comma-separated (e.g. 400, 700). Then reference the
+                    family from a Typography token’s font family. Publish and rebuild to apply.
+                </p>
+                <table className="theme-editor__table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Font family</th>
+                            <th scope="col">Weights</th>
+                            <th scope="col" aria-label="Remove" />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {editable.fonts.map((font, index) => (
+                            <tr key={index}>
+                                <td>
+                                    <span className="theme-editor__cell">
+                                        <input
+                                            type="text"
+                                            value={font.family}
+                                            placeholder="Inter"
+                                            onChange={(event) => setFont(index, "family", event.target.value)}
+                                        />
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="theme-editor__cell">
+                                        <input
+                                            type="text"
+                                            value={font.weights}
+                                            placeholder="400, 700"
+                                            onChange={(event) => setFont(index, "weights", event.target.value)}
+                                        />
+                                    </span>
+                                </td>
+                                <td>
+                                    <button type="button" onClick={() => removeFont(index)}>
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <button type="button" onClick={addFont}>
+                    Add font
+                </button>
+            </section>
 
             <div className="theme-editor__actions">
                 <button type="button" onClick={() => void write(false)} disabled={saveState === "saving"}>

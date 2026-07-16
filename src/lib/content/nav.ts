@@ -1,15 +1,15 @@
 /**
  * lib/content/nav.ts
  *
- * Build-time accessor for the header navigation links authored in the CMS. The public site is prerendered,
- * so this runs during `astro build` and reads EmDash's built-in `primary` menu over its HTTP API (see
- * src/lib/build/emdash-api.ts, fetchPrimaryMenu), not the request-scoped `emdash` reader. Publishing a
- * menu change requires a site rebuild.
+ * Build-time accessors for the CMS-authored navigation menus. The public site is prerendered, so these
+ * run during `astro build` and read EmDash's built-in menus over its HTTP API (see
+ * src/lib/build/emdash-api.ts, fetchMenu), not the request-scoped `emdash` reader. Publishing a menu
+ * change requires a site rebuild.
  *
- * The header renders a flat list, so only the menu's top-level items are used (nested children are
- * ignored). Each EmDash menu item exposes `label` and `url`, mapped here to {label, href}.
+ * The header and footer each render a flat list, so only a menu's top-level items are used (nested
+ * children are ignored). Each EmDash menu item exposes `label` and `url`, mapped here to {label, href}.
  *
- * Consumed by components/PublicHeader.astro.
+ * Consumed by components/PublicHeader.astro (primary) and components/PublicFooter.astro (footer).
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -28,9 +28,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { fetchPrimaryMenu } from "../build/emdash-api"
+import { fetchMenu } from "../build/emdash-api"
 
-/** A single header navigation entry. */
+/** A single navigation entry, used by both the header and footer menus. */
 export interface NavLink {
     /** the visible link text */
     label: string
@@ -38,14 +38,28 @@ export interface NavLink {
     href: string
 }
 
+/** Reads a named EmDash menu and maps each item's `url` to the component's `href`. */
+async function menuLinks(name: string): Promise<NavLink[]> {
+    const items = await fetchMenu(name)
+    return items.map((item) => ({ label: item.label, href: item.url }))
+}
+
 /**
- * Returns the header navigation links from EmDash's built-in `primary` menu. fetchPrimaryMenu already
- * drops incomplete items (an item needs both a label and a destination) and fails soft to [] when the
- * menu is missing or the read fails; this maps each item's `url` to the component's `href`.
+ * Returns the header navigation links from EmDash's built-in `primary` menu. Fails soft to [] when the
+ * menu is missing or the read fails.
  *
- * @returns {Promise<NavLink[]>} the navigation links to render, in authored order
+ * @returns {Promise<NavLink[]>} the header links to render, in authored order
  */
 export async function getNav(): Promise<NavLink[]> {
-    const items = await fetchPrimaryMenu()
-    return items.map((item) => ({ label: item.label, href: item.url }))
+    return menuLinks("primary")
+}
+
+/**
+ * Returns the footer navigation links from the CMS-authored `footer` menu. Fails soft to [] when the
+ * menu is missing or the read fails, so the footer degrades to its copyright line alone.
+ *
+ * @returns {Promise<NavLink[]>} the footer links to render, in authored order
+ */
+export async function getFooterNav(): Promise<NavLink[]> {
+    return menuLinks("footer")
 }
