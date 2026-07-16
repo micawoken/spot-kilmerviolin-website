@@ -18,7 +18,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 
 import {
     designToEditorForm,
@@ -27,6 +27,21 @@ import {
 } from "../../src/lib/compositor/convert"
 import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../src/lib/compositor/migrations"
 import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
+
+// Puck's richtext field's real onChange value is `editor.getHTML()` — a string. Converting it needs a
+// DOM (convert.ts calls @tiptap/html's browser `generateJSON`, which parses via `window.DOMParser`) that
+// this repo's Cloudflare Workers test pool cannot provide (not even happy-dom's Window can construct
+// here — it needs `node:vm`'s `Script`, which workerd doesn't expose). Mocked to a deterministic
+// stand-in so the "HTML string (§ Puck's actual richtext value)" tests below can verify convert.ts's
+// dispatch — a string is routed through the conversion pipeline, not passed through raw — without a
+// real DOM; the HTML→ProseMirror parsing itself (Puck's own @tiptap/html dependency) was verified
+// separately against the real implementation via a standalone Node script outside this harness.
+vi.mock("@tiptap/html", () => ({
+    generateJSON: vi.fn((html: string) => ({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: html }] }]
+    }))
+}))
 
 const REGISTRY: RichTextPropRegistry = { RichText: ["body"] }
 
@@ -187,6 +202,33 @@ describe("editorFormToDesign", () => {
         const design = editorFormToDesign(designToEditorForm(makeDoc(), REGISTRY), REGISTRY)
         expect(design.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
         expect(() => migrateDesign(design)).not.toThrow()
+    })
+})
+
+describe("editorFormToDesign — Puck's actual richtext value (HTML string)", () => {
+    // Puck's richtext field's real onChange value is `editor.getHTML()` — a string, never the
+    // `{type: "doc"}` object the field's name suggests. This is what a saved editor session actually
+    // hands editorFormToDesign; the ProseMirror-doc fixtures elsewhere in this file are the pre-Puck
+    // shape and never caught the regression this guards. See the top-of-file vi.mock for why
+    // generateJSON is stubbed rather than exercised for real.
+    function docWithHtmlBody(html: string): DesignDoc {
+        return {
+            schemaVersion: 1,
+            puck: { content: [{ type: "RichText", props: { id: "rt-1", body: html } }] } as unknown as PuckData
+        }
+    }
+
+    it("routes a string body through generateJSON + prosemirrorToPortableText instead of passing it through raw", async () => {
+        const { generateJSON } = await import("@tiptap/html")
+        const { RICH_TEXT_EXTENSIONS } = await import("../../src/lib/compositor/richtext-extensions")
+        const html = "<p>This is a <strong>bold</strong> word.</p>"
+
+        const design = editorFormToDesign(docWithHtmlBody(html), REGISTRY)
+
+        expect(generateJSON).toHaveBeenCalledWith(html, RICH_TEXT_EXTENSIONS)
+        const body = (design.puck as unknown as { content: Array<{ props: { body: unknown } }> }).content[0].props.body
+        expect(Array.isArray(body)).toBe(true)
+        expect((body as Array<Record<string, unknown>>)[0]._type).toBe("block")
     })
 })
 
