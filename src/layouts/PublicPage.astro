@@ -30,6 +30,7 @@ import PublicHead from "../components/PublicHead.astro"
 import PublicHeader from "../components/PublicHeader.astro"
 import PublicFooter from "../components/PublicFooter.astro"
 import { getSiteSettings } from "../lib/content/site"
+import { getWebFontLinks } from "../lib/content/fonts"
 
 interface Props {
     title?: string
@@ -41,12 +42,25 @@ interface Props {
 // when a page does not supply its own title/description
 const site = await getSiteSettings()
 const { title = site.title, description = site.description, image } = Astro.props
+
+// site-wide web fonts authored in the design theme; empty (no links) when none is authored
+const fonts = await getWebFontLinks()
 ---
 
 <!doctype html>
 <html lang="en">
     <head>
         <PublicHead title={title} description={description} image={image} />
+        {/* Site-wide web fonts (design theme → fonts). Preconnect before the render-blocking stylesheet
+            so the font arrives sooner; both are omitted entirely when no font is authored. */}
+        {fonts.stylesheet && (
+            <>
+                {fonts.preconnect.map((origin) => (
+                    <link rel="preconnect" href={origin} crossorigin />
+                ))}
+                <link rel="stylesheet" href={fonts.stylesheet} />
+            </>
+        )}
         {/* Optional per-page head content. Design pages inject their theme's token custom properties
             here (§6.6); every other caller simply leaves it empty. */}
         <slot name="head" />

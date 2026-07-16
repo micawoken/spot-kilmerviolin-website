@@ -232,6 +232,13 @@
     margin-block: 1.5rem;
 }
 
+.theme-editor__hint {
+    margin-block: 0.25rem 0.5rem;
+    max-width: 60ch;
+    font-size: 0.9em;
+    color: var(--shade-6);
+}
+
 .theme-editor__table {
     border-collapse: collapse;
     width: 100%;

@@ -86,6 +86,19 @@ export interface ButtonVariantToken {
  * (impl §4.3). A closed set of token types (plan decision 7); `modes` is a documented schema
  * door for dark mode, intentionally not built in Phase 1.
  */
+/**
+ * A web font the site loads from Google Fonts. NOT a token — it is not emitted as a `--dtk-*` property;
+ * it declares a family to fetch so a `typography` token's `family` can name it. The css2 stylesheet URL
+ * is built and validated by `webFontsHref`; only positive-integer weights and a letters/digits/spaces
+ * family survive into the URL, so a hand-edited theme cannot inject arbitrary markup.
+ */
+export interface WebFont {
+    /** the family name exactly as Google Fonts lists it, e.g. "Inter" or "Playfair Display" */
+    family: string
+    /** the weights to load; defaults to [400] when empty. Non-integer or out-of-range weights are dropped. */
+    weights?: number[]
+}
+
 export interface TokenCatalog {
     /** Catalog schema version, independent of the design-doc `schemaVersion`. */
     schemaVersion: number
@@ -102,6 +115,11 @@ export interface TokenCatalog {
      * design page (see `isTokenCatalog`). New keys added to this interface must follow the same pattern.
      */
     buttonVariants?: ButtonVariantToken[]
+    /**
+     * Site-wide web fonts to load (Google Fonts). OPTIONAL and normalized to `[]` on read — same trap-A
+     * contract as `buttonVariants`. Consumed by `webFontsHref`, not `tokensToCss`.
+     */
+    fonts?: WebFont[]
 }
 
 /**
@@ -118,7 +136,8 @@ export const EMPTY_TOKEN_CATALOG: TokenCatalog = Object.freeze({
     shadows: [],
     borders: [],
     breakpoints: [],
-    buttonVariants: []
+    buttonVariants: [],
+    fonts: []
 })
 
 /** The catalog keys a component field can select from. Drives `tokenVar` / `tokenSelectOptions`. */
@@ -343,6 +362,15 @@ function isButtonVariantToken(value: unknown): value is ButtonVariantToken {
     )
 }
 
+function isWebFont(value: unknown): value is WebFont {
+    return (
+        isRecord(value) &&
+        typeof value.family === "string" &&
+        (value.weights === undefined ||
+            (Array.isArray(value.weights) && value.weights.every((weight) => typeof weight === "number")))
+    )
+}
+
 /**
  * Whether a value is a structurally valid TokenCatalog. Used to validate the stored `design_theme`
  * item before use (theme editor §6.5, build fetch §6.6). Structural only — it does not check that
@@ -364,8 +392,44 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
         isArrayOf(value.breakpoints, isBreakpointToken) &&
         // Optional (trap A): a theme predating buttonVariants must validate, or the whole catalog is
         // rejected and every design page renders unstyled. Present-but-malformed is still a rejection.
-        (value.buttonVariants === undefined || isArrayOf(value.buttonVariants, isButtonVariantToken))
+        (value.buttonVariants === undefined || isArrayOf(value.buttonVariants, isButtonVariantToken)) &&
+        // Optional, same trap-A contract as buttonVariants.
+        (value.fonts === undefined || isArrayOf(value.fonts, isWebFont))
     )
+}
+
+/** The Google Fonts origins to preconnect before requesting the stylesheet built by `webFontsHref`. */
+export const WEB_FONT_PRECONNECT_ORIGINS = [
+    "https://fonts.googleapis.com",
+    "https://fonts.gstatic.com"
+] as const
+
+/** A Google Fonts family name: letters/digits in single-space-separated words. Anything else is untrusted. */
+const WEB_FONT_FAMILY_PATTERN = /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/
+
+/**
+ * Builds the Google Fonts css2 stylesheet URL for the given web fonts, or null when none is valid.
+ *
+ * Each family is validated against `WEB_FONT_FAMILY_PATTERN` and its weights are constrained to distinct
+ * positive integers (≤ 1000), so a hand-edited theme cannot inject arbitrary text into the emitted
+ * `<link href>`. A family that fails validation is skipped rather than aborting the whole URL. A family
+ * with no valid weight loads weight 400. `display=swap` keeps text visible while the font downloads.
+ *
+ * @param {WebFont[]} fonts - the theme's declared web fonts
+ * @returns {string | null} - the css2 stylesheet URL, or null if no font is valid
+ */
+export function webFontsHref(fonts: WebFont[]): string | null {
+    const families: string[] = []
+    for (const font of fonts) {
+        if (typeof font?.family !== "string" || !WEB_FONT_FAMILY_PATTERN.test(font.family)) continue
+        const weights = [...new Set(font.weights ?? [])]
+            .filter((weight) => Number.isInteger(weight) && weight > 0 && weight <= 1000)
+            .sort((a, b) => a - b)
+        const list = weights.length > 0 ? weights : [400]
+        families.push(`family=${font.family.replace(/ /g, "+")}:wght@${list.join(";")}`)
+    }
+    if (families.length === 0) return null
+    return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`
 }
 
 /** One dangling reference from a button variant to a token that is not in the catalog. */
