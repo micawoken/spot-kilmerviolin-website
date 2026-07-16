@@ -102,6 +102,15 @@ export interface WebFont {
 export interface TokenCatalog {
     /** Catalog schema version, independent of the design-doc `schemaVersion`. */
     schemaVersion: number
+    /**
+     * How colors are authored. `"adaptive"` (the default when absent) means color values carry a
+     * `light-dark(L, D)` pair that follows the viewer's color scheme; `"fixed"` means a single value.
+     * Authoring metadata only — the theme editor uses it to choose one color picker or two; `tokensToCss`
+     * never reads it (it emits each color's `value` verbatim, whatever shape the editor composed). OPTIONAL
+     * and defaulted on read, same trap-A contract as `buttonVariants`/`fonts`: a theme predating this field
+     * must still validate or the whole catalog is rejected and every design page renders unstyled.
+     */
+    colorScheme?: "adaptive" | "fixed"
     colors: ValueToken[]
     typography: TypographyToken[]
     space: ValueToken[]
@@ -129,6 +138,7 @@ export interface TokenCatalog {
  */
 export const EMPTY_TOKEN_CATALOG: TokenCatalog = Object.freeze({
     schemaVersion: 1,
+    colorScheme: "adaptive",
     colors: [],
     typography: [],
     space: [],
@@ -383,6 +393,9 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
     return (
         isRecord(value) &&
         typeof value.schemaVersion === "number" &&
+        // Optional, trap-A: an older theme has no colorScheme and must still validate (defaults to
+        // "adaptive" on read). Present-but-not-one-of the two literals is a rejection.
+        (value.colorScheme === undefined || value.colorScheme === "adaptive" || value.colorScheme === "fixed") &&
         isArrayOf(value.colors, isValueToken) &&
         isArrayOf(value.typography, isTypographyToken) &&
         isArrayOf(value.space, isValueToken) &&
