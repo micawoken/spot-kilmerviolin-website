@@ -51,6 +51,9 @@
 }
 
 body {
+	/* Zero the UA default body margin. Invisible while --color-bg matched the page canvas; a themed
+	 * page background (public-chrome.css) exposes it as a border around the content otherwise. */
+	margin: 0;
 	background: var(--color-bg);
 	color: var(--color-text);
 }
