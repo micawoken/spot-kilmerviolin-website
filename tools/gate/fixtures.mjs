@@ -81,6 +81,7 @@ export const MEDIA_STORAGE_KEY = "01KWYQ8FZ3N4P5R6S7T8V9W0XY.jpg"
 const paths = {
     settings: "/_emdash/api/settings",
     menu: "/_emdash/api/menus/primary",
+    footerMenu: "/_emdash/api/menus/footer",
     pages: "/_emdash/api/content/pages?status=published&limit=100",
     posts: "/_emdash/api/content/posts?status=published&limit=100",
     designPages: "/_emdash/api/content/design_page?status=published&limit=100",
@@ -343,12 +344,15 @@ function fixture({ templated, breakSchema = false, byDefault = false }) {
 
     return {
         [paths.settings]: ok({ title: "Diversifying the Violin Curriculum for Private Teaching", tagline: "Test" }),
+        // Real EmDash wire shape (verified against prod): raw rows, not a resolved `url`. A "custom" item
+        // carries its href in `customUrl`; fetchMenu reads exactly this shape.
         [paths.menu]: ok({
             items: [
-                { label: "Home", url: "/" },
-                { label: "Privacy", url: "/privacy-policy" }
+                { label: "Home", type: "custom", customUrl: "/" },
+                { label: "Privacy", type: "custom", customUrl: "/privacy-policy" }
             ]
         }),
+        [paths.footerMenu]: ok({ items: [] }),
         [paths.pages]: ok({ items: pageItems({ pointer: pointed }) }),
         [paths.posts]: ok({ items: postItems({ pointer: pointed }) }),
         [paths.designPages]: ok({ items: [] }),
