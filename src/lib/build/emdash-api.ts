@@ -409,15 +409,25 @@ export async function fetchSettings(): Promise<BuildSettings> {
     return data ?? {}
 }
 
-/** Single-menu envelope (see emdash `handleMenuGet`: `{ ...menu, items }`). */
+/**
+ * Single-menu envelope (see emdash `handleMenuGet`: `{ ...menu, items }`). Items are the RAW repository
+ * rows, not the resolved-URL shape EmDash's own templates get from its request-scoped `getMenu()` — that
+ * resolver runs against a live D1 handle and isn't reachable over this REST endpoint. A "custom" item
+ * carries its href in `customUrl`; a reference item ("page"/"post"/"taxonomy"/"collection") carries only
+ * `referenceCollection`/`referenceId` and needs a content lookup this reader does not perform.
+ */
 interface ApiMenu {
-    items?: Array<{ label?: string | null; url?: string | null }>
+    items?: Array<{ label?: string | null; type?: string | null; customUrl?: string | null }>
 }
 
 /**
- * Fetches the top-level items of a named EmDash menu, keeping only entries with both a label and a URL
- * (a flat list ignores nested children). Returns [] when the menu is missing or the read fails, so a site
- * with no such menu authored simply renders no links rather than failing the build.
+ * Fetches the top-level items of a named EmDash menu, keeping only "custom" entries with both a label and
+ * a URL (a flat list ignores nested children). Returns [] when the menu is missing or the read fails, so a
+ * site with no such menu authored simply renders no links rather than failing the build.
+ *
+ * Reference-type items (a menu entry pointing at a page/post/taxonomy rather than a typed-in URL) are
+ * silently dropped: resolving their target requires a content lookup this build-time reader doesn't do.
+ * Author menu links as "Custom URL" in EmDash → Menus.
  *
  * @param {string} name - the EmDash menu name (e.g. "primary" for the header, "footer" for the footer)
  * @returns {Promise<BuildMenuItem[]>} the menu's links in authored order
@@ -425,6 +435,9 @@ interface ApiMenu {
 export async function fetchMenu(name: string): Promise<BuildMenuItem[]> {
     const menu = await emdashGet<ApiMenu>(`/_emdash/api/menus/${name}`)
     return (menu?.items ?? [])
-        .filter((item): item is { label: string; url: string } => Boolean(item.label) && Boolean(item.url))
-        .map((item) => ({ label: item.label, url: item.url }))
+        .filter(
+            (item): item is { label: string; type: string; customUrl: string } =>
+                item.type === "custom" && Boolean(item.label) && Boolean(item.customUrl)
+        )
+        .map((item) => ({ label: item.label, url: item.customUrl }))
 }
