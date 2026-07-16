@@ -1,0 +1,131 @@
+/* styles/public-chrome.css
+ *
+ * Binds the shared public chrome — the document body, PublicHeader, and PublicFooter — to the published
+ * design theme's `--dtk-*` custom properties (emitted site-wide by layouts/PublicPage via getThemeHead).
+ * This is the seam that makes a loaded theme actually paint the site frame, not only the compositor's
+ * in-`<main>` design components: `styles/global.css` styles the body against its own built-in `--color-*`
+ * palette and gives the header/footer no rules at all, so without this file the frame ignores the theme
+ * (the "system fallback" look).
+ *
+ * PUBLIC ONLY. Imported by layouts/PublicPage.astro, never by the admin (which uses BaseHead), so the
+ * admin keeps its `--color-*` look untouched. Loaded after global.css so its `body` rule wins.
+ *
+ * Every binding is `var(--dtk-…, <global.css fallback>)`, mirroring the compositor's fail-soft rule
+ * (compositor.css): a theme that lacks a token, or no published theme at all, degrades to the built-in
+ * look rather than an unstyled frame. The two colors the chrome needs that the content palette omits —
+ * `paper` (the page surface) and `slate` (muted nav/footer text) — fall back to `--color-bg` and
+ * `--color-text-muted`, which are near-identical, so the frame is faithful even before they are authored.
+ *
+ * The horizontal inset is `--dtk-space-md`: the compositor has no content container and hardwires every
+ * Section's inset to that token (compositor.css .cmp-section), so matching it here aligns the header,
+ * footer, and untemplated article content to the same reading column the design pages use.
+ *
+ * Copyright (C) 2026 Michael Wong. GPL-3.0-or-later; see README.md for additional terms.
+ */
+
+/* Base surface + body type. `html body` (specificity 0,0,2) so it wins over global.css `body` regardless
+ * of stylesheet order; the theme's body typography token sets the site's base text. */
+html body {
+	background: var(--dtk-color-paper, var(--color-bg));
+	color: var(--dtk-color-ink, var(--color-text));
+	font-family: var(--dtk-type-body-family, inherit);
+	font-size: var(--dtk-type-body-size, 1rem);
+	line-height: var(--dtk-type-body-line-height, 1.6);
+}
+
+/* Content links (compositor components own their own link styling; this is for untemplated article prose). */
+main a {
+	color: var(--dtk-color-garnet, var(--color-link));
+}
+
+/* ---- Header ---- */
+header {
+	border-bottom: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
+		var(--dtk-border-hairline-color, var(--shade-3));
+}
+header nav {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1.5rem;
+	padding-block: 1.3rem;
+	padding-inline: var(--dtk-space-md, 1rem);
+}
+header .site-title {
+	font-family: var(--dtk-type-body-family, inherit);
+	font-weight: 600;
+	font-size: 1.05rem;
+	letter-spacing: -0.01em;
+	color: var(--dtk-color-ink, var(--color-text));
+	text-decoration: none;
+}
+header .nav-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.4rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+/* The mono, uppercase, tracked nav treatment — the theme's `label` typography (IBM Plex Mono). */
+header .nav-links a {
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.72rem);
+	font-weight: var(--dtk-type-label-weight, 600);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+	text-transform: uppercase;
+	color: var(--dtk-color-slate, var(--color-text-muted));
+	text-decoration: none;
+}
+header .nav-links a:hover {
+	color: var(--dtk-color-ink, var(--color-text));
+}
+
+/* ---- Main / untemplated content ----
+ * Only the Portable-Text branch wraps content in <article>; design pages render Puck Sections directly
+ * and those own their inset, so scoping to `main > article` gives plain pages the same gutter and reading
+ * column without double-insetting design pages. */
+main > article {
+	padding-inline: var(--dtk-space-md, 1rem);
+	padding-block: var(--dtk-space-section, 2.5rem);
+}
+
+/* ---- Footer ---- */
+footer {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	margin-top: var(--dtk-space-section, 3rem);
+	padding-block: 2rem 2.5rem;
+	padding-inline: var(--dtk-space-md, 1rem);
+	background: var(--dtk-color-surface, var(--shade-1));
+	border-top: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
+		var(--dtk-border-hairline-color, var(--shade-3));
+}
+footer .footer-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.3rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+/* Footer links and copy share the mono `label` treatment, muted to `slate`. */
+footer .footer-links a,
+footer p {
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.7rem);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.06em);
+	color: var(--dtk-color-slate, var(--color-text-muted));
+}
+footer .footer-links a {
+	text-transform: uppercase;
+	text-decoration: none;
+}
+footer .footer-links a:hover {
+	color: var(--dtk-color-ink, var(--color-text));
+}
+footer p {
+	margin: 0;
+}
