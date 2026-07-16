@@ -311,9 +311,23 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     }
 }
 
-/** Lints a stored rich-text body (PT array): unsupported block types (warning) and unsafe link hrefs (error). */
+/**
+ * Lints a stored rich-text body: must be a PT array (a raw string here means the editor's
+ * ProseMirror-to-PT conversion was skipped or failed — see convert.ts — and would render as literal
+ * text instead of formatted content); unsupported block types (warning) and unsafe link hrefs (error).
+ */
 function lintRichText(body: unknown, path: string, findings: LintFinding[]): void {
-    if (!Array.isArray(body)) return // ProseMirror working form is never linted; only stored PT reaches here
+    if (!Array.isArray(body)) {
+        if (body !== undefined && body !== null) {
+            findings.push({
+                severity: "error",
+                rule: "richtext-not-portable-text",
+                path,
+                message: "Rich text body is not a Portable Text array and will render as literal text instead of formatted content"
+            })
+        }
+        return
+    }
     for (const block of body) {
         if (!isRecord(block)) continue
         if (typeof block._type === "string" && !SUPPORTED_PT_TYPES.has(block._type)) {
