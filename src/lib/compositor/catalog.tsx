@@ -357,8 +357,10 @@ interface ContentImageProps {
 // The outlets are thin content-fed twins of existing components (pivot §4): same markup, same classes,
 // same token wiring — only where the value comes from differs. One render body each keeps them twins.
 
-/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). */
-function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
+/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). Also
+ * reused by the theme editor's live preview (`ThemePreview.tsx`) so a typography specimen renders with
+ * the exact same class/var wiring as the real component, never a hand-rolled approximation. */
+export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
     const Tag = level
     return (
         <Tag
@@ -380,6 +382,29 @@ function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typogr
 /** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). */
 function renderImageTag(url: string, alt: string, width: number | undefined, height: number | undefined, aspect: string) {
     return <img className="cmp-image" data-aspect={aspect} src={url} alt={alt} width={width} height={height} />
+}
+
+/** The Button markup. Exported (like `renderHeadingTag`) so the theme editor's live preview renders a
+ * button variant with the exact same class/var wiring as the real component, never a hand-rolled copy. */
+export function renderButtonTag(label: string, href: string, variant: string) {
+    return (
+        <a
+            className="cmp-button"
+            href={sanitizeHref(href)}
+            style={vars({
+                "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
+                "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
+                "--cmp-button-radius": tokenVar("buttonVariants", variant, "radius"),
+                "--cmp-button-pad-x": tokenVar("buttonVariants", variant, "pad-x"),
+                "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
+                "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
+                "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
+                "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color")
+            })}
+        >
+            {label}
+        </a>
+    )
 }
 
 /** Neutral editor-canvas placeholder for an outlet with no preview entry to resolve against (pivot §4). */
@@ -561,24 +586,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             // default resolves. The render stays pure — it maps a variant name into `--cmp-button-*`
             // locals and never sees the theme, exactly like Spacer/Divider (catalog purity rule).
             defaultProps: { label: "Button", href: "#", variant: "primary" },
-            render: ({ label, href, variant }: ButtonProps) => (
-                <a
-                    className="cmp-button"
-                    href={sanitizeHref(href)}
-                    style={vars({
-                        "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
-                        "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
-                        "--cmp-button-radius": tokenVar("buttonVariants", variant, "radius"),
-                        "--cmp-button-pad-x": tokenVar("buttonVariants", variant, "pad-x"),
-                        "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
-                        "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
-                        "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
-                        "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color")
-                    })}
-                >
-                    {label}
-                </a>
-            )
+            render: ({ label, href, variant }: ButtonProps) => renderButtonTag(label, href, variant)
         },
         Spacer: {
             label: "Spacer",
