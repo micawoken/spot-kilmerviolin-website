@@ -51,14 +51,14 @@ const theme: TokenCatalog = {
     breakpoints: [{ name: "md", minWidth: "768px" }]
 }
 
-/** The frozen catalog v1 component set (§4.5). A change here is a deliberate version bump. */
-const CATALOG_V1 = ["Section", "Columns", "Heading", "RichText", "Image", "Button", "Spacer", "Divider"]
+/** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
+ * container (unified field-outlet rewrite). A change here is a deliberate version bump. */
+const CATALOG_V1 = ["Section", "Columns", "Row", "Heading", "RichText", "Image", "Button", "Spacer", "Divider"]
 
-/** The Phase B content outlets (pivot §4) — registered in every target alongside catalog v1. */
-const OUTLETS = ["ContentText", "ContentRichText", "ContentImage"]
-
-/** The hybrid template model's dedicated entity block (impl plan Step 4). */
-const ENTITY_BLOCKS = ["CompositionDetail"]
+/** The content outlets (pivot §4), including the unified field-outlet rewrite's `ContentField` (any
+ * non-image entity field) and `MediaText` (the collapsing media+text primitive) — registered in every
+ * target alongside catalog v1. */
+const OUTLETS = ["ContentText", "ContentRichText", "ContentImage", "ContentField", "MediaText"]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function field(config: any, component: string, prop: string): any {
@@ -71,8 +71,8 @@ function render(config: any, component: string, props: Record<string, unknown>):
 }
 
 describe("buildConfig — component set", () => {
-    it("exposes exactly catalog v1 plus the content outlets and entity blocks in both targets", () => {
-        const expected = [...CATALOG_V1, ...OUTLETS, ...ENTITY_BLOCKS].sort()
+    it("exposes exactly catalog v1 plus the content outlets in both targets", () => {
+        const expected = [...CATALOG_V1, ...OUTLETS].sort()
         expect(Object.keys(buildConfig(theme, "editor").components).sort()).toEqual(expected)
         expect(Object.keys(buildConfig(theme, "build").components).sort()).toEqual(expected)
     })
@@ -119,7 +119,9 @@ describe("OUTLET_PROPS", () => {
         expect(OUTLET_PROPS).toEqual({
             ContentText: ["string", "text"],
             ContentRichText: ["portableText"],
-            ContentImage: ["image"]
+            ContentImage: ["image"],
+            ContentField: ["string", "text", "number", "date", "reference", "referenceList", "list", "uri"],
+            MediaText: ["image"]
         })
     })
 })
@@ -128,25 +130,26 @@ describe("TOKEN_PROPS", () => {
     it("registers every token-select field and the kind it draws from (contributor rule)", () => {
         // Pinned deliberately: a new token-select field added to a component's `fields` without a
         // matching entry here breaks this test — exactly the gap the lint pass otherwise misses
-        // silently (see the "CompositionDetail's headingTypography" test below).
+        // silently (see the "dangling ContentField.typography" test below).
         expect(TOKEN_PROPS).toEqual({
             Section: { background: "colors", paddingY: "space" },
             Columns: { gap: "space" },
+            Row: { gap: "space" },
             Heading: { typography: "typography" },
             ContentText: { typography: "typography" },
+            ContentField: { typography: "typography" },
             Spacer: { size: "space" },
             Divider: { spaceAround: "space", color: "colors" },
-            Button: { variant: "buttonVariants" },
-            CompositionDetail: { headingTypography: "typography" }
+            Button: { variant: "buttonVariants" }
         })
     })
 
-    it("catches a dangling CompositionDetail.headingTypography — the lint hole a missed registration would leave", () => {
+    it("catches a dangling ContentField.typography — the lint hole a missed registration would leave", () => {
         const doc: DesignDoc = {
             schemaVersion: 1,
             puck: {
                 root: { props: {} },
-                content: [{ type: "CompositionDetail", props: { headingTypography: "no-such-token" } }]
+                content: [{ type: "ContentField", props: { field: "name", typography: "no-such-token" } }]
             } as unknown as PuckData
         }
         const findings = lintDesign(doc, theme, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
@@ -159,7 +162,7 @@ describe("tokenKindUsers", () => {
         // Pinned against TOKEN_PROPS' current shape (see the describe block above) — a change to which
         // components draw from "typography" should be visible here too, since the theme editor's
         // typography preview surfaces this list to the author.
-        expect(tokenKindUsers("typography")).toEqual(["Heading.typography", "ContentText.typography", "CompositionDetail.headingTypography"])
+        expect(tokenKindUsers("typography")).toEqual(["Heading.typography", "ContentText.typography", "ContentField.typography"])
         expect(tokenKindUsers("buttonVariants")).toEqual(["Button.variant"])
     })
 
@@ -328,131 +331,154 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
     })
 })
 
-describe("buildConfig — CompositionDetail (hybrid core, pivot Step 4)", () => {
-    const composition: Record<string, unknown> = {
-        id: 42,
-        name: "Concerto in D",
-        type: "Concerto",
-        part: "Violin",
-        image: "https://images.example.test/concerto.jpg",
-        composer_id: 5,
-        author_secondary: [6],
-        contrib_primary_1: 10,
-        contrib_primary_2: 11,
-        contrib_addl: [12, 13],
-        phases: [1, 2],
-        key: "D major",
-        range: "G3-E6",
-        position_highest: "5th",
-        rating: { suzuki: 8, nyssma: 4 },
-        publication_info: { name: "Example Press", location: "New York", year: 1990, uri_type: "https", uri: "https://example.test/score" },
-        notes_historical: "Written in 1990.",
-        notes_pedagogical: "Good for advanced students.",
-        notes_other: "N/A",
-        tags: ["romantic", "advanced"]
+describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
+    const fields: CollectionField[] = [
+        { slug: "name", label: "Name", type: "string" },
+        { slug: "bio", label: "Bio", type: "text" },
+        { slug: "birth_year", label: "Birth Year", type: "number" },
+        { slug: "entry_date", label: "Added", type: "date" },
+        { slug: "composer", label: "Composer", type: "reference" },
+        { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList" },
+        { slug: "tags", label: "Tags", type: "list" },
+        { slug: "publication_uri", label: "Publication Link", type: "uri" }
+    ]
+
+    // Shapes exactly as entity-records.ts's normalizer produces them (references pre-resolved, no
+    // separate names structure) — the reference-fold linchpin this outlet is built to consume directly.
+    const entry: Record<string, unknown> = {
+        name: "Ada",
+        bio: "",
+        birth_year: 1990,
+        entry_date: "2026-01-15",
+        composer: { id: 5, name: "Jane Composer", href: "/entity/composer/5" },
+        contrib_addl: [
+            { id: 10, name: "Primary Editor", href: "/entity/contributor/10" },
+            { id: 11, name: "", href: null } // unresolvable — renders as an empty entry, per ReferenceLink
+        ],
+        tags: ["romantic", "advanced"],
+        publication_uri: { uriType: "https", uri: "https://example.test/score" }
     }
+    const base = { label: "", showLabel: "yes" as const, typography: "display" }
 
-    const names = {
-        composer_name: "Jane Composer",
-        author_secondary_names: ["Second Author"],
-        contrib_primary_1_name: "Primary Editor",
-        contrib_primary_2_name: "Co Editor",
-        contrib_addl_names: ["Addl One", "Addl Two"]
-    }
-
-    const props = { headingTypography: "display" }
-
-    it("renders nothing at build and a placeholder in the editor with no entry", () => {
-        expect(render(buildConfig(theme, "build"), "CompositionDetail", props)).toBe("")
-        expect(render(buildConfig(theme, "editor"), "CompositionDetail", props)).toContain("cmp-outlet-placeholder")
+    it("uses the bound field's catalog label by default", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "name" })
+        expect(html).toContain("Name")
+        expect(html).toContain("Ada")
     })
 
-    it("renders nothing for an entry with no `name` — not a composition (defensive, not a crash)", () => {
-        const config = buildConfig(theme, "build", { entry: { title: "not a composition" } })
-        expect(render(config, "CompositionDetail", props)).toBe("")
+    it("an explicit label override wins over the catalog label", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "name", label: "Full Name" })
+        expect(html).toContain("Full Name")
+        expect(html).not.toContain(">Name<")
     })
 
-    it("renders the name, id, type, and part", () => {
-        const config = buildConfig(theme, "build", { entry: composition, entryNames: names })
-        const html = render(config, "CompositionDetail", props)
-        expect(html).toContain("Concerto in D")
-        expect(html).toContain("ID #42")
-        expect(html).toContain("Concerto")
-        expect(html).toContain("Violin")
+    it("hides the label when showLabel is no", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "name", showLabel: "no" })
+        expect(html).not.toContain("cmp-field__label")
+        expect(html).toContain("Ada")
     })
 
-    it("links composer and contributor references to the public /entity/{noun}/{id} route with resolved names", () => {
-        const config = buildConfig(theme, "build", { entry: composition, entryNames: names })
-        const html = render(config, "CompositionDetail", props)
+    it("renders a number field", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        expect(render(config, "ContentField", { ...base, field: "birth_year" })).toContain("1990")
+    })
+
+    it("formats a date field with a fixed, deterministic format", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        expect(render(config, "ContentField", { ...base, field: "entry_date" })).toContain("January 15, 2026")
+    })
+
+    it("links a resolved reference to its public page", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "composer" })
         expect(html).toContain('href="/entity/composer/5"')
         expect(html).toContain("Jane Composer")
-        expect(html).toContain('href="/entity/composer/6"')
-        expect(html).toContain("Second Author")
+    })
+
+    it("renders a referenceList, linking a resolved item and rendering an unresolved one as empty", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "contrib_addl" })
         expect(html).toContain('href="/entity/contributor/10"')
         expect(html).toContain("Primary Editor")
-        expect(html).toContain('href="/entity/contributor/11"')
-        expect(html).toContain("Co Editor")
-        expect(html).toContain('href="/entity/contributor/12"')
-        expect(html).toContain("Addl One")
-        expect(html).toContain('href="/entity/contributor/13"')
-        expect(html).toContain("Addl Two")
     })
 
-    it("falls back to a bare-id label (still linked) when a reference name is unresolved", () => {
-        const config = buildConfig(theme, "build", {
-            entry: composition,
-            entryNames: { ...names, contrib_primary_1_name: "" }
-        })
-        const html = render(config, "CompositionDetail", props)
-        expect(html).toContain('href="/entity/contributor/10">10<')
+    it("joins a list field with commas", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        expect(render(config, "ContentField", { ...base, field: "tags" })).toContain("romantic, advanced")
     })
 
-    it("renders an unset optional reference (contrib_primary_2) as the placeholder, unlinked", () => {
-        const config = buildConfig(theme, "build", {
-            entry: { ...composition, contrib_primary_2: null },
-            entryNames: names
-        })
-        const html = render(config, "CompositionDetail", props)
-        expect(html).not.toContain("/entity/contributor/11")
-        expect(html).toContain("no additional primary contributor specified")
-    })
-
-    it("renders the publication URI as an https link via the shared renderPublicationUri", () => {
-        const config = buildConfig(theme, "build", { entry: composition, entryNames: names })
-        const html = render(config, "CompositionDetail", props)
+    it("renders the publication-uri composite as an https link via the shared renderPublicationUri", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "publication_uri" })
         expect(html).toContain('href="https://example.test/score"')
     })
 
-    it("renders ratings, key/range/position, notes, and tags", () => {
-        const config = buildConfig(theme, "build", { entry: composition, entryNames: names })
-        const html = render(config, "CompositionDetail", props)
-        expect(html).toContain("D major")
-        expect(html).toContain("G3-E6")
-        expect(html).toContain("5th")
-        expect(html).toContain("Written in 1990.")
-        expect(html).toContain("Good for advanced students.")
-        expect(html).toContain("romantic, advanced")
+    it("owner decision: an empty/null value renders an EMPTY value (row still present), never a placeholder string", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "bio" })
+        expect(html).toContain("cmp-field__value")
+        expect(html).toContain("Bio") // the label still renders — only the value is empty
+        expect(html).not.toMatch(/not supplied|\(no /)
     })
 
-    it("renders the composition's own image via mediaSource, with empty alt (no alt field exists)", () => {
-        const config = buildConfig(theme, "build", { entry: composition, entryNames: names, mediaBaseUrl: "https://store.example.test" })
-        const html = render(config, "CompositionDetail", props)
-        expect(html).toContain('src="https://images.example.test/concerto.jpg"')
-        expect(html).toContain('alt=""')
+    it("renders a placeholder in the editor, and nothing at build, when no field is bound", () => {
+        expect(render(buildConfig(theme, "editor", { entry, fields }), "ContentField", { ...base, field: "" })).toContain(
+            "cmp-outlet-placeholder"
+        )
+        expect(render(buildConfig(theme, "build", { entry, fields }), "ContentField", { ...base, field: "" })).toBe("")
     })
 
-    it("omits the image block entirely when the composition has no image", () => {
-        const config = buildConfig(theme, "build", { entry: { ...composition, image: null }, entryNames: names })
-        const html = render(config, "CompositionDetail", props)
-        expect(html).not.toContain("cmp-composition-detail__image")
+    it("falls back to shape-based inference when no catalog fields are supplied (e.g. pages/posts)", () => {
+        const config = buildConfig(theme, "build", { entry: { plain: "hello" } })
+        const html = render(config, "ContentField", { ...base, field: "plain", label: "My Label" })
+        expect(html).toContain("hello")
+        expect(html).toContain("My Label")
+    })
+})
+
+describe("buildConfig — MediaText (collapsing media+text primitive, concern #3)", () => {
+    const fields: CollectionField[] = [{ slug: "portrait", label: "Portrait", type: "image" }]
+    const props = { aspect: "original" as const, imagePosition: "start" as const, content: () => null }
+
+    it("renders the media side when the bound field resolves to a usable source", () => {
+        const config = buildConfig(theme, "build", {
+            entry: { portrait: "https://images.example.test/ada.jpg" },
+            fields,
+            mediaBaseUrl: "https://store.example.test"
+        })
+        const html = render(config, "MediaText", { ...props, field: "portrait" })
+        expect(html).toContain("cmp-media-text__media")
+        expect(html).toContain('src="https://images.example.test/ada.jpg"')
     })
 
-    it("renders placeholders throughout when entryNames is absent (no crash on missing names)", () => {
-        const config = buildConfig(theme, "build", { entry: composition })
-        const html = render(config, "CompositionDetail", props)
-        // Composer-name refs show the placeholder as the link label when the name is unresolved
-        // (mirrors renderComposerNameLink); contributor refs fall back to the bare id instead.
-        expect(html).toContain('href="/entity/composer/5">(error in composer name)<')
-        expect(html).toContain('href="/entity/contributor/10">10<')
+    it("collapses to content-only — no dead column — when the field has no usable image", () => {
+        const config = buildConfig(theme, "build", { entry: { portrait: null }, fields })
+        const html = render(config, "MediaText", { ...props, field: "portrait" })
+        expect(html).not.toContain("cmp-media-text__media")
+        expect(html).toContain("cmp-media-text__content")
+    })
+})
+
+describe("buildConfig — Row (explicit horizontal container, flow invariant)", () => {
+    it("renders a flex row carrying the gap token, wrapping its slot content", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "Row", { gap: "md", content: () => null })
+        expect(html).toContain("cmp-row")
+        expect(html).toContain("--cmp-row-gap:var(--dtk-space-md)")
+    })
+})
+
+describe("buildConfig — root wraps every render in .cmp-root (flow invariant's top-level anchor)", () => {
+    it("wraps children in .cmp-root regardless of target", () => {
+        for (const target of ["build", "editor"] as const) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const config = buildConfig(theme, target) as any
+            const html = renderToStaticMarkup(config.root.render({ children: "hello" }))
+            expect(html).toContain('class="cmp-root"')
+            expect(html).toContain("hello")
+        }
     })
 })

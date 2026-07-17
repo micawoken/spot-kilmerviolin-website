@@ -20,7 +20,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-import { D1ReadError, fetchComposers, fetchContributors, fetchCompositions } from "../../src/lib/build/d1-api"
+import { D1ReadError, fetchAllContributors, fetchComposers, fetchContributors, fetchCompositions } from "../../src/lib/build/d1-api"
 
 /** A Cloudflare D1 REST query response, as the query endpoint would return it. */
 function d1Response(status: number, body: unknown): Response {
@@ -164,8 +164,62 @@ describe("fetchContributors — public listing", () => {
     })
 })
 
-describe("fetchCompositions — reference name resolution", () => {
-    it("resolves composer/contributor references, mirroring attachCompositionNames", async () => {
+describe("fetchAllContributors — unredacted, active or not (entity-records.ts's reference-resolution source)", () => {
+    it("includes an inactive contributor and does NOT strip protected columns", async () => {
+        withD1()
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(
+                success([
+                    {
+                        contributor_id: 1,
+                        name: "Ada",
+                        class_year: null,
+                        major: null,
+                        phases: null,
+                        bio: null,
+                        public_email: null,
+                        identity_email: "ada@example.test",
+                        active: 1,
+                        roles: "admin",
+                        admin: 1,
+                        image: null,
+                        tags: ""
+                    },
+                    {
+                        contributor_id: 2,
+                        name: "Grace",
+                        class_year: null,
+                        major: null,
+                        phases: null,
+                        bio: null,
+                        public_email: null,
+                        identity_email: "grace@example.test",
+                        active: 0,
+                        roles: "",
+                        admin: 0,
+                        image: null,
+                        tags: ""
+                    }
+                ])
+            )
+        )
+
+        const result = await fetchAllContributors()
+        // Both rows, including the inactive one — buildReferenceIndex needs to resolve a composition's
+        // reference to an inactive contributor's NAME even though that contributor gets no public page.
+        expect(result).toHaveLength(2)
+        expect(result?.map((c) => c.name).sort()).toEqual(["Ada", "Grace"])
+        expect(result?.find((c) => c.name === "Grace")?.active).toBe(false)
+        // Unredacted: this reader must not strip protected columns (redaction happens at fetchContributors,
+        // the public-listing reader — never here, or the "unredacted" contract callers rely on breaks silently).
+        expect(result?.[0]).toHaveProperty("identity_email")
+        expect(result?.[0]).toHaveProperty("roles")
+    })
+})
+
+describe("fetchCompositions — flat D1 record shape (unified field-outlet rewrite)", () => {
+    it("returns bare CompositionRecords — reference resolution now lives entirely in entity-records.ts", async () => {
         withD1()
         const compositionRow = {
             composition_id: 10,
@@ -196,83 +250,22 @@ describe("fetchCompositions — reference name resolution", () => {
             tags: "",
             change_date: "2026-01-01"
         }
-        const composerRow = { composer_id: 1, name: "Bach", tags: "" }
-        const contributorRow = {
-            contributor_id: 2,
-            name: "Ada",
-            class_year: null,
-            major: null,
-            phases: null,
-            bio: null,
-            public_email: null,
-            identity_email: "ada@example.test",
-            active: 0, // inactive — must still resolve a name for reference purposes
-            roles: "",
-            admin: 0,
-            image: null,
-            tags: ""
-        }
 
         const fetchSpy = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
             const { sql } = JSON.parse(init.body as string)
             if (sql.includes("FROM compositions")) return success([compositionRow])
-            if (sql.includes("FROM composers")) return success([composerRow])
-            if (sql.includes("FROM contributors")) return success([contributorRow])
             throw new Error(`unexpected query: ${sql}`)
         })
         vi.stubGlobal("fetch", fetchSpy)
 
+        // Only one query is expected now (compositions alone) — this function no longer reads
+        // composers/contributors itself, so a call to either table would hit the `throw` above and fail
+        // the test, which is itself the regression guard for "reference resolution moved out of here".
         const result = await fetchCompositions()
         expect(result).toHaveLength(1)
-        expect(result?.[0].names).toEqual({
-            composer_name: "Bach",
-            author_secondary_names: [],
-            contrib_primary_1_name: "Ada",
-            contrib_primary_2_name: "",
-            contrib_addl_names: []
-        })
-    })
-
-    it("resolves an unknown reference id to an empty string rather than throwing", async () => {
-        withD1()
-        const compositionRow = {
-            composition_id: 10,
-            name: "Concerto",
-            composer_id: 999,
-            contrib_primary_1: 999,
-            contrib_primary_2: null,
-            contrib_addl: "",
-            author_secondary: "",
-            type: "Chamber",
-            part: null,
-            rating_suzuki: null,
-            rating_nyssma: null,
-            publish_location: "Loc",
-            publish_name: "Pub",
-            publish_year: 2000,
-            uri_type: "other",
-            uri: "",
-            key: null,
-            range: null,
-            position_highest: null,
-            notes_pedagogical: null,
-            notes_historical: null,
-            notes_other: null,
-            image: null,
-            phases: "",
-            entry_date: "2026-01-01",
-            tags: "",
-            change_date: "2026-01-01"
-        }
-        const fetchSpy = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
-            const { sql } = JSON.parse(init.body as string)
-            if (sql.includes("FROM compositions")) return success([compositionRow])
-            return success([])
-        })
-        vi.stubGlobal("fetch", fetchSpy)
-
-        const result = await fetchCompositions()
-        expect(result?.[0].names.composer_name).toBe("")
-        expect(result?.[0].names.contrib_primary_1_name).toBe("")
+        expect(result?.[0].id).toBe(10)
+        expect(result?.[0].name).toBe("Concerto")
+        expect(result?.[0].composer_id).toBe(1)
+        expect(result?.[0]).not.toHaveProperty("names")
     })
 })

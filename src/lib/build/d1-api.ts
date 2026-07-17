@@ -214,12 +214,17 @@ export async function fetchComposers(): Promise<ComposerRecord[] | null> {
 }
 
 /**
- * Fetches every contributor record, unredacted. Internal only — used to build the id→name maps that
- * resolve a composition's contributor references (a composition may reference an inactive or
- * otherwise non-public contributor, and `name` alone is not a protected column). Never return this
- * array's rows to a public page; use {@link fetchContributors} for that.
+ * Fetches every contributor record, unredacted, active or not. Exported for `entity-records.ts`'s
+ * `buildReferenceIndex`, which needs `id`/`name`/`active` for EVERY contributor a composition might
+ * reference — a composition may legitimately reference an inactive or otherwise non-public contributor,
+ * and `name` alone is not a protected column. Never pass this array's rows to a public page directly;
+ * only the resolved `{id, name, href}` reference the normalizer builds from it may reach a render — use
+ * {@link fetchContributors} for a contributor's own public page.
+ *
+ * @returns every contributor, unredacted, or null when D1 is unconfigured
+ * @throws {D1ReadError} when D1 is configured but the read fails
  */
-async function fetchAllContributors(): Promise<ContributorRecord[] | null> {
+export async function fetchAllContributors(): Promise<ContributorRecord[] | null> {
     const rows = await fetchTable(CONTRIBUTOR_SCHEMA)
     if (!rows) return null
     return rows.map((row) => formatContribFromD1(row as unknown as D1Contributor))
@@ -243,47 +248,16 @@ export async function fetchContributors(): Promise<ContributorRecord[] | null> {
 }
 
 /**
- * Fetches every composition, each paired with its resolved composer/contributor reference names.
- * Mirrors {@link attachCompositionNames} (src/lib/api/database.ts): an unresolvable id (or a null
- * `contrib_primary_2`) resolves to an empty string, keeping the *_names arrays positionally aligned
- * with their source id arrays.
+ * Fetches every composition, in its flat D1 record shape. Foreign-key resolution (composer/contributor
+ * names, public-page hrefs) is no longer done here — `entity-records.ts`'s `entityRecords`/
+ * `buildReferenceIndex` do it once, for every noun uniformly, as part of the unified field-outlet
+ * rewrite. This function is now a thin mirror of `fetchComposers`/`fetchContributors`.
  *
- * @returns every composition with resolved names, or null when D1 is unconfigured
- * @throws {D1ReadError} when D1 is configured but any of the three reads (compositions, composers,
- *   contributors) fails
+ * @returns every composition, or null when D1 is unconfigured
+ * @throws {D1ReadError} when D1 is configured but the read fails
  */
-export async function fetchCompositions(): Promise<CompositionWithNames[] | null> {
+export async function fetchCompositions(): Promise<CompositionRecord[] | null> {
     const rows = await fetchTable(COMPOSITION_SCHEMA)
     if (!rows) return null
-    const compositions = rows.map((row) => formatWorkFromD1(row as unknown as D1Composition))
-
-    const composers = await fetchComposers()
-    const composerNames = new Map<number, string>()
-    if (composers) {
-        for (const composer of composers) {
-            composerNames.set(composer.id, composer.name)
-        }
-    }
-
-    const contributors = await fetchAllContributors()
-    const contributorNames = new Map<number, string>()
-    if (contributors) {
-        for (const contributor of contributors) {
-            contributorNames.set(contributor.id, contributor.name)
-        }
-    }
-
-    return compositions.map((composition) => ({
-        object: composition,
-        names: {
-            composer_name: composerNames.get(composition.composer_id) ?? "",
-            author_secondary_names: composition.author_secondary.map((id) => composerNames.get(id) ?? ""),
-            contrib_primary_1_name: contributorNames.get(composition.contrib_primary_1) ?? "",
-            contrib_primary_2_name:
-                composition.contrib_primary_2 === null
-                    ? ""
-                    : (contributorNames.get(composition.contrib_primary_2) ?? ""),
-            contrib_addl_names: composition.contrib_addl.map((id) => contributorNames.get(id) ?? "")
-        }
-    }))
+    return rows.map((row) => formatWorkFromD1(row as unknown as D1Composition))
 }
