@@ -52,6 +52,13 @@ export type MediaSource = { kind: "key"; storageKey: string } | { kind: "url"; u
  * `{ id, src?, alt?, width?, height?, provider?, meta? }` (`emdash/src/schema/zod-generator.ts`); for
  * local media `src` is absent and the key lives at `meta.storageKey`.
  *
+ * A plain non-empty string is a D1 entity's `image` column, not an EmDash media object (see
+ * `src/lib/api/types.d.ts`'s `image: string | null` — "refers to a file in assets, or an external
+ * URL"). Both shapes are already fully-resolvable references (a same-origin `/api/v1/files/{id}` path
+ * or an absolute URL), unlike EmDash's storage-key indirection, so it passes through untouched — same
+ * trust boundary the entity `*Info.astro` components already apply (`src={record.image ?? undefined}`,
+ * no scheme validation beyond the admin form's `type="url"`).
+ *
  * Resolution order mirrors EmDash's `buildRenderMediaUrl`: the storage key wins; otherwise an internal
  * proxy URL is unwrapped back to its key; otherwise an absolute URL passes through. A bare media `id` is
  * **not** a usable handle — the file route 404s on it — so it resolves to `null` rather than a dead URL.
@@ -60,6 +67,9 @@ export type MediaSource = { kind: "key"; storageKey: string } | { kind: "url"; u
  * @returns {MediaSource} - the resolved source, or null when nothing usable is present
  */
 export function mediaSource(value: unknown): MediaSource {
+    if (typeof value === "string") {
+        return value !== "" ? { kind: "url", url: value } : null
+    }
     if (!isRecord(value)) return null
 
     const meta = isRecord(value.meta) ? value.meta : undefined
