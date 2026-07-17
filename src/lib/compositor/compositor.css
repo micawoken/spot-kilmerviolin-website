@@ -111,3 +111,80 @@
 	font-size: 0.875rem;
 	text-align: center;
 }
+
+/* CompositionDetail — the hybrid template model's dedicated block (impl plan Step 4): a composition's
+ * full ~25-field body as one themed unit, since per-field outlets would be unauthorable at that count.
+ * Heading typography is theme-picked like Heading/ContentText; everything else uses the body typography
+ * token (--dtk-type-body-*, the same convention .cmp-richtext relies on) since the block has no other
+ * per-instance token controls. Layout: header + image share a row, field groups wrap in a grid beneath,
+ * and the three notes plus tags span full width at the bottom (mirrors CompositionInfo.astro's grouping,
+ * not its CSS — that file styles an admin card against a different variable system). */
+.cmp-composition-detail {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dtk-space-md, 1.5rem);
+	font-family: var(--dtk-type-body-family);
+	font-size: var(--dtk-type-body-size);
+	line-height: var(--dtk-type-body-line-height);
+}
+.cmp-composition-detail__head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--dtk-space-md, 1.5rem);
+	align-items: start;
+}
+.cmp-composition-detail__header {
+	flex: 1 1 60%;
+	min-width: 0;
+}
+.cmp-composition-detail__infoline {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--dtk-space-sm, 0.5rem);
+	margin-top: var(--dtk-space-sm, 0.5rem);
+	opacity: 0.75;
+}
+.cmp-composition-detail__infoline > span:not(:last-child)::after {
+	content: "·";
+	margin-inline-start: var(--dtk-space-sm, 0.5rem);
+}
+.cmp-composition-detail__image {
+	flex: 0 1 12rem;
+}
+.cmp-composition-detail__image img {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+.cmp-composition-detail__groups {
+	flex-basis: 100%;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+	gap: var(--dtk-space-md, 1.5rem);
+}
+.cmp-composition-detail__group {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dtk-space-sm, 0.5rem);
+}
+.cmp-composition-detail__field a {
+	color: inherit;
+}
+.cmp-composition-detail__notes {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--dtk-space-md, 1.5rem);
+}
+.cmp-composition-detail__note {
+	margin: 0;
+	white-space: pre-wrap;
+}
+.cmp-composition-detail__note strong {
+	display: block;
+	margin-bottom: var(--dtk-space-sm, 0.25rem);
+}
+@media (max-width: 767.98px) {
+	.cmp-composition-detail__notes {
+		grid-template-columns: 1fr;
+	}
+}
