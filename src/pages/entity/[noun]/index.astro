@@ -35,9 +35,9 @@
 
 import PublicPage from "../../../layouts/PublicPage.astro"
 import ListResults from "../../../components/entities/ListResults.astro"
-import { fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
+import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
-import { entityRecords } from "../../../lib/build/entity-records"
+import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import type { EntityNoun } from "../../../lib/compositor/entity-fields"
 
@@ -49,12 +49,19 @@ interface EntityListItem {
 }
 
 export async function getStaticPaths() {
-    const [composers, contributors, compositions, entityTemplates] = await Promise.all([
+    const [composers, contributors, allContributors, compositions, entityTemplates] = await Promise.all([
         fetchComposers(),
         fetchContributors(),
+        fetchAllContributors(),
         fetchCompositions(),
         fetchPublishedEntityTemplates()
     ])
+
+    const resolutions = resolveEntityTemplates(entityTemplates)
+    const nounHasPage = Object.fromEntries(
+        resolutions.map(({ noun, template }) => [noun, template !== null])
+    ) as Record<EntityNoun, boolean>
+    const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
 
     // ListResults' ResultObject wants a numeric id, matching ListResult.astro's admin-list usage
     // (list.astro:51-55) — entityRecords stringifies id for Astro's route params, so it is parsed back here.
@@ -70,10 +77,10 @@ export async function getStaticPaths() {
 
     const paths: { params: { noun: EntityNoun }; props: { noun: EntityNoun; results: EntityListItem[] } }[] = []
 
-    for (const { noun, template } of resolveEntityTemplates(entityTemplates)) {
+    for (const { noun, template } of resolutions) {
         if (!template) continue // mirrors [id].astro's gate; no warning here to avoid duplicate build log noise
 
-        const results = entityRecords(noun, composers, contributors, compositions).map(toListItem)
+        const results = entityRecords(noun, composers, contributors, compositions, refs).map(toListItem)
         if (results.length === 0) continue
 
         paths.push({ params: { noun }, props: { noun, results } })
