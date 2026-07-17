@@ -445,3 +445,185 @@
     gap: 0.75rem;
     margin-top: 1.5rem;
 }
+
+/* --- Theme preview -------------------------------------------------------------------------------
+ * Chrome for the live specimens (ThemePreview.tsx), one block per token section, below its table. This
+ * chrome is admin tokens only (--shade-*, --color-*); the specimens THEMSELVES are styled from --dtk-*
+ * via inline styles in ThemePreview.tsx, so the two token systems never mix (mixing would misrepresent
+ * the theme, or break admin dark mode). A thin top rule separates "editing" from "reading", same role
+ * `.theme-editor__viewbar`'s border plays at the top of the page. */
+.theme-preview {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--shade-3);
+}
+
+.theme-preview__heading {
+    margin: 0 0 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--shade-6);
+}
+
+.theme-preview__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 0.75rem;
+}
+
+.theme-preview__grid--tight {
+    grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+}
+
+/* Shadows barely read against a flush background — a distinct surface plus generous gap gives each one
+ * room to fall off into. */
+.theme-preview__grid--shadow {
+    padding: 1.25rem;
+    gap: 2rem;
+    background: var(--shade-1);
+    border-radius: 0.35rem;
+}
+
+.theme-preview__caption {
+    font-size: 0.75rem;
+    color: var(--shade-6);
+}
+
+/* Colors, in context: the color as a background, real page text laid over it. */
+.theme-preview__swatch-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.theme-preview__swatch-card .theme-preview__caption {
+    text-align: center;
+}
+
+.theme-preview__swatch-face {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-height: 5.5rem;
+    padding: 0.85rem;
+    border: 1px solid var(--shade-4);
+    border-radius: 0.35rem;
+    overflow: hidden;
+}
+
+.theme-preview__swatch-heading {
+    font-size: 1.4rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.theme-preview__swatch-body {
+    margin: 0;
+    max-width: 24ch;
+    font-size: 0.78rem;
+    text-wrap: pretty;
+}
+
+/* Typography specimens stack; each is a label above its real, live-styled sample line. */
+.theme-preview__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.theme-preview__specimen {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.theme-preview__specimen-sample {
+    margin: 0;
+    text-wrap: pretty;
+}
+
+/* A comparative bar scale (spacing, breakpoints): label, a track that scrolls rather than clips an
+ * outsized value, and the raw stored value alongside it. */
+.theme-preview__scale {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.theme-preview__scale-row {
+    display: grid;
+    grid-template-columns: 6rem 1fr auto;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.theme-preview__scale-label {
+    overflow: hidden;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.theme-preview__scale-track {
+    display: flex;
+    align-items: center;
+    height: 0.85rem;
+    overflow-x: auto;
+    background: var(--shade-2);
+    border-radius: 0.15rem;
+}
+
+.theme-preview__scale-bar {
+    flex: 0 0 auto;
+    height: 100%;
+    min-width: 2px;
+    background: var(--color-link, var(--shade-7));
+    border-radius: 0.1rem;
+}
+
+/* Breakpoints reuse the scale but in the structural gray, not the accent blue — a quiet visual reminder
+ * that these aren't the theme's own colors, unlike every other scale in this file. */
+.theme-preview__scale-track--wide .theme-preview__scale-bar {
+    background: var(--shade-7);
+}
+
+.theme-preview__scale-value {
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--shade-6);
+    white-space: nowrap;
+}
+
+/* Radius / shadow / border swatches: a fixed box, the token applied, a caption underneath. */
+.theme-preview__box-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: center;
+}
+
+.theme-preview__box {
+    box-sizing: border-box;
+    width: 4rem;
+    height: 4rem;
+    background: var(--shade-2);
+    border: 1px solid var(--shade-4);
+}
+
+/* Shadow and border swatches supply their own edge (a cast shadow, or the border token itself), so the
+ * default fill/border would only compete with it. */
+.theme-preview__box--flat {
+    background: var(--color-bg);
+    border: none;
+}
+
+.theme-preview__button-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
