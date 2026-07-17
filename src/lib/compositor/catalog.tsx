@@ -117,6 +117,43 @@ export const TOKEN_PROPS: TokenPropRegistry = {
 }
 
 /**
+ * Human-readable "where does this actually get used" prose for the theme editor's per-kind preview
+ * captions. Hand-written, not derived from `TOKEN_PROPS`: the interesting facts here — a button
+ * variant's indirect reference to `radius`/`borders`/`space`, and `shadows` currently being consumed
+ * by nothing at all — can't be expressed by formatting `TOKEN_PROPS` as a string, so a short honest
+ * sentence per kind beats generated text that would immediately need exceptions bolted on. Keep this
+ * in step with real consumers; a wrong note is worse than no note. `colors`/`typography`/`buttonVariants`
+ * are omitted — `TOKEN_PROPS` already answers "which component" clearly enough for those to not need
+ * a separate note.
+ */
+export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
+    space: "Used directly by Section's vertical padding, Columns' gap, Spacer's size, and Divider's " +
+        "space around — plus indirectly by a button variant's own horizontal/vertical padding.",
+    radius: "Only reachable through a button variant's radius field — no component applies a radius " +
+        "token directly.",
+    borders: "Only reachable through a button variant's border field — no component applies a border " +
+        "token directly.",
+    shadows: "Consumed by nothing on the live site today — no component or button variant reads a " +
+        "shadow token. This preview is the only place a shadow value is currently visible."
+}
+
+/**
+ * Puck components (and field) that draw from a token kind, formatted `"Component.field"`, in
+ * `TOKEN_PROPS`'s own key order. Unlike `TOKEN_USAGE_NOTES`, typography's binding has no indirection
+ * and no "consumed by nothing" case to explain — every `typography`-kind field is a direct, first-class
+ * consumer — so a derived list is both correct and simpler than hand-written prose here.
+ */
+export function tokenKindUsers(kind: TokenKind): string[] {
+    const users: string[] = []
+    for (const [component, fields] of Object.entries(TOKEN_PROPS)) {
+        for (const [field, fieldKind] of Object.entries(fields)) {
+            if (fieldKind === kind) users.push(`${component}.${field}`)
+        }
+    }
+    return users
+}
+
+/**
  * The media object an Image stores (§4.5). It holds the **storage key**, never a baked URL: the URL a
  * key resolves to differs by render target (public origin at build, Access-gated proxy in the editor),
  * so baking one in would hard-code the wrong answer for the other. See `media.ts`.
@@ -460,7 +497,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 paddingY: tokenSelect(theme, "space", "Vertical padding"),
                 content: { type: "slot" as const }
             },
-            defaultProps: { background: "", paddingY: "md", content: [] },
+            defaultProps: { background: "", paddingY: "section", content: [] },
             render: ({ background, paddingY, content: Content }: SectionProps) => (
                 <section
                     className="cmp-section"
