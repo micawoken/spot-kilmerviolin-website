@@ -42,12 +42,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { TOKEN_PROPS } from "../../lib/compositor/catalog"
 import { collectTokenUsage } from "../../lib/compositor/lint"
 import { migrateDesign } from "../../lib/compositor/migrations"
-import { isTokenCatalog, type TokenCatalog, type TokenKind } from "../../lib/compositor/tokens"
+import { isTokenCatalog, tokensToCss, type TokenCatalog, type TokenKind } from "../../lib/compositor/tokens"
 import {
     LENGTH_UNITS,
     formatClamp,
@@ -62,8 +62,23 @@ import {
     type ShadowLayer
 } from "../../lib/compositor/theme-controls"
 import type { DesignDoc } from "../../lib/compositor/types"
+import {
+    BorderSwatches,
+    BreakpointScale,
+    ButtonVariantSamples,
+    ColorReference,
+    RadiusSwatches,
+    ShadowSwatches,
+    SpacingScale,
+    TypographySpecimen
+} from "./ThemePreview"
 
 import "./design-editor.css"
+// Vite `?raw` yields the file's text (typed via astro/client) — the exact mechanism DesignEditor.tsx uses
+// to style the Puck canvas iframe. Here it styles the live preview specimens below, injected as a plain
+// `<style>` in the admin document itself (allowed: the admin CSP is `style-src 'self' 'unsafe-inline'`,
+// middleware/headers.ts).
+import compositorCss from "../../lib/compositor/compositor.css?raw"
 
 const DESIGN_THEME = "/_emdash/api/content/design_theme"
 
@@ -729,6 +744,11 @@ export default function ThemeEditor() {
         }
     })
 
+    // The live preview's CSS: the in-progress (unsaved) edit converted to a catalog and emitted as
+    // `--dtk-*` custom properties, plus the same stylesheet real design pages use — recomputed on every
+    // edit so a preview specimen always reflects the current form state, not the last save.
+    const previewCss = useMemo(() => (editable ? `${tokensToCss(toCatalog(editable))}\n${compositorCss}` : ""), [editable])
+
     useEffect(() => {
         let cancelled = false
         fetchTheme()
@@ -934,6 +954,9 @@ export default function ThemeEditor() {
 
     return (
         <div className="theme-editor">
+            {/* Scoped by class (`.cmp-*`) and custom-property namespace (`--dtk-*`); nothing here collides
+                with the admin chrome's own styles. Powers every specimen below. */}
+            <style dangerouslySetInnerHTML={{ __html: previewCss }} />
             <div className="theme-editor__viewbar">
                 <label className="theme-editor__switch">
                     <input type="checkbox" checked={rawMode} onChange={(event) => setRawMode(event.target.checked)} />
@@ -1082,6 +1105,19 @@ export default function ThemeEditor() {
                     <button type="button" onClick={() => addRow(section.kind)}>
                         Add {section.label.toLowerCase().replace(/s$/, "")}
                     </button>
+                    {editable[section.kind].some((row) => (row.name ?? "").trim() !== "") && (
+                        <div className="theme-preview">
+                            <h4 className="theme-preview__heading">Preview</h4>
+                            {section.kind === "colors" && <ColorReference colors={editable.colors} />}
+                            {section.kind === "typography" && <TypographySpecimen typography={editable.typography} />}
+                            {section.kind === "space" && <SpacingScale space={editable.space} />}
+                            {section.kind === "radius" && <RadiusSwatches radius={editable.radius} />}
+                            {section.kind === "shadows" && <ShadowSwatches shadows={editable.shadows} />}
+                            {section.kind === "borders" && <BorderSwatches borders={editable.borders} />}
+                            {section.kind === "breakpoints" && <BreakpointScale breakpoints={editable.breakpoints} />}
+                            {section.kind === "buttonVariants" && <ButtonVariantSamples variants={editable.buttonVariants} />}
+                        </div>
+                    )}
                 </section>
             ))}
 
