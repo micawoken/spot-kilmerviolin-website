@@ -48,13 +48,6 @@ interface EntityListItem {
     name: string
 }
 
-// ListResults' ResultObject wants a numeric id, matching ListResult.astro's admin-list usage
-// (list.astro:51-55) — entityRecords stringifies id for Astro's route params, so it is parsed back here.
-// A record with no string `name` falls back to its id so the link is never unlabeled.
-function toListItem(record: { id: string; entry: Record<string, unknown> }): EntityListItem {
-    return { id: Number(record.id), name: typeof record.entry.name === "string" ? record.entry.name : `#${record.id}` }
-}
-
 export async function getStaticPaths() {
     const [composers, contributors, compositions, entityTemplates] = await Promise.all([
         fetchComposers(),
@@ -62,6 +55,18 @@ export async function getStaticPaths() {
         fetchCompositions(),
         fetchPublishedEntityTemplates()
     ])
+
+    // ListResults' ResultObject wants a numeric id, matching ListResult.astro's admin-list usage
+    // (list.astro:51-55) — entityRecords stringifies id for Astro's route params, so it is parsed back here.
+    // A record with no string `name` falls back to its id so the link is never unlabeled.
+    // Declared inside getStaticPaths (not at module scope): Astro extracts getStaticPaths into its own
+    // build-time chunk, and a module-scope helper referenced only from here was not carried into that
+    // chunk (`ReferenceError: toListItem is not defined` at build time) — keeping it local guarantees it
+    // is in scope regardless of how that extraction works.
+    const toListItem = (record: { id: string; entry: Record<string, unknown> }): EntityListItem => ({
+        id: Number(record.id),
+        name: typeof record.entry.name === "string" ? record.entry.name : `#${record.id}`
+    })
 
     const paths: { params: { noun: EntityNoun }; props: { noun: EntityNoun; results: EntityListItem[] } }[] = []
 
