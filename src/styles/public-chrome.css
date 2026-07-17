@@ -91,6 +91,23 @@ main > article {
 	padding-block: var(--dtk-space-section, 2.5rem);
 }
 
+/* Baseline inset for design/template content placed directly under <main> with no Section wrapping it
+ * (a template's outlets, or a design page authored without a Section — the compositor has no content
+ * container of its own, so unwrapped output otherwise sits flush against the viewport). `.cmp-section` is
+ * excluded: it supplies its own inset and its background is meant to bleed edge-to-edge, so padding `main`
+ * itself would shrink that bleed. `article` is excluded — already handled above. Padding-inline applies
+ * per element (safe to repeat, matches `main > article`); padding-block is restricted to :first-child/
+ * :last-child so consecutive unwrapped elements only get outer-edge spacing, not doubled gaps between them. */
+main > :not(.cmp-section, article) {
+	padding-inline: var(--dtk-space-md, 1rem);
+}
+main > :not(.cmp-section, article):first-child {
+	padding-top: var(--dtk-space-section, 2.5rem);
+}
+main > :not(.cmp-section, article):last-child {
+	padding-bottom: var(--dtk-space-section, 2.5rem);
+}
+
 /* ---- Footer ---- */
 footer {
 	display: flex;

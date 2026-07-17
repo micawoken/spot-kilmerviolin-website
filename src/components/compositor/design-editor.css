@@ -627,3 +627,98 @@
     align-items: center;
     gap: 0.75rem;
 }
+
+/* Color preview's light/dark toggle: a segmented pair above the swatch grid it applies `color-scheme` to. */
+.theme-preview__color-scope {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.theme-preview__toggle {
+    display: inline-flex;
+    align-self: flex-start;
+    overflow: hidden;
+    border: 1px solid var(--shade-4);
+    border-radius: 0.3rem;
+}
+
+.theme-preview__toggle-btn {
+    padding: 0.3rem 0.75rem;
+    border: none;
+    background: var(--color-bg);
+    font-size: 0.8rem;
+    color: var(--shade-6);
+    cursor: pointer;
+}
+
+.theme-preview__toggle-btn + .theme-preview__toggle-btn {
+    border-left: 1px solid var(--shade-4);
+}
+
+.theme-preview__toggle-btn[aria-pressed="true"] {
+    background: var(--color-link, var(--shade-7));
+    color: var(--color-bg);
+}
+
+/* Typography's custom preview-text field, styled like the other free-text controls in this editor. */
+.theme-preview__text-input {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 32rem;
+    font-size: 0.8rem;
+    color: var(--shade-6);
+}
+
+.theme-preview__text-input input {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--shade-4);
+    border-radius: 0.25rem;
+    background: var(--color-bg);
+    font: inherit;
+    color: var(--color-text);
+}
+
+/* Resizable-width preset frame (Spacing / Typography): preset buttons above a width-constrained
+ * container. The container is a plain block, not a real viewport — see ResponsivePreviewFrame's doc
+ * comment for what this does and does not preview correctly. */
+.theme-preview__width-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.theme-preview__width-controls {
+    display: inline-flex;
+    align-self: flex-start;
+    overflow: hidden;
+    border: 1px solid var(--shade-4);
+    border-radius: 0.3rem;
+}
+
+.theme-preview__width-btn {
+    padding: 0.3rem 0.65rem;
+    border: none;
+    background: var(--color-bg);
+    font-size: 0.8rem;
+    color: var(--shade-6);
+    cursor: pointer;
+}
+
+.theme-preview__width-btn + .theme-preview__width-btn {
+    border-left: 1px solid var(--shade-4);
+}
+
+.theme-preview__width-btn[aria-pressed="true"] {
+    background: var(--color-link, var(--shade-7));
+    color: var(--color-bg);
+}
+
+.theme-preview__width-frame {
+    max-width: 100%;
+    padding: 0.75rem;
+    overflow-x: auto;
+    border: 1px dashed var(--shade-4);
+    border-radius: 0.35rem;
+}

@@ -21,7 +21,13 @@
 import { describe, it, expect } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 
-import { buildConfig, OUTLET_PROPS, RICH_TEXT_PROPS } from "../../src/lib/compositor/catalog"
+import {
+    buildConfig,
+    OUTLET_PROPS,
+    RICH_TEXT_PROPS,
+    TOKEN_USAGE_NOTES,
+    tokenKindUsers
+} from "../../src/lib/compositor/catalog"
 import type { CollectionField } from "../../src/lib/build/design-api"
 import type { TokenCatalog } from "../../src/lib/compositor/tokens"
 
@@ -109,6 +115,29 @@ describe("OUTLET_PROPS", () => {
             ContentRichText: ["portableText"],
             ContentImage: ["image"]
         })
+    })
+})
+
+describe("tokenKindUsers", () => {
+    it("derives every Component.field pair for a kind from TOKEN_PROPS, in registry order", () => {
+        // Pinned against TOKEN_PROPS' current shape — a change to which components draw from
+        // "typography" should be visible here too, since the theme editor's typography preview
+        // surfaces this list to the author.
+        expect(tokenKindUsers("typography")).toEqual(["Heading.typography", "ContentText.typography"])
+        expect(tokenKindUsers("buttonVariants")).toEqual(["Button.variant"])
+    })
+
+    it("returns [] for a kind no component's fields draw from directly", () => {
+        expect(tokenKindUsers("breakpoints")).toEqual([])
+    })
+})
+
+describe("TOKEN_USAGE_NOTES", () => {
+    it("covers exactly the kinds whose binding isn't fully explained by TOKEN_PROPS alone", () => {
+        // colors/typography/buttonVariants are deliberately omitted (TOKEN_PROPS already answers "which
+        // component" for those); space/radius/borders/shadows each have an indirection or "consumed by
+        // nothing" fact TOKEN_PROPS can't express, which is the whole reason this map is hand-written.
+        expect(Object.keys(TOKEN_USAGE_NOTES).sort()).toEqual(["borders", "radius", "shadows", "space"])
     })
 })
 

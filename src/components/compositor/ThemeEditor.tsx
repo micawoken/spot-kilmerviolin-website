@@ -44,7 +44,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { TOKEN_PROPS } from "../../lib/compositor/catalog"
+import { TOKEN_PROPS, TOKEN_USAGE_NOTES, tokenKindUsers } from "../../lib/compositor/catalog"
 import { collectTokenUsage } from "../../lib/compositor/lint"
 import { migrateDesign } from "../../lib/compositor/migrations"
 import { isTokenCatalog, tokensToCss, type TokenCatalog, type TokenKind } from "../../lib/compositor/tokens"
@@ -68,6 +68,7 @@ import {
     ButtonVariantSamples,
     ColorReference,
     RadiusSwatches,
+    ResponsivePreviewFrame,
     ShadowSwatches,
     SpacingScale,
     TypographySpecimen
@@ -1108,9 +1109,25 @@ export default function ThemeEditor() {
                     {editable[section.kind].some((row) => (row.name ?? "").trim() !== "") && (
                         <div className="theme-preview">
                             <h4 className="theme-preview__heading">Preview</h4>
-                            {section.kind === "colors" && <ColorReference colors={editable.colors} />}
-                            {section.kind === "typography" && <TypographySpecimen typography={editable.typography} />}
-                            {section.kind === "space" && <SpacingScale space={editable.space} />}
+                            {TOKEN_USAGE_NOTES[section.kind] && (
+                                <p className="theme-editor__hint">{TOKEN_USAGE_NOTES[section.kind]}</p>
+                            )}
+                            {section.kind === "colors" && (
+                                <ColorReference colors={editable.colors} colorScheme={editable.colorScheme} />
+                            )}
+                            {section.kind === "typography" && (
+                                <ResponsivePreviewFrame>
+                                    <TypographySpecimen
+                                        typography={editable.typography}
+                                        usedBy={tokenKindUsers("typography")}
+                                    />
+                                </ResponsivePreviewFrame>
+                            )}
+                            {section.kind === "space" && (
+                                <ResponsivePreviewFrame>
+                                    <SpacingScale space={editable.space} />
+                                </ResponsivePreviewFrame>
+                            )}
                             {section.kind === "radius" && <RadiusSwatches radius={editable.radius} />}
                             {section.kind === "shadows" && <ShadowSwatches shadows={editable.shadows} />}
                             {section.kind === "borders" && <BorderSwatches borders={editable.borders} />}
