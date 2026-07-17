@@ -30,6 +30,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { NOT_PROVIDED } from "../../consts"
+import { COMPOSITION_LABELS, COMPOSITION_PLACEHOLDERS, displayValue } from "../../lib/compositor/composition-fields"
 import { renderPublicationUri } from "../../scripts/publication"
 import {
     renderContributorRefLink,
@@ -43,14 +44,9 @@ const names: CompositionNames | null = Astro.props.names || null
 const hidden: boolean = Astro.props.hidden || false
 
 // renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
-// empty array, so a "not supplied" field is visually distinct from an unset/blank render
-const disp = (value: unknown, placeholder?: string): string => {
-    if (value === null || value === undefined) return placeholder || NOT_PROVIDED
-    if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : placeholder || NOT_PROVIDED
-    if (typeof value === "string" && value.trim() === "") return placeholder || NOT_PROVIDED
-    if (typeof value === "boolean") return value ? "Yes" : "No"
-    return String(value)
-}
+// empty array, so a "not supplied" field is visually distinct from an unset/blank render (shared with
+// CompositionDetail, catalog.tsx — see composition-fields.ts)
+const disp = (value: unknown, placeholder?: string): string => displayValue(value, placeholder || NOT_PROVIDED)
 ---
 
 <div id="generic-result-composition" class={`entity-result-container${hidden ? " hidden" : ""}`}>
@@ -66,8 +62,8 @@ const disp = (value: unknown, placeholder?: string): string => {
              so populateInfo can still fill it. -->
             <div id="composition-details-infoline">
                 <p id="composition-id">ID #{composition?.id}</p>
-                <p id="composition-type">{disp(composition?.type, "(no type specified)")}</p>
-                <p id="composition-part">{disp(composition?.part, "(no part specified)")}</p>
+                <p id="composition-type">{disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}</p>
+                <p id="composition-part">{disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}</p>
             </div>
         </div>
         <div id="composition-image-container" class="entity-result-image-container">
@@ -93,35 +89,35 @@ const disp = (value: unknown, placeholder?: string): string => {
                 <!-- the composer name and secondary-author names link to their composer info pages; the link
                  target is the corresponding composer id. Mirrored client-side in interface.ts. -->
                 <div class="entity-field">
-                    <strong>Composer:</strong>
+                    <strong>{COMPOSITION_LABELS.composer}:</strong>
                     <span
                         id="composition-composer_name"
                         set:html={renderComposerNameLink(
                             composition?.composer_id,
                             names?.composer_name,
-                            "(error in composer name)"
+                            COMPOSITION_PLACEHOLDERS.composerNameError
                         )}
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>Composer ID:</strong>
+                    <strong>{COMPOSITION_LABELS.composerId}:</strong>
                     <span id="composition-composer_id">{disp(composition?.composer_id)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>Secondary Authors:</strong>
+                    <strong>{COMPOSITION_LABELS.secondaryAuthors}:</strong>
                     <span
                         id="composition-author_secondary_names"
                         set:html={renderComposerNameLinks(
                             composition?.author_secondary,
                             names?.author_secondary_names,
-                            "(no secondary authors)"
+                            COMPOSITION_PLACEHOLDERS.secondaryAuthors
                         )}
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>Secondary Author IDs:</strong>
+                    <strong>{COMPOSITION_LABELS.secondaryAuthorIds}:</strong>
                     <span id="composition-author_secondary"
-                        >{disp(composition?.author_secondary, "(no secondary author IDs)")}</span
+                        >{disp(composition?.author_secondary, COMPOSITION_PLACEHOLDERS.secondaryAuthorIds)}</span
                     >
                 </div>
             </div>
@@ -131,7 +127,7 @@ const disp = (value: unknown, placeholder?: string): string => {
                  come from the resolved CompositionNames (see attachCompositionNames) and are mirrored
                  client-side in interface.ts -->
                 <div class="entity-field">
-                    <strong>Primary Contributor ID:</strong>
+                    <strong>{COMPOSITION_LABELS.primaryContributor}:</strong>
                     <span
                         id="composition-contrib_primary_1"
                         set:html={renderContributorRefLink(
@@ -142,75 +138,75 @@ const disp = (value: unknown, placeholder?: string): string => {
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>Additional Primary Contributor ID:</strong>
+                    <strong>{COMPOSITION_LABELS.additionalPrimaryContributor}:</strong>
                     <span
                         id="composition-contrib_primary_2"
                         set:html={renderContributorRefLink(
                             composition?.contrib_primary_2,
                             names?.contrib_primary_2_name,
-                            "(no additional primary contributor specified)"
+                            COMPOSITION_PLACEHOLDERS.additionalPrimaryContributor
                         )}
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>Additional Contributor IDs:</strong>
+                    <strong>{COMPOSITION_LABELS.additionalContributors}:</strong>
                     <span
                         id="composition-contrib_addl"
                         set:html={renderContributorRefLinks(
                             composition?.contrib_addl,
                             names?.contrib_addl_names,
-                            "(no additional contributors specified)"
+                            COMPOSITION_PLACEHOLDERS.additionalContributors
                         )}
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>Phases:</strong>
-                    <span id="composition-phases">{disp(composition?.phases, "(no phases specified)")}</span>
+                    <strong>{COMPOSITION_LABELS.phases}:</strong>
+                    <span id="composition-phases">{disp(composition?.phases, COMPOSITION_PLACEHOLDERS.phases)}</span>
                 </div>
             </div>
             <div id="composition-details-characteristics" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>Key:</strong>
-                    <span id="composition-key">{disp(composition?.key, "(no key specified)")}</span>
+                    <strong>{COMPOSITION_LABELS.key}:</strong>
+                    <span id="composition-key">{disp(composition?.key, COMPOSITION_PLACEHOLDERS.key)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>Range:</strong>
-                    <span id="composition-range">{disp(composition?.range, "(no range specified)")}</span>
+                    <strong>{COMPOSITION_LABELS.range}:</strong>
+                    <span id="composition-range">{disp(composition?.range, COMPOSITION_PLACEHOLDERS.range)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>Highest Position:</strong>
+                    <strong>{COMPOSITION_LABELS.highestPosition}:</strong>
                     <span id="composition-position_highest"
-                        >{disp(composition?.position_highest, "(no position specified)")}</span
+                        >{disp(composition?.position_highest, COMPOSITION_PLACEHOLDERS.highestPosition)}</span
                     >
                 </div>
             </div>
             <div id="composition-details-ratings" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>Suzuki Rating:</strong>
+                    <strong>{COMPOSITION_LABELS.suzukiRating}:</strong>
                     <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>NYSSMA Rating:</strong>
+                    <strong>{COMPOSITION_LABELS.nyssmaRating}:</strong>
                     <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span>
                 </div>
             </div>
             <div id="composition-details-publisher" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>Publisher Name:</strong>
+                    <strong>{COMPOSITION_LABELS.publisherName}:</strong>
                     <span id="composition-publication_info-name"
-                        >{disp(composition?.publication_info?.name, "(no publisher name specified)")}</span
+                        >{disp(composition?.publication_info?.name, COMPOSITION_PLACEHOLDERS.publisherName)}</span
                     >
                 </div>
                 <div class="entity-field">
-                    <strong>Publication Location:</strong>
+                    <strong>{COMPOSITION_LABELS.publicationLocation}:</strong>
                     <span id="composition-publication_info-location"
-                        >{disp(composition?.publication_info?.location, "(no publication location specified)")}</span
+                        >{disp(composition?.publication_info?.location, COMPOSITION_PLACEHOLDERS.publicationLocation)}</span
                     >
                 </div>
                 <div class="entity-field">
-                    <strong>Publication Year:</strong>
+                    <strong>{COMPOSITION_LABELS.publicationYear}:</strong>
                     <span id="composition-publication_info-year"
-                        >{disp(composition?.publication_info?.year, "(no publication year specified)")}</span
+                        >{disp(composition?.publication_info?.year, COMPOSITION_PLACEHOLDERS.publicationYear)}</span
                     >
                 </div>
                 <!-- the publication URI is rendered according to its declared uri_type (the type is authoritative):
@@ -220,13 +216,13 @@ const disp = (value: unknown, placeholder?: string): string => {
                  separate URI-type field is intentionally omitted here since the type is conveyed by the render
                  itself. Mirrored client-side in populateInfo. -->
                 <div class="entity-field">
-                    <strong>Publication URI:</strong>
+                    <strong>{COMPOSITION_LABELS.publicationUri}:</strong>
                     <span
                         id="composition-publication_info-uri"
                         set:html={renderPublicationUri(
                             composition?.publication_info?.uri_type,
                             composition?.publication_info?.uri,
-                            "(no publication URI specified)"
+                            COMPOSITION_PLACEHOLDERS.publicationUri
                         )}
                     />
                 </div>
@@ -239,22 +235,22 @@ const disp = (value: unknown, placeholder?: string): string => {
     <div id="composition-details-notes" class="entity-result-notes-group">
         <div id="composition-details-notes-historical">
             <p id="composition-notes_historical" class="entity-result-notes">
-                {disp(composition?.notes_historical, "(no historical notes)")}
+                {disp(composition?.notes_historical, COMPOSITION_PLACEHOLDERS.notesHistorical)}
             </p>
         </div>
         <div id="composition-details-notes-pedagogical">
             <p id="composition-notes_pedagogical" class="entity-result-notes">
-                {disp(composition?.notes_pedagogical, "(no pedagogical notes)")}
+                {disp(composition?.notes_pedagogical, COMPOSITION_PLACEHOLDERS.notesPedagogical)}
             </p>
         </div>
         <div id="composition-details-notes-other">
             <p id="composition-notes_other" class="entity-result-notes">
-                {disp(composition?.notes_other, "(no other notes)")}
+                {disp(composition?.notes_other, COMPOSITION_PLACEHOLDERS.notesOther)}
             </p>
         </div>
         <div id="composition-details-tags" class="entity-result-details">
             <div class="entity-field">
-                <strong>Tags:</strong>
+                <strong>{COMPOSITION_LABELS.tags}:</strong>
                 <span id="composition-tags">{disp(composition?.tags)}</span>
             </div>
         </div>

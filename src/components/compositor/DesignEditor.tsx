@@ -53,6 +53,7 @@ import type { Config, Data } from "@puckeditor/core"
 
 import { buildConfig, OUTLET_PROPS, RICH_TEXT_PROPS, TOKEN_PROPS } from "../../lib/compositor/catalog"
 import { designToEditorForm, editorFormToDesign } from "../../lib/compositor/convert"
+import { entityFields, isEntityNoun } from "../../lib/compositor/entity-fields"
 import { hasBlockingError, lintDesign, type LintFinding } from "../../lib/compositor/lint"
 // Type-only: erased at compile, so the build-side reader module never enters this client bundle.
 import type { CollectionField } from "../../lib/build/design-api"
@@ -282,22 +283,31 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                 let fields: CollectionField[] | null = null
                 let entryList: EntryListItem[] = []
                 if (kind === "template" && loaded.collection) {
-                    const [schemaResult, entriesResult] = await Promise.allSettled([
-                        fetchSchemaFields(loaded.collection),
-                        fetchEntryList(loaded.collection)
-                    ])
-                    if (cancelled) return
-                    if (schemaResult.status === "fulfilled") {
-                        fields = schemaResult.value
+                    if (isEntityNoun(loaded.collection)) {
+                        // Entity collections (composer/composition/contributor) are D1-backed, not an
+                        // EmDash collection — there is no live schema-fields or entry-list endpoint to
+                        // call for them. The field catalog is static (entity-fields.ts); a preview-entry
+                        // source is not built yet, so the picker is left empty rather than attempting an
+                        // EmDash call that would 404.
+                        fields = [...entityFields(loaded.collection)]
                     } else {
-                        const reason: unknown = schemaResult.reason
-                        setSchemaError(reason instanceof Error ? reason.message : String(reason))
-                    }
-                    if (entriesResult.status === "fulfilled") {
-                        entryList = entriesResult.value
-                    } else {
-                        const reason: unknown = entriesResult.reason
-                        setPreviewError(reason instanceof Error ? reason.message : String(reason))
+                        const [schemaResult, entriesResult] = await Promise.allSettled([
+                            fetchSchemaFields(loaded.collection),
+                            fetchEntryList(loaded.collection)
+                        ])
+                        if (cancelled) return
+                        if (schemaResult.status === "fulfilled") {
+                            fields = schemaResult.value
+                        } else {
+                            const reason: unknown = schemaResult.reason
+                            setSchemaError(reason instanceof Error ? reason.message : String(reason))
+                        }
+                        if (entriesResult.status === "fulfilled") {
+                            entryList = entriesResult.value
+                        } else {
+                            const reason: unknown = entriesResult.reason
+                            setPreviewError(reason instanceof Error ? reason.message : String(reason))
+                        }
                     }
                 }
 

@@ -138,7 +138,11 @@ const COLLECTIONS = [
                 label: "Renders entries of",
                 type: "select",
                 required: true,
-                validation: { options: ["pages", "posts"] }
+                // "pages"/"posts" are EmDash collections (route-authority.ts); "composer"/"composition"/
+                // "contributor" are D1-backed entity nouns with no EmDash collection of their own
+                // (entity-routes.ts resolves their default template separately). One select field serves
+                // both because authors pick a template's target from one list regardless of source.
+                validation: { options: ["pages", "posts", "composer", "composition", "contributor"] }
             },
             // Field slugs must match /^[a-z][a-z0-9_]*$/ (emdash api/schemas/common.ts) — no camelCase.
             { slug: "is_default", label: "Default template for its collection", type: "boolean", required: false },
@@ -275,6 +279,24 @@ async function ensureCollection(spec) {
             )
         } else {
             ok(`  field ${spec.slug}.${field.slug} matches spec`)
+        }
+        // Options are compared separately from type/required: they don't affect which requests EmDash
+        // accepts, only what the admin UI's <select> offers, so a mismatch is worth a warning but not a
+        // "diverges from spec" alarm. NOT auto-fixed: this script only ever creates fields it finds
+        // missing (see the file header), and EmDash's field-update API is out of scope here — widening
+        // this array in the source is a no-op against an already-created live field until the owner edits
+        // the select's options by hand in the EmDash admin (or the field is deleted and recreated).
+        const wantOptions = field.validation?.options
+        if (wantOptions) {
+            const liveOptions = live.validation?.options ?? []
+            const missing = wantOptions.filter((option) => !liveOptions.includes(option))
+            if (missing.length > 0) {
+                warn(
+                    `  field ${spec.slug}.${field.slug} is missing select option(s) [${missing.join(", ")}] ` +
+                        `(live options: [${liveOptions.join(", ")}]) — this script cannot add them to an ` +
+                        "existing field; add them by hand in the EmDash admin's collection schema editor."
+                )
+            }
         }
     }
 }

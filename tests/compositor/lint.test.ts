@@ -331,6 +331,13 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
         const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
         expect(rules(findings)).toContain("empty-outlet-value")
     })
+
+    it("accepts a string-sourced (D1 entity) image without requiring alt text — there is no alt field to set", () => {
+        const entry = { ...ENTRY, cover: "https://images.example.test/composer.jpg" }
+        const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
+        expect(rules(findings)).not.toContain("empty-outlet-value")
+        expect(rules(findings)).not.toContain("content-image-alt")
+    })
 })
 
 describe("lintDesign — heading order over the combined template+entry sequence", () => {

@@ -31,6 +31,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { ENTITY_NOUNS, isEntityNoun, type EntityNoun } from "../compositor/entity-fields"
 import { migrateDesign } from "../compositor/migrations"
 import { isTokenCatalog, lintTokenCatalog, type TokenCatalog } from "../compositor/tokens"
 import { cmsBoolean, isTemplateCollection, TEMPLATE_COLLECTIONS, type DesignDoc, type TemplateCollection } from "../compositor/types"
@@ -110,18 +111,56 @@ export type { TemplateCollection }
  */
 export const TEMPLATE_NONE_SLUG = "none"
 
-/** A published design template: a layout that a content entry renders through (pivot D1/D4). */
-export interface BuildTemplate {
+/**
+ * What a `design_template.collection` field may legitimately target across the whole system: an EmDash
+ * collection routed by `route-authority.ts` (`TemplateCollection`), or a D1-backed entity noun routed by
+ * `entity-routes.ts` (`EntityNoun`). Deliberately wider than `TemplateCollection` alone, and deliberately
+ * NOT folded into `TEMPLATE_COLLECTIONS`/`isTemplateCollection` — those also gate
+ * `emdash_design_access.ts`'s `design_editor` read allowlist, which must stay scoped to collections
+ * EmDash actually has. Entities are never read through `/_emdash` (see d1-api.ts); widening that allowlist
+ * to a collection name EmDash doesn't serve would be a scope leak, not a routing concern.
+ */
+export type DesignTemplateCollection = TemplateCollection | EntityNoun
+
+function isDesignTemplateCollection(value: string): value is DesignTemplateCollection {
+    return isTemplateCollection(value) || isEntityNoun(value)
+}
+
+/** A published design template, before it is known which routing module (pages/posts vs. entity) owns it. */
+interface RawBuildTemplate {
     /** the EmDash item id — what an entry's `design` reference field points at */
     id: string
     /** the template's identifier slug; never a route (only `design_page` claims URLs) */
+    slug: string
+    title: string
+    collection: DesignTemplateCollection
+    /** this template is its target's default, used when nothing names a more specific template */
+    isDefault: boolean
+    /** the design document, already migrated to CURRENT_SCHEMA_VERSION */
+    doc: DesignDoc
+}
+
+/** A published design template that renders `pages`/`posts` entries (pivot D1/D4; route-authority.ts). */
+export interface BuildTemplate {
+    id: string
     slug: string
     title: string
     /** which collection's entries this template renders; drives outlet field pickers and the lint */
     collection: TemplateCollection
     /** this template is its collection's default, used by entries that name no template */
     isDefault: boolean
-    /** the design document, already migrated to CURRENT_SCHEMA_VERSION */
+    doc: DesignDoc
+}
+
+/** A published design template that renders one D1-backed entity noun's records (entity-routes.ts). */
+export interface BuildEntityTemplate {
+    id: string
+    slug: string
+    title: string
+    /** which entity noun's records this template renders — every record of that noun uses it (no per-record pointer) */
+    collection: EntityNoun
+    /** this template is its noun's default; a noun with no default gets no public pages (entity-routes.ts) */
+    isDefault: boolean
     doc: DesignDoc
 }
 
@@ -133,16 +172,19 @@ export interface BuildTemplate {
  * so a 404 reads as "no templates yet" ({ allowMissing: true }) and every entry falls back to its
  * untemplated render (D3). Any other read failure throws (`CmsReadError`), as everywhere else.
  *
- * A published template that cannot be migrated — or that names a collection this build does not route —
- * also THROWS, naming it. Such a template is published and live; entries pointing at it would otherwise
- * silently lose their layout.
+ * A published template that cannot be migrated — or that names a collection this build does not route at
+ * all (neither an EmDash collection nor a D1 entity noun) — also THROWS, naming it. Such a template is
+ * published and live; whatever it renders would otherwise silently lose its layout.
  *
- * @returns {Promise<BuildTemplate[]>} the published templates, in API order
+ * Not exported: callers want one of the two typed views below (`fetchPublishedTemplates` for pages/posts,
+ * `fetchPublishedEntityTemplates` for entity nouns), never the undifferentiated raw list.
+ *
+ * @returns {Promise<RawBuildTemplate[]>} the published templates, in API order
  * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
  * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
  */
-export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
-    const templates: BuildTemplate[] = []
+async function fetchAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
+    const templates: RawBuildTemplate[] = []
     let cursor: string | undefined
 
     do {
@@ -158,11 +200,11 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
             const name = normalizeSlug(item.slug) ?? item.id
 
             const collection = data.collection
-            if (typeof collection !== "string" || !isTemplateCollection(collection)) {
+            if (typeof collection !== "string" || !isDesignTemplateCollection(collection)) {
                 throw new Error(
                     `[build/design-api] published design template "${name}" targets the unknown collection ` +
-                        `${JSON.stringify(collection)}. Expected one of ${TEMPLATE_COLLECTIONS.join(", ")}; ` +
-                        "fix or unpublish the template."
+                        `${JSON.stringify(collection)}. Expected one of ` +
+                        `${[...TEMPLATE_COLLECTIONS, ...ENTITY_NOUNS].join(", ")}; fix or unpublish the template.`
                 )
             }
 
@@ -191,6 +233,33 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
     } while (cursor)
 
     return templates
+}
+
+/**
+ * The published templates that render `pages`/`posts` entries — the view `route-authority.ts` consumes.
+ * Entity-noun templates are filtered out here, not routed through `route-authority.ts`'s slug/collision
+ * rules, which entity records never participate in (see entity-routes.ts).
+ *
+ * @returns {Promise<BuildTemplate[]>} the published pages/posts templates, in API order
+ * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
+ * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
+ */
+export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
+    const all = await fetchAllPublishedTemplates()
+    return all.filter((template): template is BuildTemplate => isTemplateCollection(template.collection))
+}
+
+/**
+ * The published templates that render a D1-backed entity noun's records — the view `entity-routes.ts`
+ * consumes to resolve each noun's default layout (Step 6).
+ *
+ * @returns {Promise<BuildEntityTemplate[]>} the published entity templates, in API order
+ * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
+ * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
+ */
+export async function fetchPublishedEntityTemplates(): Promise<BuildEntityTemplate[]> {
+    const all = await fetchAllPublishedTemplates()
+    return all.filter((template): template is BuildEntityTemplate => isEntityNoun(template.collection))
 }
 
 /**

@@ -82,10 +82,21 @@ describe("mediaSource", () => {
         }
     })
 
-    it("returns null for a non-record or an empty value", () => {
+    it("returns null for a non-string non-record or an empty value", () => {
         expect(mediaSource(undefined)).toBeNull()
-        expect(mediaSource("not-an-object")).toBeNull()
         expect(mediaSource({})).toBeNull()
+        expect(mediaSource("")).toBeNull()
+    })
+
+    it("passes a plain string through as a URL — a D1 entity's `image` column, not an EmDash media object", () => {
+        expect(mediaSource("https://images.example.test/abc.jpg")).toEqual({
+            kind: "url",
+            url: "https://images.example.test/abc.jpg"
+        })
+        expect(mediaSource("/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ")).toEqual({
+            kind: "url",
+            url: "/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ"
+        })
     })
 })
 
