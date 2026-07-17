@@ -75,6 +75,33 @@ export interface LintFinding {
 /** Portable Text block `_type`s the RichText renderer supports (§6.4); any other warns. */
 const SUPPORTED_PT_TYPES = new Set(["block", "code"])
 
+/**
+ * Whether a resolved entity-field value counts as "empty" for the advisory empty-outlet-value warning,
+ * mirroring `catalog.tsx`'s `formatFieldValue` per-kind emptiness rules (kept in step by hand — both
+ * read the same `EntityField.type`/`ResolvedReference` shapes from entity-fields.ts/entity-records.ts).
+ * `ContentField` still renders a row for an empty value (owner decision: empty value, not an omitted
+ * row), but the field author is still warned that this entry will show it blank.
+ */
+function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
+    if (value === null || value === undefined) return true
+    switch (kind) {
+        case "reference":
+            return !isRecord(value) || typeof value.name !== "string" || value.name.trim() === ""
+        case "referenceList":
+        case "list":
+            return !Array.isArray(value) || value.length === 0
+        case "uri":
+            return !isRecord(value) || typeof value.uri !== "string" || value.uri.trim() === ""
+        case "number":
+            return typeof value !== "number"
+        case "date":
+        case "string":
+        case "text":
+        default:
+            return typeof value !== "string" || value.trim() === ""
+    }
+}
+
 /** Maps a Heading `level` prop ("h1".."h4") to its numeric depth, or null when unrecognized. */
 function headingDepth(level: unknown): number | null {
     if (typeof level !== "string") return null
@@ -268,11 +295,14 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     const value = entry[field]
 
     const emptyValue = (): void => {
+        // ContentField still renders its row on an empty value (owner decision: empty value, not an
+        // omitted row) — every other outlet renders nothing. The warning wording reflects which applies.
+        const outcome = type === "ContentField" ? "renders with a blank value" : "renders nothing"
         findings.push({
             severity: "warning",
             rule: "empty-outlet-value",
             path,
-            message: `${type}'s field "${field}" is empty on this entry, so it renders nothing`
+            message: `${type}'s field "${field}" is empty on this entry, so it ${outcome}`
         })
     }
 
@@ -290,25 +320,31 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
             }
             break
         }
-        case "ContentImage": {
+        case "ContentImage":
+        case "MediaText": {
             // The renderer's own predicate (media.ts): a bare media `id` is NOT a usable handle — the file
             // route is keyed by storage key and 404s on an id — so "empty" means "resolves to no source",
             // not "has no id". A plain string (a D1 entity's `image` column) is a resolvable source too.
-            // Keep this in step with ContentImage's render or lint stops predicting it.
+            // Keep this in step with ContentImage's/MediaText's render or lint stops predicting it.
             if (mediaSource(value) === null) {
                 emptyValue()
             } else if (isRecord(value) && (typeof value.alt !== "string" || value.alt.trim() === "")) {
                 // Only EmDash media carries an authorable `alt` slot; a string-sourced (D1 entity) image
-                // has none to check — ContentImage's render accepts that gap (renders alt="").
+                // has none to check — the render accepts that gap (renders alt="").
                 findings.push({
                     severity: "error",
                     rule: "content-image-alt",
                     path,
                     message:
-                        `ContentImage's image (field "${field}") has no alt text — ` +
+                        `${type}'s image (field "${field}") has no alt text — ` +
                         "set it on the media item in the CMS"
                 })
             }
+            break
+        }
+        case "ContentField": {
+            const schemaField = context.schemaFields?.find((candidate) => candidate.slug === field)
+            if (isEmptyFieldValue(value, schemaField?.type)) emptyValue()
             break
         }
     }

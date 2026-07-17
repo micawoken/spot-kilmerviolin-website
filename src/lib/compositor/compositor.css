@@ -10,11 +10,37 @@
  * default here, so a design referencing a token the theme lacks renders plain, never broken; lint
  * (§6.7) surfaces the dangling reference.
  *
+ * Flow invariant (unified field-outlet rewrite): every content-bearing container is a
+ * `flex-direction: column` stack by default, so a child's own intrinsic CSS `display` (e.g. `.cmp-button`
+ * is `inline-block`) never causes it to silently sit beside its sibling — the ONLY way to place two
+ * components side by side is `.cmp-row` (explicit) or `.cmp-columns` (a fixed grid). Two mechanics that
+ * come with a flex-column container:
+ *   - Flex's default `align-items: stretch` is kept DELIBERATELY (not overridden to `flex-start`): every
+ *     block-like child — Heading, RichText, ContentField, Columns, Row, MediaText — must still stretch to
+ *     the container's full width, or `text-align: center`, a grid's `1fr` tracks, and a wrapping row all
+ *     shrink-wrap to their own content instead of the container (a real regression an earlier pass of this
+ *     file shipped and caught in review). `.cmp-button` is the one component that must NOT stretch — it
+ *     opts out individually via `align-self: flex-start` on its direct-child selectors below, rather than
+ *     flipping the container default and re-opting every OTHER component back in.
+ *   - Flex layout does not margin-collapse. Vertical rhythm between stacked children comes from `gap`,
+ *     never from a child's own margin.
+ *
  * Copyright (C) 2026 Michael Wong. GPL-3.0-or-later; see README.md for additional terms.
  */
 
-/* Section — full-width band. */
+/* Root — the top-level anchor for the flow invariant (catalog.tsx's `root.render`): every design's
+ * rendered output stacks by default even when authored without an enclosing Section. */
+.cmp-root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dtk-space-md, 1rem);
+}
+
+/* Section — full-width band; also a stacking container for its own content slot. */
 .cmp-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dtk-space-md, 1rem);
 	background: var(--cmp-section-bg, transparent);
 	padding-block: var(--cmp-section-py, 0);
 	padding-inline: var(--dtk-space-md, 1rem);
@@ -22,19 +48,33 @@
 
 /* Columns — CSS grid; stacks to a single column below the `md` breakpoint. The breakpoint is fixed
  * here (768px, the §4.3 seed `md`) because CSS custom properties cannot be used in `@media` conditions,
- * so a theme `md` change does not reflow this rule (accepted Phase 1 limitation). */
+ * so a theme `md` change does not reflow this rule (accepted Phase 1 limitation). Each column is itself
+ * a stacking container (flow invariant) for whatever is dropped into it. */
 .cmp-columns {
 	display: grid;
 	grid-template-columns: repeat(var(--cmp-columns-count, 1), 1fr);
 	gap: var(--cmp-columns-gap, 0);
 }
 .cmp-columns__col {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dtk-space-md, 1rem);
 	min-width: 0;
 }
 @media (max-width: 767.98px) {
 	.cmp-columns {
 		grid-template-columns: 1fr;
 	}
+}
+
+/* Row — the only explicit horizontal container (flow invariant): children lay out left-to-right and
+ * wrap, regardless of each child's own intrinsic display. */
+.cmp-row {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--cmp-row-gap, 0);
 }
 
 /* Heading — one typography token spread across its sub-value properties; alignment is a fixed enum. */
@@ -101,6 +141,15 @@
 	margin-block: var(--cmp-divider-space, 0);
 }
 
+/* The one component that must NOT stretch to its column container's full width (flow invariant note
+ * above) — opted out individually, by direct-child selector, so it never affects any other component
+ * and never applies inside `.cmp-row` (whose own `align-items: center` governs Button there instead). */
+.cmp-root > .cmp-button,
+.cmp-section > .cmp-button,
+.cmp-columns__col > .cmp-button {
+	align-self: flex-start;
+}
+
 /* Outlet placeholder — editor-canvas stand-in for a content outlet with no preview entry (pivot §4).
  * Never reaches the public build: outlets render nothing there when no value resolves. */
 .cmp-outlet-placeholder {
@@ -112,79 +161,54 @@
 	text-align: center;
 }
 
-/* CompositionDetail — the hybrid template model's dedicated block (impl plan Step 4): a composition's
- * full ~25-field body as one themed unit, since per-field outlets would be unauthorable at that count.
- * Heading typography is theme-picked like Heading/ContentText; everything else uses the body typography
- * token (--dtk-type-body-*, the same convention .cmp-richtext relies on) since the block has no other
- * per-instance token controls. Layout: header + image share a row, field groups wrap in a grid beneath,
- * and the three notes plus tags span full width at the bottom (mirrors CompositionInfo.astro's grouping,
- * not its CSS — that file styles an admin card against a different variable system). */
-.cmp-composition-detail {
-	display: flex;
-	flex-direction: column;
-	gap: var(--dtk-space-md, 1.5rem);
-	font-family: var(--dtk-type-body-family);
-	font-size: var(--dtk-type-body-size);
-	line-height: var(--dtk-type-body-line-height);
-}
-.cmp-composition-detail__head {
+/* ContentField (unified field-outlet rewrite) — an optionally-labeled value row. Mirrors the admin
+ * info components' litigated `.entity-field` flow (admin-entities.css): label and value sit adjacent
+ * on one line by default, and the value wraps to its own line when the remaining space is too tight —
+ * never a rigid two-column layout that breaks on narrow viewports. */
+.cmp-field {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--dtk-space-md, 1.5rem);
-	align-items: start;
+	column-gap: var(--dtk-space-sm, 0.5rem);
+	row-gap: 0;
+	font-family: var(--cmp-field-family, var(--dtk-type-body-family));
+	font-size: var(--cmp-field-size, var(--dtk-type-body-size));
+	line-height: var(--cmp-field-line-height, var(--dtk-type-body-line-height));
 }
-.cmp-composition-detail__header {
-	flex: 1 1 60%;
-	min-width: 0;
+.cmp-field__label {
+	flex: 0 0 auto;
 }
-.cmp-composition-detail__infoline {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--dtk-space-sm, 0.5rem);
-	margin-top: var(--dtk-space-sm, 0.5rem);
-	opacity: 0.75;
-}
-.cmp-composition-detail__infoline > span:not(:last-child)::after {
-	content: "·";
-	margin-inline-start: var(--dtk-space-sm, 0.5rem);
-}
-.cmp-composition-detail__image {
-	flex: 0 1 12rem;
-}
-.cmp-composition-detail__image img {
-	display: block;
-	max-width: 100%;
-	height: auto;
-}
-.cmp-composition-detail__groups {
-	flex-basis: 100%;
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-	gap: var(--dtk-space-md, 1.5rem);
-}
-.cmp-composition-detail__group {
-	display: flex;
-	flex-direction: column;
-	gap: var(--dtk-space-sm, 0.5rem);
-}
-.cmp-composition-detail__field a {
-	color: inherit;
-}
-.cmp-composition-detail__notes {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: var(--dtk-space-md, 1.5rem);
-}
-.cmp-composition-detail__note {
-	margin: 0;
+.cmp-field__value {
+	flex: 1 1 9rem;
 	white-space: pre-wrap;
 }
-.cmp-composition-detail__note strong {
-	display: block;
-	margin-bottom: var(--dtk-space-sm, 0.25rem);
+.cmp-field__value a {
+	color: inherit;
 }
-@media (max-width: 767.98px) {
-	.cmp-composition-detail__notes {
-		grid-template-columns: 1fr;
-	}
+
+/* MediaText (unified field-outlet rewrite) — the collapsing media+text primitive (concern #3): the
+ * image side is only rendered by catalog.tsx when the bound field resolves to a usable source, so an
+ * absent image leaves no empty track here — `content` simply occupies the full row via `flex: 1`. */
+.cmp-media-text {
+	display: flex;
+	flex-direction: var(--cmp-media-text-direction, row);
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--dtk-space-md, 1.5rem);
+}
+.cmp-media-text__media {
+	flex: 0 1 16rem;
+	min-width: 8rem;
+}
+.cmp-media-text__media .cmp-image {
+	width: 100%;
+}
+.cmp-media-text__content {
+	flex: 1 1 16rem;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--dtk-space-sm, 0.75rem);
+}
+.cmp-media-text__content > .cmp-button {
+	align-self: flex-start;
 }
