@@ -118,7 +118,6 @@ export const prerender = false
                 // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
                 import { emptyDesignDoc } from "../../../lib/compositor/migrations"
                 import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../lib/compositor/types"
-                import { ENTITY_NOUNS } from "../../../lib/compositor/entity-fields"
 
                 const CONTENT_ENDPOINT = "/_emdash/api/content/design_page"
                 const TEMPLATE_ENDPOINT = "/_emdash/api/content/design_template"
@@ -248,22 +247,13 @@ export const prerender = false
                 const templateNameInput = document.getElementById("template-name") as HTMLInputElement
                 const templateCollectionSelect = document.getElementById("template-collection") as HTMLSelectElement
 
-                /** Populates the collection select from the two canonical lists (EmDash collections + D1 entity nouns). */
+                /** Populates the collection select from the canonical TEMPLATE_COLLECTIONS list. */
                 function populateTemplateCollectionOptions(): void {
-                    const groups: [string, readonly string[]][] = [
-                        ["EmDash collections", TEMPLATE_COLLECTIONS],
-                        ["Database entities", ENTITY_NOUNS]
-                    ]
-                    for (const [label, values] of groups) {
-                        const group = document.createElement("optgroup")
-                        group.label = label
-                        for (const value of values) {
-                            const option = document.createElement("option")
-                            option.value = value
-                            option.textContent = value
-                            group.appendChild(option)
-                        }
-                        templateCollectionSelect.appendChild(group)
+                    for (const value of TEMPLATE_COLLECTIONS) {
+                        const option = document.createElement("option")
+                        option.value = value
+                        option.textContent = value
+                        templateCollectionSelect.appendChild(option)
                     }
                 }
                 populateTemplateCollectionOptions()
