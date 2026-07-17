@@ -100,10 +100,7 @@ export const prerender = false
                     </label>
                     <label>
                         Renders entries of
-                        <select id="template-collection" name="collection">
-                            <option value="pages">pages</option>
-                            <option value="posts">posts</option>
-                        </select>
+                        <select id="template-collection" name="collection"></select>
                     </label>
                     <button type="submit" id="template-create-button">Create and open editor</button>
                 </form>
@@ -120,7 +117,8 @@ export const prerender = false
                 // A real module import forces Astro to emit this as an external hashed module (never inlined),
                 // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
                 import { emptyDesignDoc } from "../../../lib/compositor/migrations"
-                import { cmsBoolean } from "../../../lib/compositor/types"
+                import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../lib/compositor/types"
+                import { ENTITY_NOUNS } from "../../../lib/compositor/entity-fields"
 
                 const CONTENT_ENDPOINT = "/_emdash/api/content/design_page"
                 const TEMPLATE_ENDPOINT = "/_emdash/api/content/design_template"
@@ -249,6 +247,26 @@ export const prerender = false
                 const templateStatus = document.getElementById("template-create-status") as HTMLParagraphElement
                 const templateNameInput = document.getElementById("template-name") as HTMLInputElement
                 const templateCollectionSelect = document.getElementById("template-collection") as HTMLSelectElement
+
+                /** Populates the collection select from the two canonical lists (EmDash collections + D1 entity nouns). */
+                function populateTemplateCollectionOptions(): void {
+                    const groups: [string, readonly string[]][] = [
+                        ["EmDash collections", TEMPLATE_COLLECTIONS],
+                        ["Database entities", ENTITY_NOUNS]
+                    ]
+                    for (const [label, values] of groups) {
+                        const group = document.createElement("optgroup")
+                        group.label = label
+                        for (const value of values) {
+                            const option = document.createElement("option")
+                            option.value = value
+                            option.textContent = value
+                            group.appendChild(option)
+                        }
+                        templateCollectionSelect.appendChild(group)
+                    }
+                }
+                populateTemplateCollectionOptions()
 
                 /** Renders the fetched templates as a table, or an empty-state message. */
                 function renderTemplates(items: DesignItem[]): void {
