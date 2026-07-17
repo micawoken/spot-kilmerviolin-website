@@ -51,10 +51,16 @@ import type { ComponentType, CSSProperties, ReactNode } from "react"
 import type { Config, CustomFieldRender } from "@puckeditor/core"
 import type { PortableTextBlock } from "emdash"
 
+import { COMPOSITION_LABELS, COMPOSITION_PLACEHOLDERS, displayValue, entityHref } from "./composition-fields"
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
 import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl } from "./media"
+import { NOT_PROVIDED } from "../../consts"
+// scripts/publication.ts is framework-agnostic (only imports ./escape) and returns markup-safe HTML
+// (every value escapeHtml-encoded), matching CompositionInfo.astro's identical reuse of it — see
+// PublicationUri below. Safe to import into both the editor (browser) and build (Node) targets.
+import { renderPublicationUri } from "../../scripts/publication"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 
@@ -71,6 +77,14 @@ export type CatalogTarget = "editor" | "build"
 export interface BuildConfigContext {
     entry?: Record<string, unknown> | null
     fields?: CollectionField[]
+    /**
+     * Pre-resolved composer/contributor reference names for a composition `entry` (mirrors
+     * `fetchCompositions()`'s `CompositionWithNames.names` / `attachCompositionNames`). Consumed only by
+     * `CompositionDetail` — every other outlet reads scalars straight off `entry`. Absent for a
+     * non-composition entry, or before that data source exists for a caller (Step 6 build route; no
+     * editor preview-entry source yet — see entity-fields.ts).
+     */
+    entryNames?: CompositionNames
     /**
      * The public media origin (`EMDASH_MEDIA_PUBLIC_URL`), required on the **build** target whenever a
      * design renders media: a prerendered page is served to anonymous visitors, and the `/_emdash` media
@@ -113,7 +127,8 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     ContentText: { typography: "typography" },
     Spacer: { size: "space" },
     Divider: { spaceAround: "space", color: "colors" },
-    Button: { variant: "buttonVariants" }
+    Button: { variant: "buttonVariants" },
+    CompositionDetail: { headingTypography: "typography" }
 }
 
 /**
@@ -389,6 +404,9 @@ interface ContentImageProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
 }
+interface CompositionDetailProps {
+    headingTypography: string
+}
 
 // --- Shared render bodies ---------------------------------------------------------------------------
 // The outlets are thin content-fed twins of existing components (pivot §4): same markup, same classes,
@@ -463,6 +481,164 @@ function outletFieldSelect(fields: CollectionField[] | undefined, accepted: read
         label: "Field",
         options: [{ label: "— choose a field —", value: "" }, ...options]
     }
+}
+
+// --- CompositionDetail (hybrid core, pivot Step 4) --------------------------------------------------
+// A composition is ~25 fields + resolved composer/contributor references — dragging that many outlets
+// is bad authoring, so it renders as one dedicated block instead. It still fetches nothing (catalog
+// purity): `readComposition` only reads what the page/editor already supplied via `context`.
+
+/** The subset of a composition record CompositionDetail displays — mirrors CompositionInfo.astro's reads. */
+interface CompositionDetailData {
+    id: number | null
+    name: string
+    type: string | null
+    part: string | null
+    image: string | null
+    composer_id: number | null
+    author_secondary: number[]
+    contrib_primary_1: number | null
+    contrib_primary_2: number | null
+    contrib_addl: number[]
+    phases: number[]
+    key: string | null
+    range: string | null
+    position_highest: string | null
+    rating_suzuki: number | null
+    rating_nyssma: number | null
+    publication_name: string | null
+    publication_location: string | null
+    publication_year: number | null
+    publication_uri_type: string | null
+    publication_uri: string | null
+    notes_historical: string | null
+    notes_pedagogical: string | null
+    notes_other: string | null
+    tags: string[]
+}
+
+function str(record: Record<string, unknown>, key: string): string | null {
+    return typeof record[key] === "string" ? (record[key] as string) : null
+}
+function num(record: Record<string, unknown>, key: string): number | null {
+    return typeof record[key] === "number" ? (record[key] as number) : null
+}
+function numArray(record: Record<string, unknown>, key: string): number[] {
+    const value = record[key]
+    return Array.isArray(value) ? value.filter((item): item is number => typeof item === "number") : []
+}
+function strArray(record: Record<string, unknown>, key: string): string[] {
+    const value = record[key]
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+}
+
+/**
+ * Defensively reads a {@link CompositionDetailData} off a generic entry. `context.entry` is typed
+ * `Record<string, unknown>` because every outlet is collection-agnostic (D7) — this is the one place
+ * that assumes composition shape, and it degrades to null rather than throwing if that assumption is
+ * wrong (e.g. a `CompositionDetail` block dropped on a non-composition template).
+ *
+ * @param {Record<string, unknown> | null | undefined} entry - the routed entry from `context`
+ * @returns {CompositionDetailData | null} the fields this block displays, or null when `entry` has no `name`
+ */
+function readComposition(entry: Record<string, unknown> | null | undefined): CompositionDetailData | null {
+    const name = entry ? str(entry, "name") : null
+    if (!entry || name === null) return null
+    const rating = isRecord(entry.rating) ? entry.rating : {}
+    const publication = isRecord(entry.publication_info) ? entry.publication_info : {}
+    return {
+        id: num(entry, "id"),
+        name,
+        type: str(entry, "type"),
+        part: str(entry, "part"),
+        image: str(entry, "image"),
+        composer_id: num(entry, "composer_id"),
+        author_secondary: numArray(entry, "author_secondary"),
+        contrib_primary_1: num(entry, "contrib_primary_1"),
+        contrib_primary_2: num(entry, "contrib_primary_2"),
+        contrib_addl: numArray(entry, "contrib_addl"),
+        phases: numArray(entry, "phases"),
+        key: str(entry, "key"),
+        range: str(entry, "range"),
+        position_highest: str(entry, "position_highest"),
+        rating_suzuki: num(rating, "suzuki"),
+        rating_nyssma: num(rating, "nyssma"),
+        publication_name: str(publication, "name"),
+        publication_location: str(publication, "location"),
+        publication_year: num(publication, "year"),
+        publication_uri_type: str(publication, "uri_type"),
+        publication_uri: str(publication, "uri"),
+        notes_historical: str(entry, "notes_historical"),
+        notes_pedagogical: str(entry, "notes_pedagogical"),
+        notes_other: str(entry, "notes_other"),
+        tags: strArray(entry, "tags")
+    }
+}
+
+/** A single contributor reference: linked to its public entity page when an id is present (mirrors
+ * `formatContributorRef`/`renderContributorRefLink`, scripts/references.ts — but targeting the public
+ * `/entity/{noun}/{id}` route via `entityHref`, not the admin info page those target). */
+function ContributorRef({ id, name, placeholder }: { id: number | null; name: string | undefined; placeholder: string }) {
+    if (id === null) return <>{placeholder}</>
+    const trimmed = (name ?? "").trim()
+    return <a href={entityHref("contributor", id)}>{trimmed === "" ? String(id) : trimmed}</a>
+}
+
+/** A comma-separated list of contributor references (see {@link ContributorRef}). */
+function ContributorRefs({ ids, names, placeholder }: { ids: number[]; names: string[] | undefined; placeholder: string }) {
+    if (ids.length === 0) return <>{placeholder}</>
+    return (
+        <>
+            {ids.map((id, index) => {
+                const trimmed = (names?.[index] ?? "").trim()
+                return (
+                    <span key={id}>
+                        {index > 0 ? ", " : ""}
+                        <a href={entityHref("contributor", id)}>{trimmed === "" ? String(id) : trimmed}</a>
+                    </span>
+                )
+            })}
+        </>
+    )
+}
+
+/** A composer-name reference: the resolved name is the link label (the placeholder when it's blank,
+ * matching `renderComposerNameLink`'s "link with the placeholder as its own label" behavior when an id
+ * is present but the name failed to resolve). */
+function ComposerNameRef({ id, name, placeholder }: { id: number | null; name: string | undefined; placeholder: string }) {
+    const trimmed = (name ?? "").trim()
+    const label = trimmed === "" ? placeholder : trimmed
+    if (id === null) return <>{label}</>
+    return <a href={entityHref("composer", id)}>{label}</a>
+}
+
+/** A comma-separated list of composer-name references (see {@link ComposerNameRef}). */
+function ComposerNameRefs({ ids, names, placeholder }: { ids: number[]; names: string[] | undefined; placeholder: string }) {
+    if (ids.length === 0) return <>{placeholder}</>
+    return (
+        <>
+            {ids.map((id, index) => {
+                const trimmed = (names?.[index] ?? "").trim()
+                return (
+                    <span key={id}>
+                        {index > 0 ? ", " : ""}
+                        <a href={entityHref("composer", id)}>{trimmed === "" ? String(id) : trimmed}</a>
+                    </span>
+                )
+            })}
+        </>
+    )
+}
+
+/**
+ * The publication URI, rendered per its declared type. Reuses `renderPublicationUri` (scripts/
+ * publication.ts) rather than reimplementing its scheme validation/link-building in JSX — that logic
+ * is security-sensitive (only an https-scheme URI is ever linked) and already shared with
+ * CompositionInfo.astro; the returned string is escapeHtml-encoded, matching that file's own
+ * `set:html` use of the same function.
+ */
+function PublicationUri({ uriType, uri, placeholder }: { uriType: string | null; uri: string | null; placeholder: string }) {
+    return <span dangerouslySetInnerHTML={{ __html: renderPublicationUri(uriType, uri, placeholder) }} />
 }
 
 /**
@@ -723,16 +899,172 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             render: ({ field, aspect }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 // For local media EmDash strips `src` on persist and carries the key at `meta.storageKey`
-                // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it.
+                // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it. A plain
+                // string (a D1 entity's `image` column) is already a usable URL/path — see media.ts.
                 const source = mediaSource(image)
-                if (source && isRecord(image)) {
+                if (source) {
                     const url = source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url
-                    const alt = typeof image.alt === "string" ? image.alt : ""
-                    const width = typeof image.width === "number" ? image.width : undefined
-                    const height = typeof image.height === "number" ? image.height : undefined
+                    // D1 entities carry no alt field, so a string-sourced image renders with alt="" —
+                    // a known accessibility gap versus EmDash media, which does have one.
+                    const alt = isRecord(image) && typeof image.alt === "string" ? image.alt : ""
+                    const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
+                    const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
                     return renderImageTag(url, alt, width, height, aspect)
                 }
                 return isEditor ? <OutletPlaceholder field={field} /> : null
+            }
+        },
+        CompositionDetail: {
+            label: "Composition detail",
+            fields: {
+                headingTypography: tokenSelect(theme, "typography", "Heading typography")
+            },
+            defaultProps: { headingTypography: "display" },
+            render: ({ headingTypography }: CompositionDetailProps) => {
+                const composition = readComposition(context?.entry)
+                if (!composition) {
+                    return isEditor ? <OutletPlaceholder field="(composition entry)" /> : null
+                }
+                const names = context?.entryNames
+                const image = mediaSource(composition.image)
+                return (
+                    <article className="cmp-composition-detail">
+                        <div className="cmp-composition-detail__head">
+                            <div className="cmp-composition-detail__header">
+                                {renderHeadingTag(composition.name, "h2", headingTypography, "start")}
+                                <div className="cmp-composition-detail__infoline">
+                                    {composition.id !== null && <span>ID #{composition.id}</span>}
+                                    <span>{displayValue(composition.type, COMPOSITION_PLACEHOLDERS.type)}</span>
+                                    <span>{displayValue(composition.part, COMPOSITION_PLACEHOLDERS.part)}</span>
+                                </div>
+                            </div>
+                            {image && (
+                                <div className="cmp-composition-detail__image">
+                                    {renderImageTag(
+                                        image.kind === "key" ? resolveMediaUrl(image.storageKey) : image.url,
+                                        "",
+                                        undefined,
+                                        undefined,
+                                        "original"
+                                    )}
+                                </div>
+                            )}
+                            <div className="cmp-composition-detail__groups">
+                                <div className="cmp-composition-detail__group">
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.composer}:</strong>{" "}
+                                        <ComposerNameRef
+                                            id={composition.composer_id}
+                                            name={names?.composer_name}
+                                            placeholder={COMPOSITION_PLACEHOLDERS.composerNameError}
+                                        />
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.secondaryAuthors}:</strong>{" "}
+                                        <ComposerNameRefs
+                                            ids={composition.author_secondary}
+                                            names={names?.author_secondary_names}
+                                            placeholder={COMPOSITION_PLACEHOLDERS.secondaryAuthors}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="cmp-composition-detail__group">
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.primaryContributor}:</strong>{" "}
+                                        <ContributorRef
+                                            id={composition.contrib_primary_1}
+                                            name={names?.contrib_primary_1_name}
+                                            placeholder={NOT_PROVIDED}
+                                        />
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.additionalPrimaryContributor}:</strong>{" "}
+                                        <ContributorRef
+                                            id={composition.contrib_primary_2}
+                                            name={names?.contrib_primary_2_name}
+                                            placeholder={COMPOSITION_PLACEHOLDERS.additionalPrimaryContributor}
+                                        />
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.additionalContributors}:</strong>{" "}
+                                        <ContributorRefs
+                                            ids={composition.contrib_addl}
+                                            names={names?.contrib_addl_names}
+                                            placeholder={COMPOSITION_PLACEHOLDERS.additionalContributors}
+                                        />
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.phases}:</strong>{" "}
+                                        {displayValue(composition.phases, COMPOSITION_PLACEHOLDERS.phases)}
+                                    </div>
+                                </div>
+                                <div className="cmp-composition-detail__group">
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.key}:</strong>{" "}
+                                        {displayValue(composition.key, COMPOSITION_PLACEHOLDERS.key)}
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.range}:</strong>{" "}
+                                        {displayValue(composition.range, COMPOSITION_PLACEHOLDERS.range)}
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.highestPosition}:</strong>{" "}
+                                        {displayValue(composition.position_highest, COMPOSITION_PLACEHOLDERS.highestPosition)}
+                                    </div>
+                                </div>
+                                <div className="cmp-composition-detail__group">
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.suzukiRating}:</strong>{" "}
+                                        {displayValue(composition.rating_suzuki, NOT_PROVIDED)}
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.nyssmaRating}:</strong>{" "}
+                                        {displayValue(composition.rating_nyssma, NOT_PROVIDED)}
+                                    </div>
+                                </div>
+                                <div className="cmp-composition-detail__group">
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.publisherName}:</strong>{" "}
+                                        {displayValue(composition.publication_name, COMPOSITION_PLACEHOLDERS.publisherName)}
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.publicationLocation}:</strong>{" "}
+                                        {displayValue(composition.publication_location, COMPOSITION_PLACEHOLDERS.publicationLocation)}
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.publicationYear}:</strong>{" "}
+                                        {displayValue(composition.publication_year, COMPOSITION_PLACEHOLDERS.publicationYear)}
+                                    </div>
+                                    <div className="cmp-composition-detail__field">
+                                        <strong>{COMPOSITION_LABELS.publicationUri}:</strong>{" "}
+                                        <PublicationUri
+                                            uriType={composition.publication_uri_type}
+                                            uri={composition.publication_uri}
+                                            placeholder={COMPOSITION_PLACEHOLDERS.publicationUri}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="cmp-composition-detail__notes">
+                            <p className="cmp-composition-detail__note">
+                                <strong>{COMPOSITION_LABELS.notesHistorical}</strong>
+                                {displayValue(composition.notes_historical, COMPOSITION_PLACEHOLDERS.notesHistorical)}
+                            </p>
+                            <p className="cmp-composition-detail__note">
+                                <strong>{COMPOSITION_LABELS.notesPedagogical}</strong>
+                                {displayValue(composition.notes_pedagogical, COMPOSITION_PLACEHOLDERS.notesPedagogical)}
+                            </p>
+                            <p className="cmp-composition-detail__note">
+                                <strong>{COMPOSITION_LABELS.notesOther}</strong>
+                                {displayValue(composition.notes_other, COMPOSITION_PLACEHOLDERS.notesOther)}
+                            </p>
+                            <div className="cmp-composition-detail__field">
+                                <strong>{COMPOSITION_LABELS.tags}:</strong> {displayValue(composition.tags, NOT_PROVIDED)}
+                            </div>
+                        </div>
+                    </article>
+                )
             }
         }
     }

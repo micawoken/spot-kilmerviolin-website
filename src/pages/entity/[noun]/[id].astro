@@ -1,0 +1,131 @@
+---
+/**
+ * pages/entity/[noun]/[id].astro
+ *
+ * Detail route for the three D1-backed entity types (composer, composition, contributor) — the SSG
+ * analog of `[...slug].astro` for the EmDash pages/posts world, but simpler: an entity record has no
+ * per-record template pointer, so every record of one noun renders through that noun's `is_default`
+ * `design_template` (entity-routes.ts). Matches the existing `/entity/{noun}/{id}` link convention
+ * already emitted by `ListResult.astro`, so that pointer resolves with zero change there.
+ *
+ * Dual-source dependency (impl plan Step 6): a page needs BOTH a resolved default template (EmDash) and
+ * at least one D1 record for that noun. Either being absent — unconfigured D1, unconfigured CMS, no
+ * default template authored yet, or an empty table — skips that noun's pages for this build, not a
+ * build failure. This lets a bootstrap build (neither configured) still pass.
+ *
+ * Lint runs once per noun, not once per record: no error-severity lint rule varies across records of
+ * one noun. `dangling-outlet-field` keys on `entityFields(noun)`, which is static per noun (not a live
+ * per-record schema read). Heading order comes only from the template's own components — entity outlets
+ * (ContentText/ContentImage; entities have no ContentRichText, entity-fields.ts) inject no Portable Text
+ * headings of their own — so it cannot differ between two records of the same template. One representative
+ * record (the first fetched) is passed as `entry` so `lintDesign`'s entry-gated heading-order check runs
+ * at all (it is skipped when `context.entry` is null, mirroring "the build always pairs an entry").
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { Render } from "@puckeditor/core/rsc"
+
+import PublicPage from "../../../layouts/PublicPage.astro"
+import { fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
+import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
+import { entityRecords } from "../../../lib/build/entity-records"
+import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
+import { entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/catalog"
+import { hasBlockingError, lintDesign } from "../../../lib/compositor/lint"
+import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/tokens"
+import compositorCss from "../../../lib/compositor/compositor.css?raw"
+
+export const prerender = true
+
+export async function getStaticPaths() {
+    const [composers, contributors, compositions, entityTemplates, theme] = await Promise.all([
+        fetchComposers(),
+        fetchContributors(),
+        fetchCompositions(),
+        fetchPublishedEntityTemplates(),
+        fetchPublishedTheme()
+    ])
+
+    const routes: {
+        params: { noun: EntityNoun; id: string }
+        props: { template: BuildEntityTemplate; entry: Record<string, unknown>; entryNames?: CompositionNames; theme: TokenCatalog | null }
+    }[] = []
+
+    for (const { noun, template } of resolveEntityTemplates(entityTemplates)) {
+        if (!template) continue // no is_default authored for this noun yet — no pages this build
+
+        const records = entityRecords(noun, composers, contributors, compositions)
+        if (records.length === 0) {
+            console.warn(`[build] entity noun "${noun}" has a default template but no D1 records — skipping its pages`)
+            continue
+        }
+
+        const findings = lintDesign(
+            template.doc,
+            theme,
+            TOKEN_PROPS,
+            OUTLET_PROPS,
+            { entry: records[0].entry, schemaFields: [...entityFields(noun)] },
+            true
+        )
+        const label = `entity template "${template.slug}" (${noun})`
+        for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
+            console.warn(`[build] ${label} — ${finding.rule} at ${finding.path}: ${finding.message}`)
+        }
+        if (hasBlockingError(findings)) {
+            const errors = findings
+                .filter((finding) => finding.severity === "error")
+                .map((finding) => `  ${finding.rule} at ${finding.path}: ${finding.message}`)
+                .join("\n")
+            throw new Error(
+                `[build] ${label} fails the pairing lint:\n${errors}\n` +
+                    "Fix the template in /admin/designs, or unpublish it."
+            )
+        }
+
+        for (const record of records) {
+            routes.push({
+                params: { noun, id: record.id },
+                props: { template, entry: record.entry, entryNames: record.entryNames, theme }
+            })
+        }
+    }
+
+    return routes
+}
+
+const { template, entry, entryNames, theme } = Astro.props
+const title = typeof entry.name === "string" ? entry.name : undefined
+---
+
+<PublicPage title={title}>
+    <style slot="head" set:html={compositorCss} />
+    {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
+        that file's header for why. entryNames is the one addition: it is always undefined for
+        pages/posts, and only ever populated here, for a composition entry (CompositionDetail's only
+        consumer of it). */}
+    <Render
+        config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
+            entry,
+            entryNames,
+            mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+        })}
+        data={template.doc.puck}
+    />
+</PublicPage>

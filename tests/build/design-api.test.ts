@@ -20,7 +20,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-import { fetchPublishedTemplates } from "../../src/lib/build/design-api"
+import { fetchPublishedEntityTemplates, fetchPublishedTemplates } from "../../src/lib/build/design-api"
 import { CmsReadError } from "../../src/lib/build/emdash-api"
 import { emptyDesignDoc } from "../../src/lib/compositor/migrations"
 
@@ -105,10 +105,19 @@ describe("fetchPublishedTemplates — a real read failure", () => {
 
 describe("fetchPublishedTemplates — an authored-wrong template", () => {
     it("throws when a published template targets a collection the build does not route", async () => {
+        // "composers" (plural) is deliberately not a valid target: it is neither an EmDash TemplateCollection
+        // ("pages"/"posts") nor a D1 EntityNoun ("composer", singular) — a typo, not a real entity noun.
         const items = [templateItem({ collection: "composers" })]
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
 
         await expect(fetchPublishedTemplates()).rejects.toThrow(/composers/)
+    })
+
+    it("lists both EmDash collections and entity nouns as the expected targets", async () => {
+        const items = [templateItem({ collection: "composers" })]
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
+
+        await expect(fetchPublishedTemplates()).rejects.toThrow(/pages, posts, composer, composition, contributor/)
     })
 
     it("throws when a published template's design cannot be migrated", async () => {
@@ -134,6 +143,50 @@ describe("fetchPublishedTemplates — a well-formed template", () => {
             collection: "pages",
             isDefault: true
         })
+    })
+})
+
+/** Like templateItem, but also lets the fixture set the outer id/slug (which live outside `data`). */
+function templateItemWithId(id: string, slug: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    const item = templateItem(overrides)
+    return { ...item, id, slug }
+}
+
+describe("fetchPublishedTemplates / fetchPublishedEntityTemplates — the pages/posts vs. entity split", () => {
+    it("fetchPublishedTemplates only returns pages/posts templates, never entity ones", async () => {
+        const items = [
+            templateItemWithId("tpl-pages", "article", { collection: "pages" }),
+            templateItemWithId("tpl-composer", "composer-detail", { collection: "composer" })
+        ]
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
+
+        const templates = await fetchPublishedTemplates()
+
+        expect(templates.map((template) => template.id)).toEqual(["tpl-pages"])
+    })
+
+    it("fetchPublishedEntityTemplates only returns entity templates, never pages/posts ones", async () => {
+        const items = [
+            templateItemWithId("tpl-pages", "article", { collection: "pages" }),
+            templateItemWithId("tpl-composer", "composer-detail", { collection: "composer" }),
+            templateItemWithId("tpl-composition", "composition-detail", { collection: "composition" })
+        ]
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
+
+        const templates = await fetchPublishedEntityTemplates()
+
+        expect(templates.map((template) => template.id).sort()).toEqual(["tpl-composer", "tpl-composition"])
+    })
+
+    it("a well-formed entity template flattens the same way a pages/posts one does", async () => {
+        const items = [templateItemWithId("tpl-contrib", "contributor-detail", { collection: "contributor", is_default: 1 })]
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
+
+        const templates = await fetchPublishedEntityTemplates()
+
+        expect(templates).toMatchObject([
+            { id: "tpl-contrib", slug: "contributor-detail", collection: "contributor", isDefault: true }
+        ])
     })
 })
 
