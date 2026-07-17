@@ -16,10 +16,16 @@
  * Lint runs once per noun, not once per record: no error-severity lint rule varies across records of
  * one noun. `dangling-outlet-field` keys on `entityFields(noun)`, which is static per noun (not a live
  * per-record schema read). Heading order comes only from the template's own components — entity outlets
- * (ContentText/ContentImage; entities have no ContentRichText, entity-fields.ts) inject no Portable Text
- * headings of their own — so it cannot differ between two records of the same template. One representative
- * record (the first fetched) is passed as `entry` so `lintDesign`'s entry-gated heading-order check runs
- * at all (it is skipped when `context.entry` is null, mirroring "the build always pairs an entry").
+ * inject no Portable Text headings of their own — so it cannot differ between two records of the same
+ * template. One representative record (the first fetched) is passed as `entry` so `lintDesign`'s
+ * entry-gated heading-order check runs at all (it is skipped when `context.entry` is null, mirroring
+ * "the build always pairs an entry").
+ *
+ * Unified field-outlet rewrite: `resolveEntityTemplates(entityTemplates)` is computed ONCE, up front,
+ * because `buildReferenceIndex` needs to know — for ALL THREE nouns at once — whether composer and
+ * contributor each resolve to a published default template this build (a composition's `composer`/
+ * `contrib_*` reference fields link to a public page only when their target noun actually gets one).
+ * `entityRecords`'s per-noun loop below reuses that same resolution.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -41,9 +47,9 @@
 import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../../../layouts/PublicPage.astro"
-import { fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
+import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
-import { entityRecords } from "../../../lib/build/entity-records"
+import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/catalog"
@@ -54,23 +60,30 @@ import compositorCss from "../../../lib/compositor/compositor.css?raw"
 export const prerender = true
 
 export async function getStaticPaths() {
-    const [composers, contributors, compositions, entityTemplates, theme] = await Promise.all([
+    const [composers, contributors, allContributors, compositions, entityTemplates, theme] = await Promise.all([
         fetchComposers(),
         fetchContributors(),
+        fetchAllContributors(),
         fetchCompositions(),
         fetchPublishedEntityTemplates(),
         fetchPublishedTheme()
     ])
 
+    const resolutions = resolveEntityTemplates(entityTemplates)
+    const nounHasPage = Object.fromEntries(
+        resolutions.map(({ noun, template }) => [noun, template !== null])
+    ) as Record<EntityNoun, boolean>
+    const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
+
     const routes: {
         params: { noun: EntityNoun; id: string }
-        props: { template: BuildEntityTemplate; entry: Record<string, unknown>; entryNames?: CompositionNames; theme: TokenCatalog | null }
+        props: { template: BuildEntityTemplate; entry: Record<string, unknown>; theme: TokenCatalog | null }
     }[] = []
 
-    for (const { noun, template } of resolveEntityTemplates(entityTemplates)) {
+    for (const { noun, template } of resolutions) {
         if (!template) continue // no is_default authored for this noun yet — no pages this build
 
-        const records = entityRecords(noun, composers, contributors, compositions)
+        const records = entityRecords(noun, composers, contributors, compositions, refs)
         if (records.length === 0) {
             console.warn(`[build] entity noun "${noun}" has a default template but no D1 records — skipping its pages`)
             continue
@@ -102,7 +115,7 @@ export async function getStaticPaths() {
         for (const record of records) {
             routes.push({
                 params: { noun, id: record.id },
-                props: { template, entry: record.entry, entryNames: record.entryNames, theme }
+                props: { template, entry: record.entry, theme }
             })
         }
     }
@@ -110,20 +123,19 @@ export async function getStaticPaths() {
     return routes
 }
 
-const { template, entry, entryNames, theme } = Astro.props
+const { template, entry, theme } = Astro.props
 const title = typeof entry.name === "string" ? entry.name : undefined
 ---
 
 <PublicPage title={title}>
     <style slot="head" set:html={compositorCss} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
-        that file's header for why. entryNames is the one addition: it is always undefined for
-        pages/posts, and only ever populated here, for a composition entry (CompositionDetail's only
-        consumer of it). */}
+        that file's header for why. `fields` is passed at build (not just for the editor's pickers):
+        `ContentField` uses each field's declared kind (date formatting, the default label) at render. */}
     <Render
         config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
             entry,
-            entryNames,
+            fields: [...entityFields(template.collection)],
             mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
         })}
         data={template.doc.puck}

@@ -355,10 +355,13 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
             kind === "template" ? { entry: previewEntry, fields: schemaFields ?? undefined } : undefined
         const base = buildConfig(theme, "editor", context) as unknown as Record<string, unknown>
         const canvasCss = `${tokensToCss(theme)}\n${compositorCss}`
+        // Overrides buildConfig's own `root.render` (the flow invariant's `.cmp-root` wrapper) rather than
+        // composing it — reproduce that same wrapper here so the canvas doesn't silently disagree with the
+        // build about top-level stacking behavior; the injected canvas CSS sits outside it as a sibling.
         const rootRender = ({ children }: { children?: ReactNode }) => (
             <>
                 <style dangerouslySetInnerHTML={{ __html: canvasCss }} />
-                {children}
+                <div className="cmp-root">{children}</div>
             </>
         )
         return { ...base, root: { render: rootRender } } as unknown as Config

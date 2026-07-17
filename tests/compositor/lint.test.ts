@@ -42,7 +42,9 @@ const TOKEN_PROPS: TokenPropRegistry = {
 const OUTLET_PROPS: OutletPropRegistry = {
     ContentText: ["string", "text"],
     ContentRichText: ["portableText"],
-    ContentImage: ["image"]
+    ContentImage: ["image"],
+    ContentField: ["string", "text", "number", "date", "reference", "referenceList", "list", "uri"],
+    MediaText: ["image"]
 }
 
 const THEME: TokenCatalog = {
@@ -230,7 +232,15 @@ const SCHEMA: CollectionField[] = [
     { slug: "title", label: "Title", type: "string" },
     { slug: "body", label: "Body", type: "portableText" },
     { slug: "cover", label: "Cover", type: "image" },
-    { slug: "published", label: "Published", type: "boolean" }
+    { slug: "published", label: "Published", type: "boolean" },
+    // Unified field-outlet rewrite kinds (entity-fields.ts's EntityFieldKind), for ContentField/MediaText.
+    { slug: "birth_year", label: "Birth Year", type: "number" },
+    { slug: "entry_date", label: "Added", type: "date" },
+    { slug: "composer", label: "Composer", type: "reference" },
+    { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList" },
+    { slug: "tags", label: "Tags", type: "list" },
+    { slug: "publication_uri", label: "Publication Link", type: "uri" },
+    { slug: "portrait", label: "Portrait", type: "image" }
 ]
 
 const ENTRY: Record<string, unknown> = {
@@ -238,7 +248,14 @@ const ENTRY: Record<string, unknown> = {
     body: [ptHeading("normal", "plain paragraph")],
     // The real local-media wire shape: `src` stripped, key at `meta.storageKey`. A bare `id` resolves to
     // NOTHING (the file route is keyed by the storage key), which is why lint treats it as empty.
-    cover: { id: "med_1", alt: "A violin", provider: "local", meta: { storageKey: "med_1.jpg" } }
+    cover: { id: "med_1", alt: "A violin", provider: "local", meta: { storageKey: "med_1.jpg" } },
+    birth_year: 1990,
+    entry_date: "2026-01-15",
+    composer: { id: 5, name: "Jane Composer", href: "/entity/composer/5" },
+    contrib_addl: [{ id: 10, name: "Primary Editor", href: "/entity/contributor/10" }],
+    tags: ["romantic", "advanced"],
+    publication_uri: { uriType: "https", uri: "https://example.test/score" },
+    portrait: "https://images.example.test/ada.jpg"
 }
 
 function contentText(field: string, level = "h1") {
@@ -249,6 +266,12 @@ function contentRichText(field: string) {
 }
 function contentImage(field: string) {
     return { type: "ContentImage", props: { field, aspect: "original" } }
+}
+function contentField(field: string) {
+    return { type: "ContentField", props: { field, label: "", showLabel: "yes", typography: "display" } }
+}
+function mediaText(field: string) {
+    return { type: "MediaText", props: { field, aspect: "original", imagePosition: "start", content: [] } }
 }
 
 /** Lints in template mode against the standard schema/entry (overridable per test). */
@@ -335,6 +358,70 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
     it("accepts a string-sourced (D1 entity) image without requiring alt text — there is no alt field to set", () => {
         const entry = { ...ENTRY, cover: "https://images.example.test/composer.jpg" }
         const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
+        expect(rules(findings)).not.toContain("empty-outlet-value")
+        expect(rules(findings)).not.toContain("content-image-alt")
+    })
+})
+
+describe("lintDesign — ContentField (unified field-outlet rewrite)", () => {
+    it("errors on an unbound field and on a field slug absent from the schema, same as other outlets", () => {
+        expect(rules(lintTemplate([contentField("")]))).toContain("dangling-outlet-field")
+        expect(rules(lintTemplate([contentField("no-such-field")]))).toContain("dangling-outlet-field")
+    })
+
+    it("errors when bound to a field type it does not accept (portableText)", () => {
+        const findings = lintTemplate([contentField("body")])
+        expect(rules(findings)).toContain("dangling-outlet-field")
+    })
+
+    it("accepts every non-image kind the unified rewrite introduced", () => {
+        for (const field of ["birth_year", "entry_date", "composer", "contrib_addl", "tags", "publication_uri"]) {
+            expect(rules(lintTemplate([contentField(field)]))).not.toContain("dangling-outlet-field")
+        }
+    })
+
+    it("does not warn empty-outlet-value for a populated reference/list/uri field", () => {
+        const findings = lintTemplate([contentField("composer"), contentField("tags"), contentField("publication_uri")])
+        expect(rules(findings)).not.toContain("empty-outlet-value")
+    })
+
+    it("warns empty-outlet-value for an unresolved reference (empty name)", () => {
+        const entry = { ...ENTRY, composer: { id: 5, name: "", href: null } }
+        const findings = lintTemplate([contentField("composer")], { entry })
+        expect(rules(findings)).toContain("empty-outlet-value")
+    })
+
+    it("warns empty-outlet-value for an empty referenceList/list/uri", () => {
+        const entry = { ...ENTRY, contrib_addl: [], tags: [], publication_uri: { uriType: null, uri: null } }
+        const findings = lintTemplate(
+            [contentField("contrib_addl"), contentField("tags"), contentField("publication_uri")],
+            { entry }
+        )
+        expect(findings.filter((f) => f.rule === "empty-outlet-value")).toHaveLength(3)
+    })
+
+    it("still warns empty-outlet-value on a blank scalar, but wording reflects the row still renders", () => {
+        const entry = { ...ENTRY, title: "   " }
+        const findings = lintTemplate([contentField("title")], { entry })
+        const empty = findings.find((f) => f.rule === "empty-outlet-value")
+        expect(empty).toBeDefined()
+        expect(empty?.message).toContain("renders with a blank value")
+    })
+})
+
+describe("lintDesign — MediaText (collapsing media+text primitive)", () => {
+    it("shares ContentImage's dangling-field and empty-value/alt rules", () => {
+        expect(rules(lintTemplate([mediaText("")]))).toContain("dangling-outlet-field")
+
+        const noSource = { ...ENTRY, portrait: null }
+        expect(rules(lintTemplate([mediaText("portrait")], { entry: noSource }))).toContain("empty-outlet-value")
+
+        const noAlt = { ...ENTRY, portrait: { id: "med_1", alt: "", provider: "local", meta: { storageKey: "p.jpg" } } }
+        expect(rules(lintTemplate([mediaText("portrait")], { entry: noAlt }))).toContain("content-image-alt")
+    })
+
+    it("accepts a string-sourced (D1 entity) image without requiring alt text", () => {
+        const findings = lintTemplate([mediaText("portrait")]) // ENTRY.portrait is a bare string
         expect(rules(findings)).not.toContain("empty-outlet-value")
         expect(rules(findings)).not.toContain("content-image-alt")
     })

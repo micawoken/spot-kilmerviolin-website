@@ -21,7 +21,19 @@
 import { describe, expect, it } from "vitest"
 
 import { OUTLET_PROPS } from "../../src/lib/compositor/catalog"
-import { ENTITY_NOUNS, entityFields, isEntityNoun } from "../../src/lib/compositor/entity-fields"
+import { ENTITY_NOUNS, entityFields, isEntityNoun, type EntityFieldKind } from "../../src/lib/compositor/entity-fields"
+
+const KINDS: readonly EntityFieldKind[] = [
+    "string",
+    "text",
+    "number",
+    "date",
+    "reference",
+    "referenceList",
+    "list",
+    "image",
+    "uri"
+]
 
 describe("ENTITY_NOUNS / isEntityNoun", () => {
     it("recognizes exactly the three D1-backed entity types", () => {
@@ -36,26 +48,110 @@ describe("ENTITY_NOUNS / isEntityNoun", () => {
     })
 })
 
-describe("entityFields", () => {
-    it("gives composer and contributor name/bio/image, all types OUTLET_PROPS already accepts", () => {
-        for (const noun of ["composer", "contributor"] as const) {
-            const fields = entityFields(noun)
-            expect(fields.map((f) => f.slug)).toEqual(["name", "bio", "image"])
-            for (const f of fields) {
-                const accepted = Object.values(OUTLET_PROPS).flat()
-                expect(accepted).toContain(f.type)
+describe("entityFields — unified field-outlet rewrite: every meaningful column is bindable", () => {
+    it("gives composer every content column, none of them the redacted/internal set", () => {
+        const fields = entityFields("composer")
+        expect(fields.map((f) => f.slug)).toEqual([
+            "name",
+            "role",
+            "birth_year",
+            "death_year",
+            "country",
+            "bio",
+            "image",
+            "tags",
+            "entry_date",
+            "change_date"
+        ])
+    })
+
+    it("gives contributor every content column, omitting active/roles/admin/identity_email", () => {
+        const fields = entityFields("contributor")
+        const slugs = fields.map((f) => f.slug)
+        expect(slugs).toEqual([
+            "name",
+            "class_year",
+            "major",
+            "bio",
+            "public_email",
+            "image",
+            "tags",
+            "entry_date",
+            "change_date"
+        ])
+        // The redaction set (d1-schema.ts's CONTRIBUTOR_SCHEMA.protected) must never be bindable — those
+        // columns are stripped from the record before the build even sees them.
+        for (const redacted of ["roles", "admin", "identity_email", "active"]) {
+            expect(slugs).not.toContain(redacted)
+        }
+    })
+
+    it("gives composition every content column, with foreign keys declared as reference/referenceList — never a raw id", () => {
+        const fields = entityFields("composition")
+        const bySlug = Object.fromEntries(fields.map((f) => [f.slug, f]))
+
+        expect(bySlug.composer).toMatchObject({ type: "reference", refNoun: "composer" })
+        expect(bySlug.author_secondary).toMatchObject({ type: "referenceList", refNoun: "composer" })
+        expect(bySlug.contrib_primary_1).toMatchObject({ type: "reference", refNoun: "contributor" })
+        expect(bySlug.contrib_primary_2).toMatchObject({ type: "reference", refNoun: "contributor" })
+        expect(bySlug.contrib_addl).toMatchObject({ type: "referenceList", refNoun: "contributor" })
+
+        // No raw *_id column is ever separately bindable — only the resolved reference field is.
+        for (const rawId of ["composer_id"]) {
+            expect(fields.some((f) => f.slug === rawId)).toBe(false)
+        }
+
+        expect(bySlug.publication_uri.type).toBe("uri")
+        expect(bySlug.phases.type).toBe("list")
+        expect(bySlug.tags.type).toBe("list")
+        expect(bySlug.entry_date.type).toBe("date")
+        expect(bySlug.change_date.type).toBe("date")
+        expect(bySlug.rating_suzuki.type).toBe("number")
+        expect(bySlug.rating_nyssma.type).toBe("number")
+    })
+
+    it("every field's type is in the closed EntityFieldKind vocabulary", () => {
+        for (const noun of ENTITY_NOUNS) {
+            for (const field of entityFields(noun)) {
+                expect(KINDS).toContain(field.type)
             }
         }
     })
 
-    it("gives composition only name/image — its other fields render through CompositionDetail, not loose outlets", () => {
-        const fields = entityFields("composition")
-        expect(fields.map((f) => f.slug)).toEqual(["name", "image"])
+    it("only reference/referenceList fields declare refNoun", () => {
+        for (const noun of ENTITY_NOUNS) {
+            for (const field of entityFields(noun)) {
+                if (field.type === "reference" || field.type === "referenceList") {
+                    expect(field.refNoun).toBeDefined()
+                } else {
+                    expect(field.refNoun).toBeUndefined()
+                }
+            }
+        }
     })
 
-    it("never offers a portableText field — D1 bios are plain TEXT, so ContentRichText never applies", () => {
+    it("string/text/image fields use the exact vocabulary OUTLET_PROPS.ContentText/ContentImage already accept", () => {
+        // ContentText/ContentImage are unmodified by the unified rewrite — they must keep working against
+        // entity fields without a catalog change, which only holds if these three kinds reuse the same
+        // strings those two outlets' OUTLET_PROPS entries were already written against.
         for (const noun of ENTITY_NOUNS) {
-            expect(entityFields(noun).some((f) => f.type === "portableText")).toBe(false)
+            for (const field of entityFields(noun)) {
+                if (field.type === "string" || field.type === "text") {
+                    expect(OUTLET_PROPS.ContentText).toContain(field.type)
+                }
+                if (field.type === "image") {
+                    expect(OUTLET_PROPS.ContentImage).toContain(field.type)
+                }
+            }
+        }
+    })
+
+    it("every non-image field type is accepted by ContentField — the workhorse for entity data", () => {
+        for (const noun of ENTITY_NOUNS) {
+            for (const field of entityFields(noun)) {
+                if (field.type === "image") continue
+                expect(OUTLET_PROPS.ContentField).toContain(field.type)
+            }
         }
     })
 })
