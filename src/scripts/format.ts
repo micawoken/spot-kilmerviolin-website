@@ -104,6 +104,33 @@ export function countryNameToCode(name: string): string | null {
 }
 
 /**
+ * Resolves a composer's death_year to its display text: the "Present" sentinel for a living composer
+ * (stored as -1), or the year itself otherwise. The single source of truth for that conversion — reused
+ * by {@link formatInfoValue} and {@link formatLifespan}, and by `catalog.tsx`'s `ContentField` outlet, so
+ * the public entity pages, the admin READ view, and the client-side READ flow can never render this
+ * sentinel differently from one another.
+ *
+ * @param {number} deathYear the stored death_year value
+ * @returns {string} "Present" for -1, otherwise the year as a string
+ */
+export function formatDeathYear(deathYear: number): string {
+    return deathYear === -1 ? "Present" : String(deathYear)
+}
+
+/**
+ * Builds a composer's birth–death year range for display, e.g. "1841–1904" or "1841–Present" (see
+ * {@link formatDeathYear}). Mirrors `ComposerInfo.astro`'s birth/death infoline, joined with the same
+ * en dash, as a single pre-built string a template can bind as one content field.
+ *
+ * @param {number} birthYear the composer's birth year
+ * @param {number} deathYear the composer's death year (or -1 if living)
+ * @returns {string} the "birth–death" range
+ */
+export function formatLifespan(birthYear: number, deathYear: number): string {
+    return `${birthYear}–${formatDeathYear(deathYear)}`
+}
+
+/**
  * Formats a scalar record field value for the entity info card, mirroring the SSR `disp` helper: a
  * null/undefined/blank/empty-array value renders as the shared "not provided" marker, and per-entity
  * special cases (living-composer death year, country code → name, top-level id "ID #" prefix, contributor
@@ -125,9 +152,9 @@ export function formatInfoValue(type_name: string, key: string, value: unknown, 
         return value.length > 0 ? value.join(", ") : NOT_PROVIDED
     } else if (typeof value === "string" && value.trim() === "") {
         return NOT_PROVIDED
-    } else if (type_name === "composer" && key === "death_year" && value === -1) {
+    } else if (type_name === "composer" && key === "death_year" && typeof value === "number") {
         // a composer death_year of -1 denotes a living composer (mirrors the ComposerInfo SSR view)
-        return "Present"
+        return formatDeathYear(value)
     } else if (type_name === "composer" && key === "country" && typeof value === "string") {
         // composer countries are stored as ISO 3166-1 alpha-2 codes; render the English name (mirrors the ComposerInfo SSR view)
         return countryCodeName(value)

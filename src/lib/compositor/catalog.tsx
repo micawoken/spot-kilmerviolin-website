@@ -68,6 +68,7 @@ import type { ComponentType, CSSProperties, ReactNode } from "react"
 import type { Config, CustomFieldRender } from "@puckeditor/core"
 import type { PortableTextBlock } from "emdash"
 
+import { isEmptyFieldValue } from "./entity-fields"
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
@@ -77,6 +78,10 @@ import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl } from "./
 // link, the one composite field this catalog still knows the shape of. Safe to import into both the
 // editor (browser) and build (Node) targets.
 import { renderPublicationUri } from "../../scripts/publication"
+// scripts/format.ts is likewise framework-agnostic (only Intl + a consts import) — reused here so the
+// composer death_year/country special cases render identically to the admin's ComposerInfo.astro/
+// format.ts treatment, rather than a second hand-written copy of the same "-1 => Present" / code=>name logic.
+import { countryCodeName, formatDeathYear } from "../../scripts/format"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 
@@ -117,7 +122,18 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
     ContentText: ["string", "text"],
     ContentRichText: ["portableText"],
     ContentImage: ["image"],
-    ContentField: ["string", "text", "number", "date", "reference", "referenceList", "list", "uri"],
+    ContentField: [
+        "string",
+        "text",
+        "number",
+        "date",
+        "reference",
+        "referenceList",
+        "list",
+        "uri",
+        "yearOrLiving",
+        "countryCode"
+    ],
     MediaText: ["image"]
 }
 
@@ -394,10 +410,35 @@ interface RichTextProps {
     /** PT block array on the build path (stored form); a Puck-rendered ReactNode in the editor canvas. */
     body: PortableTextBlock[] | ReactNode
 }
+/**
+ * A fixed rendered-size preset for `Image`/`ContentImage`/`MediaText` (D9): NOT a theme token — image
+ * size is a per-placement layout choice, not a design-system value worth authoring in the theme editor,
+ * so this reuses the same fixed-enum-select pattern `aspect` already uses rather than adding a new
+ * `TokenKind`. "full" is the pre-existing (unstyled) behavior for `Image`/`ContentImage`, and "medium" is
+ * the pre-existing fixed flex-basis for `MediaText`'s media column — each component's `defaultProps`
+ * preserves its own old behavior so a design authored before this control existed renders unchanged.
+ */
+type ImageSizePreset = "small" | "medium" | "large" | "full"
+
+/** The `size` select shared by `Image`, `ContentImage`, and `MediaText` — same options, different default. */
+function imageSizeSelect() {
+    return {
+        type: "select" as const,
+        label: "Size",
+        options: [
+            { label: "Small", value: "small" },
+            { label: "Medium", value: "medium" },
+            { label: "Large", value: "large" },
+            { label: "Full width", value: "full" }
+        ]
+    }
+}
+
 interface ImageProps {
     media?: MediaValue
     alt: string
     aspect: "original" | "landscape" | "portrait"
+    size: ImageSizePreset
 }
 interface ButtonProps {
     label: string
@@ -424,6 +465,7 @@ interface ContentRichTextProps {
 interface ContentImageProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
+    size: ImageSizePreset
 }
 interface ContentFieldProps {
     field: string
@@ -431,12 +473,19 @@ interface ContentFieldProps {
     label: string
     showLabel: "yes" | "no"
     typography: string
+    /** What to render when the bound value is empty (see {@link isEmptyFieldValue}): leave the row as-is
+     *  (label per `showLabel`, blank value — the pre-existing behavior, and the default so old designs
+     *  are unaffected), hide just the label (blank value, no label), or substitute `emptyValue`. */
+    onEmpty: "doNothing" | "hideLabel" | "placeholder"
+    /** Shown in place of the value when empty and `onEmpty` is "placeholder". */
+    emptyValue: string
 }
 interface MediaTextProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
     imagePosition: "start" | "end"
     content: SlotRender
+    size: ImageSizePreset
 }
 
 // --- Shared render bodies ---------------------------------------------------------------------------
@@ -465,10 +514,18 @@ export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4",
     )
 }
 
-/** The Image markup, shared by `Image` (picked media), `ContentImage` (entry-fed image field), and
- * `MediaText`'s media side. */
-function renderImageTag(url: string, alt: string, width: number | undefined, height: number | undefined, aspect: string) {
-    return <img className="cmp-image" data-aspect={aspect} src={url} alt={alt} width={width} height={height} />
+/** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). Not
+ * used by `MediaText`'s media side — its rendered size comes from its flex container, not the `<img>`
+ * itself (see `.cmp-media-text__media` in compositor.css), so `size` drives `data-size` there instead. */
+function renderImageTag(
+    url: string,
+    alt: string,
+    width: number | undefined,
+    height: number | undefined,
+    aspect: string,
+    size: ImageSizePreset
+) {
+    return <img className="cmp-image" data-aspect={aspect} data-size={size} src={url} alt={alt} width={width} height={height} />
 }
 
 /** The Button markup. Exported (like `renderHeadingTag`) so the theme editor's live preview renders a
@@ -601,6 +658,12 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
                 : ""
         case "number":
             return typeof value === "number" ? String(value) : ""
+        case "yearOrLiving":
+            // A composer's death_year: -1 is the "still living" sentinel (mirrors ComposerInfo.astro).
+            return typeof value === "number" ? formatDeathYear(value) : ""
+        case "countryCode":
+            // A composer's ISO 3166-1 alpha-2 country code, rendered as its English display name.
+            return typeof value === "string" && value.trim() !== "" ? countryCodeName(value) : ""
         case "string":
         case "text":
             return typeof value === "string" ? value : ""
@@ -773,13 +836,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "Landscape", value: "landscape" },
                         { label: "Portrait", value: "portrait" }
                     ]
-                }
+                },
+                size: imageSizeSelect()
             },
-            defaultProps: { alt: "", aspect: "original" },
-            render: ({ media, alt, aspect }: ImageProps) => {
+            // "full" preserves this component's pre-existing (unstyled, max-width:100%) behavior.
+            defaultProps: { alt: "", aspect: "original", size: "full" },
+            render: ({ media, alt, aspect, size }: ImageProps) => {
                 if (!media?.storageKey || !isSafeStorageKey(media.storageKey)) return null
                 const url = resolveMediaUrl(media.storageKey)
-                return renderImageTag(url, alt, media.width || undefined, media.height || undefined, aspect)
+                return renderImageTag(url, alt, media.width || undefined, media.height || undefined, aspect, size)
             }
         },
         Button: {
@@ -887,10 +952,12 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "Landscape", value: "landscape" },
                         { label: "Portrait", value: "portrait" }
                     ]
-                }
+                },
+                size: imageSizeSelect()
             },
-            defaultProps: { field: "", aspect: "original" },
-            render: ({ field, aspect }: ContentImageProps) => {
+            // "full" preserves this outlet's pre-existing (unstyled, max-width:100%) behavior.
+            defaultProps: { field: "", aspect: "original", size: "full" },
+            render: ({ field, aspect, size }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 // For local media EmDash strips `src` on persist and carries the key at `meta.storageKey`
                 // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it. A plain
@@ -903,7 +970,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     const alt = isRecord(image) && typeof image.alt === "string" ? image.alt : ""
                     const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
                     const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
-                    return renderImageTag(url, alt, width, height, aspect)
+                    return renderImageTag(url, alt, width, height, aspect, size)
                 }
                 return isEditor ? <OutletPlaceholder field={field} /> : null
             }
@@ -921,17 +988,30 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "No", value: "no" }
                     ]
                 },
-                typography: tokenSelect(theme, "typography", "Value typography")
+                typography: tokenSelect(theme, "typography", "Value typography"),
+                onEmpty: {
+                    type: "select" as const,
+                    label: "When empty",
+                    options: [
+                        { label: "Do nothing (blank value)", value: "doNothing" },
+                        { label: "Hide the label", value: "hideLabel" },
+                        { label: "Show a placeholder value", value: "placeholder" }
+                    ]
+                },
+                emptyValue: { type: "text" as const, label: "Placeholder value (when empty)" }
             },
-            defaultProps: { field: "", label: "", showLabel: "yes", typography: "body" },
-            render: ({ field, label, showLabel, typography }: ContentFieldProps) => {
+            // "doNothing" preserves this outlet's pre-existing behavior (label per showLabel, blank value).
+            defaultProps: { field: "", label: "", showLabel: "yes", typography: "body", onEmpty: "doNothing", emptyValue: "(none)" },
+            render: ({ field, label, showLabel, typography, onEmpty, emptyValue }: ContentFieldProps) => {
                 if (!field) return isEditor ? <OutletPlaceholder field={field} /> : null
                 if (isEditor && !context?.entry) return <OutletPlaceholder field={field} />
 
                 const catalogField = context?.fields?.find((candidate) => candidate.slug === field)
                 const displayLabel = label.trim() !== "" ? label.trim() : (catalogField?.label ?? "")
                 const value = context?.entry ? context.entry[field] : undefined
-                const formatted = formatFieldValue(value, catalogField?.type)
+                const empty = isEmptyFieldValue(value, catalogField?.type)
+                const formatted = empty && onEmpty === "placeholder" ? emptyValue : formatFieldValue(value, catalogField?.type)
+                const hideLabel = showLabel === "no" || displayLabel === "" || (empty && onEmpty === "hideLabel")
 
                 return (
                     <div
@@ -942,9 +1022,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                             "--cmp-field-line-height": tokenVar("typography", typography, "line-height")
                         })}
                     >
-                        {showLabel !== "no" && displayLabel !== "" && (
-                            <strong className="cmp-field__label">{displayLabel}</strong>
-                        )}
+                        {!hideLabel && <strong className="cmp-field__label">{displayLabel}</strong>}
                         <span className="cmp-field__value">{formatted}</span>
                     </div>
                 )
@@ -971,13 +1049,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "End", value: "end" }
                     ]
                 },
+                size: imageSizeSelect(),
                 content: { type: "slot" as const }
             },
-            defaultProps: { field: "", aspect: "original", imagePosition: "start", content: [] },
+            // "medium" preserves this primitive's pre-existing fixed 16rem media-column width.
+            defaultProps: { field: "", aspect: "original", imagePosition: "start", size: "medium", content: [] },
             // Concern #3 (missing images): when the bound field resolves to no usable source, the media
             // side is simply not rendered — no dead column, no reserved space. `content` then occupies the
             // whole row, matching the collapsing-primitive design (see plan / module header).
-            render: ({ field, aspect, imagePosition, content: Content }: MediaTextProps) => {
+            render: ({ field, aspect, imagePosition, size, content: Content }: MediaTextProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 const source = mediaSource(image)
                 return (
@@ -986,13 +1066,14 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         style={vars({ "--cmp-media-text-direction": imagePosition === "end" ? "row-reverse" : "row" })}
                     >
                         {source && (
-                            <div className="cmp-media-text__media">
+                            <div className="cmp-media-text__media" data-size={size}>
                                 {renderImageTag(
                                     source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url,
                                     isRecord(image) && typeof image.alt === "string" ? image.alt : "",
                                     isRecord(image) && typeof image.width === "number" ? image.width : undefined,
                                     isRecord(image) && typeof image.height === "number" ? image.height : undefined,
-                                    aspect
+                                    aspect,
+                                    size
                                 )}
                             </div>
                         )}
