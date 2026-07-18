@@ -320,9 +320,22 @@ export async function fetchCollectionFields(collection: string): Promise<Collect
  * declarations fall back to their initial values. That is a visible, recoverable state; failing the whole
  * build over an unpublished theme is not worth it.
  *
+ * Cached for the life of one build process, the same rationale as `emdash-api.ts`'s `pageHrefCache`:
+ * every design page's render would otherwise re-read and re-lint the same published theme once per page.
+ *
  * @returns {Promise<TokenCatalog | null>} the published catalog, or null when unavailable
  */
-export async function fetchPublishedTheme(): Promise<TokenCatalog | null> {
+export function fetchPublishedTheme(): Promise<TokenCatalog | null> {
+    if (!themeCache) {
+        themeCache = resolvePublishedTheme()
+    }
+    return themeCache
+}
+
+/** Build-time cache backing {@link fetchPublishedTheme}. */
+let themeCache: Promise<TokenCatalog | null> | null = null
+
+async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
     const result = await emdashGet<ApiListResult>(
         "/_emdash/api/content/design_theme?status=published&limit=1"
     )
