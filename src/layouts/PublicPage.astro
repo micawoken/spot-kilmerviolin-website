@@ -40,12 +40,16 @@ interface Props {
     title?: string
     description?: string
     image?: string
+    /** Pagefind filter value (e.g. "scope:database") applied to <body> via data-pagefind-filter, so a
+     *  scoped search (see pages/search.astro's "scope" param) can restrict results to pages carrying it.
+     *  Omitted entirely (not just empty) for a page with no scope, matching Pagefind's own convention. */
+    pagefindFilter?: string
 }
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
 // when a page does not supply its own title/description
 const site = await getSiteSettings()
-const { title = site.title, description = site.description, image } = Astro.props
+const { title = site.title, description = site.description, image, pagefindFilter } = Astro.props
 
 // The theme's whole-page head contribution — the web-font links and the --dtk-* custom-property block —
 // from a single theme read. Emitted on every public page (not just design pages) so the chrome binding in
@@ -79,7 +83,7 @@ const themeHead = await getThemeHead()
             every other caller simply leaves it empty. */}
         <slot name="head" />
     </head>
-    <body>
+    <body data-pagefind-filter={pagefindFilter}>
         <PublicHeader />
         <main>
             <slot />

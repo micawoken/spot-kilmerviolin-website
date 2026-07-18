@@ -127,7 +127,7 @@ const { template, entry, theme } = Astro.props
 const title = typeof entry.name === "string" ? entry.name : undefined
 ---
 
-<PublicPage title={title}>
+<PublicPage title={title} pagefindFilter="scope:database">
     <style slot="head" set:html={compositorCss} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
         that file's header for why. `fields` is passed at build (not just for the editor's pickers):

@@ -104,7 +104,7 @@ const GENERATED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
 const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
-<PublicPage title={title}>
+<PublicPage title={title} pagefindFilter="scope:database">
     <h1>{title}</h1>
     <ListResults noun={noun} enviro="public" results={results} />
     <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>

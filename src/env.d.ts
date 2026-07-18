@@ -153,9 +153,15 @@ interface PagefindSearchResults {
     results: PagefindSearchResult[]
 }
 
+interface PagefindSearchOptions {
+    /** Restricts results to pages carrying a matching data-pagefind-filter (e.g. { scope: ["database"] }
+     *  for pages tagged data-pagefind-filter="scope:database" — see layouts/PublicPage.astro). */
+    filters?: Record<string, string[]>
+}
+
 interface PagefindApi {
     init: () => Promise<void>
-    search: (query: string) => Promise<PagefindSearchResults>
+    search: (query: string, options?: PagefindSearchOptions) => Promise<PagefindSearchResults>
 }
 
 interface ResponseInfo {

@@ -35,6 +35,7 @@ export const prerender = true
 <PublicPage title="Search" description="Search the site">
     <div class="search-page">
         <h1>Search</h1>
+        <p id="search-scope-note" class="search-scope-note" hidden>Searching database entries only.</p>
         <form id="search-form" role="search">
             <input
                 type="search"
@@ -90,6 +91,11 @@ export const prerender = true
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+    }
+    .search-scope-note {
+        font-size: 0.85rem;
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        margin: 0.25rem 0 0;
     }
     #search-results {
         list-style: none;
@@ -159,6 +165,14 @@ export const prerender = true
         const statusEl = status
         const resultsEl = results
 
+        // "database" restricts results to pages carrying data-pagefind-filter="scope:database" (the three
+        // entity nouns' index/detail pages, see layouts/PublicPage.astro) — used by the /entity root
+        // page's search box and the Puck pagefind-search component's "Database only" scope option.
+        const scope = new URLSearchParams(location.search).get("scope")
+        const searchOptions = scope === "database" ? { filters: { scope: ["database"] } } : undefined
+        const scopeNote = document.getElementById("search-scope-note")
+        if (scope === "database" && scopeNote) scopeNote.hidden = false
+
         async function runSearch(query: string) {
             resultsEl.replaceChildren()
             if (query === "") {
@@ -168,7 +182,7 @@ export const prerender = true
             statusEl.textContent = "Searching…"
             try {
                 const pf = await loadPagefind()
-                const search = await pf.search(query)
+                const search = await pf.search(query, searchOptions)
                 if (search.results.length === 0) {
                     statusEl.textContent = "No results found."
                     return
