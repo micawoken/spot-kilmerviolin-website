@@ -480,10 +480,25 @@ function getPageHrefMap(): Promise<Map<string, string>> {
  * Returns [] when the menu is missing or the read fails, so a site with no such menu authored simply
  * renders no links rather than failing the build.
  *
+ * Cached per name for the life of one build process (see {@link getPageHrefMap}'s rationale — every
+ * page's `getNav`/`getFooterNav` call would otherwise re-read and re-resolve the same menu once per page).
+ *
  * @param {string} name - the EmDash menu name (e.g. "primary" for the header, "footer" for the footer)
  * @returns {Promise<BuildMenuItem[]>} the menu's links in authored order
  */
-export async function fetchMenu(name: string): Promise<BuildMenuItem[]> {
+export function fetchMenu(name: string): Promise<BuildMenuItem[]> {
+    let cached = menuCache.get(name)
+    if (!cached) {
+        cached = resolveMenu(name)
+        menuCache.set(name, cached)
+    }
+    return cached
+}
+
+/** Build-time cache backing {@link fetchMenu}, keyed by menu name. */
+const menuCache = new Map<string, Promise<BuildMenuItem[]>>()
+
+async function resolveMenu(name: string): Promise<BuildMenuItem[]> {
     // allowMissing: an unauthored menu (e.g. no "footer" menu created yet) 404s: that's a legitimate site
     // state (chrome falls back to no links), not a CMS outage — see the allowMissing doc on GetOptions.
     const menu = await emdashGet<ApiMenu>(`/_emdash/api/menus/${name}`, { allowMissing: true })
