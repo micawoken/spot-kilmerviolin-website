@@ -100,12 +100,10 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.composerId}:</strong>
-                    <span id="composition-composer_id">{disp(composition?.composer_id)}</span>
+                    <strong>{COMPOSITION_LABELS.composerId}:</strong> <span id="composition-composer_id">{disp(composition?.composer_id)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.secondaryAuthors}:</strong>
-                    <span
+                    <strong>{COMPOSITION_LABELS.secondaryAuthors}:</strong> <span
                         id="composition-author_secondary_names"
                         set:html={renderComposerNameLinks(
                             composition?.author_secondary,
@@ -115,8 +113,7 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.secondaryAuthorIds}:</strong>
-                    <span id="composition-author_secondary"
+                    <strong>{COMPOSITION_LABELS.secondaryAuthorIds}:</strong> <span id="composition-author_secondary"
                         >{disp(composition?.author_secondary, COMPOSITION_PLACEHOLDERS.secondaryAuthorIds)}</span
                     >
                 </div>
@@ -127,8 +124,7 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                  come from the resolved CompositionNames (see attachCompositionNames) and are mirrored
                  client-side in interface.ts -->
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.primaryContributor}:</strong>
-                    <span
+                    <strong>{COMPOSITION_LABELS.primaryContributor}:</strong> <span
                         id="composition-contrib_primary_1"
                         set:html={renderContributorRefLink(
                             composition?.contrib_primary_1,
@@ -138,8 +134,7 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.additionalPrimaryContributor}:</strong>
-                    <span
+                    <strong>{COMPOSITION_LABELS.additionalPrimaryContributor}:</strong> <span
                         id="composition-contrib_primary_2"
                         set:html={renderContributorRefLink(
                             composition?.contrib_primary_2,
@@ -149,8 +144,7 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.additionalContributors}:</strong>
-                    <span
+                    <strong>{COMPOSITION_LABELS.additionalContributors}:</strong> <span
                         id="composition-contrib_addl"
                         set:html={renderContributorRefLinks(
                             composition?.contrib_addl,
@@ -160,52 +154,43 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.phases}:</strong>
-                    <span id="composition-phases">{disp(composition?.phases, COMPOSITION_PLACEHOLDERS.phases)}</span>
+                    <strong>{COMPOSITION_LABELS.phases}:</strong> <span id="composition-phases">{disp(composition?.phases, COMPOSITION_PLACEHOLDERS.phases)}</span>
                 </div>
             </div>
             <div id="composition-details-characteristics" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.key}:</strong>
-                    <span id="composition-key">{disp(composition?.key, COMPOSITION_PLACEHOLDERS.key)}</span>
+                    <strong>{COMPOSITION_LABELS.key}:</strong> <span id="composition-key">{disp(composition?.key, COMPOSITION_PLACEHOLDERS.key)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.range}:</strong>
-                    <span id="composition-range">{disp(composition?.range, COMPOSITION_PLACEHOLDERS.range)}</span>
+                    <strong>{COMPOSITION_LABELS.range}:</strong> <span id="composition-range">{disp(composition?.range, COMPOSITION_PLACEHOLDERS.range)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.highestPosition}:</strong>
-                    <span id="composition-position_highest"
+                    <strong>{COMPOSITION_LABELS.highestPosition}:</strong> <span id="composition-position_highest"
                         >{disp(composition?.position_highest, COMPOSITION_PLACEHOLDERS.highestPosition)}</span
                     >
                 </div>
             </div>
             <div id="composition-details-ratings" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.suzukiRating}:</strong>
-                    <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span>
+                    <strong>{COMPOSITION_LABELS.suzukiRating}:</strong> <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.nyssmaRating}:</strong>
-                    <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span>
+                    <strong>{COMPOSITION_LABELS.nyssmaRating}:</strong> <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span>
                 </div>
             </div>
             <div id="composition-details-publisher" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publisherName}:</strong>
-                    <span id="composition-publication_info-name"
+                    <strong>{COMPOSITION_LABELS.publisherName}:</strong> <span id="composition-publication_info-name"
                         >{disp(composition?.publication_info?.name, COMPOSITION_PLACEHOLDERS.publisherName)}</span
                     >
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publicationLocation}:</strong>
-                    <span id="composition-publication_info-location"
+                    <strong>{COMPOSITION_LABELS.publicationLocation}:</strong> <span id="composition-publication_info-location"
                         >{disp(composition?.publication_info?.location, COMPOSITION_PLACEHOLDERS.publicationLocation)}</span
                     >
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publicationYear}:</strong>
-                    <span id="composition-publication_info-year"
+                    <strong>{COMPOSITION_LABELS.publicationYear}:</strong> <span id="composition-publication_info-year"
                         >{disp(composition?.publication_info?.year, COMPOSITION_PLACEHOLDERS.publicationYear)}</span
                     >
                 </div>
@@ -216,8 +201,7 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                  separate URI-type field is intentionally omitted here since the type is conveyed by the render
                  itself. Mirrored client-side in populateInfo. -->
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publicationUri}:</strong>
-                    <span
+                    <strong>{COMPOSITION_LABELS.publicationUri}:</strong> <span
                         id="composition-publication_info-uri"
                         set:html={renderPublicationUri(
                             composition?.publication_info?.uri_type,
@@ -250,8 +234,7 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
         </div>
         <div id="composition-details-tags" class="entity-result-details">
             <div class="entity-field">
-                <strong>{COMPOSITION_LABELS.tags}:</strong>
-                <span id="composition-tags">{disp(composition?.tags)}</span>
+                <strong>{COMPOSITION_LABELS.tags}:</strong> <span id="composition-tags">{disp(composition?.tags)}</span>
             </div>
         </div>
     </div>

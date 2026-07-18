@@ -47,7 +47,15 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { TOKEN_PROPS, TOKEN_USAGE_NOTES, tokenKindUsers } from "../../lib/compositor/catalog"
 import { collectTokenUsage } from "../../lib/compositor/lint"
 import { migrateDesign } from "../../lib/compositor/migrations"
-import { isTokenCatalog, tokensToCss, type TokenCatalog, type TokenKind } from "../../lib/compositor/tokens"
+import {
+    columnsStackBreakpointCss,
+    isTokenCatalog,
+    TEXT_TRANSFORMS,
+    tokensToCss,
+    type SiteChromeRoles,
+    type TokenCatalog,
+    type TokenKind
+} from "../../lib/compositor/tokens"
 import {
     LENGTH_UNITS,
     formatClamp,
@@ -89,7 +97,7 @@ const DESIGN_THEME = "/_emdash/api/content/design_theme"
  * parses the stored string on render and formats it back on change (`lib/compositor/theme-controls.ts`),
  * so the raw and friendly views always edit the same underlying value.
  */
-type ControlKind = "text" | "color" | "length" | "clamp" | "shadow" | "family" | "weight" | "style"
+type ControlKind = "text" | "color" | "length" | "clamp" | "shadow" | "family" | "weight" | "style" | "checkbox" | "transform"
 
 /** One editable field within a token kind's row. `color` adds a swatch preview. */
 interface FieldSpec {
@@ -99,6 +107,12 @@ interface FieldSpec {
     optional?: boolean
     /** The friendly control for this field (see `ControlKind`); defaults to the raw text input. */
     control?: ControlKind
+    /**
+     * The field holds a JS boolean (not a CSS value string) — e.g. typography's italic/bold/underline
+     * defaults. Rendered as a checkbox in both raw and friendly view (there is no "raw CSS" form of a
+     * flag), and converted to/from the row's string storage (`"true"`/`""`) at the catalog boundary.
+     */
+    valueType?: "boolean"
     /**
      * When set, this field holds a REFERENCE to another token (by name) of that kind, and renders as a
      * `<select>` of the names currently in that kind rather than a free-text input — making a dangling
@@ -120,11 +134,18 @@ interface FontRow {
     weights: string
 }
 
+/** Site Chrome roles as edited: every role is a plain string row field, `""` meaning unset. */
+type SiteChromeRow = Record<keyof SiteChromeRoles, string>
+
 /** The catalog as edited: rows per kind, the web-font rows, and the preserved catalog schema version. */
-type EditableCatalog = { schemaVersion: number; colorScheme: "adaptive" | "fixed"; fonts: FontRow[] } & Record<
-    TokenKind,
-    Row[]
->
+type EditableCatalog = {
+    schemaVersion: number
+    colorScheme: "adaptive" | "fixed"
+    fonts: FontRow[]
+    siteChrome: SiteChromeRow
+    /** names a `breakpoints` token driving Columns' stack point; "" keeps the historical fixed 768px. */
+    layoutStackBreakpoint: string
+} & Record<TokenKind, Row[]>
 
 /** The token kinds and their fields (§4.3), in the order they render. Drives load, edit, and save. */
 const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> = [
@@ -138,12 +159,18 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
             { key: "size", label: "Size", control: "clamp" },
             { key: "weight", label: "Weight", control: "weight" },
             { key: "lineHeight", label: "Line height", control: "length" },
-            { key: "letterSpacing", label: "Letter spacing", optional: true, control: "length" }
+            { key: "letterSpacing", label: "Letter spacing", optional: true, control: "length" },
+            { key: "italic", label: "Italic", control: "checkbox", valueType: "boolean" },
+            // Overrides `weight` above for this property only, when checked; unchecking restores it.
+            { key: "bold", label: "Bold", control: "checkbox", valueType: "boolean" },
+            { key: "underline", label: "Underline", control: "checkbox", valueType: "boolean" },
+            { key: "lineThrough", label: "Strikethrough", control: "checkbox", valueType: "boolean" },
+            { key: "overline", label: "Overline", control: "checkbox", valueType: "boolean" },
+            { key: "textTransform", label: "Text transform", control: "transform", optional: true }
         ]
     },
     { kind: "space", label: "Spacing", fields: [{ key: "name", label: "Name" }, { key: "value", label: "Value", control: "length" }] },
     { kind: "radius", label: "Radius", fields: [{ key: "name", label: "Name" }, { key: "value", label: "Value", control: "length" }] },
-    { kind: "shadows", label: "Shadows", fields: [{ key: "name", label: "Name" }, { key: "value", label: "Value", control: "shadow" }] },
     {
         kind: "borders",
         label: "Borders",
@@ -154,6 +181,7 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
             { key: "colorRef", label: "Color token" }
         ]
     },
+    { kind: "shadows", label: "Shadows", fields: [{ key: "name", label: "Name" }, { key: "value", label: "Value", control: "shadow" }] },
     { kind: "breakpoints", label: "Breakpoints", fields: [{ key: "name", label: "Name" }, { key: "minWidth", label: "Min width", control: "length" }] },
     {
         kind: "buttonVariants",
@@ -169,6 +197,34 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
         ]
     }
 ]
+
+/** The Site Chrome roles, in the order they render, and which token kind each one selects from. */
+const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" }> = [
+    { key: "pageBackground", label: "Page background", kind: "colors" },
+    { key: "bodyText", label: "Body text", kind: "colors" },
+    { key: "linkColor", label: "Link color", kind: "colors" },
+    { key: "linkHoverColor", label: "Link hover color", kind: "colors" },
+    { key: "mutedText", label: "Muted text (nav / footer)", kind: "colors" },
+    { key: "footerBackground", label: "Footer background", kind: "colors" },
+    { key: "hairlineBorder", label: "Hairline border", kind: "borders" }
+]
+
+/**
+ * Candidate token names to auto-suggest for a Site Chrome role when the catalog has never had `siteChrome`
+ * set at all (a theme predating this feature). Each role tries its candidates in order and takes the
+ * first that actually exists in the loaded catalog; a role with no matching candidate is left unset
+ * rather than guessing wrong (§ toEditable). These mirror the magic names `public-chrome.css`/`search.astro`
+ * used to hardcode before Site Chrome existed — a one-time migration aid, not a permanent default.
+ */
+const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
+    pageBackground: ["parchment", "paper"],
+    bodyText: ["ink"],
+    linkColor: ["garnet"],
+    linkHoverColor: [],
+    mutedText: ["slate"],
+    footerBackground: ["surface"],
+    hairlineBorder: ["hairline"]
+}
 
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
 async function readError(response: Response): Promise<string> {
@@ -192,7 +248,7 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
             const row: Row = {}
             for (const field of section.fields) {
                 const value = token[field.key]
-                row[field.key] = typeof value === "string" ? value : ""
+                row[field.key] = field.valueType === "boolean" ? (value === true ? "true" : "") : typeof value === "string" ? value : ""
             }
             return row
         })
@@ -201,11 +257,29 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
         family: font.family,
         weights: (font.weights ?? []).join(", ")
     }))
+
+    // Every role empty-string by default; if the catalog has never had siteChrome at all (not even an
+    // empty object), suggest matches from the legacy magic-name convention as a one-time migration aid.
+    const chrome = catalog.siteChrome
+    const colorNames = new Set(catalog.colors.map((token) => token.name))
+    const borderNames = new Set(catalog.borders.map((token) => token.name))
+    const siteChrome = Object.fromEntries(
+        SITE_CHROME_ROLES.map(({ key, kind }) => {
+            if (chrome?.[key]) return [key, chrome[key]]
+            if (chrome !== undefined) return [key, ""]
+            const names = kind === "colors" ? colorNames : borderNames
+            const suggestion = LEGACY_CHROME_NAME_CANDIDATES[key].find((name) => names.has(name))
+            return [key, suggestion ?? ""]
+        })
+    ) as SiteChromeRow
+
     return {
         schemaVersion: catalog.schemaVersion,
         // Absent means adaptive (the trap-A default): an older theme authored light-dark() colors.
         colorScheme: catalog.colorScheme ?? "adaptive",
         fonts,
+        siteChrome,
+        layoutStackBreakpoint: catalog.layoutStackBreakpoint ?? "",
         ...(rows as Record<TokenKind, Row[]>)
     }
 }
@@ -218,9 +292,14 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
     }
     for (const section of SECTIONS) {
         catalog[section.kind] = editable[section.kind].map((row) => {
-            const token: Record<string, string> = {}
+            const token: Record<string, string | boolean> = {}
             for (const field of section.fields) {
                 const value = row[field.key] ?? ""
+                if (field.valueType === "boolean") {
+                    // Absent (false) matches pre-existing behavior (trap A): only emit when checked.
+                    if (value === "true") token[field.key] = true
+                    continue
+                }
                 if (field.optional && value.trim() === "") continue
                 token[field.key] = value
             }
@@ -244,6 +323,14 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
             return weights.length > 0 ? { family, weights } : { family }
         })
         .filter((font) => font.family !== "")
+
+    // Only non-empty roles are kept; an all-unset chrome mapping omits the field entirely (trap A) so an
+    // unmigrated/untouched theme keeps falling back to the legacy magic-name lookup in the consuming CSS.
+    const chromeEntries = Object.entries(editable.siteChrome).filter(([, value]) => value.trim() !== "")
+    if (chromeEntries.length > 0) catalog.siteChrome = Object.fromEntries(chromeEntries)
+
+    if (editable.layoutStackBreakpoint.trim() !== "") catalog.layoutStackBreakpoint = editable.layoutStackBreakpoint
+
     return catalog as unknown as TokenCatalog
 }
 
@@ -332,6 +419,15 @@ function RefSelect({
  * control can round-trip. */
 function TextControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     return <input type="text" value={value} onChange={(event) => onChange(event.target.value)} />
+}
+
+/**
+ * A boolean flag control (e.g. italic/bold/underline defaults). Always a checkbox, in both raw and
+ * friendly view — there is no "raw CSS string" form of a JS boolean to fall back to, unlike every other
+ * control here. The row's string storage represents checked as `"true"` and unchecked as `""`.
+ */
+function CheckboxControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    return <input type="checkbox" checked={value === "true"} onChange={(event) => onChange(event.target.checked ? "true" : "")} />
 }
 
 /** A unit label for the dropdown; `""` (unitless) shows as an em dash. */
@@ -693,6 +789,9 @@ function CellControl({
     if (field.refKind) {
         return <RefSelect names={refNames} value={value} optional={field.optional} onChange={onChange} />
     }
+    if (field.valueType === "boolean") {
+        return <CheckboxControl value={value} onChange={onChange} />
+    }
     if (!rawMode) {
         switch (field.control) {
             case "length":
@@ -707,6 +806,8 @@ function CellControl({
                 return <KeywordSelect value={value} options={FONT_WEIGHTS} onChange={onChange} />
             case "style":
                 return <KeywordSelect value={value} options={BORDER_STYLES} onChange={onChange} />
+            case "transform":
+                return <KeywordSelect value={value} options={TEXT_TRANSFORMS} onChange={onChange} />
             case "family":
                 return <FamilySelect value={value} families={fontFamilies} onChange={onChange} />
         }
@@ -748,7 +849,11 @@ export default function ThemeEditor() {
     // The live preview's CSS: the in-progress (unsaved) edit converted to a catalog and emitted as
     // `--dtk-*` custom properties, plus the same stylesheet real design pages use — recomputed on every
     // edit so a preview specimen always reflects the current form state, not the last save.
-    const previewCss = useMemo(() => (editable ? `${tokensToCss(toCatalog(editable))}\n${compositorCss}` : ""), [editable])
+    const previewCss = useMemo(() => {
+        if (!editable) return ""
+        const catalog = toCatalog(editable)
+        return `${tokensToCss(catalog)}\n${compositorCss}\n${columnsStackBreakpointCss(catalog)}`
+    }, [editable])
 
     useEffect(() => {
         let cancelled = false
@@ -882,6 +987,149 @@ export default function ThemeEditor() {
             current ? { ...current, fonts: current.fonts.filter((_, position) => position !== index) } : current
         )
     }
+
+    // Looked up by kind so the sections below can render in a logical order (colors grouped with Site
+    // Chrome, typography grouped with Web fonts, §ThemeEditor doc comment) that differs from SECTIONS'
+    // declaration order, which instead drives load/save.
+    const sectionByKind = Object.fromEntries(SECTIONS.map((section) => [section.kind, section])) as Record<
+        TokenKind,
+        (typeof SECTIONS)[number]
+    >
+
+    /** One token-kind section: its table of rows plus any kind-specific controls and live preview. */
+    const renderTokenSection = (section: (typeof SECTIONS)[number]) => (
+        <section key={section.kind} className="theme-editor__section">
+            <h3>{section.label}</h3>
+            {section.kind === "colors" && (
+                <div className="theme-editor__scheme">
+                    <label className="theme-editor__switch">
+                        Color scheme
+                        <select
+                            value={editable.colorScheme}
+                            onChange={(event) => changeColorScheme(event.target.value as "adaptive" | "fixed")}
+                        >
+                            <option value="adaptive">Adaptive (light + dark)</option>
+                            <option value="fixed">Fixed (single value)</option>
+                        </select>
+                    </label>
+                    <span className="theme-editor__hint">
+                        {editable.colorScheme === "adaptive"
+                            ? "Each color has a light and a dark value; the site follows the viewer’s color scheme."
+                            : "Each color is a single value, the same in light and dark."}
+                    </span>
+                </div>
+            )}
+            <table className="theme-editor__table">
+                <thead>
+                    <tr>
+                        {section.fields.map((field) => (
+                            <th key={field.key} scope="col">
+                                {field.label}
+                            </th>
+                        ))}
+                        <th scope="col" aria-label="Remove" />
+                    </tr>
+                </thead>
+                <tbody>
+                    {editable[section.kind].map((row, index) => {
+                        const nameUses = usageLabels(section.kind, row.name ?? "")
+                        return (
+                            <tr key={index}>
+                                {section.fields.map((field) => (
+                                    <td key={field.key}>
+                                        <span className="theme-editor__cell">
+                                            {/* The friendly color control shows its own picker swatches, so the row
+                                                swatch is only the raw view's preview. */}
+                                            {field.color && (rawMode || field.control !== "color") && (
+                                                <span
+                                                    className="theme-editor__swatch"
+                                                    style={{ background: row[field.key] || "transparent" }}
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                            <CellControl
+                                                field={field}
+                                                value={row[field.key] ?? ""}
+                                                rawMode={rawMode}
+                                                colorScheme={editable.colorScheme}
+                                                refNames={field.refKind ? editable[field.refKind].map((r) => r.name) : []}
+                                                fontFamilies={editable.fonts.map((font) => font.family)}
+                                                onChange={(value) => setCell(section.kind, index, field.key, value)}
+                                            />
+                                            {field.key === "name" && nameUses.length > 0 && (
+                                                <small className="theme-editor__usage" title={nameUses.join(", ")}>
+                                                    used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
+                                                </small>
+                                            )}
+                                        </span>
+                                    </td>
+                                ))}
+                                <td>
+                                    <button type="button" onClick={() => removeRow(section.kind, index)}>
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        )
+                    })}
+                </tbody>
+            </table>
+            <button type="button" onClick={() => addRow(section.kind)}>
+                Add {section.label.toLowerCase().replace(/s$/, "")}
+            </button>
+            {section.kind === "breakpoints" && (
+                <div className="theme-editor__scheme">
+                    <label className="theme-editor__switch">
+                        Columns stacks below
+                        <RefSelect
+                            names={editable.breakpoints.map((row) => row.name)}
+                            value={editable.layoutStackBreakpoint}
+                            optional
+                            onChange={(value) =>
+                                setEditable((current) => (current ? { ...current, layoutStackBreakpoint: value } : current))
+                            }
+                        />
+                    </label>
+                    <span className="theme-editor__hint">
+                        {editable.layoutStackBreakpoint
+                            ? `The Columns component stacks to a single column below this breakpoint's width.`
+                            : "Unset: Columns stacks below the built-in 768px default."}
+                    </span>
+                </div>
+            )}
+            {editable[section.kind].some((row) => (row.name ?? "").trim() !== "") && (
+                <div className="theme-preview">
+                    <h4 className="theme-preview__heading">Preview</h4>
+                    {TOKEN_USAGE_NOTES[section.kind] && (
+                        <p className="theme-editor__hint">{TOKEN_USAGE_NOTES[section.kind]}</p>
+                    )}
+                    {section.kind === "colors" && (
+                        <ColorReference colors={editable.colors} colorScheme={editable.colorScheme} />
+                    )}
+                    {section.kind === "typography" && (
+                        <ResponsivePreviewFrame>
+                            <TypographySpecimen
+                                typography={editable.typography}
+                                usedBy={tokenKindUsers("typography")}
+                            />
+                        </ResponsivePreviewFrame>
+                    )}
+                    {section.kind === "space" && (
+                        <ResponsivePreviewFrame>
+                            <SpacingScale space={editable.space} />
+                        </ResponsivePreviewFrame>
+                    )}
+                    {section.kind === "radius" && <RadiusSwatches radius={editable.radius} />}
+                    {section.kind === "shadows" && <ShadowSwatches shadows={editable.shadows} />}
+                    {section.kind === "borders" && <BorderSwatches borders={editable.borders} />}
+                    {section.kind === "breakpoints" && (
+                        <BreakpointScale breakpoints={editable.breakpoints} activeName={editable.layoutStackBreakpoint} />
+                    )}
+                    {section.kind === "buttonVariants" && <ButtonVariantSamples variants={editable.buttonVariants} />}
+                </div>
+            )}
+        </section>
+    )
 
     // Downloads the current editor state (the normalized catalog, not necessarily the published one) as a
     // JSON file — a manual snapshot to roll back to, since the theme is a singleton with no version history.
@@ -1026,117 +1274,45 @@ export default function ThemeEditor() {
                 </div>
             </section>
 
-            {SECTIONS.map((section) => (
-                <section key={section.kind} className="theme-editor__section">
-                    <h3>{section.label}</h3>
-                    {section.kind === "colors" && (
-                        <div className="theme-editor__scheme">
-                            <label className="theme-editor__switch">
-                                Color scheme
-                                <select
-                                    value={editable.colorScheme}
-                                    onChange={(event) => changeColorScheme(event.target.value as "adaptive" | "fixed")}
-                                >
-                                    <option value="adaptive">Adaptive (light + dark)</option>
-                                    <option value="fixed">Fixed (single value)</option>
-                                </select>
-                            </label>
-                            <span className="theme-editor__hint">
-                                {editable.colorScheme === "adaptive"
-                                    ? "Each color has a light and a dark value; the site follows the viewer’s color scheme."
-                                    : "Each color is a single value, the same in light and dark."}
-                            </span>
-                        </div>
-                    )}
-                    <table className="theme-editor__table">
-                        <thead>
-                            <tr>
-                                {section.fields.map((field) => (
-                                    <th key={field.key} scope="col">
-                                        {field.label}
-                                    </th>
-                                ))}
-                                <th scope="col" aria-label="Remove" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {editable[section.kind].map((row, index) => {
-                                const nameUses = usageLabels(section.kind, row.name ?? "")
-                                return (
-                                    <tr key={index}>
-                                        {section.fields.map((field) => (
-                                            <td key={field.key}>
-                                                <span className="theme-editor__cell">
-                                                    {/* The friendly color control shows its own picker swatches, so the row
-                                                        swatch is only the raw view's preview. */}
-                                                    {field.color && (rawMode || field.control !== "color") && (
-                                                        <span
-                                                            className="theme-editor__swatch"
-                                                            style={{ background: row[field.key] || "transparent" }}
-                                                            aria-hidden="true"
-                                                        />
-                                                    )}
-                                                    <CellControl
-                                                        field={field}
-                                                        value={row[field.key] ?? ""}
-                                                        rawMode={rawMode}
-                                                        colorScheme={editable.colorScheme}
-                                                        refNames={field.refKind ? editable[field.refKind].map((r) => r.name) : []}
-                                                        fontFamilies={editable.fonts.map((font) => font.family)}
-                                                        onChange={(value) => setCell(section.kind, index, field.key, value)}
-                                                    />
-                                                    {field.key === "name" && nameUses.length > 0 && (
-                                                        <small className="theme-editor__usage" title={nameUses.join(", ")}>
-                                                            used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
-                                                        </small>
-                                                    )}
-                                                </span>
-                                            </td>
-                                        ))}
-                                        <td>
-                                            <button type="button" onClick={() => removeRow(section.kind, index)}>
-                                                Remove
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                    <button type="button" onClick={() => addRow(section.kind)}>
-                        Add {section.label.toLowerCase().replace(/s$/, "")}
-                    </button>
-                    {editable[section.kind].some((row) => (row.name ?? "").trim() !== "") && (
-                        <div className="theme-preview">
-                            <h4 className="theme-preview__heading">Preview</h4>
-                            {TOKEN_USAGE_NOTES[section.kind] && (
-                                <p className="theme-editor__hint">{TOKEN_USAGE_NOTES[section.kind]}</p>
-                            )}
-                            {section.kind === "colors" && (
-                                <ColorReference colors={editable.colors} colorScheme={editable.colorScheme} />
-                            )}
-                            {section.kind === "typography" && (
-                                <ResponsivePreviewFrame>
-                                    <TypographySpecimen
-                                        typography={editable.typography}
-                                        usedBy={tokenKindUsers("typography")}
+            {renderTokenSection(sectionByKind.colors)}
+
+            <section className="theme-editor__section">
+                <h3>Site Chrome</h3>
+                <p className="theme-editor__hint">
+                    Which of your colors and borders paint the public site frame — page background, body text,
+                    links, and the header/footer — as opposed to a design page's own content. Leave a role
+                    unset to keep the theme's built-in fallback look.
+                </p>
+                <table className="theme-editor__table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Role</th>
+                            <th scope="col">Token</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {SITE_CHROME_ROLES.map(({ key, label, kind }) => (
+                            <tr key={key}>
+                                <td>{label}</td>
+                                <td>
+                                    <RefSelect
+                                        names={editable[kind].map((row) => row.name)}
+                                        value={editable.siteChrome[key]}
+                                        optional
+                                        onChange={(value) =>
+                                            setEditable((current) =>
+                                                current ? { ...current, siteChrome: { ...current.siteChrome, [key]: value } } : current
+                                            )
+                                        }
                                     />
-                                </ResponsivePreviewFrame>
-                            )}
-                            {section.kind === "space" && (
-                                <ResponsivePreviewFrame>
-                                    <SpacingScale space={editable.space} />
-                                </ResponsivePreviewFrame>
-                            )}
-                            {section.kind === "radius" && <RadiusSwatches radius={editable.radius} />}
-                            {section.kind === "shadows" && <ShadowSwatches shadows={editable.shadows} />}
-                            {section.kind === "borders" && <BorderSwatches borders={editable.borders} />}
-                            {section.kind === "breakpoints" && <BreakpointScale breakpoints={editable.breakpoints} />}
-                            {section.kind === "buttonVariants" && <ButtonVariantSamples variants={editable.buttonVariants} />}
-                        </div>
-                    )}
-                </section>
-            ))}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </section>
+
+            {renderTokenSection(sectionByKind.typography)}
 
             <section className="theme-editor__section">
                 <h3>Web fonts</h3>
@@ -1189,6 +1365,13 @@ export default function ThemeEditor() {
                     Add font
                 </button>
             </section>
+
+            {renderTokenSection(sectionByKind.space)}
+            {renderTokenSection(sectionByKind.radius)}
+            {renderTokenSection(sectionByKind.borders)}
+            {renderTokenSection(sectionByKind.shadows)}
+            {renderTokenSection(sectionByKind.breakpoints)}
+            {renderTokenSection(sectionByKind.buttonVariants)}
 
             <div className="theme-editor__actions">
                 <button type="button" onClick={() => void write(false)} disabled={saveState === "saving"}>

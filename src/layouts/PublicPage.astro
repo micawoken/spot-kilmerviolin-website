@@ -71,6 +71,10 @@ const themeHead = await getThemeHead()
             and any compositor design page resolve their token references. Omitted when no theme is
             published, leaving every binding on its --color-* fallback. */}
         {themeHead.tokenCss && <style set:html={themeHead.tokenCss} />}
+        {/* Columns' single-column stacking breakpoint (theme-authored; see tokens.ts's
+            columnsStackBreakpointCss). Always present, theme or not — it replaces what used to be a rule
+            hardcoded into compositor.css. Harmless on a page with no .cmp-columns element. */}
+        <style set:html={themeHead.columnsBreakpointCss} />
         {/* Optional per-page head content. Design pages inject the compositor component stylesheet here;
             every other caller simply leaves it empty. */}
         <slot name="head" />

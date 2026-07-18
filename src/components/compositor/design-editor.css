@@ -559,6 +559,16 @@
     gap: 0.6rem;
 }
 
+/* The breakpoint driving Columns' stacking (BreakpointScale's activeName), so it reads at a glance
+   which row among several documentary ones is actually load-bearing. */
+.theme-preview__scale-row[data-active] .theme-preview__scale-label {
+    font-weight: 600;
+    color: var(--color-text);
+}
+.theme-preview__scale-row[data-active] .theme-preview__scale-bar {
+    background: var(--color-link);
+}
+
 .theme-preview__scale-label {
     overflow: hidden;
     font-size: 0.85rem;

@@ -10,11 +10,14 @@
  * PUBLIC ONLY. Imported by layouts/PublicPage.astro, never by the admin (which uses BaseHead), so the
  * admin keeps its `--color-*` look untouched. Loaded after global.css so its `body` rule wins.
  *
- * Every binding is `var(--dtk-…, <global.css fallback>)`, mirroring the compositor's fail-soft rule
- * (compositor.css): a theme that lacks a token, or no published theme at all, degrades to the built-in
- * look rather than an unstyled frame. The two colors the chrome needs that the content palette omits —
- * `paper` (the page surface) and `slate` (muted nav/footer text) — fall back to `--color-bg` and
- * `--color-text-muted`, which are near-identical, so the frame is faithful even before they are authored.
+ * Every binding is a three-deep fallback chain: `var(--dtk-chrome-<role>, var(--dtk-color-<magic-name>,
+ * <global.css fallback>))`. `--dtk-chrome-*` is the Site Chrome role mapping (tokens.ts SiteChromeRoles,
+ * the theme editor's "Site Chrome" section) — the owner explicitly picks which named color/border fills
+ * each role. The middle link is the older convention this replaces: a theme author had to happen to name
+ * a color `ink`/`paper`/`garnet`/`slate`/`surface` or a border `hairline`, undiscoverable from the editor
+ * UI, for the chrome to pick it up at all. Both are optional, so a theme that sets neither degrades to the
+ * built-in look, and a theme authored before Site Chrome existed (using only the magic names) keeps
+ * rendering exactly as before until its owner opens the editor and sets the roles explicitly.
  *
  * The horizontal inset is `--dtk-space-md`: the compositor has no content container and hardwires every
  * Section's inset to that token (compositor.css .cmp-section), so matching it here aligns the header,
@@ -34,11 +37,14 @@ html body {
 	min-height: 100dvh;
 	display: flex;
 	flex-direction: column;
-	background: var(--dtk-color-paper, var(--color-bg));
-	color: var(--dtk-color-ink, var(--color-text));
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 	font-family: var(--dtk-type-body-family, inherit);
 	font-size: var(--dtk-type-body-size, 1rem);
 	line-height: var(--dtk-type-body-line-height, 1.6);
+	font-style: var(--dtk-type-body-style, normal);
+	text-decoration: var(--dtk-type-body-decoration, none);
+	text-transform: var(--dtk-type-body-transform, none);
 }
 main {
 	flex: 1 0 auto;
@@ -46,13 +52,17 @@ main {
 
 /* Content links (compositor components own their own link styling; this is for untemplated article prose). */
 main a {
-	color: var(--dtk-color-garnet, var(--color-link));
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+}
+main a:hover {
+	color: var(--dtk-chrome-link-hover, var(--color-link-hover));
 }
 
 /* ---- Header ---- */
 header {
-	border-bottom: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
-		var(--dtk-border-hairline-color, var(--shade-3));
+	border-bottom: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
 header nav {
 	display: flex;
@@ -68,7 +78,7 @@ header .site-title {
 	font-weight: 600;
 	font-size: 1.05rem;
 	letter-spacing: -0.01em;
-	color: var(--dtk-color-ink, var(--color-text));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 	text-decoration: none;
 }
 header .nav-links {
@@ -86,11 +96,11 @@ header .nav-links a {
 	font-weight: var(--dtk-type-label-weight, 600);
 	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
 	text-transform: uppercase;
-	color: var(--dtk-color-slate, var(--color-text-muted));
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 	text-decoration: none;
 }
 header .nav-links a:hover {
-	color: var(--dtk-color-ink, var(--color-text));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 
 /* ---- Main / untemplated content ----
@@ -127,9 +137,10 @@ footer {
 	margin-top: var(--dtk-space-section, 3rem);
 	padding-block: 2rem 2.5rem;
 	padding-inline: var(--dtk-space-md, 1rem);
-	background: var(--dtk-color-surface, var(--shade-1));
-	border-top: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
-		var(--dtk-border-hairline-color, var(--shade-3));
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+	border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
 footer .footer-links {
 	display: flex;
@@ -145,14 +156,14 @@ footer p {
 	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
 	font-size: var(--dtk-type-label-size, 0.7rem);
 	letter-spacing: var(--dtk-type-label-letter-spacing, 0.06em);
-	color: var(--dtk-color-slate, var(--color-text-muted));
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
 footer .footer-links a {
 	text-transform: uppercase;
 	text-decoration: none;
 }
 footer .footer-links a:hover {
-	color: var(--dtk-color-ink, var(--color-text));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 footer p {
 	margin: 0;

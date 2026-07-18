@@ -63,31 +63,33 @@ export const prerender = true
     #search-input {
         flex: 1;
         padding: 0.5rem 0.75rem;
-        border: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
-            var(--dtk-border-hairline-color, var(--shade-4));
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
         border-radius: var(--dtk-radius-sm, 0);
-        background: var(--dtk-color-paper, var(--color-bg));
-        color: var(--dtk-color-ink, var(--color-text));
+        background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
         font-size: 1rem;
     }
     #search-form button {
         padding: 0.5rem 1rem;
-        border: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
-            var(--dtk-border-hairline-color, var(--shade-4));
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
         border-radius: var(--dtk-radius-sm, 0);
         background: transparent;
-        color: var(--dtk-color-ink, var(--color-text));
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
         cursor: pointer;
     }
     #search-form button:hover {
-        background: var(--dtk-color-surface, var(--shade-1));
+        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
     }
     #search-status {
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
         font-size: var(--dtk-type-label-size, 0.72rem);
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
-        color: var(--dtk-color-slate, var(--color-text-muted));
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
     }
     #search-results {
         list-style: none;
@@ -112,11 +114,11 @@ export const prerender = true
     }
     #search-results li p {
         margin: 0.3rem 0 0;
-        color: var(--dtk-color-slate, var(--color-text-muted));
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
     }
     #search-results mark {
         background: none;
-        color: var(--dtk-color-garnet, var(--color-link));
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
         font-weight: 600;
     }
 </style>

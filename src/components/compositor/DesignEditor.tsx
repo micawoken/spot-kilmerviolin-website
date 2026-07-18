@@ -58,7 +58,7 @@ import { hasBlockingError, lintDesign, type LintFinding } from "../../lib/compos
 // Type-only: erased at compile, so the build-side reader module never enters this client bundle.
 import type { CollectionField } from "../../lib/build/design-api"
 import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../lib/compositor/migrations"
-import { isTokenCatalog, tokensToCss, type TokenCatalog } from "../../lib/compositor/tokens"
+import { columnsStackBreakpointCss, isTokenCatalog, tokensToCss, type TokenCatalog } from "../../lib/compositor/tokens"
 import { cmsBoolean, type DesignDoc } from "../../lib/compositor/types"
 // Vite `?raw` yields the file's text (typed via astro/client). Injected into the canvas iframe below,
 // where host styles are not synced — so this is how compositor.css reaches the preview.
@@ -354,7 +354,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
         const context =
             kind === "template" ? { entry: previewEntry, fields: schemaFields ?? undefined } : undefined
         const base = buildConfig(theme, "editor", context) as unknown as Record<string, unknown>
-        const canvasCss = `${tokensToCss(theme)}\n${compositorCss}`
+        const canvasCss = `${tokensToCss(theme)}\n${compositorCss}\n${columnsStackBreakpointCss(theme)}`
         // Overrides buildConfig's own `root.render` (the flow invariant's `.cmp-root` wrapper) rather than
         // composing it — reproduce that same wrapper here so the canvas doesn't silently disagree with the
         // build about top-level stacking behavior; the injected canvas CSS sits outside it as a sibling.
