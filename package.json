@@ -24,7 +24,7 @@
     "@astrojs/react": "^6.0.1",
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.3",
-    "@emdash-cms/cloudflare": "^0.28.1",
+    "@emdash-cms/cloudflare": "^0.29.0",
     "@portabletext/react": "~6.2.0",
     "@puckeditor/core": "~0.22.2",
     "@tiptap/core": "^3.28.0",
@@ -54,8 +54,7 @@
     "kysely": "^0.29.4",
     "minisearch": "^7.2.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "typescript": "^7.0.2"
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.18.6",
@@ -66,6 +65,8 @@
     "prettier": "^3.9.5",
     "prettier-plugin-astro": "^0.14.1",
     "sharp": "^0.35.3",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.10",
     "wrangler": "^4.112.0"
   },
