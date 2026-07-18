@@ -1,6 +1,6 @@
 # CONTRIBUTORS
 
-Last modified DATE
+Last modified July 17, 2026
 
 ## Data contributors
 Listed in order of contribution:
