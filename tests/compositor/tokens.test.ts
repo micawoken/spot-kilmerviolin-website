@@ -21,6 +21,8 @@
 import { describe, it, expect } from "vitest"
 
 import {
+    columnsStackBreakpointCss,
+    EMPTY_TOKEN_CATALOG,
     hasToken,
     isTokenCatalog,
     isValidTokenName,
@@ -284,5 +286,41 @@ describe("webFontsHref", () => {
         expect(webFontsHref([{ family: "Inter", weights: [0, 1500, 350.5] }])).toBe(
             "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap"
         )
+    })
+})
+
+describe("columnsStackBreakpointCss", () => {
+    it("falls back to the historical fixed 767.98px when no theme is published (empty catalog)", () => {
+        expect(columnsStackBreakpointCss(EMPTY_TOKEN_CATALOG)).toBe(
+            "@media (max-width: 767.98px) {\n    .cmp-columns {\n        grid-template-columns: 1fr;\n    }\n}"
+        )
+    })
+
+    it("falls back to the same fixed cutoff when layoutStackBreakpoint is unset", () => {
+        expect(columnsStackBreakpointCss(catalog)).toContain("max-width: 767.98px")
+    })
+
+    it("falls back when layoutStackBreakpoint names a token that doesn't exist", () => {
+        expect(columnsStackBreakpointCss({ ...catalog, layoutStackBreakpoint: "nope" })).toContain("max-width: 767.98px")
+    })
+
+    it("uses the designated breakpoint's minWidth, just below it, when set", () => {
+        const withLg: TokenCatalog = {
+            ...catalog,
+            breakpoints: [...catalog.breakpoints, { name: "lg", minWidth: "1024px" }],
+            layoutStackBreakpoint: "lg"
+        }
+        expect(columnsStackBreakpointCss(withLg)).toBe(
+            "@media (max-width: 1023.98px) {\n    .cmp-columns {\n        grid-template-columns: 1fr;\n    }\n}"
+        )
+    })
+
+    it("uses a non-px minWidth as-is, without arithmetic", () => {
+        const withRem: TokenCatalog = {
+            ...catalog,
+            breakpoints: [...catalog.breakpoints, { name: "tablet", minWidth: "48rem" }],
+            layoutStackBreakpoint: "tablet"
+        }
+        expect(columnsStackBreakpointCss(withRem)).toContain("max-width: 48rem")
     })
 })

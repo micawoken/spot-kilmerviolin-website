@@ -21,15 +21,18 @@
 import { describe, it, expect } from "vitest"
 
 import {
+    bestTextColorFor,
     formatClamp,
     formatLength,
     formatLightDark,
     formatShadow,
     isHexColor,
     parseClamp,
+    parseCssColorToRgb,
     parseLength,
     parseLightDark,
     parseShadow,
+    relativeLuminance,
     splitTopLevel,
     type ShadowLayer
 } from "../../src/lib/compositor/theme-controls"
@@ -167,5 +170,54 @@ describe("parseShadow / formatShadow", () => {
         expect(parseShadow("0")).toBeNull() // only one offset
         expect(parseShadow("0 0 0 0 0")).toBeNull() // five lengths
         expect(parseShadow("0 0 red blue")).toBeNull() // two colors
+    })
+})
+
+describe("parseCssColorToRgb", () => {
+    it("parses hex colors, expanding shorthand and ignoring alpha", () => {
+        expect(parseCssColorToRgb("#000000")).toEqual({ r: 0, g: 0, b: 0 })
+        expect(parseCssColorToRgb("#ffffff")).toEqual({ r: 255, g: 255, b: 255 })
+        expect(parseCssColorToRgb("#f00")).toEqual({ r: 255, g: 0, b: 0 })
+        expect(parseCssColorToRgb("#00ff0080")).toEqual({ r: 0, g: 255, b: 0 })
+    })
+
+    it("parses rgb()/rgba(), including percentage channels", () => {
+        expect(parseCssColorToRgb("rgb(10, 20, 30)")).toEqual({ r: 10, g: 20, b: 30 })
+        expect(parseCssColorToRgb("rgba(255, 0, 0, 0.5)")).toEqual({ r: 255, g: 0, b: 0 })
+        expect(parseCssColorToRgb("rgb(100%, 0%, 0%)")).toEqual({ r: 255, g: 0, b: 0 })
+    })
+
+    it("parses hsl()/hsla() via the standard conversion", () => {
+        expect(parseCssColorToRgb("hsl(0, 100%, 50%)")).toEqual({ r: 255, g: 0, b: 0 })
+        expect(parseCssColorToRgb("hsl(120, 100%, 50%)")).toEqual({ r: 0, g: 255, b: 0 })
+        expect(parseCssColorToRgb("hsla(0, 0%, 0%, 1)")).toEqual({ r: 0, g: 0, b: 0 })
+    })
+
+    it("returns null for named colors and other functions it does not parse", () => {
+        expect(parseCssColorToRgb("red")).toBeNull()
+        expect(parseCssColorToRgb("var(--dtk-color-ink)")).toBeNull()
+        expect(parseCssColorToRgb("oklch(0.7 0.15 30)")).toBeNull()
+        expect(parseCssColorToRgb("")).toBeNull()
+    })
+})
+
+describe("relativeLuminance", () => {
+    it("is 0 for black and 1 for white", () => {
+        expect(relativeLuminance({ r: 0, g: 0, b: 0 })).toBe(0)
+        expect(relativeLuminance({ r: 255, g: 255, b: 255 })).toBe(1)
+    })
+})
+
+describe("bestTextColorFor", () => {
+    it("picks white text on dark backgrounds and black text on light backgrounds", () => {
+        expect(bestTextColorFor("#000000")).toBe("#ffffff")
+        expect(bestTextColorFor("#ffffff")).toBe("#000000")
+        expect(bestTextColorFor("#111111")).toBe("#ffffff")
+        expect(bestTextColorFor("#eeeeee")).toBe("#000000")
+    })
+
+    it("returns null for a background it cannot parse, rather than guessing", () => {
+        expect(bestTextColorFor("var(--dtk-color-ink)")).toBeNull()
+        expect(bestTextColorFor("papayawhip")).toBeNull()
     })
 })

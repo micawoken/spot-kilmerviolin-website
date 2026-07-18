@@ -14,11 +14,7 @@
  * (both exported from `catalog.tsx` for this purpose) rather than duplicating their JSX, for the same
  * no-drift reason.
  *
- * Two deliberately honest limits, not bugs:
- *  - Typography tokens carry no color (see `tokens.ts` — `TypographyToken` has no color field); text
- *    color is always inherited from the page, never a `--dtk-*` value. `ColorReference` demonstrates
- *    exactly that — inherited text rendered over each color swatch — rather than implying a color→
- *    typography binding that does not exist in the schema.
+ * One deliberately honest limit, not a bug:
  *  - Breakpoint tokens are NOT wired into any component's responsive behavior (`compositor.css`'s
  *    `.cmp-columns` hardcodes 768px, since custom properties cannot appear in `@media` conditions).
  *    `BreakpointScale` is a labeled magnitude comparison, not a working responsive preview, and says so.
@@ -41,9 +37,10 @@
  */
 
 import { useState } from "react"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 import { renderButtonTag } from "../../lib/compositor/catalog"
+import { bestTextColorFor, parseLightDark } from "../../lib/compositor/theme-controls"
 import { tokenVar } from "../../lib/compositor/tokens"
 
 /**
@@ -57,16 +54,20 @@ type Row = Record<string, string>
 const SAMPLE_LINE = "Handcrafted violins, violas, and cellos — sales, restoration, and setup."
 
 /**
- * Colors, in context: each swatch is the color as a background with inherited page text laid over it —
- * the same pairing a themed `Section` produces. This is the honest answer to "how do colors reach
- * typography": they don't, as a token-to-token binding (typography tokens carry no color, `tokens.ts`).
- * Whatever contrast you see here — good or bad — is exactly what visiting the site would show.
+ * Colors, in context: each swatch is the color as a background with sample text laid over it. Typography
+ * tokens carry no color (`tokens.ts` — `TypographyToken` has no color field), so there is no real
+ * background→text binding to reproduce here; instead the swatch text is set to whichever of black/white
+ * gives the better WCAG contrast against the swatch's OWN resolved value (`bestTextColorFor`,
+ * `theme-controls.ts`) — locked to the currently selected light/dark side, flipping away from that
+ * side's usual convention only when the author's actual color demands it (e.g. an unusually light color
+ * on the "dark" channel). A color this module can't parse (a named color, `var()`, `oklch()`, …) falls
+ * back to the ambient inherited page text color rather than guessing.
  *
  * A color stored as `light-dark(L, D)` (adaptive scheme) resolves against the `color-scheme` CSS
  * property of the element or its ancestor, not the OS/browser preference directly once an element
  * declares its own — so the Light/Dark toggle is pure CSS: flip local state and set
  * `style={{ colorScheme: mode }}` on the wrapping div. Only shown for `colorScheme === "adaptive"`;
- * in `"fixed"` mode there is no dark variant to reveal.
+ * in `"fixed"` mode there is no dark variant to reveal, and the stored value is used as-is.
  */
 export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorScheme?: "adaptive" | "fixed" }) {
     const rows = colors.filter((color) => (color.name ?? "").trim() !== "" && (color.value ?? "").trim() !== "")
@@ -96,15 +97,29 @@ export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorSc
                 </div>
             )}
             <div className="theme-preview__grid">
-                {rows.map((color) => (
-                    <div key={color.name} className="theme-preview__swatch-card">
-                        <div className="theme-preview__swatch-face" style={{ background: tokenVar("colors", color.name) }}>
-                            <span className="theme-preview__swatch-heading">Aa</span>
-                            <p className="theme-preview__swatch-body">{SAMPLE_LINE}</p>
+                {rows.map((color) => {
+                    // Resolve to the side currently being previewed (light-dark() pair split by mode, or
+                    // the value as-is in fixed mode / for a plain color), so contrast is judged against
+                    // exactly what this swatch is showing, not the other side of an adaptive pair.
+                    const pair = showToggle ? parseLightDark(color.value) : null
+                    const resolved = pair ? (mode === "light" ? pair.light : pair.dark) : color.value
+                    const textColor = bestTextColorFor(resolved)
+                    return (
+                        <div key={color.name} className="theme-preview__swatch-card">
+                            <div
+                                className="theme-preview__swatch-face"
+                                style={{
+                                    background: tokenVar("colors", color.name),
+                                    ...(textColor ? { color: textColor } : {})
+                                }}
+                            >
+                                <span className="theme-preview__swatch-heading">Aa</span>
+                                <p className="theme-preview__swatch-body">{SAMPLE_LINE}</p>
+                            </div>
+                            <span className="theme-preview__caption">{color.name}</span>
                         </div>
-                        <span className="theme-preview__caption">{color.name}</span>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     )
@@ -154,7 +169,10 @@ export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; 
                             fontSize: tokenVar("typography", token.name, "size"),
                             fontWeight: tokenVar("typography", token.name, "weight"),
                             lineHeight: tokenVar("typography", token.name, "line-height"),
-                            letterSpacing: tokenVar("typography", token.name, "letter-spacing")
+                            letterSpacing: tokenVar("typography", token.name, "letter-spacing"),
+                            fontStyle: tokenVar("typography", token.name, "style"),
+                            textDecoration: tokenVar("typography", token.name, "decoration"),
+                            textTransform: tokenVar("typography", token.name, "transform") as CSSProperties["textTransform"]
                         }}
                     >
                         {sample}
@@ -258,21 +276,24 @@ export function BorderSwatches({ borders }: { borders: Row[] }) {
 /**
  * A comparative bar per breakpoint, same idea as `SpacingScale` but using the raw stored `minWidth`
  * directly — breakpoints are never emitted as `--dtk-*` custom properties (`tokens.ts`: custom properties
- * can't appear in `@media` conditions), so there is no token var to resolve here. The hint makes explicit
- * that these values are documentary: no component currently reflows at them.
+ * can't appear in `@media` conditions), so there is no token var to resolve here; the one real consumer
+ * (`Columns`' stack point, via `columnsStackBreakpointCss`) reads the designated breakpoint's value
+ * directly at CSS-generation time instead. `activeName` (the editor's "Columns stacks below" selection,
+ * `ThemeEditor.tsx`) is highlighted; the rest remain documentary.
  */
-export function BreakpointScale({ breakpoints }: { breakpoints: Row[] }) {
+export function BreakpointScale({ breakpoints, activeName }: { breakpoints: Row[]; activeName?: string }) {
     const rows = breakpoints.filter((token) => (token.name ?? "").trim() !== "" && (token.minWidth ?? "").trim() !== "")
     if (rows.length === 0) return null
     return (
         <div className="theme-preview__stack">
             <p className="theme-editor__hint">
-                These values are documentary only — no design-page component currently reflows at them (the
-                Columns component always stacks below a fixed 768px, not the breakpoints listed here).
+                {activeName
+                    ? `"${activeName}" drives Columns' single-column stacking point; the other breakpoints below are documentary.`
+                    : "None of these drive Columns' stacking yet (set “Columns stacks below” above) — it stacks below a fixed 768px."}
             </p>
             <div className="theme-preview__scale">
                 {rows.map((token) => (
-                    <div key={token.name} className="theme-preview__scale-row">
+                    <div key={token.name} className="theme-preview__scale-row" data-active={token.name === activeName || undefined}>
                         <span className="theme-preview__scale-label">{token.name}</span>
                         <span className="theme-preview__scale-track theme-preview__scale-track--wide">
                             <span className="theme-preview__scale-bar" style={{ width: token.minWidth }} />

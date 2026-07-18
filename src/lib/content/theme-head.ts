@@ -34,7 +34,13 @@
  */
 
 import { fetchPublishedTheme } from "../build/design-api"
-import { tokensToCss, WEB_FONT_PRECONNECT_ORIGINS, webFontsHref } from "../compositor/tokens"
+import {
+    columnsStackBreakpointCss,
+    EMPTY_TOKEN_CATALOG,
+    tokensToCss,
+    WEB_FONT_PRECONNECT_ORIGINS,
+    webFontsHref
+} from "../compositor/tokens"
 
 /** The theme's contribution to a public page's <head>: web-font links plus the token custom properties. */
 export interface ThemeHead {
@@ -44,16 +50,27 @@ export interface ThemeHead {
     stylesheet: string | null
     /** the `:root { --dtk-* }` block for the published theme, or "" when no valid theme is published */
     tokenCss: string
+    /** the `Columns` stacking `@media` rule (`columnsStackBreakpointCss`); always present, theme or not,
+     *  since it replaces what used to be a hardcoded rule in the static `compositor.css`. */
+    columnsBreakpointCss: string
 }
 
-const NO_THEME_HEAD: ThemeHead = { preconnect: [], stylesheet: null, tokenCss: "" }
+// No published theme still needs the Columns breakpoint rule at its historical fixed cutoff — it used to
+// be unconditionally present in the static compositor.css, theme or not.
+const NO_THEME_HEAD: ThemeHead = {
+    preconnect: [],
+    stylesheet: null,
+    tokenCss: "",
+    columnsBreakpointCss: columnsStackBreakpointCss(EMPTY_TOKEN_CATALOG)
+}
 
 /**
- * Returns the published theme's web-font links and `--dtk-*` custom-property block from a single theme
- * read, or empty values when no theme is authored or the theme cannot be read. Never throws — a theme-read
- * failure degrades to the built-in chrome look rather than failing the page build.
+ * Returns the published theme's web-font links, `--dtk-*` custom-property block, and Columns breakpoint
+ * rule from a single theme read, or empty/fallback values when no theme is authored or the theme cannot
+ * be read. Never throws — a theme-read failure degrades to the built-in chrome look rather than failing
+ * the page build.
  *
- * @returns {Promise<ThemeHead>} the font links and token CSS to render into the head
+ * @returns {Promise<ThemeHead>} the font links, token CSS, and breakpoint CSS to render into the head
  */
 export async function getThemeHead(): Promise<ThemeHead> {
     try {
@@ -63,7 +80,8 @@ export async function getThemeHead(): Promise<ThemeHead> {
         return {
             preconnect: stylesheet ? WEB_FONT_PRECONNECT_ORIGINS : [],
             stylesheet,
-            tokenCss: tokensToCss(theme)
+            tokenCss: tokensToCss(theme),
+            columnsBreakpointCss: columnsStackBreakpointCss(theme)
         }
     } catch {
         return NO_THEME_HEAD
