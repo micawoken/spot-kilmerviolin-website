@@ -131,6 +131,33 @@ declare module "jose" {
     // don't need to define more functions than necessary
 }
 
+// The Pagefind browser runtime, generated post-build into dist/client/pagefind/pagefind.js by the "build"
+// npm script (`pagefind --site dist/client`). It does not exist in the source tree — pages/search.astro
+// loads it via a runtime `import("/pagefind/pagefind.js")` (a path, not a resolvable module specifier) and
+// casts the result to this shape, rather than `declare module "/pagefind/pagefind.js"`: astro check's
+// per-script-block virtual files did not resolve that ambient declaration against the matching dynamic
+// import. Only the fields pages/search.astro actually reads are declared; Pagefind's real API is larger.
+interface PagefindSearchFragment {
+    url: string
+    /** plain-text-with-<mark> HTML excerpt around the matched terms, safe to render via innerHTML */
+    excerpt: string
+    meta: { title?: string; [key: string]: string | undefined }
+}
+
+interface PagefindSearchResult {
+    id: string
+    data: () => Promise<PagefindSearchFragment>
+}
+
+interface PagefindSearchResults {
+    results: PagefindSearchResult[]
+}
+
+interface PagefindApi {
+    init: () => Promise<void>
+    search: (query: string) => Promise<PagefindSearchResults>
+}
+
 interface ResponseInfo {
     code: number
     message: string

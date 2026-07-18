@@ -24,13 +24,24 @@
  */
 
 /* Base surface + body type. `html body` (specificity 0,0,2) so it wins over global.css `body` regardless
- * of stylesheet order; the theme's body typography token sets the site's base text. */
+ * of stylesheet order; the theme's body typography token sets the site's base text.
+ *
+ * Sticky footer: body is a full-viewport flex column (header, main, footer) so `main`'s flex-grow below
+ * pushes the footer to the viewport bottom on short pages, while a tall page still pushes it below the
+ * fold as normal — main's `flex: 1 0 auto` only grows into the flex column's leftover space and never
+ * shrinks below its own content. */
 html body {
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
 	background: var(--dtk-color-paper, var(--color-bg));
 	color: var(--dtk-color-ink, var(--color-text));
 	font-family: var(--dtk-type-body-family, inherit);
 	font-size: var(--dtk-type-body-size, 1rem);
 	line-height: var(--dtk-type-body-line-height, 1.6);
+}
+main {
+	flex: 1 0 auto;
 }
 
 /* Content links (compositor components own their own link styling; this is for untemplated article prose). */
