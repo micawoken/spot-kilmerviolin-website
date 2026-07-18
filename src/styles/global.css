@@ -50,6 +50,12 @@
 	--color-placeholder-border: light-dark(#bdbdbd, #4a4a4a);
 }
 
+html {
+	/* Reserve the scrollbar's width whether or not the current page needs one, so navigating between a
+	 * page that scrolls and one that doesn't never shifts the header/content horizontally. */
+	scrollbar-gutter: stable;
+}
+
 body {
 	/* Zero the UA default body margin. Invisible while --color-bg matched the page canvas; a themed
 	 * page background (public-chrome.css) exposes it as a border around the content otherwise. */
