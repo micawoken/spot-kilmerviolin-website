@@ -131,6 +131,20 @@ export function formatLifespan(birthYear: number, deathYear: number): string {
 }
 
 /**
+ * Title-cases a role string for public display (e.g. "primary author" -> "Primary Author"). Splits on
+ * whitespace so multi-word roles are cased consistently regardless of how an editor typed them.
+ *
+ * @param {string} role the stored role text
+ * @returns {string} the title-cased role
+ */
+export function titleCaseRole(role: string): string {
+    return role
+        .split(" ")
+        .map((word) => (word.length > 0 ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word))
+        .join(" ")
+}
+
+/**
  * Formats a scalar record field value for the entity info card, mirroring the SSR `disp` helper: a
  * null/undefined/blank/empty-array value renders as the shared "not provided" marker, and per-entity
  * special cases (living-composer death year, country code → name, top-level id "ID #" prefix, contributor

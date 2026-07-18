@@ -108,6 +108,9 @@ function resolveRefList(index: Map<number, ReferenceTarget>, ids: number[], noun
 
 /** Flattens one CompositionRecord (nested `rating`/`publication_info`) into a normalized flat entry. */
 function flattenComposition(record: CompositionRecord, refs: EntityReferenceIndex): Record<string, unknown> {
+    const contrib_primary_1 = resolveRef(refs.contributor, record.contrib_primary_1, "contributor")
+    const contrib_primary_2 = resolveRef(refs.contributor, record.contrib_primary_2, "contributor")
+    const contrib_addl = resolveRefList(refs.contributor, record.contrib_addl, "contributor")
     return {
         id: record.id,
         name: record.name,
@@ -116,9 +119,14 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
         image: record.image,
         composer: resolveRef(refs.composer, record.composer_id, "composer"),
         author_secondary: resolveRefList(refs.composer, record.author_secondary, "composer"),
-        contrib_primary_1: resolveRef(refs.contributor, record.contrib_primary_1, "contributor"),
-        contrib_primary_2: resolveRef(refs.contributor, record.contrib_primary_2, "contributor"),
-        contrib_addl: resolveRefList(refs.contributor, record.contrib_addl, "contributor"),
+        contrib_primary_1,
+        contrib_primary_2,
+        contrib_addl,
+        // Derived, not a D1 column: primary/additional-primary/additional is an internal-only distinction
+        // (owner decision) — public pages bind this single combined list instead, in one line.
+        contributors: [contrib_primary_1, contrib_primary_2, ...contrib_addl].filter(
+            (ref): ref is ResolvedReference => ref !== null
+        ),
         phases: record.phases,
         key: record.key,
         range: record.range,

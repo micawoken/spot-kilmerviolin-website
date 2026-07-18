@@ -130,7 +130,9 @@ describe("OUTLET_PROPS", () => {
                 "list",
                 "uri",
                 "yearOrLiving",
-                "countryCode"
+                "countryCode",
+                "email",
+                "titleCase"
             ],
             MediaText: ["image"]
         })

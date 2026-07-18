@@ -81,7 +81,7 @@ import { renderPublicationUri } from "../../scripts/publication"
 // scripts/format.ts is likewise framework-agnostic (only Intl + a consts import) — reused here so the
 // composer death_year/country special cases render identically to the admin's ComposerInfo.astro/
 // format.ts treatment, rather than a second hand-written copy of the same "-1 => Present" / code=>name logic.
-import { countryCodeName, formatDeathYear } from "../../scripts/format"
+import { countryCodeName, formatDeathYear, titleCaseRole } from "../../scripts/format"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 
@@ -132,7 +132,9 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
         "list",
         "uri",
         "yearOrLiving",
-        "countryCode"
+        "countryCode",
+        "email",
+        "titleCase"
     ],
     MediaText: ["image"]
 }
@@ -734,6 +736,14 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
         case "countryCode":
             // A composer's ISO 3166-1 alpha-2 country code, rendered as its English display name.
             return typeof value === "string" && value.trim() !== "" ? countryCodeName(value) : ""
+        case "email":
+            return typeof value === "string" && value.trim() !== "" ? (
+                <a href={`mailto:${value}`}>{value}</a>
+            ) : (
+                ""
+            )
+        case "titleCase":
+            return typeof value === "string" ? titleCaseRole(value) : ""
         case "string":
         case "text":
             return typeof value === "string" ? value : ""

@@ -40,7 +40,9 @@ const KINDS: readonly EntityFieldKind[] = [
     "image",
     "uri",
     "yearOrLiving",
-    "countryCode"
+    "countryCode",
+    "email",
+    "titleCase"
 ]
 
 describe("ENTITY_NOUNS / isEntityNoun", () => {
@@ -74,11 +76,12 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         ])
     })
 
-    it("declares death_year/country/life_span with their special-formatting kinds", () => {
+    it("declares death_year/country/life_span/role with their special-formatting kinds", () => {
         const bySlug = Object.fromEntries(entityFields("composer").map((f) => [f.slug, f]))
         expect(bySlug.death_year.type).toBe("yearOrLiving")
         expect(bySlug.country.type).toBe("countryCode")
         expect(bySlug.life_span.type).toBe("string")
+        expect(bySlug.role.type).toBe("titleCase")
     })
 
     it("gives contributor every content column, omitting active/roles/admin/identity_email", () => {
@@ -100,6 +103,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         for (const redacted of ["roles", "admin", "identity_email", "active"]) {
             expect(slugs).not.toContain(redacted)
         }
+        expect(fields.find((f) => f.slug === "public_email")?.type).toBe("email")
     })
 
     it("gives composition every content column, with foreign keys declared as reference/referenceList — never a raw id", () => {
@@ -111,6 +115,9 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         expect(bySlug.contrib_primary_1).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_primary_2).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_addl).toMatchObject({ type: "referenceList", refNoun: "contributor" })
+        // Combined single-line alternative to the three fields above (owner decision) — additive, not a
+        // replacement, so an already-authored template binding them individually keeps working.
+        expect(bySlug.contributors).toMatchObject({ type: "referenceList", refNoun: "contributor" })
 
         // No raw *_id column is ever separately bindable — only the resolved reference field is.
         for (const rawId of ["composer_id"]) {

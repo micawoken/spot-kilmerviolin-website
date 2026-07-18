@@ -54,8 +54,10 @@ export function isEntityNoun(value: string): value is EntityNoun {
  * ("date"), a resolved foreign key ("reference"/"referenceList"), a joined array ("list"), a media
  * reference ("image"), the composition-only publication link composite ("uri"), a composer's death_year
  * (`"yearOrLiving"` — the -1 "still living" sentinel formats as "Present", mirroring the admin's
- * `ComposerInfo.astro`/`format.ts` treatment), and a composer's ISO 3166-1 country code (`"countryCode"`
- * — formats to its English display name). "string"/"text"/"image" intentionally reuse the same
+ * `ComposerInfo.astro`/`format.ts` treatment), a composer's ISO 3166-1 country code (`"countryCode"`
+ * — formats to its English display name), a contributor's public email (`"email"` — renders as a
+ * `mailto:` link), and a composer's role (`"titleCase"` — title-cased for display regardless of how it
+ * was entered). "string"/"text"/"image" intentionally reuse the same
  * vocabulary `OUTLET_PROPS` (catalog.tsx) already accepts for `ContentText`/`ContentImage`, so those two
  * components work unmodified against entity fields; the rest are new kinds only `ContentField` accepts.
  */
@@ -71,6 +73,8 @@ export type EntityFieldKind =
     | "uri"
     | "yearOrLiving"
     | "countryCode"
+    | "email"
+    | "titleCase"
 
 /** One bindable entity field: what a picker shows, and what a render needs to interpret its value. */
 export interface EntityField {
@@ -83,7 +87,7 @@ export interface EntityField {
 
 const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "name", label: "Name", type: "string" },
-    { slug: "role", label: "Role", type: "string" },
+    { slug: "role", label: "Role", type: "titleCase" },
     { slug: "birth_year", label: "Birth Year", type: "number" },
     { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
     { slug: "country", label: "Country", type: "countryCode" },
@@ -102,7 +106,7 @@ const CONTRIBUTOR_FIELDS: readonly EntityField[] = [
     { slug: "class_year", label: "Class Year", type: "number" },
     { slug: "major", label: "Major", type: "string" },
     { slug: "bio", label: "Bio", type: "text" },
-    { slug: "public_email", label: "Email", type: "string" },
+    { slug: "public_email", label: "Email", type: "email" },
     { slug: "image", label: "Image", type: "image" },
     { slug: "tags", label: "Tags", type: "list" },
     { slug: "entry_date", label: "Added", type: "date" },
@@ -120,6 +124,12 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "contrib_primary_1", label: "Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_primary_2", label: "Additional Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList", refNoun: "contributor" },
+    // Combines contrib_primary_1/_2/contrib_addl into one line, since the primary/additional-primary/
+    // additional distinction is internal-only (owner decision) and shouldn't have to appear on a public
+    // page — kept alongside the individual fields above (not a replacement) so an already-authored
+    // template binding those separately keeps working; a template can opt into this single-line field
+    // instead when convenient.
+    { slug: "contributors", label: "Contributors (single line)", type: "referenceList", refNoun: "contributor" },
     { slug: "phases", label: "Phases", type: "list" },
     { slug: "key", label: "Key", type: "string" },
     { slug: "range", label: "Range", type: "string" },
