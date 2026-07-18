@@ -28,7 +28,7 @@
  */
 
 import type { DesignDoc, PuckData } from "./types"
-import { isRecord } from "./types"
+import { isPuckComponent, isRecord } from "./types"
 
 /** The design schema version this build understands. Bump when adding a transform below. */
 export const CURRENT_SCHEMA_VERSION = 1
@@ -67,6 +67,29 @@ function wrapPreEnvelopeDesign(raw: Record<string, unknown>): Record<string, unk
     const isPreEnvelope =
         raw.schemaVersion === undefined && raw.puck === undefined && Array.isArray(raw.content)
     return isPreEnvelope ? { schemaVersion: 1, puck: raw } : raw
+}
+
+/**
+ * Assigns a fresh id to every component in a slot array that is missing one, recursing into nested
+ * slots (mutates in place). Puck's editor store indexes every node BY `props.id` (`WithId<Props>` —
+ * required, not optional, in `@puckeditor/core`'s own types); a component written without one does not
+ * merely lack metadata, it collides with every other id-less sibling on the same index key, corrupting
+ * the store and driving the editor into an infinite re-render loop that OOMs the tab. `editorFormToDesign`
+ * always writes real ids (Puck assigns one to every component it creates), so this only ever fires on a
+ * document written outside the editor — a hand-authored seed script being the one that shipped without
+ * ids (see `tools/seed-entity-templates.mjs`) — but it runs unconditionally so ANY id-less write, present
+ * or future, self-heals on the next read rather than corrupting the editor again.
+ */
+function ensureComponentIds(components: unknown[]): void {
+    for (const component of components) {
+        if (!isPuckComponent(component)) continue
+        if (typeof component.props.id !== "string" || component.props.id === "") {
+            component.props.id = crypto.randomUUID()
+        }
+        for (const value of Object.values(component.props)) {
+            if (Array.isArray(value)) ensureComponentIds(value)
+        }
+    }
 }
 
 /**
@@ -113,6 +136,8 @@ export function migrateDesign(raw: unknown): DesignDoc {
         puck = transform.migrate(puck)
         version += 1
     }
+
+    if (Array.isArray(puck.content)) ensureComponentIds(puck.content)
 
     return { schemaVersion: CURRENT_SCHEMA_VERSION, puck }
 }

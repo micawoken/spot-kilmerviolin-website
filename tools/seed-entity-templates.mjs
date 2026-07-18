@@ -27,20 +27,41 @@
  * Prints one line per step and exits non-zero on the first unexpected API response.
  */
 
+import { randomUUID } from "node:crypto"
 import { fileURLToPath } from "node:url"
 
 // --- Puck component builders (mirror catalog.tsx's defaultProps exactly, so a seeded doc opens in the
 // editor identically to one authored by hand there) -------------------------------------------------
 
-const heading = (text, level = "h2") => ({ type: "Heading", props: { text, level, typography: "display", align: "start" } })
-const contentText = (field, level = "h1") => ({ type: "ContentText", props: { field, level, typography: "display", align: "start" } })
-const contentField = (field) => ({ type: "ContentField", props: { field, label: "", showLabel: "yes", typography: "body" } })
-const mediaText = (field, content) => ({ type: "MediaText", props: { field, aspect: "original", imagePosition: "start", content } })
-const row = (content, gap = "md") => ({ type: "Row", props: { gap, content } })
-const divider = () => ({ type: "Divider", props: { spaceAround: "md", color: "" } })
+// Every component Puck creates carries a unique `props.id` ("<type>-<uuid>", its own `generateId`
+// convention) — the store indexes nodes BY that id (packages/core's `indexes.nodes[id]`), and a
+// hand-built doc that omits it is not merely missing metadata: every id-less component collapses onto
+// the same index key, corrupting the store and driving the editor into an infinite re-render loop that
+// OOMs the tab. `genId` mints one per component, exactly like the editor would.
+const genId = (type) => `${type}-${randomUUID()}`
+
+const heading = (text, level = "h2") => ({
+    type: "Heading",
+    props: { id: genId("Heading"), text, level, typography: "display", align: "start" }
+})
+const contentText = (field, level = "h1") => ({
+    type: "ContentText",
+    props: { id: genId("ContentText"), field, level, typography: "display", align: "start" }
+})
+const contentField = (field) => ({
+    type: "ContentField",
+    props: { id: genId("ContentField"), field, label: "", showLabel: "yes", typography: "body" }
+})
+const mediaText = (field, content) => ({
+    type: "MediaText",
+    props: { id: genId("MediaText"), field, aspect: "original", imagePosition: "start", content }
+})
+const row = (content, gap = "md") => ({ type: "Row", props: { id: genId("Row"), gap, content } })
+const divider = () => ({ type: "Divider", props: { id: genId("Divider"), spaceAround: "md", color: "" } })
 const columns = (cols, gap = "md") => ({
     type: "Columns",
     props: {
+        id: genId("Columns"),
         count: cols.length,
         gap,
         col1: cols[0] ?? [],
@@ -52,7 +73,7 @@ const columns = (cols, gap = "md") => ({
 // paddingY: "md", not Section's own catalog default ("section") — that default name doesn't match any
 // real theme's space tokens (setup-design-collections.mjs's seed theme has xs/sm/md/lg), which would
 // fail the pairing lint as an unknown-token ERROR the moment this seed is published.
-const section = (content) => ({ type: "Section", props: { background: "", paddingY: "md", content } })
+const section = (content) => ({ type: "Section", props: { id: genId("Section"), background: "", paddingY: "md", content } })
 
 /** Wraps a top-level component array in a version-1 design envelope (migrations.ts's emptyDesignDoc shape). */
 function doc(content) {
