@@ -559,9 +559,6 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                 <button type="button" onClick={() => setSettingsOpen(true)}>
                     {kind === "template" ? "Template settings" : "Page settings"}
                 </button>
-                <button type="button" onClick={() => setPublishOpen(true)}>
-                    Publish…
-                </button>
             </div>
 
             {schemaError && (
@@ -599,6 +596,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                         config={config}
                         data={initialData}
                         onChange={handleChange}
+                        onPublish={() => setPublishOpen(true)}
                         iframe={{ syncHostStyles: false }}
                         height="100%"
                     />

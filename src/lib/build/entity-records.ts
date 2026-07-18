@@ -30,6 +30,7 @@
 
 import { entityHref } from "../compositor/composition-fields"
 import type { EntityNoun } from "../compositor/entity-fields"
+import { formatLifespan } from "../../scripts/format"
 
 /** One entity record, normalized to a flat `entry` every noun's render/listing reads uniformly. */
 export interface EntityRecord {
@@ -140,9 +141,10 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
 /**
  * Normalizes one noun's fetched D1 rows into {@link EntityRecord}s. A `null` reader result (D1
  * unconfigured, or that specific table read skipped) contributes no records — the caller's
- * dual-source-dependency gate treats that the same as "no records" either way. Composer and contributor
- * records are already flat (`ComposerRecord`/`ContributorRecord`) and pass through as `entry` unchanged;
- * composition records are flattened and reference-resolved via {@link flattenComposition}.
+ * dual-source-dependency gate treats that the same as "no records" either way. Contributor records are
+ * already flat (`ContributorRecord`) and pass through as `entry` unchanged; composer records are already
+ * flat too but gain one derived field (`life_span`, see entity-fields.ts); composition records are
+ * flattened and reference-resolved via {@link flattenComposition}.
  *
  * @param {EntityNoun} noun - which reader's rows to read (the other two are ignored)
  * @param {ComposerRecord[] | null} composers - `fetchComposers()`'s result
@@ -161,7 +163,15 @@ export function entityRecords(
 ): EntityRecord[] {
     switch (noun) {
         case "composer":
-            return (composers ?? []).map((record) => ({ id: String(record.id), entry: record as unknown as Record<string, unknown> }))
+            // life_span (entity-fields.ts) is derived, not a D1 column: pre-built here, once per record,
+            // from birth_year/death_year so a template can bind the whole range as a single field.
+            return (composers ?? []).map((record) => ({
+                id: String(record.id),
+                entry: {
+                    ...record,
+                    life_span: formatLifespan(record.birth_year, record.death_year)
+                } as unknown as Record<string, unknown>
+            }))
         case "contributor":
             return (contributors ?? []).map((record) => ({ id: String(record.id), entry: record as unknown as Record<string, unknown> }))
         case "composition":

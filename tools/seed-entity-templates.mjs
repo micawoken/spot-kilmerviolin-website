@@ -85,7 +85,13 @@ function doc(content) {
 const COMPOSER_DOC = doc([
     section([
         contentText("name", "h1"),
-        mediaText("image", [contentField("role"), contentField("birth_year"), contentField("death_year"), contentField("country")]),
+        mediaText("image", [
+            contentField("role"),
+            contentField("birth_year"),
+            contentField("death_year"),
+            contentField("country"),
+            contentField("life_span")
+        ]),
         contentField("bio"),
         contentField("tags"),
         divider(),

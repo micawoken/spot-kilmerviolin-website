@@ -120,7 +120,18 @@ describe("OUTLET_PROPS", () => {
             ContentText: ["string", "text"],
             ContentRichText: ["portableText"],
             ContentImage: ["image"],
-            ContentField: ["string", "text", "number", "date", "reference", "referenceList", "list", "uri"],
+            ContentField: [
+                "string",
+                "text",
+                "number",
+                "date",
+                "reference",
+                "referenceList",
+                "list",
+                "uri",
+                "yearOrLiving",
+                "countryCode"
+            ],
             MediaText: ["image"]
         })
     })
@@ -329,6 +340,20 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         const viaOutlet = render(config, "ContentText", { field: "headline", level: "h2", typography: "display", align: "start" })
         expect(viaOutlet).toBe(viaHeading)
     })
+
+    it("Image/ContentImage carry the size preset as a data-size attribute", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
+        const viaImage = render(config, "Image", {
+            media: { mediaId: "med_1", storageKey: "med_1.jpg", alt: "", width: 0, height: 0 },
+            alt: "A violin",
+            aspect: "original",
+            size: "large"
+        })
+        expect(viaImage).toContain('data-size="large"')
+
+        const viaContentImage = render(config, "ContentImage", { field: "cover", aspect: "original", size: "small" })
+        expect(viaContentImage).toContain('data-size="small"')
+    })
 })
 
 describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
@@ -340,7 +365,9 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         { slug: "composer", label: "Composer", type: "reference" },
         { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList" },
         { slug: "tags", label: "Tags", type: "list" },
-        { slug: "publication_uri", label: "Publication Link", type: "uri" }
+        { slug: "publication_uri", label: "Publication Link", type: "uri" },
+        { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
+        { slug: "country", label: "Country", type: "countryCode" }
     ]
 
     // Shapes exactly as entity-records.ts's normalizer produces them (references pre-resolved, no
@@ -356,9 +383,17 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
             { id: 11, name: "", href: null } // unresolvable — renders as an empty entry, per ReferenceLink
         ],
         tags: ["romantic", "advanced"],
-        publication_uri: { uriType: "https", uri: "https://example.test/score" }
+        publication_uri: { uriType: "https", uri: "https://example.test/score" },
+        death_year: -1,
+        country: "DE"
     }
-    const base = { label: "", showLabel: "yes" as const, typography: "display" }
+    const base = {
+        label: "",
+        showLabel: "yes" as const,
+        typography: "display",
+        onEmpty: "doNothing" as const,
+        emptyValue: "(none)"
+    }
 
     it("uses the bound field's catalog label by default", () => {
         const config = buildConfig(theme, "build", { entry, fields })
@@ -424,6 +459,58 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         expect(html).not.toMatch(/not supplied|\(no /)
     })
 
+    it("converts a living composer's death_year (-1) to Present", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        expect(render(config, "ContentField", { ...base, field: "death_year" })).toContain("Present")
+    })
+
+    it("renders a non-living death_year as the year itself", () => {
+        const config = buildConfig(theme, "build", { entry: { ...entry, death_year: 1750 }, fields })
+        expect(render(config, "ContentField", { ...base, field: "death_year" })).toContain("1750")
+    })
+
+    it("converts a country code to its display name", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "country" })
+        expect(html).toContain("Germany")
+        expect(html).not.toContain(">DE<")
+    })
+
+    describe("onEmpty (empty-value display control)", () => {
+        it("doNothing (default): label still shows, value is blank", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", onEmpty: "doNothing" })
+            expect(html).toContain("cmp-field__label")
+            expect(html).toContain("Bio")
+        })
+
+        it("placeholder: substitutes emptyValue for the blank value, label still shows", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "bio",
+                onEmpty: "placeholder",
+                emptyValue: "(none)"
+            })
+            expect(html).toContain("cmp-field__label")
+            expect(html).toContain("(none)")
+        })
+
+        it("hideLabel: label is suppressed, value stays blank", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", onEmpty: "hideLabel" })
+            expect(html).not.toContain("cmp-field__label")
+            expect(html).toContain("cmp-field__value")
+        })
+
+        it("does not apply the empty-value behavior when the field is NOT empty", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "name", onEmpty: "hideLabel" })
+            expect(html).toContain("cmp-field__label")
+            expect(html).toContain("Ada")
+        })
+    })
+
     it("renders a placeholder in the editor, and nothing at build, when no field is bound", () => {
         expect(render(buildConfig(theme, "editor", { entry, fields }), "ContentField", { ...base, field: "" })).toContain(
             "cmp-outlet-placeholder"
@@ -459,6 +546,16 @@ describe("buildConfig — MediaText (collapsing media+text primitive, concern #3
         const html = render(config, "MediaText", { ...props, field: "portrait" })
         expect(html).not.toContain("cmp-media-text__media")
         expect(html).toContain("cmp-media-text__content")
+    })
+
+    it("carries the size preset as data-size on the media column", () => {
+        const config = buildConfig(theme, "build", {
+            entry: { portrait: "https://images.example.test/ada.jpg" },
+            fields,
+            mediaBaseUrl: "https://store.example.test"
+        })
+        const html = render(config, "MediaText", { ...props, field: "portrait", size: "large" })
+        expect(html).toContain('data-size="large"')
     })
 })
 
