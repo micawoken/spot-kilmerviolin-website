@@ -62,7 +62,17 @@ The maintainers understand that AI coding tools can be vastly helpful in softwar
 2. In your PR, if it contains AI-generated code, you must affirm that you have personally reviewed the entire output of the LLM. If you disclose use of an AI-generated coding tool, but fail to affirm you have personally reviewed it, your submission will be rejected.
 3. If your submission is rejected on the basis of this policy, we may allow you to cure your submission after-the-fact within a time frame we determine. However, we are not obligated to review your suggestions, so we are under no obligation to do so.
 
-## Conflict of interest policy
+### Code of conduct
+This policy applies to all contributors, including members.
+
+All contributors are expected to, very generally, "treat others the way they want to be treated." This includes, but is not limited to:
+1. Treating other contributors with respect,
+2. Offering criticism constructively, and
+3. Using language appropriate for the forum.
+
+We hold a zero-tolerance policy for harassment, bullying, and other disrespectful and non-courteous behavior. We may take all appropriate measures to prevent this.
+
+### Conflict of interest policy
 In any suggestion received by the maintainers, you may choose to identify a specific project, resource, or commercial product. If you fail to disclose any conflict of interest you may have between the resource you promote and yourself, your submission will be rejected, and, at our disrection, we may restrict your ability to contribute in the future.
 
 We hold a zero-tolerance policy for individuals who make suggestions with a commercial or promotional interest in mind - this is not the space for shilling, and we reserve the right to take all appropriate measures to prevent that.
