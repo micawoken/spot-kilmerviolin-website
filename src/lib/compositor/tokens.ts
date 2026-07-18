@@ -36,6 +36,13 @@ export interface ValueToken {
     value: string
 }
 
+/**
+ * CSS `text-transform` keywords a typography token may default to. Mirrors `weight`'s convention of
+ * a plain keyword string, kept as a literal union here (rather than free text) since the CSS property
+ * itself only accepts this closed set.
+ */
+export type TextTransform = "none" | "uppercase" | "lowercase" | "capitalize"
+
 /** A typography token: emitted as one custom property per sub-value (impl §4.3). */
 export interface TypographyToken {
     name: string
@@ -44,6 +51,24 @@ export interface TypographyToken {
     weight: string
     lineHeight: string
     letterSpacing?: string
+    /** Default `font-style: italic` when true. OPTIONAL, trap A: absent means not italic. */
+    italic?: boolean
+    /**
+     * Shortcut that forces the emitted weight to `"bold"` when true, overriding `weight` for that one
+     * property (the `weight` field's own value is preserved, unaffected, so unchecking restores it).
+     * OPTIONAL, trap A: absent behaves exactly as before this field existed.
+     */
+    bold?: boolean
+    /**
+     * Default `text-decoration-line` components. CSS allows combining these (e.g. underline +
+     * line-through) so each is an independent flag rather than a single select. OPTIONAL, trap A:
+     * absent means no decoration, matching pre-existing behavior.
+     */
+    underline?: boolean
+    lineThrough?: boolean
+    overline?: boolean
+    /** Default `text-transform`. OPTIONAL, trap A: absent means no transform. */
+    textTransform?: TextTransform
 }
 
 /** A border token. `colorRef` names a color token, resolved to `var(--dtk-color-<colorRef>)` on emit. */
@@ -99,6 +124,37 @@ export interface WebFont {
     weights?: number[]
 }
 
+/**
+ * The public site frame's fixed semantic color/border roles (page background, body text, links, …),
+ * each naming a token the owner has authored elsewhere in the catalog. The roles themselves are a
+ * closed, non-removable set — every role always exists as a concept in the editor — but which named
+ * token fills each one is the owner's choice, resolved the same way `Section.background` or
+ * `Divider.color` already resolve a stored name to `var(--dtk-…)`.
+ *
+ * Replaces the earlier convention of `public-chrome.css`/`search.astro` hardcoding specific color
+ * names (`ink`, `paper`, `garnet`, `slate`, `surface`) and a `hairline` border name: those names were
+ * undiscoverable from the editor UI and silently fell back to generic defaults whenever a theme didn't
+ * happen to define them. Every role here is OPTIONAL (trap A): unset roles fall back to the old
+ * magic-name lookup in the consuming CSS, so an unmigrated theme renders unchanged until its owner
+ * opens the editor and sets these explicitly.
+ */
+export interface SiteChromeRoles {
+    /** names a `colors` token; the page/site frame background */
+    pageBackground?: string
+    /** names a `colors` token; the page/site frame's default text color */
+    bodyText?: string
+    /** names a `colors` token; in-content link color */
+    linkColor?: string
+    /** names a `colors` token; in-content link color on hover */
+    linkHoverColor?: string
+    /** names a `colors` token; muted nav/footer text */
+    mutedText?: string
+    /** names a `colors` token; footer background */
+    footerBackground?: string
+    /** names a `borders` token; header/footer hairline rule */
+    hairlineBorder?: string
+}
+
 export interface TokenCatalog {
     /** Catalog schema version, independent of the design-doc `schemaVersion`. */
     schemaVersion: number
@@ -129,6 +185,21 @@ export interface TokenCatalog {
      * contract as `buttonVariants`. Consumed by `webFontsHref`, not `tokensToCss`.
      */
     fonts?: WebFont[]
+    /**
+     * The public site frame's semantic color/border role mapping (§ SiteChromeRoles). OPTIONAL, trap A:
+     * a theme predating this field must still validate; every role within it is independently optional
+     * too, so partial adoption (e.g. only `pageBackground` set) is valid.
+     */
+    siteChrome?: SiteChromeRoles
+    /**
+     * Names a `breakpoints` token whose `minWidth` drives the one real breakpoint-consuming rule on the
+     * site today (`Columns` stacking to a single column below this width). Site-wide, not per-component-
+     * instance: custom properties can't appear in `@media` conditions, so this value is read at CSS-
+     * generation time (`theme-head.ts`) and interpolated as a literal pixel value into a real `@media`
+     * rule, replacing the previously hardcoded 768px in the static stylesheet. OPTIONAL, trap A: unset
+     * (or naming a token that doesn't exist) preserves the original hardcoded 768px behavior.
+     */
+    layoutStackBreakpoint?: string
 }
 
 /**
@@ -266,6 +337,22 @@ export function tokenSelectOptions(catalog: TokenCatalog, kind: TokenKind): { la
  * @param {TokenCatalog} catalog - the theme catalog
  * @returns {string} - a `:root { … }` CSS block declaring the `--dtk-*` properties
  */
+/**
+ * The `text-decoration-line` value for a typography token's underline/lineThrough/overline flags.
+ * CSS allows combining these on one element (e.g. `underline overline`), so each flag contributes
+ * independently rather than the field being a single exclusive choice.
+ *
+ * @param {TypographyToken} token - the typography token
+ * @returns {string} - `"none"`, or a space-separated list of the active decoration lines
+ */
+function textDecorationLine(token: TypographyToken): string {
+    const lines: string[] = []
+    if (token.underline) lines.push("underline")
+    if (token.overline) lines.push("overline")
+    if (token.lineThrough) lines.push("line-through")
+    return lines.length > 0 ? lines.join(" ") : "none"
+}
+
 export function tokensToCss(catalog: TokenCatalog): string {
     const lines: string[] = []
 
@@ -276,11 +363,16 @@ export function tokensToCss(catalog: TokenCatalog): string {
         if (!isValidTokenName(token.name)) continue
         lines.push(`${tokenVarName("typography", token.name, "family")}: ${token.family};`)
         lines.push(`${tokenVarName("typography", token.name, "size")}: ${token.size};`)
-        lines.push(`${tokenVarName("typography", token.name, "weight")}: ${token.weight};`)
+        // `bold` is a shortcut that overrides the emitted weight for this property only; the token's
+        // own `weight` value is untouched, so unchecking `bold` restores it.
+        lines.push(`${tokenVarName("typography", token.name, "weight")}: ${token.bold ? "bold" : token.weight};`)
         lines.push(`${tokenVarName("typography", token.name, "line-height")}: ${token.lineHeight};`)
         if (token.letterSpacing !== undefined) {
             lines.push(`${tokenVarName("typography", token.name, "letter-spacing")}: ${token.letterSpacing};`)
         }
+        lines.push(`${tokenVarName("typography", token.name, "style")}: ${token.italic ? "italic" : "normal"};`)
+        lines.push(`${tokenVarName("typography", token.name, "decoration")}: ${textDecorationLine(token)};`)
+        lines.push(`${tokenVarName("typography", token.name, "transform")}: ${token.textTransform ?? "none"};`)
     }
     for (const token of catalog.space) {
         if (isValidTokenName(token.name)) lines.push(`${tokenVarName("space", token.name)}: ${token.value};`)
@@ -320,8 +412,66 @@ export function tokensToCss(catalog: TokenCatalog): string {
             )
         }
     }
+    // Site Chrome roles: emitted only when the owner has set them, as `--dtk-chrome-<role>` pointing at
+    // the chosen token's own property (like buttonVariants' refs). An unset role emits nothing, so the
+    // consuming CSS's own `var(--dtk-chrome-…, <old magic-name lookup>)` fallback chain takes over —
+    // this is what makes an unmigrated theme render unchanged until its owner sets these explicitly.
+    const chrome = catalog.siteChrome
+    if (chrome) {
+        const colorRoles: Array<[string, string | undefined]> = [
+            ["page-bg", chrome.pageBackground],
+            ["body-text", chrome.bodyText],
+            ["link", chrome.linkColor],
+            ["link-hover", chrome.linkHoverColor],
+            ["muted", chrome.mutedText],
+            ["footer-bg", chrome.footerBackground]
+        ]
+        for (const [segment, name] of colorRoles) {
+            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("colors", name)};`)
+        }
+        if (chrome.hairlineBorder) {
+            const name = chrome.hairlineBorder
+            lines.push(`--dtk-chrome-hairline-width: ${tokenVar("borders", name, "width")};`)
+            lines.push(`--dtk-chrome-hairline-style: ${tokenVar("borders", name, "style")};`)
+            lines.push(`--dtk-chrome-hairline-color: ${tokenVar("borders", name, "color")};`)
+        }
+    }
 
     return `:root {\n${lines.map((line) => `    ${line}`).join("\n")}\n}`
+}
+
+/** The historical fixed cutoff (`compositor.css`'s old hardcoded rule) used when no theme designates a
+ *  `layoutStackBreakpoint`, so an unmigrated/untouched theme keeps this exact prior behavior. */
+const DEFAULT_COLUMNS_STACK_MAX_WIDTH = "767.98px"
+
+/**
+ * Just below a breakpoint token's own `minWidth`, matching the historical 767.98-for-768 idiom (a
+ * `minWidth` of `N`px stacks below it, not at-or-above it). A `minWidth` this can't confidently do
+ * arithmetic on (a non-`px` unit, `calc()`, …) is used as-is rather than risk an invalid media condition.
+ */
+function stackCutoff(minWidth: string): string {
+    const match = /^(-?\d+(?:\.\d+)?)px$/.exec(minWidth.trim())
+    if (!match) return minWidth.trim()
+    return `${Number(match[1]) - 0.02}px`
+}
+
+/**
+ * The `@media (max-width: …) { .cmp-columns { grid-template-columns: 1fr; } }` rule that drives `Columns`'
+ * single-column stacking. Generated here rather than hardcoded in the static stylesheet (`compositor.css`)
+ * because it is theme-authored: `layoutStackBreakpoint` names a `breakpoints` token, and custom properties
+ * cannot appear in `@media` conditions, so the chosen breakpoint's literal pixel value must be baked
+ * directly into this CSS text. Falls back to the historical fixed cutoff when the catalog doesn't
+ * designate a breakpoint (unset, or naming a token that no longer exists) — preserving the exact
+ * pre-existing behavior for a theme that predates this field, and for no theme at all.
+ *
+ * @param {TokenCatalog} catalog - the theme catalog
+ * @returns {string} - the `@media { … }` rule
+ */
+export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
+    const target = catalog.layoutStackBreakpoint
+    const token = target ? catalog.breakpoints.find((candidate) => candidate.name === target) : undefined
+    const maxWidth = token ? stackCutoff(token.minWidth) : DEFAULT_COLUMNS_STACK_MAX_WIDTH
+    return `@media (max-width: ${maxWidth}) {\n    .cmp-columns {\n        grid-template-columns: 1fr;\n    }\n}`
 }
 
 /** Whether every element of an array passes a per-element guard. */
@@ -333,6 +483,9 @@ function isValueToken(value: unknown): value is ValueToken {
     return isRecord(value) && typeof value.name === "string" && typeof value.value === "string"
 }
 
+/** The `text-transform` keywords offered by the theme editor's dropdown (see `TextTransform`). */
+export const TEXT_TRANSFORMS: readonly TextTransform[] = ["none", "uppercase", "lowercase", "capitalize"]
+
 function isTypographyToken(value: unknown): value is TypographyToken {
     return (
         isRecord(value) &&
@@ -341,7 +494,17 @@ function isTypographyToken(value: unknown): value is TypographyToken {
         typeof value.size === "string" &&
         typeof value.weight === "string" &&
         typeof value.lineHeight === "string" &&
-        (value.letterSpacing === undefined || typeof value.letterSpacing === "string")
+        (value.letterSpacing === undefined || typeof value.letterSpacing === "string") &&
+        // OPTIONAL, trap A: absent on every field below means "not styled that way", matching behavior
+        // before these fields existed.
+        (value.italic === undefined || typeof value.italic === "boolean") &&
+        (value.bold === undefined || typeof value.bold === "boolean") &&
+        (value.underline === undefined || typeof value.underline === "boolean") &&
+        (value.lineThrough === undefined || typeof value.lineThrough === "boolean") &&
+        (value.overline === undefined || typeof value.overline === "boolean") &&
+        (value.textTransform === undefined ||
+            (typeof value.textTransform === "string" &&
+                (TEXT_TRANSFORMS as readonly string[]).includes(value.textTransform)))
     )
 }
 
@@ -369,6 +532,19 @@ function isButtonVariantToken(value: unknown): value is ButtonVariantToken {
         typeof value.paddingX === "string" &&
         typeof value.paddingY === "string" &&
         (value.border === undefined || typeof value.border === "string")
+    )
+}
+
+function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
+    return (
+        isRecord(value) &&
+        (value.pageBackground === undefined || typeof value.pageBackground === "string") &&
+        (value.bodyText === undefined || typeof value.bodyText === "string") &&
+        (value.linkColor === undefined || typeof value.linkColor === "string") &&
+        (value.linkHoverColor === undefined || typeof value.linkHoverColor === "string") &&
+        (value.mutedText === undefined || typeof value.mutedText === "string") &&
+        (value.footerBackground === undefined || typeof value.footerBackground === "string") &&
+        (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string")
     )
 }
 
@@ -407,7 +583,10 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
         // rejected and every design page renders unstyled. Present-but-malformed is still a rejection.
         (value.buttonVariants === undefined || isArrayOf(value.buttonVariants, isButtonVariantToken)) &&
         // Optional, same trap-A contract as buttonVariants.
-        (value.fonts === undefined || isArrayOf(value.fonts, isWebFont))
+        (value.fonts === undefined || isArrayOf(value.fonts, isWebFont)) &&
+        // Optional, same trap-A contract as buttonVariants.
+        (value.siteChrome === undefined || isSiteChromeRoles(value.siteChrome)) &&
+        (value.layoutStackBreakpoint === undefined || typeof value.layoutStackBreakpoint === "string")
     )
 }
 

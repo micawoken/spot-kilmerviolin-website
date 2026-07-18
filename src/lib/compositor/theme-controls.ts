@@ -271,3 +271,120 @@ export function formatShadow(layers: ShadowLayer[]): string {
     if (layers.length === 0) return "none"
     return layers.map(formatShadowLayer).join(", ")
 }
+
+/** An opaque RGB triple, 0–255 per channel. */
+export interface RgbColor {
+    r: number
+    g: number
+    b: number
+}
+
+function hexToRgb(input: string): RgbColor | null {
+    const match = /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(input.trim())
+    if (!match) return null
+    const digits = match[1].length <= 4 ? [...match[1]].map((digit) => digit + digit).join("") : match[1]
+    return { r: Number.parseInt(digits.slice(0, 2), 16), g: Number.parseInt(digits.slice(2, 4), 16), b: Number.parseInt(digits.slice(4, 6), 16) }
+}
+
+/** One `rgb()`/`rgba()` channel: a plain number (0–255) or a percentage of it. */
+function parseRgbChannel(token: string): number | null {
+    if (token.endsWith("%")) {
+        const percent = Number.parseFloat(token)
+        return Number.isNaN(percent) ? null : Math.round((percent / 100) * 255)
+    }
+    const value = Number.parseFloat(token)
+    return Number.isNaN(value) ? null : Math.round(value)
+}
+
+function rgbFunctionToRgb(input: string): RgbColor | null {
+    const match = /^rgba?\(([\s\S]*)\)$/i.exec(input.trim())
+    if (!match) return null
+    // Only the comma-separated legacy syntax is supported (`rgb(r, g, b[, a])`); the modern
+    // space-separated `rgb(r g b / a)` form is rarer in hand-authored themes and falls back to null,
+    // same as any other value this module cannot confidently parse.
+    const parts = splitTopLevel(match[1], ",").map((part) => part.trim())
+    if (parts.length < 3) return null
+    const channels = parts.slice(0, 3).map(parseRgbChannel)
+    if (channels.some((channel) => channel === null)) return null
+    const [r, g, b] = channels as number[]
+    return { r, g, b }
+}
+
+/** Converts an `hsl()`/`hsla()` triple (degrees, percent, percent) to RGB via the standard formula. */
+function hslToRgb(h: number, s: number, l: number): RgbColor {
+    const hue = ((h % 360) + 360) % 360
+    const chroma = (1 - Math.abs(2 * l - 1)) * s
+    const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1))
+    const m = l - chroma / 2
+    const [r1, g1, b1] =
+        hue < 60
+            ? [chroma, x, 0]
+            : hue < 120
+              ? [x, chroma, 0]
+              : hue < 180
+                ? [0, chroma, x]
+                : hue < 240
+                  ? [0, x, chroma]
+                  : hue < 300
+                    ? [x, 0, chroma]
+                    : [chroma, 0, x]
+    return { r: Math.round((r1 + m) * 255), g: Math.round((g1 + m) * 255), b: Math.round((b1 + m) * 255) }
+}
+
+function hslFunctionToRgb(input: string): RgbColor | null {
+    const match = /^hsla?\(([\s\S]*)\)$/i.exec(input.trim())
+    if (!match) return null
+    const parts = splitTopLevel(match[1], ",").map((part) => part.trim())
+    if (parts.length < 3) return null
+    const h = Number.parseFloat(parts[0])
+    const s = Number.parseFloat(parts[1]) / 100
+    const l = Number.parseFloat(parts[2]) / 100
+    if ([h, s, l].some((value) => Number.isNaN(value))) return null
+    return hslToRgb(h, s, l)
+}
+
+/**
+ * Parses a CSS color into an RGB triple, or `null` if it is not hex, `rgb()`/`rgba()`, or `hsl()`/`hsla()`
+ * (a named color, `var()`, `color-mix()`, `oklch()`, etc. all return null — the caller falls back to its
+ * pre-contrast-aware behavior for those, same "never guess" contract as every parser in this module).
+ *
+ * @param {string} input - the candidate CSS color
+ * @returns {RgbColor | null} - the color's RGB triple, or null if unparseable
+ */
+export function parseCssColorToRgb(input: string): RgbColor | null {
+    const trimmed = input.trim()
+    return hexToRgb(trimmed) ?? rgbFunctionToRgb(trimmed) ?? hslFunctionToRgb(trimmed)
+}
+
+/**
+ * WCAG relative luminance of an sRGB color (0 = black, 1 = white).
+ * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+ *
+ * @param {RgbColor} rgb - the color
+ * @returns {number} - the relative luminance, in [0, 1]
+ */
+export function relativeLuminance({ r, g, b }: RgbColor): number {
+    const channel = (value: number) => {
+        const s = value / 255
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+/**
+ * The legible text color (`#000000` or `#ffffff`) to lay over a background color, chosen by whichever
+ * gives the higher WCAG contrast ratio — or `null` if the background can't be parsed (see
+ * `parseCssColorToRgb`), in which case the caller should keep its existing (ambient/inherited) text color
+ * rather than guess.
+ *
+ * @param {string} background - the CSS background color
+ * @returns {"#000000" | "#ffffff" | null} - the higher-contrast text color, or null if unparseable
+ */
+export function bestTextColorFor(background: string): "#000000" | "#ffffff" | null {
+    const rgb = parseCssColorToRgb(background)
+    if (!rgb) return null
+    const luminance = relativeLuminance(rgb)
+    const contrastWithBlack = (luminance + 0.05) / 0.05
+    const contrastWithWhite = 1.05 / (luminance + 0.05)
+    return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff"
+}

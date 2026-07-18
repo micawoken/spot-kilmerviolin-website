@@ -143,7 +143,7 @@ describe("TOKEN_PROPS", () => {
         // matching entry here breaks this test — exactly the gap the lint pass otherwise misses
         // silently (see the "dangling ContentField.typography" test below).
         expect(TOKEN_PROPS).toEqual({
-            Section: { background: "colors", paddingY: "space" },
+            Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
             Columns: { gap: "space" },
             Row: { gap: "space" },
             Heading: { typography: "typography" },
@@ -151,7 +151,10 @@ describe("TOKEN_PROPS", () => {
             ContentField: { typography: "typography" },
             Spacer: { size: "space" },
             Divider: { spaceAround: "space", color: "colors" },
-            Button: { variant: "buttonVariants" }
+            Button: { variant: "buttonVariants", shadow: "shadows" },
+            Image: { radius: "radius", border: "borders", shadow: "shadows" },
+            ContentImage: { radius: "radius", border: "borders", shadow: "shadows" },
+            MediaText: { radius: "radius", border: "borders", shadow: "shadows" }
         })
     })
 
@@ -186,8 +189,10 @@ describe("TOKEN_USAGE_NOTES", () => {
     it("covers exactly the kinds whose binding isn't fully explained by TOKEN_PROPS alone", () => {
         // colors/typography/buttonVariants are deliberately omitted (TOKEN_PROPS already answers "which
         // component" for those); space/radius/borders/shadows each have an indirection or "consumed by
-        // nothing" fact TOKEN_PROPS can't express, which is the whole reason this map is hand-written.
-        expect(Object.keys(TOKEN_USAGE_NOTES).sort()).toEqual(["borders", "radius", "shadows", "space"])
+        // nothing" fact TOKEN_PROPS can't express, and breakpoints has no TOKEN_PROPS entry at all (it
+        // drives a generated @media rule, not a component field) — this map is hand-written for exactly
+        // these five kinds.
+        expect(Object.keys(TOKEN_USAGE_NOTES).sort()).toEqual(["borders", "breakpoints", "radius", "shadows", "space"])
     })
 })
 

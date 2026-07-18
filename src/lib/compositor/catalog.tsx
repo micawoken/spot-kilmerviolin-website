@@ -153,7 +153,7 @@ export const RICH_TEXT_PROPS: Record<string, readonly string[]> = { RichText: ["
  * MUST be registered here.
  */
 export const TOKEN_PROPS: TokenPropRegistry = {
-    Section: { background: "colors", paddingY: "space" },
+    Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
     Columns: { gap: "space" },
     Row: { gap: "space" },
     Heading: { typography: "typography" },
@@ -161,7 +161,10 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     ContentField: { typography: "typography" },
     Spacer: { size: "space" },
     Divider: { spaceAround: "space", color: "colors" },
-    Button: { variant: "buttonVariants" }
+    Button: { variant: "buttonVariants", shadow: "shadows" },
+    Image: { radius: "radius", border: "borders", shadow: "shadows" },
+    ContentImage: { radius: "radius", border: "borders", shadow: "shadows" },
+    MediaText: { radius: "radius", border: "borders", shadow: "shadows" }
 }
 
 /**
@@ -177,12 +180,17 @@ export const TOKEN_PROPS: TokenPropRegistry = {
 export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
     space: "Used directly by Section's vertical padding, Columns' and Row's gap, Spacer's size, and " +
         "Divider's space around — plus indirectly by a button variant's own horizontal/vertical padding.",
-    radius: "Only reachable through a button variant's radius field — no component applies a radius " +
-        "token directly.",
-    borders: "Only reachable through a button variant's border field — no component applies a border " +
-        "token directly.",
-    shadows: "Consumed by nothing on the live site today — no component or button variant reads a " +
-        "shadow token. This preview is the only place a shadow value is currently visible."
+    radius: "Used by a button variant's radius field, and directly by Section, Image, Content Image, and " +
+        "Media + text's own optional Corner radius field (each defaults to None, the pre-existing look).",
+    borders: "Used by a button variant's border field, and directly by Section, Image, Content Image, " +
+        "and Media + text's own optional Border field (each defaults to None), plus the theme's Site " +
+        "Chrome hairline border role.",
+    shadows: "Used by Section, Image, Content Image, and Media + text's own optional Shadow field, and " +
+        "Button's own optional Shadow field (none of these come from a button variant) — each defaults " +
+        "to None, the pre-existing look.",
+    breakpoints: "One breakpoint can be designated (the \"Columns stacks below\" control above) to drive " +
+        "Columns' single-column stacking point; the rest are documentary. Unset, Columns stacks below a " +
+        "fixed 768px."
 }
 
 /**
@@ -233,6 +241,23 @@ function tokenSelect(theme: TokenCatalog, kind: TokenKind, label: string, option
         label,
         options: optional ? [{ label: "None", value: "" }, ...options] : options
     }
+}
+
+/**
+ * The optional radius/border/shadow local `--cmp-<prefix>-*` vars for a frame-styled container (Section,
+ * Image/ContentImage, MediaText's media side). Each is skipped when its token name is "" (the "None"
+ * option), so `compositor.css`'s own fallback (no rounding/border/shadow — the pre-existing look) applies.
+ */
+function frameStyleVars(prefix: string, radius: string, border: string, shadow: string): Record<string, string> {
+    const result: Record<string, string> = {}
+    if (radius) result[`--cmp-${prefix}-radius`] = tokenVar("radius", radius)
+    if (border) {
+        result[`--cmp-${prefix}-border-width`] = tokenVar("borders", border, "width")
+        result[`--cmp-${prefix}-border-style`] = tokenVar("borders", border, "style")
+        result[`--cmp-${prefix}-border-color`] = tokenVar("borders", border, "color")
+    }
+    if (shadow) result[`--cmp-${prefix}-shadow`] = tokenVar("shadows", shadow)
+    return result
 }
 
 // --- Media picker (editor-only custom field) -------------------------------------------------------
@@ -386,6 +411,12 @@ const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ value, o
 interface SectionProps {
     background: string
     paddingY: string
+    /** a `radius` token name, or "" for no rounding (the pre-existing, unstyled default). */
+    radius: string
+    /** a `borders` token name, or "" for no border (the pre-existing default). */
+    border: string
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
+    shadow: string
     content: SlotRender
 }
 interface ColumnsProps {
@@ -439,12 +470,20 @@ interface ImageProps {
     alt: string
     aspect: "original" | "landscape" | "portrait"
     size: ImageSizePreset
+    /** a `radius` token name, or "" for no rounding (the pre-existing, unstyled default). */
+    radius: string
+    /** a `borders` token name, or "" for no border (the pre-existing default). */
+    border: string
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
+    shadow: string
 }
 interface ButtonProps {
     label: string
     href: string
     /** a `buttonVariants` token name (theme-authored), not a fixed union. */
     variant: string
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default) — variants don't carry one. */
+    shadow: string
 }
 interface SpacerProps {
     size: string
@@ -466,6 +505,12 @@ interface ContentImageProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
     size: ImageSizePreset
+    /** a `radius` token name, or "" for no rounding (the pre-existing, unstyled default). */
+    radius: string
+    /** a `borders` token name, or "" for no border (the pre-existing default). */
+    border: string
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
+    shadow: string
 }
 interface ContentFieldProps {
     field: string
@@ -486,6 +531,13 @@ interface MediaTextProps {
     imagePosition: "start" | "end"
     content: SlotRender
     size: ImageSizePreset
+    /** a `radius` token name, or "" for no rounding (the pre-existing, unstyled default). Applies to the
+     *  media side only (the text side has no frame to round). */
+    radius: string
+    /** a `borders` token name, or "" for no border (the pre-existing default). Media side only. */
+    border: string
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default). Media side only. */
+    shadow: string
 }
 
 // --- Shared render bodies ---------------------------------------------------------------------------
@@ -506,6 +558,9 @@ export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4",
                 "--cmp-heading-weight": tokenVar("typography", typography, "weight"),
                 "--cmp-heading-line-height": tokenVar("typography", typography, "line-height"),
                 "--cmp-heading-letter-spacing": tokenVar("typography", typography, "letter-spacing"),
+                "--cmp-heading-style": tokenVar("typography", typography, "style"),
+                "--cmp-heading-decoration": tokenVar("typography", typography, "decoration"),
+                "--cmp-heading-transform": tokenVar("typography", typography, "transform"),
                 "--cmp-heading-align": align
             })}
         >
@@ -523,14 +578,28 @@ function renderImageTag(
     width: number | undefined,
     height: number | undefined,
     aspect: string,
-    size: ImageSizePreset
+    size: ImageSizePreset,
+    radius: string,
+    border: string,
+    shadow: string
 ) {
-    return <img className="cmp-image" data-aspect={aspect} data-size={size} src={url} alt={alt} width={width} height={height} />
+    return (
+        <img
+            className="cmp-image"
+            data-aspect={aspect}
+            data-size={size}
+            src={url}
+            alt={alt}
+            width={width}
+            height={height}
+            style={vars(frameStyleVars("image", radius, border, shadow))}
+        />
+    )
 }
 
 /** The Button markup. Exported (like `renderHeadingTag`) so the theme editor's live preview renders a
  * button variant with the exact same class/var wiring as the real component, never a hand-rolled copy. */
-export function renderButtonTag(label: string, href: string, variant: string) {
+export function renderButtonTag(label: string, href: string, variant: string, shadow = "") {
     return (
         <a
             className="cmp-button"
@@ -543,7 +612,8 @@ export function renderButtonTag(label: string, href: string, variant: string) {
                 "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
                 "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
                 "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
-                "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color")
+                "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color"),
+                ...(shadow ? { "--cmp-button-shadow": tokenVar("shadows", shadow) } : {})
             })}
         >
             {label}
@@ -713,15 +783,19 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             fields: {
                 background: tokenSelect(theme, "colors", "Background", true),
                 paddingY: tokenSelect(theme, "space", "Vertical padding"),
+                radius: tokenSelect(theme, "radius", "Corner radius", true),
+                border: tokenSelect(theme, "borders", "Border", true),
+                shadow: tokenSelect(theme, "shadows", "Shadow", true),
                 content: { type: "slot" as const }
             },
-            defaultProps: { background: "", paddingY: "section", content: [] },
-            render: ({ background, paddingY, content: Content }: SectionProps) => (
+            defaultProps: { background: "", paddingY: "section", radius: "", border: "", shadow: "", content: [] },
+            render: ({ background, paddingY, radius, border, shadow, content: Content }: SectionProps) => (
                 <section
                     className="cmp-section"
                     style={vars({
                         ...(background ? { "--cmp-section-bg": tokenVar("colors", background) } : {}),
-                        "--cmp-section-py": tokenVar("space", paddingY)
+                        "--cmp-section-py": tokenVar("space", paddingY),
+                        ...frameStyleVars("section", radius, border, shadow)
                     })}
                 >
                     <Content />
@@ -837,14 +911,17 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "Portrait", value: "portrait" }
                     ]
                 },
-                size: imageSizeSelect()
+                size: imageSizeSelect(),
+                radius: tokenSelect(theme, "radius", "Corner radius", true),
+                border: tokenSelect(theme, "borders", "Border", true),
+                shadow: tokenSelect(theme, "shadows", "Shadow", true)
             },
             // "full" preserves this component's pre-existing (unstyled, max-width:100%) behavior.
-            defaultProps: { alt: "", aspect: "original", size: "full" },
-            render: ({ media, alt, aspect, size }: ImageProps) => {
+            defaultProps: { alt: "", aspect: "original", size: "full", radius: "", border: "", shadow: "" },
+            render: ({ media, alt, aspect, size, radius, border, shadow }: ImageProps) => {
                 if (!media?.storageKey || !isSafeStorageKey(media.storageKey)) return null
                 const url = resolveMediaUrl(media.storageKey)
-                return renderImageTag(url, alt, media.width || undefined, media.height || undefined, aspect, size)
+                return renderImageTag(url, alt, media.width || undefined, media.height || undefined, aspect, size, radius, border, shadow)
             }
         },
         Button: {
@@ -852,13 +929,14 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             fields: {
                 label: { type: "text" as const, label: "Label" },
                 href: { type: "text" as const, label: "Link URL" },
-                variant: tokenSelect(theme, "buttonVariants", "Variant")
+                variant: tokenSelect(theme, "buttonVariants", "Variant"),
+                shadow: tokenSelect(theme, "shadows", "Shadow", true)
             },
             // "primary" is a seeded variant name (theme is authored before this code deploys), so the
             // default resolves. The render stays pure — it maps a variant name into `--cmp-button-*`
             // locals and never sees the theme, exactly like Spacer/Divider (catalog purity rule).
-            defaultProps: { label: "Button", href: "#", variant: "primary" },
-            render: ({ label, href, variant }: ButtonProps) => renderButtonTag(label, href, variant)
+            defaultProps: { label: "Button", href: "#", variant: "primary", shadow: "" },
+            render: ({ label, href, variant, shadow }: ButtonProps) => renderButtonTag(label, href, variant, shadow)
         },
         Spacer: {
             label: "Spacer",
@@ -953,11 +1031,14 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "Portrait", value: "portrait" }
                     ]
                 },
-                size: imageSizeSelect()
+                size: imageSizeSelect(),
+                radius: tokenSelect(theme, "radius", "Corner radius", true),
+                border: tokenSelect(theme, "borders", "Border", true),
+                shadow: tokenSelect(theme, "shadows", "Shadow", true)
             },
             // "full" preserves this outlet's pre-existing (unstyled, max-width:100%) behavior.
-            defaultProps: { field: "", aspect: "original", size: "full" },
-            render: ({ field, aspect, size }: ContentImageProps) => {
+            defaultProps: { field: "", aspect: "original", size: "full", radius: "", border: "", shadow: "" },
+            render: ({ field, aspect, size, radius, border, shadow }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 // For local media EmDash strips `src` on persist and carries the key at `meta.storageKey`
                 // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it. A plain
@@ -970,7 +1051,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     const alt = isRecord(image) && typeof image.alt === "string" ? image.alt : ""
                     const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
                     const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
-                    return renderImageTag(url, alt, width, height, aspect, size)
+                    return renderImageTag(url, alt, width, height, aspect, size, radius, border, shadow)
                 }
                 return isEditor ? <OutletPlaceholder field={field} /> : null
             }
@@ -1019,7 +1100,10 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         style={vars({
                             "--cmp-field-family": tokenVar("typography", typography, "family"),
                             "--cmp-field-size": tokenVar("typography", typography, "size"),
-                            "--cmp-field-line-height": tokenVar("typography", typography, "line-height")
+                            "--cmp-field-line-height": tokenVar("typography", typography, "line-height"),
+                            "--cmp-field-style": tokenVar("typography", typography, "style"),
+                            "--cmp-field-decoration": tokenVar("typography", typography, "decoration"),
+                            "--cmp-field-transform": tokenVar("typography", typography, "transform")
                         })}
                     >
                         {!hideLabel && <strong className="cmp-field__label">{displayLabel}</strong>}
@@ -1050,14 +1134,26 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     ]
                 },
                 size: imageSizeSelect(),
+                radius: tokenSelect(theme, "radius", "Corner radius", true),
+                border: tokenSelect(theme, "borders", "Border", true),
+                shadow: tokenSelect(theme, "shadows", "Shadow", true),
                 content: { type: "slot" as const }
             },
             // "medium" preserves this primitive's pre-existing fixed 16rem media-column width.
-            defaultProps: { field: "", aspect: "original", imagePosition: "start", size: "medium", content: [] },
+            defaultProps: {
+                field: "",
+                aspect: "original",
+                imagePosition: "start",
+                size: "medium",
+                radius: "",
+                border: "",
+                shadow: "",
+                content: []
+            },
             // Concern #3 (missing images): when the bound field resolves to no usable source, the media
             // side is simply not rendered — no dead column, no reserved space. `content` then occupies the
             // whole row, matching the collapsing-primitive design (see plan / module header).
-            render: ({ field, aspect, imagePosition, size, content: Content }: MediaTextProps) => {
+            render: ({ field, aspect, imagePosition, size, radius, border, shadow, content: Content }: MediaTextProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 const source = mediaSource(image)
                 return (
@@ -1073,7 +1169,10 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                                     isRecord(image) && typeof image.width === "number" ? image.width : undefined,
                                     isRecord(image) && typeof image.height === "number" ? image.height : undefined,
                                     aspect,
-                                    size
+                                    size,
+                                    radius,
+                                    border,
+                                    shadow
                                 )}
                             </div>
                         )}
