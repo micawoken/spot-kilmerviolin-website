@@ -1,0 +1,218 @@
+---
+/**
+ * pages/search.astro
+ *
+ * Public site search. Static shell (prerendered, no JS-dependent server logic) around a Pagefind-powered
+ * client search: Pagefind indexes `dist/client` after `astro build` (see the "build" script), which is
+ * exactly the prerendered public output — `/admin` and `/_emdash` never render to static HTML (they are
+ * server-rendered per-request, see layouts/AdminDocument.astro and the emdash integration), so they are
+ * never crawled and can never appear in results without any allow/deny-list to maintain here.
+ *
+ * The index only exists post-build: `astro dev` does not run Pagefind, so search only works against a
+ * built site (`npm run preview`, or the deployed worker) — see the empty-index handling in the script.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import PublicPage from "../layouts/PublicPage.astro"
+
+export const prerender = true
+---
+
+<PublicPage title="Search" description="Search the site">
+    <div class="search-page">
+        <h1>Search</h1>
+        <form id="search-form" role="search">
+            <input
+                type="search"
+                id="search-input"
+                name="q"
+                placeholder="Search…"
+                aria-label="Search query"
+                autocomplete="off"
+            />
+            <button type="submit">Search</button>
+        </form>
+        <p id="search-status" role="status" aria-live="polite"></p>
+        <ul id="search-results"></ul>
+    </div>
+</PublicPage>
+
+<style>
+    .search-page {
+        max-width: 40rem;
+    }
+    #search-form {
+        display: flex;
+        gap: 0.75rem;
+        margin-block: 1.5rem;
+    }
+    #search-input {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        border: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
+            var(--dtk-border-hairline-color, var(--shade-4));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: var(--dtk-color-paper, var(--color-bg));
+        color: var(--dtk-color-ink, var(--color-text));
+        font-size: 1rem;
+    }
+    #search-form button {
+        padding: 0.5rem 1rem;
+        border: var(--dtk-border-hairline-width, 1px) var(--dtk-border-hairline-style, solid)
+            var(--dtk-border-hairline-color, var(--shade-4));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: transparent;
+        color: var(--dtk-color-ink, var(--color-text));
+        cursor: pointer;
+    }
+    #search-form button:hover {
+        background: var(--dtk-color-surface, var(--shade-1));
+    }
+    #search-status {
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.72rem);
+        letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+        text-transform: uppercase;
+        color: var(--dtk-color-slate, var(--color-text-muted));
+    }
+    #search-results {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+</style>
+
+<!-- Astro's default scoped styling only rewrites markup present in this file's own template at build time;
+     the <li>/<a>/<p>/<mark> a search result renders are created by the client script below, so those rules
+     must be global or they silently never match (Astro adds no scoping class to runtime-created nodes). -->
+<style is:global>
+    #search-results li a {
+        font-weight: 600;
+        text-decoration: none;
+    }
+    #search-results li a:hover {
+        text-decoration: underline;
+    }
+    #search-results li p {
+        margin: 0.3rem 0 0;
+        color: var(--dtk-color-slate, var(--color-text-muted));
+    }
+    #search-results mark {
+        background: none;
+        color: var(--dtk-color-garnet, var(--color-link));
+        font-weight: 600;
+    }
+</style>
+
+<script>
+    /** Lazily loaded Pagefind module — only exists at `/pagefind/pagefind.js` once a build has indexed the
+     * site (see the "build" npm script), so it is dynamically imported (never bundled: the path does not
+     * exist in the source tree) and cached after the first successful load. See env.d.ts (PagefindApi) for
+     * why this is a runtime cast rather than a typed import. */
+    let pagefind: PagefindApi | null = null
+
+    async function loadPagefind(): Promise<PagefindApi> {
+        if (!pagefind) {
+            // The path is built at runtime (not a string literal) so neither Vite nor TypeScript tries to
+            // resolve this module now — it is generated post-build by the "build" npm script and does not
+            // exist in the source tree.
+            const pagefindPath = "/pagefind/pagefind.js"
+            const mod = (await import(/* @vite-ignore */ pagefindPath)) as PagefindApi
+            await mod.init()
+            pagefind = mod
+        }
+        return pagefind
+    }
+
+    // Wrapped in a function (rather than narrowing inline at module scope) so the guard clause's narrowing
+    // of `status`/`results` is visible inside the nested closures below — TS does not carry module-scope
+    // `if` narrowing into function bodies, only a function-scope early return.
+    function initSearch(): void {
+        const form = document.getElementById("search-form")
+        const input = document.getElementById("search-input")
+        const status = document.getElementById("search-status")
+        const results = document.getElementById("search-results")
+        if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement) || !status || !results) {
+            return
+        }
+        // Rebound to their own (non-nullable) consts: TS narrows `status`/`results` above, but that
+        // narrowing does not carry into the nested closures below, only a fresh binding's own static type.
+        const statusEl = status
+        const resultsEl = results
+
+        async function runSearch(query: string) {
+            resultsEl.replaceChildren()
+            if (query === "") {
+                statusEl.textContent = ""
+                return
+            }
+            statusEl.textContent = "Searching…"
+            try {
+                const pf = await loadPagefind()
+                const search = await pf.search(query)
+                if (search.results.length === 0) {
+                    statusEl.textContent = "No results found."
+                    return
+                }
+                statusEl.textContent = `${search.results.length} result${search.results.length === 1 ? "" : "s"}`
+                for (const result of search.results) {
+                    const data = await result.data()
+                    const item = document.createElement("li")
+                    const link = document.createElement("a")
+                    link.href = data.url
+                    link.textContent = data.meta.title || data.url
+                    const excerpt = document.createElement("p")
+                    // Pagefind's own excerpt HTML (plain text plus <mark> highlights around matched terms),
+                    // built from this site's own indexed pages — the documented way to render a hit.
+                    excerpt.innerHTML = data.excerpt
+                    item.appendChild(link)
+                    item.appendChild(excerpt)
+                    resultsEl.appendChild(item)
+                }
+            } catch {
+                // Most likely cause: the page was opened via `astro dev`, which never runs Pagefind, so
+                // /pagefind/pagefind.js 404s. `npm run preview` (or the deployed site) has the real index.
+                statusEl.textContent = "Search is unavailable right now."
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault()
+            const query = input.value.trim()
+            const url = new URL(location.href)
+            if (query) {
+                url.searchParams.set("q", query)
+            } else {
+                url.searchParams.delete("q")
+            }
+            history.replaceState(null, "", url)
+            void runSearch(query)
+        })
+
+        // deep-linking: /search?q=... runs immediately with no extra click
+        const initialQuery = new URLSearchParams(location.search).get("q")
+        if (initialQuery) {
+            input.value = initialQuery
+            void runSearch(initialQuery)
+        }
+    }
+
+    initSearch()
+</script>

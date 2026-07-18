@@ -273,3 +273,133 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
         await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(CmsReadError)
     })
 })
+
+describe("fetchMenu", () => {
+    /**
+     * Fetches a fresh module instance and returns its `fetchMenu`. `fetchMenu` resolves page/post
+     * references through a module-level cache (see `getPageHrefMap` in emdash-api.ts) that is meant to
+     * survive one `astro build`'s worth of page renders — exactly the thing each of these tests must NOT
+     * share, or an earlier test's mocked pages/posts would leak into a later test's assertions.
+     */
+    async function freshFetchMenu() {
+        vi.resetModules()
+        const mod = await import("../../src/lib/build/emdash-api")
+        return mod.fetchMenu
+    }
+
+    /** Routes a fetch mock by substring match against the requested URL, 404ing anything unlisted. */
+    function mockApi(routes: Record<string, unknown>) {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (url: string) => {
+                for (const [path, body] of Object.entries(routes)) {
+                    if (url.includes(path)) return json(200, { data: body })
+                }
+                return json(404, { error: { message: "not found" } })
+            })
+        )
+    }
+
+    it("resolves a Custom URL item directly, without reading the pages/posts collections", async () => {
+        withCms()
+        const fetchSpy = vi.fn(async (url: string) => {
+            if (url.includes("/_emdash/api/menus/footer")) {
+                return json(200, { data: { items: [{ label: "About", type: "custom", customUrl: "/about" }] } })
+            }
+            throw new Error(`unexpected read: ${url}`)
+        })
+        vi.stubGlobal("fetch", fetchSpy)
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([{ label: "About", url: "/about" }])
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it("drops a custom item with no customUrl authored", async () => {
+        withCms()
+        mockApi({
+            "/_emdash/api/menus/footer": { items: [{ label: "Broken", type: "custom", customUrl: null }] }
+        })
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([])
+    })
+
+    it("resolves a page-reference item against the published pages collection", async () => {
+        withCms()
+        mockApi({
+            "/_emdash/api/menus/footer": {
+                items: [{ label: "Privacy Policy", type: "page", referenceId: "pg-1" }]
+            },
+            "/_emdash/api/content/pages": {
+                items: [{ id: "pg-1", slug: "privacy-policy", status: "published", data: {} }]
+            },
+            "/_emdash/api/content/posts": { items: [] }
+        })
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([{ label: "Privacy Policy", url: "/privacy-policy" }])
+    })
+
+    it("maps the 'home'-slug page to '/', matching pages/[...slug].astro's routing", async () => {
+        withCms()
+        mockApi({
+            "/_emdash/api/menus/primary": { items: [{ label: "Home", type: "page", referenceId: "pg-home" }] },
+            "/_emdash/api/content/pages": {
+                items: [{ id: "pg-home", slug: "home", status: "published", data: {} }]
+            },
+            "/_emdash/api/content/posts": { items: [] }
+        })
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("primary")).resolves.toEqual([{ label: "Home", url: "/" }])
+    })
+
+    it("resolves a post-reference item under the /posts/ prefix", async () => {
+        withCms()
+        mockApi({
+            "/_emdash/api/menus/footer": {
+                items: [{ label: "Announcement", type: "post", referenceId: "post-1" }]
+            },
+            "/_emdash/api/content/pages": { items: [] },
+            "/_emdash/api/content/posts": {
+                items: [{ id: "post-1", slug: "first-post", status: "published", data: {} }]
+            }
+        })
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([{ label: "Announcement", url: "/posts/first-post" }])
+    })
+
+    it("drops a reference item whose target is not published (draft, deleted, or a stale id)", async () => {
+        withCms()
+        mockApi({
+            "/_emdash/api/menus/footer": {
+                items: [{ label: "Draft Page", type: "page", referenceId: "pg-missing" }]
+            },
+            "/_emdash/api/content/pages": { items: [] },
+            "/_emdash/api/content/posts": { items: [] }
+        })
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([])
+    })
+
+    it("drops an unsupported reference kind (taxonomy, custom-collection entries) rather than guessing", async () => {
+        withCms()
+        mockApi({
+            "/_emdash/api/menus/footer": { items: [{ label: "A Tag", type: "taxonomy", referenceId: "tax-1" }] }
+        })
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([])
+    })
+
+    it("returns [] for an unauthored menu (404) instead of failing the build", async () => {
+        withCms()
+        mockApi({})
+        const fetchMenu = await freshFetchMenu()
+
+        await expect(fetchMenu("footer")).resolves.toEqual([])
+    })
+})

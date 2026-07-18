@@ -5,6 +5,9 @@
  * Public-facing site footer, the public analog of AdminFooter. Renders the CMS-managed static footer
  * content (the "footer" file, via lib/content/footer.ts) with the copyright year computed at render time.
  *
+ * The tagline getFooter() also returns is deliberately not rendered here — it doubles as the site's meta
+ * description (lib/content/site.ts), and it is not yet decided whether the footer should also show it.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +28,7 @@ import { getFooter } from "../lib/content/footer"
 import { getFooterNav } from "../lib/content/nav"
 
 const today = new Date()
-const { organization, tagline } = await getFooter()
+const { organization } = await getFooter()
 const links = await getFooterNav()
 ---
 
@@ -44,5 +47,4 @@ const links = await getFooterNav()
         )
     }
     <p>&copy; {today.getFullYear()} {organization ?? "TBD"}.</p>
-    {tagline && <p class="footer-tagline">{tagline}</p>}
 </footer>
