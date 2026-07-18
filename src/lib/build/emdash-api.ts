@@ -399,14 +399,24 @@ export function fetchPublishedPosts(): Promise<BuildPage[]> {
 }
 
 /**
+ * Build-time cache of the General Settings read, for the same reason as {@link getPageHrefMap}: every
+ * page's chrome (`PublicPage.astro`, `PublicHeader.astro`, `PublicFooter.astro`'s `getFooter()`) calls
+ * this once per render, and `astro build` runs prerendering as one Node process — without this, a build
+ * of N pages fires 3N redundant reads of the same, rarely-changing settings row.
+ */
+let settingsCache: Promise<BuildSettings> | null = null
+
+/**
  * Fetches EmDash's built-in General Settings (title, tagline). Returns {} on any read failure so callers
- * apply their own defaults.
+ * apply their own defaults. Cached for the life of one build process (see {@link settingsCache}).
  *
  * @returns {Promise<BuildSettings>} the resolved settings, or an empty object
  */
-export async function fetchSettings(): Promise<BuildSettings> {
-    const data = await emdashGet<BuildSettings>("/_emdash/api/settings")
-    return data ?? {}
+export function fetchSettings(): Promise<BuildSettings> {
+    if (!settingsCache) {
+        settingsCache = emdashGet<BuildSettings>("/_emdash/api/settings").then((data) => data ?? {})
+    }
+    return settingsCache
 }
 
 /**
@@ -414,30 +424,111 @@ export async function fetchSettings(): Promise<BuildSettings> {
  * rows, not the resolved-URL shape EmDash's own templates get from its request-scoped `getMenu()` — that
  * resolver runs against a live D1 handle and isn't reachable over this REST endpoint. A "custom" item
  * carries its href in `customUrl`; a reference item ("page"/"post"/"taxonomy"/"collection") carries only
- * `referenceCollection`/`referenceId` and needs a content lookup this reader does not perform.
+ * `referenceCollection`/`referenceId` and needs a content lookup this reader performs itself for "page"
+ * and "post" (see {@link getPageHrefMap}); other reference kinds are still dropped (see fetchMenu).
  */
 interface ApiMenu {
-    items?: Array<{ label?: string | null; type?: string | null; customUrl?: string | null }>
+    items?: Array<{
+        label?: string | null
+        type?: string | null
+        customUrl?: string | null
+        referenceCollection?: string | null
+        referenceId?: string | null
+    }>
 }
 
 /**
- * Fetches the top-level items of a named EmDash menu, keeping only "custom" entries with both a label and
- * a URL (a flat list ignores nested children). Returns [] when the menu is missing or the read fails, so a
- * site with no such menu authored simply renders no links rather than failing the build.
+ * Build-time cache of every published page/post id → its public href, keyed `"<collection>:<id>"`. Built
+ * lazily the first time a menu names a "page" or "post" reference item (most menus are Custom URL only, so
+ * this stays unbuilt for them) and reused for the rest of the build: `astro build` runs prerendering as one
+ * Node process, and every page's `getNav`/`getFooterNav` call would otherwise re-read the whole `pages` and
+ * `posts` collections from the CMS on every single page render.
  *
- * Reference-type items (a menu entry pointing at a page/post/taxonomy rather than a typed-in URL) are
- * silently dropped: resolving their target requires a content lookup this build-time reader doesn't do.
- * Author menu links as "Custom URL" in EmDash → Menus.
+ * `referenceId` is the referenced entry's `translation_group` (see emdash's `resolveMenuItem`), not
+ * necessarily its row id — but a fresh entry's `translation_group` defaults to its own id (emdash
+ * content.ts: `let translationGroup: string = id`), and this project runs no i18n, so every entry is its
+ * own translation group and `id` is the correct key.
+ */
+let pageHrefCache: Promise<Map<string, string>> | null = null
+
+function getPageHrefMap(): Promise<Map<string, string>> {
+    if (!pageHrefCache) {
+        pageHrefCache = Promise.all([fetchPublishedPages(), fetchPublishedPosts()]).then(([pages, posts]) => {
+            const map = new Map<string, string>()
+            // mirrors the two route-naming rules pages/[...slug].astro applies when it emits these same
+            // entries as static routes: the "home"-slug page owns "/", and every post sits under "/posts/"
+            // (lib/build/route-authority.ts POSTS_PREFIX — inlined here rather than imported, since that
+            // module imports BuildPage's *type* from this one and a value import back would invert it)
+            for (const page of pages) map.set(`pages:${page.id}`, page.slug === "home" ? "/" : `/${page.slug}`)
+            for (const post of posts) map.set(`posts:${post.id}`, `/posts/${post.slug}`)
+            return map
+        })
+    }
+    return pageHrefCache
+}
+
+/**
+ * Fetches the top-level items of a named EmDash menu, resolving each to a {label, href} the chrome can
+ * render (a flat list ignores nested children). Two authoring shapes resolve:
+ *  - **Custom URL** items use their typed-in `customUrl` directly.
+ *  - **Page/Post reference** items resolve against the published `pages`/`posts` collections (see
+ *    {@link getPageHrefMap}); a reference to a draft, deleted, or otherwise unpublished entry has no
+ *    published href and is dropped, same as emdash's own live resolver would drop it.
+ * Every other reference kind (taxonomy, custom-collection entries) is still dropped: resolving those needs
+ * a content lookup this build-time reader doesn't perform. Author those as "Custom URL" in EmDash → Menus.
+ *
+ * Returns [] when the menu is missing or the read fails, so a site with no such menu authored simply
+ * renders no links rather than failing the build.
+ *
+ * Cached per name for the life of one build process (see {@link getPageHrefMap}'s rationale — every
+ * page's `getNav`/`getFooterNav` call would otherwise re-read and re-resolve the same menu once per page).
  *
  * @param {string} name - the EmDash menu name (e.g. "primary" for the header, "footer" for the footer)
  * @returns {Promise<BuildMenuItem[]>} the menu's links in authored order
  */
-export async function fetchMenu(name: string): Promise<BuildMenuItem[]> {
-    const menu = await emdashGet<ApiMenu>(`/_emdash/api/menus/${name}`)
-    return (menu?.items ?? [])
-        .filter(
-            (item): item is { label: string; type: string; customUrl: string } =>
-                item.type === "custom" && Boolean(item.label) && Boolean(item.customUrl)
-        )
-        .map((item) => ({ label: item.label, url: item.customUrl }))
+export function fetchMenu(name: string): Promise<BuildMenuItem[]> {
+    let cached = menuCache.get(name)
+    if (!cached) {
+        cached = resolveMenu(name)
+        menuCache.set(name, cached)
+    }
+    return cached
+}
+
+/** Build-time cache backing {@link fetchMenu}, keyed by menu name. */
+const menuCache = new Map<string, Promise<BuildMenuItem[]>>()
+
+async function resolveMenu(name: string): Promise<BuildMenuItem[]> {
+    // allowMissing: an unauthored menu (e.g. no "footer" menu created yet) 404s: that's a legitimate site
+    // state (chrome falls back to no links), not a CMS outage — see the allowMissing doc on GetOptions.
+    const menu = await emdashGet<ApiMenu>(`/_emdash/api/menus/${name}`, { allowMissing: true })
+    const items = menu?.items ?? []
+    if (items.length === 0) {
+        return []
+    }
+
+    const hrefMap = items.some((item) => item.type === "page" || item.type === "post")
+        ? await getPageHrefMap()
+        : null
+
+    const resolved: BuildMenuItem[] = []
+    for (const item of items) {
+        if (!item.label) {
+            continue
+        }
+        if (item.type === "custom") {
+            if (item.customUrl) {
+                resolved.push({ label: item.label, url: item.customUrl })
+            }
+            continue
+        }
+        if ((item.type === "page" || item.type === "post") && item.referenceId && hrefMap) {
+            const collection = item.referenceCollection || `${item.type}s`
+            const url = hrefMap.get(`${collection}:${item.referenceId}`)
+            if (url) {
+                resolved.push({ label: item.label, url })
+            }
+        }
+    }
+    return resolved
 }

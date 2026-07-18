@@ -2,8 +2,10 @@
 /**
  * components/PublicHeader.astro
  *
- * Public-facing site header, the public analog of AdminHeader. Renders the site title (linking home)
- * and the CMS-managed header navigation (the "navigation" file, via lib/content/nav.ts).
+ * Public-facing site header, the public analog of AdminHeader. Renders the site title (linking home),
+ * the CMS-managed header navigation (the "navigation" file, via lib/content/nav.ts), and a static Search
+ * link to /search — unlike the rest of the nav, Search is not CMS-authored: it is core site infrastructure
+ * (like the site-title link) that should not depend on an editor remembering to add it to a menu.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -31,16 +33,15 @@ const links = await getNav()
 <header>
     <nav>
         <a href="/" class="site-title">{title}</a>
-        {
-            links.length > 0 && (
-                <ul class="nav-links">
-                    {links.map((link) => (
-                        <li>
-                            <a href={link.href}>{link.label}</a>
-                        </li>
-                    ))}
-                </ul>
-            )
-        }
+        <ul class="nav-links">
+            {links.map((link) => (
+                <li>
+                    <a href={link.href}>{link.label}</a>
+                </li>
+            ))}
+            <li>
+                <a href="/search">Search</a>
+            </li>
+        </ul>
     </nav>
 </header>
