@@ -163,6 +163,20 @@ function hideLookupForRecordView(): void {
     document.getElementById("entity-search-container")?.classList.add("hidden")
 }
 
+/**
+ * Shows or hides ContributorInfo.astro's authorization-fields section (#contributor-authinfo) to match
+ * a freshly loaded contributor record: the API (GET /contributors/[id]) deletes every protected key
+ * (CONTRIBUTOR.protected in lib/api/d1.ts) from a record it redacts rather than nulling them out, so a
+ * protected key's presence reliably signals the caller is authorized to see it (checking one,
+ * identity_email, is enough — they are always redacted together). Mirrors ContributorInfo.astro's own
+ * SSR check; called on every contributor READ since a later, unauthorized lookup must re-hide a section
+ * a prior, authorized lookup left visible (populateInfo silently skips keys absent from `record`, so it
+ * cannot re-hide this on its own).
+ */
+function toggleContributorAuthSection(record: object): void {
+    document.getElementById("contributor-authinfo")?.classList.toggle("hidden", !("identity_email" in record))
+}
+
 export async function populateInfo(
     noun: keyof typeof interface_data,
     data: object,
@@ -528,6 +542,7 @@ const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => P
             if (rec) {
                 hideLookupForRecordView()
                 await populateInfo(noun, rec as any)
+                toggleContributorAuthSection(rec as object)
                 message.textContent = "Request succeeded: contributor loaded"
             } else {
                 message.textContent = "No contributor found for given ID"
