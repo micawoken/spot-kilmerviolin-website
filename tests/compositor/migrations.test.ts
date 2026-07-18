@@ -74,6 +74,57 @@ describe("migrateDesign — malformed input throws", () => {
     })
 })
 
+describe("migrateDesign — backfills missing component ids", () => {
+    // Puck's editor store indexes every node BY `props.id` (required in @puckeditor/core's own types,
+    // not optional); a component written without one — e.g. by a hand-authored seed script, as
+    // tools/seed-entity-templates.mjs once did — collides with every other id-less sibling on the same
+    // index key, corrupting the store and driving the editor into an infinite re-render loop that OOMs
+    // the tab. Every read must self-heal this, not just re-running the writer.
+    it("assigns a unique id to a top-level component missing one", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: { root: {}, content: [{ type: "Heading", props: { text: "Hi" } }] }
+        })
+        const id = (result.puck.content[0] as { props: { id: unknown } }).props.id
+        expect(typeof id).toBe("string")
+        expect(id).not.toBe("")
+    })
+
+    it("assigns distinct ids to id-less siblings nested inside a slot", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: {
+                root: {},
+                content: [
+                    {
+                        type: "Section",
+                        props: {
+                            content: [
+                                { type: "Heading", props: { text: "One" } },
+                                { type: "Heading", props: { text: "Two" } }
+                            ]
+                        }
+                    }
+                ]
+            }
+        })
+        const section = result.puck.content[0] as { props: { content: Array<{ props: { id: unknown } }> } }
+        const [first, second] = section.props.content
+        expect(first.props.id).toEqual(expect.any(String))
+        expect(second.props.id).toEqual(expect.any(String))
+        expect(first.props.id).not.toBe(second.props.id)
+        expect(first.props.id).not.toBe("")
+    })
+
+    it("leaves a component's existing id untouched", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: { root: {}, content: [{ type: "Heading", props: { id: "kept-id", text: "Hi" } }] }
+        })
+        expect((result.puck.content[0] as { props: { id: unknown } }).props.id).toBe("kept-id")
+    })
+})
+
 describe("emptyDesignDoc", () => {
     it("is a current-version envelope with an empty content array", () => {
         const doc = emptyDesignDoc()
