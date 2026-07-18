@@ -43,7 +43,18 @@ const OUTLET_PROPS: OutletPropRegistry = {
     ContentText: ["string", "text"],
     ContentRichText: ["portableText"],
     ContentImage: ["image"],
-    ContentField: ["string", "text", "number", "date", "reference", "referenceList", "list", "uri"],
+    ContentField: [
+        "string",
+        "text",
+        "number",
+        "date",
+        "reference",
+        "referenceList",
+        "list",
+        "uri",
+        "yearOrLiving",
+        "countryCode"
+    ],
     MediaText: ["image"]
 }
 
@@ -240,7 +251,9 @@ const SCHEMA: CollectionField[] = [
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList" },
     { slug: "tags", label: "Tags", type: "list" },
     { slug: "publication_uri", label: "Publication Link", type: "uri" },
-    { slug: "portrait", label: "Portrait", type: "image" }
+    { slug: "portrait", label: "Portrait", type: "image" },
+    { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
+    { slug: "country", label: "Country", type: "countryCode" }
 ]
 
 const ENTRY: Record<string, unknown> = {
@@ -255,7 +268,9 @@ const ENTRY: Record<string, unknown> = {
     contrib_addl: [{ id: 10, name: "Primary Editor", href: "/entity/contributor/10" }],
     tags: ["romantic", "advanced"],
     publication_uri: { uriType: "https", uri: "https://example.test/score" },
-    portrait: "https://images.example.test/ada.jpg"
+    portrait: "https://images.example.test/ada.jpg",
+    death_year: -1,
+    country: "DE"
 }
 
 function contentText(field: string, level = "h1") {
@@ -375,9 +390,39 @@ describe("lintDesign — ContentField (unified field-outlet rewrite)", () => {
     })
 
     it("accepts every non-image kind the unified rewrite introduced", () => {
-        for (const field of ["birth_year", "entry_date", "composer", "contrib_addl", "tags", "publication_uri"]) {
+        for (const field of [
+            "birth_year",
+            "entry_date",
+            "composer",
+            "contrib_addl",
+            "tags",
+            "publication_uri",
+            "death_year",
+            "country"
+        ]) {
             expect(rules(lintTemplate([contentField(field)]))).not.toContain("dangling-outlet-field")
         }
+    })
+
+    it("does not warn empty-outlet-value for a living composer's death_year (-1 is a valid value, not empty)", () => {
+        const findings = lintTemplate([contentField("death_year")])
+        expect(rules(findings)).not.toContain("empty-outlet-value")
+    })
+
+    it("empty-outlet-value wording reflects the ContentField's own onEmpty prop", () => {
+        const entry = { ...ENTRY, title: "   " }
+
+        const placeholder = lintTemplate(
+            [{ type: "ContentField", props: { field: "title", label: "", showLabel: "yes", typography: "display", onEmpty: "placeholder", emptyValue: "(unset)" } }],
+            { entry }
+        )
+        expect(placeholder.find((f) => f.rule === "empty-outlet-value")?.message).toContain('"(unset)"')
+
+        const hideLabel = lintTemplate(
+            [{ type: "ContentField", props: { field: "title", label: "", showLabel: "yes", typography: "display", onEmpty: "hideLabel" } }],
+            { entry }
+        )
+        expect(hideLabel.find((f) => f.rule === "empty-outlet-value")?.message).toContain("no label")
     })
 
     it("does not warn empty-outlet-value for a populated reference/list/uri field", () => {
