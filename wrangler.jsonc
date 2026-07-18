@@ -32,7 +32,7 @@
 		// REPLACE with the reusable Access policy ID the worker manages (Zero Trust > Access controls > Policies >
 		// your policy; the ID is the last path segment of the URL). The worker edits this policy's inline email
 		// include rules directly — it no longer references a reusable email list. See DEPLOY.md.
-		"CF_ACCESS_POLICY_ID": "a3d93ba0-643b-4dd6-b651-8ceafb66782d",
+		"CF_ACCESS_POLICY_ID": "f160e549-396d-47bd-883c-f80b0b3615b6",
 		"CF_ACCOUNT_ID": "49d973b0738799edc1a8edac208b35be", // the account ID
 		"CF_ACCESS_AUD": "c4cc189f52d80c62581f358cb9650e332a13613d8ed7990c3acb3dee897fb776", // the aud for the Access policy to validate the JWT against
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
