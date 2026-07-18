@@ -399,14 +399,24 @@ export function fetchPublishedPosts(): Promise<BuildPage[]> {
 }
 
 /**
+ * Build-time cache of the General Settings read, for the same reason as {@link getPageHrefMap}: every
+ * page's chrome (`PublicPage.astro`, `PublicHeader.astro`, `PublicFooter.astro`'s `getFooter()`) calls
+ * this once per render, and `astro build` runs prerendering as one Node process — without this, a build
+ * of N pages fires 3N redundant reads of the same, rarely-changing settings row.
+ */
+let settingsCache: Promise<BuildSettings> | null = null
+
+/**
  * Fetches EmDash's built-in General Settings (title, tagline). Returns {} on any read failure so callers
- * apply their own defaults.
+ * apply their own defaults. Cached for the life of one build process (see {@link settingsCache}).
  *
  * @returns {Promise<BuildSettings>} the resolved settings, or an empty object
  */
-export async function fetchSettings(): Promise<BuildSettings> {
-    const data = await emdashGet<BuildSettings>("/_emdash/api/settings")
-    return data ?? {}
+export function fetchSettings(): Promise<BuildSettings> {
+    if (!settingsCache) {
+        settingsCache = emdashGet<BuildSettings>("/_emdash/api/settings").then((data) => data ?? {})
+    }
+    return settingsCache
 }
 
 /**
