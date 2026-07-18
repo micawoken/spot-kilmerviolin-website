@@ -80,7 +80,7 @@ const PERMISSION_KEYS = [
 // compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in
 // PERMISSION_KEYS, the conditional resolves to `false` and this type fails its `extends true` constraint
 type _Assert<T extends true> = T
-type _PermissionKeysExhaustive = _Assert<keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false>
+export type _PermissionKeysExhaustive = _Assert<keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false>
 
 /**
  * Filters a list of role names down to those defined in {@link roles}. This is the server-side guard

@@ -246,7 +246,9 @@ export const prerender = false
                 const templateButton = document.getElementById("template-create-button") as HTMLButtonElement
                 const templateStatus = document.getElementById("template-create-status") as HTMLParagraphElement
                 const templateNameInput = document.getElementById("template-name") as HTMLInputElement
-                const templateCollectionSelect = document.getElementById("template-collection") as HTMLSelectElement
+                const templateCollectionSelect = document.getElementById(
+                    "template-collection"
+                ) as unknown as HTMLSelectElement
 
                 /** Populates the collection select from the two canonical lists (EmDash collections + D1 entity nouns). */
                 function populateTemplateCollectionOptions(): void {
