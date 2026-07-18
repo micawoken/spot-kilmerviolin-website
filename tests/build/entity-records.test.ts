@@ -127,15 +127,23 @@ describe("buildReferenceIndex", () => {
     })
 })
 
-describe("entityRecords — composer/contributor (bare records, pass through unchanged)", () => {
+describe("entityRecords — composer/contributor (bare records, pass through)", () => {
     const emptyRefs: EntityReferenceIndex = { composer: new Map(), contributor: new Map() }
 
-    it("stringifies id and passes the record through as entry", () => {
+    it("stringifies id and passes the record through as entry, plus the derived life_span field", () => {
         const record = formatCompFromD1(composer)
-        expect(entityRecords("composer", [record], null, null, emptyRefs)).toEqual([{ id: "1", entry: record }])
+        expect(entityRecords("composer", [record], null, null, emptyRefs)).toEqual([
+            { id: "1", entry: { ...record, life_span: "1685–1750" } }
+        ])
     })
 
-    it("does the same for a contributor record", () => {
+    it("renders a living composer's life_span with the Present sentinel", () => {
+        const record = formatCompFromD1({ ...composer, death_year: -1 })
+        const [result] = entityRecords("composer", [record], null, null, emptyRefs)
+        expect(result.entry.life_span).toBe("1685–Present")
+    })
+
+    it("does the same for a contributor record, unchanged (no derived fields)", () => {
         const record = formatContribFromD1(activeContributor)
         expect(entityRecords("contributor", null, [record], null, emptyRefs)).toEqual([{ id: "2", entry: record }])
     })

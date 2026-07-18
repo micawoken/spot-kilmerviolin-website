@@ -37,6 +37,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isEmptyFieldValue } from "./entity-fields"
 import { mediaSource } from "./media"
 import { SAFE_URL_SCHEME_RE } from "./richtext"
 import { hasToken, type TokenCatalog, type TokenPropRegistry } from "./tokens"
@@ -74,33 +75,6 @@ export interface LintFinding {
 
 /** Portable Text block `_type`s the RichText renderer supports (§6.4); any other warns. */
 const SUPPORTED_PT_TYPES = new Set(["block", "code"])
-
-/**
- * Whether a resolved entity-field value counts as "empty" for the advisory empty-outlet-value warning,
- * mirroring `catalog.tsx`'s `formatFieldValue` per-kind emptiness rules (kept in step by hand — both
- * read the same `EntityField.type`/`ResolvedReference` shapes from entity-fields.ts/entity-records.ts).
- * `ContentField` still renders a row for an empty value (owner decision: empty value, not an omitted
- * row), but the field author is still warned that this entry will show it blank.
- */
-function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
-    if (value === null || value === undefined) return true
-    switch (kind) {
-        case "reference":
-            return !isRecord(value) || typeof value.name !== "string" || value.name.trim() === ""
-        case "referenceList":
-        case "list":
-            return !Array.isArray(value) || value.length === 0
-        case "uri":
-            return !isRecord(value) || typeof value.uri !== "string" || value.uri.trim() === ""
-        case "number":
-            return typeof value !== "number"
-        case "date":
-        case "string":
-        case "text":
-        default:
-            return typeof value !== "string" || value.trim() === ""
-    }
-}
 
 /** Maps a Heading `level` prop ("h1".."h4") to its numeric depth, or null when unrecognized. */
 function headingDepth(level: unknown): number | null {
@@ -295,9 +269,19 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     const value = entry[field]
 
     const emptyValue = (): void => {
-        // ContentField still renders its row on an empty value (owner decision: empty value, not an
-        // omitted row) — every other outlet renders nothing. The warning wording reflects which applies.
-        const outcome = type === "ContentField" ? "renders with a blank value" : "renders nothing"
+        // ContentField never omits its row on an empty value — its `onEmpty` prop instead controls what
+        // shows in it (a placeholder, a blank value with the label hidden, or a blank value as-is; see
+        // catalog.tsx's ContentField render). Every other outlet renders nothing. The warning wording
+        // reflects whichever applies, kept in step with that render by hand.
+        const onEmpty = typeof props.onEmpty === "string" ? props.onEmpty : "doNothing"
+        const outcome =
+            type !== "ContentField"
+                ? "renders nothing"
+                : onEmpty === "placeholder"
+                  ? `renders the placeholder value "${typeof props.emptyValue === "string" ? props.emptyValue : "(none)"}"`
+                  : onEmpty === "hideLabel"
+                    ? "renders with a blank value and no label"
+                    : "renders with a blank value"
         findings.push({
             severity: "warning",
             rule: "empty-outlet-value",

@@ -114,6 +114,19 @@
 	height: auto;
 }
 
+/* Image size presets (D9, catalog.tsx's ImageSizePreset) — a max-width cap, not a fixed width, so a
+ * naturally-smaller image never stretches up to fill the preset. "full" matches the base rule above
+ * (max-width: 100%) and is only ever present because it is Image/ContentImage's explicit default. */
+.cmp-image[data-size="small"] {
+	max-width: 12rem;
+}
+.cmp-image[data-size="medium"] {
+	max-width: 24rem;
+}
+.cmp-image[data-size="large"] {
+	max-width: 40rem;
+}
+
 /* Button — a theme-authored variant (§4.3 buttonVariants) resolved by catalog.tsx into these `--cmp-button-*`
  * locals. The literal fallbacks matter: with no theme at all a button degrades to a plain, legible,
  * borderless link — visible and recoverable (the fail-soft philosophy, tokens.ts), not a broken page. */
@@ -195,9 +208,22 @@
 	align-items: flex-start;
 	gap: var(--dtk-space-md, 1.5rem);
 }
+/* Media column width follows the same size presets as a standalone Image (D9) — "medium" is this
+ * primitive's pre-existing fixed width, kept as the base rule so it stays the default unchanged. */
 .cmp-media-text__media {
 	flex: 0 1 16rem;
 	min-width: 8rem;
+}
+.cmp-media-text__media[data-size="small"] {
+	flex-basis: 8rem;
+	min-width: 6rem;
+}
+.cmp-media-text__media[data-size="large"] {
+	flex-basis: 24rem;
+}
+.cmp-media-text__media[data-size="full"] {
+	flex-basis: 100%;
+	min-width: 100%;
 }
 .cmp-media-text__media .cmp-image {
 	width: 100%;

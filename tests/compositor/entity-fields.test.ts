@@ -21,7 +21,13 @@
 import { describe, expect, it } from "vitest"
 
 import { OUTLET_PROPS } from "../../src/lib/compositor/catalog"
-import { ENTITY_NOUNS, entityFields, isEntityNoun, type EntityFieldKind } from "../../src/lib/compositor/entity-fields"
+import {
+    ENTITY_NOUNS,
+    entityFields,
+    isEmptyFieldValue,
+    isEntityNoun,
+    type EntityFieldKind
+} from "../../src/lib/compositor/entity-fields"
 
 const KINDS: readonly EntityFieldKind[] = [
     "string",
@@ -32,7 +38,9 @@ const KINDS: readonly EntityFieldKind[] = [
     "referenceList",
     "list",
     "image",
-    "uri"
+    "uri",
+    "yearOrLiving",
+    "countryCode"
 ]
 
 describe("ENTITY_NOUNS / isEntityNoun", () => {
@@ -57,12 +65,20 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
             "birth_year",
             "death_year",
             "country",
+            "life_span",
             "bio",
             "image",
             "tags",
             "entry_date",
             "change_date"
         ])
+    })
+
+    it("declares death_year/country/life_span with their special-formatting kinds", () => {
+        const bySlug = Object.fromEntries(entityFields("composer").map((f) => [f.slug, f]))
+        expect(bySlug.death_year.type).toBe("yearOrLiving")
+        expect(bySlug.country.type).toBe("countryCode")
+        expect(bySlug.life_span.type).toBe("string")
     })
 
     it("gives contributor every content column, omitting active/roles/admin/identity_email", () => {
@@ -153,5 +169,24 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
                 expect(OUTLET_PROPS.ContentField).toContain(field.type)
             }
         }
+    })
+})
+
+describe("isEmptyFieldValue — shared by lint.ts and catalog.tsx's ContentField onEmpty control", () => {
+    it("treats null/undefined as empty regardless of kind", () => {
+        expect(isEmptyFieldValue(null, "string")).toBe(true)
+        expect(isEmptyFieldValue(undefined, "yearOrLiving")).toBe(true)
+    })
+
+    it("a yearOrLiving value is empty only when it is not a number — -1 (living) counts as present", () => {
+        expect(isEmptyFieldValue(-1, "yearOrLiving")).toBe(false)
+        expect(isEmptyFieldValue(1750, "yearOrLiving")).toBe(false)
+        expect(isEmptyFieldValue("1750", "yearOrLiving")).toBe(true)
+    })
+
+    it("a countryCode value follows the plain-string emptiness rule", () => {
+        expect(isEmptyFieldValue("DE", "countryCode")).toBe(false)
+        expect(isEmptyFieldValue("  ", "countryCode")).toBe(true)
+        expect(isEmptyFieldValue("", "countryCode")).toBe(true)
     })
 })

@@ -36,6 +36,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isRecord } from "./types"
+
 /** The three D1-backed object types a template can render one record of, once Step 5 wires them in. */
 export type EntityNoun = "composer" | "composition" | "contributor"
 
@@ -50,10 +52,12 @@ export function isEntityNoun(value: string): value is EntityNoun {
  * The closed vocabulary a bindable entity field can be. Deliberately kept to what the D1 columns
  * actually are (no speculative kinds): plain scalars ("string"/"text"/"number"), a formatted timestamp
  * ("date"), a resolved foreign key ("reference"/"referenceList"), a joined array ("list"), a media
- * reference ("image"), and the composition-only publication link composite ("uri"). "string"/"text"/
- * "image" intentionally reuse the same vocabulary `OUTLET_PROPS` (catalog.tsx) already accepts for
- * `ContentText`/`ContentImage`, so those two components work unmodified against entity fields; the rest
- * are new kinds only `ContentField` accepts.
+ * reference ("image"), the composition-only publication link composite ("uri"), a composer's death_year
+ * (`"yearOrLiving"` — the -1 "still living" sentinel formats as "Present", mirroring the admin's
+ * `ComposerInfo.astro`/`format.ts` treatment), and a composer's ISO 3166-1 country code (`"countryCode"`
+ * — formats to its English display name). "string"/"text"/"image" intentionally reuse the same
+ * vocabulary `OUTLET_PROPS` (catalog.tsx) already accepts for `ContentText`/`ContentImage`, so those two
+ * components work unmodified against entity fields; the rest are new kinds only `ContentField` accepts.
  */
 export type EntityFieldKind =
     | "string"
@@ -65,6 +69,8 @@ export type EntityFieldKind =
     | "list"
     | "image"
     | "uri"
+    | "yearOrLiving"
+    | "countryCode"
 
 /** One bindable entity field: what a picker shows, and what a render needs to interpret its value. */
 export interface EntityField {
@@ -79,8 +85,11 @@ const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "name", label: "Name", type: "string" },
     { slug: "role", label: "Role", type: "string" },
     { slug: "birth_year", label: "Birth Year", type: "number" },
-    { slug: "death_year", label: "Death Year", type: "number" },
-    { slug: "country", label: "Country", type: "string" },
+    { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
+    { slug: "country", label: "Country", type: "countryCode" },
+    // Derived, not a D1 column: entity-records.ts's normalizer pre-builds this from birth_year/death_year
+    // (see formatLifespan in scripts/format.ts) so a template can bind the range as one field.
+    { slug: "life_span", label: "Birth–Death Years", type: "string" },
     { slug: "bio", label: "Bio", type: "text" },
     { slug: "image", label: "Image", type: "image" },
     { slug: "tags", label: "Tags", type: "list" },
@@ -144,4 +153,39 @@ const ENTITY_FIELDS: Record<EntityNoun, readonly EntityField[]> = {
  */
 export function entityFields(noun: EntityNoun): readonly EntityField[] {
     return ENTITY_FIELDS[noun]
+}
+
+/**
+ * Whether a resolved entity-field value counts as "empty" for a given field kind. The single source of
+ * truth for that judgment — shared by `lint.ts`'s advisory empty-outlet-value warning and `catalog.tsx`'s
+ * `ContentField` outlet, whose on-empty display control (show a placeholder, hide the label, or leave it
+ * as-is) must agree with what the lint pass warns about. `kind` is untyped `string | undefined` rather
+ * than `EntityFieldKind` because callers also pass it a `CollectionField.type` (pages/posts schemas,
+ * which never produce a reference/date/list/uri/yearOrLiving/countryCode-shaped value in practice, so the
+ * default branch is what those exercise).
+ *
+ * @param {unknown} value - the raw (already reference-resolved, per entity-records.ts) field value
+ * @param {string | undefined} kind - the bound field's declared kind, when known
+ * @returns {boolean} true if the value carries nothing worth displaying
+ */
+export function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
+    if (value === null || value === undefined) return true
+    switch (kind) {
+        case "reference":
+            return !isRecord(value) || typeof value.name !== "string" || value.name.trim() === ""
+        case "referenceList":
+        case "list":
+            return !Array.isArray(value) || value.length === 0
+        case "uri":
+            return !isRecord(value) || typeof value.uri !== "string" || value.uri.trim() === ""
+        case "number":
+        case "yearOrLiving":
+            return typeof value !== "number"
+        case "date":
+        case "string":
+        case "text":
+        case "countryCode":
+        default:
+            return typeof value !== "string" || value.trim() === ""
+    }
 }
