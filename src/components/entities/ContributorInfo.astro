@@ -114,16 +114,13 @@ const protected_label = protected_fields
                      aligned regardless of it; the grid collapses to one column when space is low (see
                      admin-entities.css). -->
                 <p>
-                    <strong>Identity Email:</strong>
-                    <span id="contributor-identity_email">{disp(contributor?.identity_email)}</span>
+                    <strong>Identity Email:</strong> <span id="contributor-identity_email">{disp(contributor?.identity_email)}</span>
                 </p>
                 <p>
-                    <strong>Roles:</strong>
-                    <span id="contributor-roles">{disp(contributor?.roles, "(no roles specified)")}</span>
+                    <strong>Roles:</strong> <span id="contributor-roles">{disp(contributor?.roles, "(no roles specified)")}</span>
                 </p>
                 <p>
-                    <strong>Account type:</strong>
-                    <span id="contributor-admin"
+                    <strong>Account type:</strong> <span id="contributor-admin"
                         >{
                             contributor?.admin === undefined || contributor?.admin === null
                                 ? disp(contributor?.admin)
@@ -134,8 +131,7 @@ const protected_label = protected_fields
                     >
                 </p>
                 <p id="contributor-tags-container">
-                    <strong>Tags:</strong>
-                    <span id="contributor-tags">{disp(contributor?.tags)}</span>
+                    <strong>Tags:</strong> <span id="contributor-tags">{disp(contributor?.tags)}</span>
                 </p>
             </div>
         </div>
