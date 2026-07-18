@@ -1116,7 +1116,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                             "--cmp-field-transform": tokenVar("typography", typography, "transform")
                         })}
                     >
-                        {!hideLabel && <strong className="cmp-field__label">{displayLabel}</strong>}
+                        {!hideLabel && (
+                            <strong className="cmp-field__label" data-pagefind-ignore="all">
+                                {displayLabel}
+                            </strong>
+                        )}
                         <span className="cmp-field__value">{formatted}</span>
                     </div>
                 )

@@ -37,7 +37,13 @@ const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : `
 ---
 
 <div id={`list-result-${noun}-${id}`} class:list={["list-result-container", { "list-result-self": is_self }]}>
-    {display_name && <span class="list-result-id">ID #{id}</span>}
+    {display_name && (
+        // Not useful to a public visitor and shouldn't surface in search (a query like "38" would
+        // otherwise match every record's id badge) — kept visible for admin, where the id is load-bearing.
+        <span class="list-result-id" data-pagefind-ignore={enviro === "admin" ? undefined : "all"}>
+            ID #{id}
+        </span>
+    )}
     <a href={pointer_address} class="list-result-link">{pointer_text}</a>
     {
         enviro === "admin" ? (
