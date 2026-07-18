@@ -40,7 +40,11 @@ export default defineConfig({
     site: "https://kilmer.nrnnet.xyz",
     integrations: [
         mdx(),
-        sitemap(),
+        // Admin pages are prerendered too (Access-gated, not secret, but not public content either), so
+        // the default crawl would otherwise list the entire admin route tree in the public sitemap.
+        sitemap({
+            filter: (page) => !new URL(page).pathname.startsWith("/admin")
+        }),
         optimizeFiles(),
         react(),
         markdoc(),
