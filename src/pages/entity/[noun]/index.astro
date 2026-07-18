@@ -91,9 +91,28 @@ export async function getStaticPaths() {
 
 const { noun, results } = Astro.props
 const title = `${noun.charAt(0).toUpperCase()}${noun.slice(1)}s`
+
+// This page is prerendered once at build time and served identically to every visitor, so "now" here is
+// the build/generation time, not a per-request value — pinned to UTC (like catalog.tsx's
+// ENTITY_DATE_FORMAT) so the same build always produces the same displayed timestamp regardless of the
+// machine/CI runner's local zone.
+const GENERATED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long",
+    timeStyle: "long",
+    timeZone: "UTC"
+})
+const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
 <PublicPage title={title}>
     <h1>{title}</h1>
     <ListResults noun={noun} enviro="public" results={results} />
+    <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
 </PublicPage>
+
+<style>
+    .entity-index-generated-note {
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        font-size: 0.875rem;
+    }
+</style>
