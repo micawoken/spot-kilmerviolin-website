@@ -37,7 +37,7 @@ import { d1, r2, access, kvCache } from "@emdash-cms/cloudflare"
 
 // https://astro.build/config
 export default defineConfig({
-    site: "https://example.com", // will set later
+    site: "https://kilmer.nrnnet.xyz",
     integrations: [
         mdx(),
         sitemap(),
@@ -87,11 +87,7 @@ export default defineConfig({
     security: {
         allowedDomains: [
             {
-                hostname: "example.com", // will set later
-                protocol: "https"
-            },
-            {
-                hostname: "www.example.com", // will set later
+                hostname: "kilmer.nrnnet.xyz",
                 protocol: "https"
             }
         ],
