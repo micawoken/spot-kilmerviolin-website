@@ -5,7 +5,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -13,9 +13,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -106,8 +106,11 @@ const identity = locals.identity !== undefined ? locals.identity : null
                     <ul>
                         <li><a href="/admin/search" class="col-item-link">Search database</a></li>
                         <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
+                        <li><a href="/admin/site/analytics" class="col-item-link">View site analytics</a></li>
                         <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
                         <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
+                        <li><a href="/admin/designs" class="col-item-link">Manage design templates/pages</a></li>
+                        <li><a href="/admin/designs/theme" class="col-item-link">Manage design theme</a></li>
                     </ul>
                 </section>
                 <section class="admin-section">
@@ -126,6 +129,8 @@ const identity = locals.identity !== undefined ? locals.identity : null
                         <li><a href="/admin/advanced/command" class="col-item-link">Access database terminal</a></li>
                         <li><a href="/admin/advanced/metadata" class="col-item-link">View entity metadata</a></li>
                         <li><a href="/admin/advanced/selfenroll" class="col-item-link">View self-enrollment flow</a></li>
+                        <li><a href="/admin/advanced/tokens" class="col-item-link">Manage API tokens</a></li>
+                        <li><a href="/admin/advanced/tokens/build" class="col-item-link">Manage build tokens</a></li>
                     </ul>
                 </section>
             </div>

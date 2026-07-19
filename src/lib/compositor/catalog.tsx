@@ -49,7 +49,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -57,9 +57,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -106,6 +106,17 @@ export interface BuildConfigContext {
      * proxy, which is correct for an authenticated admin.
      */
     mediaBaseUrl?: string
+    /**
+     * The current route's breadcrumb trail (docs/dev/miscellaneous.txt), split the same way as `entry`:
+     * `breadcrumbs` is the *ancestor* crumbs only (Home is implicit — the `Breadcrumbs` component always
+     * prepends it), and `pageTitle` is the current page's own display title — the trail's final, unlinked
+     * crumb. Both are computed once per route at the page level (`route-authority.ts`'s
+     * `breadcrumbAncestors`, or the noun's own index link for an entity page) — catalog.tsx has no access
+     * to the full published route set needed to derive this itself. Absent in the editor (a template has
+     * no single fixed route) and the `Breadcrumbs` render falls back to an illustrative preview.
+     */
+    breadcrumbs?: { label: string; href: string | null }[]
+    pageTitle?: string
 }
 
 /**
@@ -527,6 +538,12 @@ interface ContentFieldProps {
     /** Shown in place of the value when empty and `onEmpty` is "placeholder". */
     emptyValue: string
 }
+interface PagefindSearchProps {
+    /** "site" (the default, and search.astro's untagged behavior) searches every indexed public page;
+     *  "database" restricts to pages carrying `data-pagefind-filter="scope:database"` (see search.astro
+     *  and layouts/PublicPage.astro's `pagefindFilter` prop) — the three entity nouns' index/detail pages. */
+    scope: "site" | "database"
+}
 interface MediaTextProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
@@ -620,6 +637,62 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
         >
             {label}
         </a>
+    )
+}
+
+/** The pagefind search-box markup: a plain GET form to /search, same convention as entity/index.astro's
+ * database-scoped search box — native browser navigation, no client JS required either here or on the
+ * canvas (the catalog purity rule: no hooks, no state). Submitting with an empty query navigates to
+ * /search with no `q`, which renders its own empty-state UI, matching that precedent exactly. */
+function renderPagefindSearchTag(scope: "site" | "database") {
+    return (
+        <form className="cmp-search" action="/search" method="get">
+            {scope === "database" && <input type="hidden" name="scope" value="database" />}
+            <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
+            <button type="submit">Search</button>
+        </form>
+    )
+}
+
+/**
+ * The breadcrumb-trail markup: Home, then each ancestor crumb (linked, or plain text when `href` is
+ * null — the "Posts" case, see route-authority.ts), then the current page's own title as the final,
+ * unlinked crumb. With no route context at all (the editor, previewing a template rather than a fixed
+ * route — see BuildConfigContext), an illustrative fallback trail stands in so the canvas still shows
+ * what the component looks like.
+ */
+function renderBreadcrumbsTag(
+    ancestors: { label: string; href: string | null }[] | undefined,
+    pageTitle: string | undefined,
+    isEditorPreview: boolean
+) {
+    if (ancestors === undefined && pageTitle === undefined && isEditorPreview) {
+        return (
+            <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
+                <ol>
+                    <li>
+                        <a href="/">Home</a>
+                    </li>
+                    <li>
+                        <span>Example section</span>
+                    </li>
+                    <li aria-current="page">Example page</li>
+                </ol>
+            </nav>
+        )
+    }
+    return (
+        <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li>
+                    <a href="/">Home</a>
+                </li>
+                {(ancestors ?? []).map((crumb, index) => (
+                    <li key={index}>{crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}</li>
+                ))}
+                {pageTitle && <li aria-current="page">{pageTitle}</li>}
+            </ol>
+        </nav>
     )
 }
 
@@ -972,6 +1045,27 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     })}
                 />
             )
+        },
+        Breadcrumbs: {
+            label: "Breadcrumbs",
+            fields: {},
+            defaultProps: {},
+            render: () => renderBreadcrumbsTag(context?.breadcrumbs, context?.pageTitle, isEditor)
+        },
+        PagefindSearch: {
+            label: "Search box",
+            fields: {
+                scope: {
+                    type: "select" as const,
+                    label: "Search scope",
+                    options: [
+                        { label: "Whole site", value: "site" },
+                        { label: "Database only", value: "database" }
+                    ]
+                }
+            },
+            defaultProps: { scope: "site" },
+            render: ({ scope }: PagefindSearchProps) => renderPagefindSearchTag(scope)
         },
         // --- Content outlets (pivot §4, D7): read the routed entry from the `context` closure. Each is
         // a twin of the component above it — same markup via the shared render body — differing only in

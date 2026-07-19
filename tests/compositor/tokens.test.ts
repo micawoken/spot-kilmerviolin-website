@@ -4,7 +4,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -12,9 +12,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -268,13 +268,13 @@ describe("isTokenCatalog — colorScheme is optional (trap A)", () => {
 })
 
 describe("webFontsHref", () => {
-    it("builds a css2 URL with each family's weights, sorted, deduped, and display=swap", () => {
+    it("builds a css2 URL with each family's weights, sorted, deduped, and display=optional", () => {
         const href = webFontsHref([
             { family: "Playfair Display", weights: [700, 400, 400] },
             { family: "Inter" }
         ])
         expect(href).toBe(
-            "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400&display=swap"
+            "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400&display=optional"
         )
     })
     it("returns null when there is no valid font", () => {
@@ -284,7 +284,7 @@ describe("webFontsHref", () => {
     })
     it("drops non-integer and out-of-range weights, defaulting to 400", () => {
         expect(webFontsHref([{ family: "Inter", weights: [0, 1500, 350.5] }])).toBe(
-            "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap"
+            "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=optional"
         )
     })
 })

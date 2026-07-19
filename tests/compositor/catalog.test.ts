@@ -4,7 +4,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -12,9 +12,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -52,8 +52,21 @@ const theme: TokenCatalog = {
 }
 
 /** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
- * container (unified field-outlet rewrite). A change here is a deliberate version bump. */
-const CATALOG_V1 = ["Section", "Columns", "Row", "Heading", "RichText", "Image", "Button", "Spacer", "Divider"]
+ * container (unified field-outlet rewrite) — and `PagefindSearch`/`Breadcrumbs`, the two components added
+ * per docs/dev/miscellaneous.txt "puck components to add". A change here is a deliberate version bump. */
+const CATALOG_V1 = [
+    "Section",
+    "Columns",
+    "Row",
+    "Heading",
+    "RichText",
+    "Image",
+    "Button",
+    "Spacer",
+    "Divider",
+    "PagefindSearch",
+    "Breadcrumbs"
+]
 
 /** The content outlets (pivot §4), including the unified field-outlet rewrite's `ContentField` (any
  * non-image entity field) and `MediaText` (the collapsing media+text primitive) — registered in every
@@ -253,6 +266,56 @@ describe("buildConfig — Button drives theme-authored variants through --cmp-bu
         const html = render(config, "Button", { label: "Go", href: "/x", variant: "does-not-exist" })
         expect(html).toContain('class="cmp-button"')
         expect(html).toContain("--cmp-button-bg:var(--dtk-btn-does-not-exist-bg)")
+    })
+})
+
+describe("buildConfig — PagefindSearch renders a plain GET form to /search", () => {
+    const config = buildConfig(theme, "build")
+
+    it("defaults to whole-site scope (no hidden scope input)", () => {
+        const html = render(config, "PagefindSearch", { scope: "site" })
+        expect(html).toContain('action="/search"')
+        expect(html).toContain('method="get"')
+        expect(html).not.toContain('name="scope"')
+        expect(html).toContain('name="q"')
+    })
+
+    it("emits a hidden database-scope input when scoped to the database", () => {
+        const html = render(config, "PagefindSearch", { scope: "database" })
+        expect(html).toContain('type="hidden" name="scope" value="database"')
+    })
+})
+
+describe("buildConfig — Breadcrumbs auto-derives its trail from route context", () => {
+    it("shows an illustrative preview in the editor with no route context attached", () => {
+        const html = render(buildConfig(theme, "editor"), "Breadcrumbs", {})
+        expect(html).toContain(">Home</a>")
+        expect(html).toContain("Example page")
+    })
+
+    it("renders Home, each ancestor, and the current page title at build", () => {
+        const config = buildConfig(theme, "build", {
+            breadcrumbs: [{ label: "Composers", href: "/entity/composer/" }],
+            pageTitle: "Bach"
+        })
+        const html = render(config, "Breadcrumbs", {})
+        expect(html).toContain('<a href="/">Home</a>')
+        expect(html).toContain('<a href="/entity/composer/">Composers</a>')
+        expect(html).toContain('aria-current="page">Bach<')
+    })
+
+    it("renders a null-href ancestor as plain text, not a link", () => {
+        const config = buildConfig(theme, "build", { breadcrumbs: [{ label: "Posts", href: null }], pageTitle: "My post" })
+        const html = render(config, "Breadcrumbs", {})
+        expect(html).toContain("<span>Posts</span>")
+        expect(html).not.toContain('href="null"')
+    })
+
+    it("falls back to Home alone when no breadcrumb context resolves at build", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "Breadcrumbs", {})
+        expect(html).toContain('<a href="/">Home</a>')
+        expect(html).not.toContain("aria-current")
     })
 })
 

@@ -5,7 +5,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -13,9 +13,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -24,8 +24,19 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { guardPage } from "../../../lib/api/page_auth"
 
 export const prerender = false
+
+// a rebuild only publishes content or design changes, so it is restricted to callers who can make one of
+// those (mirrors the same OR check on POST /api/v1/site)
+const denied = guardPage(Astro.request, Astro.locals.identity, {
+    kind: "permission",
+    permissions: ["cms_editor", "design_editor"]
+})
+if (denied) {
+    return denied
+}
 ---
 
 <!doctype html>

@@ -22,7 +22,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -30,9 +30,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -46,6 +46,18 @@ export const ENTITY_NOUNS: readonly EntityNoun[] = ["composer", "composition", "
 /** Whether a string names an entity noun (as opposed to an EmDash collection slug). */
 export function isEntityNoun(value: string): value is EntityNoun {
     return (ENTITY_NOUNS as readonly string[]).includes(value)
+}
+
+/**
+ * Public-facing plural label for each entity noun. "composition" is the internal/database name; the
+ * public object name is "work", so its label reads "Works" everywhere a noun is titled on a public page
+ * (the database root nav, an entity index page's title/h1, etc.) — composer and contributor already
+ * match their internal names, so only composition's label diverges.
+ */
+export const ENTITY_NOUN_LABELS: Record<EntityNoun, string> = {
+    composer: "Composers",
+    composition: "Works",
+    contributor: "Contributors"
 }
 
 /**

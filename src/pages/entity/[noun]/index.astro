@@ -19,7 +19,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -27,9 +27,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -39,7 +39,7 @@ import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContribut
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
-import type { EntityNoun } from "../../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, type EntityNoun } from "../../../lib/compositor/entity-fields"
 
 export const prerender = true
 
@@ -90,7 +90,7 @@ export async function getStaticPaths() {
 }
 
 const { noun, results } = Astro.props
-const title = `${noun.charAt(0).toUpperCase()}${noun.slice(1)}s`
+const title = ENTITY_NOUN_LABELS[noun]
 
 // This page is prerendered once at build time and served identically to every visitor, so "now" here is
 // the build/generation time, not a per-request value — pinned to UTC (like catalog.tsx's
@@ -105,6 +105,15 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
 <PublicPage title={title} pagefindFilter="scope:database">
+    {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+        not a Puck design, so the component can never be placed here. Entity indexes always point straight
+        to Home (docs/dev/miscellaneous.txt), skipping the /entity root as an intermediate crumb. */}
+    <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+        <ol>
+            <li><a href="/">Home</a></li>
+            <li aria-current="page">{title}</li>
+        </ol>
+    </nav>
     <h1>{title}</h1>
     <ListResults noun={noun} enviro="public" results={results} />
     <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
@@ -114,5 +123,28 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
     .entity-index-generated-note {
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         font-size: 0.875rem;
+    }
+    .entity-breadcrumbs ol {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0;
+        margin: 0 0 1rem;
+        padding: 0;
+        list-style: none;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.85rem);
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+    }
+    .entity-breadcrumbs li:not(:first-child)::before {
+        content: "/";
+        margin-inline: 0.5em;
+        opacity: 0.6;
+    }
+    .entity-breadcrumbs a {
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+    }
+    .entity-breadcrumbs li[aria-current="page"] {
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
     }
 </style>

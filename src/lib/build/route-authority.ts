@@ -32,7 +32,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -40,9 +40,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -214,6 +214,49 @@ function resolveTemplate(
     const fallback = index.defaults.get(collection)
     if (!fallback || isNoneSentinel(fallback)) return null
     return fallback
+}
+
+/** One crumb in a breadcrumb trail: `href: null` renders as plain (unlinked) text — see {@link breadcrumbAncestors}. */
+export interface BreadcrumbAncestor {
+    label: string
+    href: string | null
+}
+
+/**
+ * Auto-derives the breadcrumb *ancestor* chain for a routed slug (docs/dev/miscellaneous.txt "puck
+ * components to add"): Home is always implicit (the Breadcrumbs component itself prepends it, never
+ * listed here) and the current page's own title is the trail's final, unlinked crumb (the component
+ * appends its own `pageTitle`, also not listed here) — so this returns only what comes in between.
+ *
+ * A post's one ancestor is always the fixed, unlinked "Posts" crumb: the `/posts/` prefix (`POSTS_PREFIX`)
+ * is a routing convention with no actual index page behind it to link to (posts are a latent capability —
+ * none are published yet — but the prefix is real and permanent, so this case is handled regardless).
+ *
+ * Every other slug is walked path-segment by path-segment from its start ("a/b/c" checks "a", then
+ * "a/b" — never the full slug itself, which is the current page): each prefix that resolves to a real
+ * published route contributes a linked crumb using THAT route's own title. The walk stops at the FIRST
+ * prefix that does not resolve — "the initial valid paths" — rather than skipping the gap and checking
+ * deeper prefixes, since a path segment that is not itself a real page has no meaningful crumb to show.
+ *
+ * @param routes - the full resolved route table (`collectRoutes`'s output), used to look up each
+ *   candidate ancestor prefix's own title
+ * @param slug - the current route's own slug (as `collectRoutes` returns it — already `posts/`-prefixed
+ *   when applicable), excluded from the walk
+ */
+export function breadcrumbAncestors(routes: RouteEntry[], slug: string): BreadcrumbAncestor[] {
+    if (slug.startsWith(`${POSTS_PREFIX}/`)) {
+        return [{ label: "Posts", href: null }]
+    }
+    const titleBySlug = new Map(routes.map((route) => [route.slug, route.props.title]))
+    const segments = slug.split("/").filter((segment) => segment.length > 0)
+    const ancestors: BreadcrumbAncestor[] = []
+    for (let depth = 1; depth < segments.length; depth++) {
+        const prefix = segments.slice(0, depth).join("/")
+        const title = titleBySlug.get(prefix)
+        if (title === undefined) break
+        ancestors.push({ label: title, href: `/${prefix}` })
+    }
+    return ancestors
 }
 
 /**

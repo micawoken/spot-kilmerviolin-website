@@ -30,7 +30,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -38,9 +38,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -51,7 +51,7 @@ import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContribut
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
-import { entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../../../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/tokens"
@@ -124,6 +124,7 @@ export async function getStaticPaths() {
 }
 
 const { template, entry, theme } = Astro.props
+const { noun } = Astro.params
 const title = typeof entry.name === "string" ? entry.name : undefined
 ---
 
@@ -136,7 +137,12 @@ const title = typeof entry.name === "string" ? entry.name : undefined
         config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
             entry,
             fields: [...entityFields(template.collection)],
-            mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+            mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
+            // Entity pages always link to their own noun's index, then Home (doc's special case) — never
+            // the generic slug-prefix walk route-authority.ts's breadcrumbAncestors does, since an entity
+            // page's URL (/entity/{noun}/{id}) has no relationship to the published CMS route tree.
+            breadcrumbs: [{ label: ENTITY_NOUN_LABELS[noun as EntityNoun], href: `/entity/${noun}/` }],
+            pageTitle: title
         })}
         data={template.doc.puck}
     />

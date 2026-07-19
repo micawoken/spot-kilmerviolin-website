@@ -7,7 +7,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -15,9 +15,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -28,6 +28,7 @@ import verinfo from "../../../lib/api/verinfo"
 import rebuild, { RebuildCooldownError } from "../../../lib/api/rebuild"
 import { purgeCacheAll } from "../../../lib/api/database"
 import { detectEnvironment } from "../../../lib/api/environment"
+import { requiresOneOf } from "../../../lib/api/authorize"
 
 /**
  * GET /api/v1/site
@@ -60,7 +61,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * POST /api/v1/site
  * Triggers a rebuild on Worker Builds using the deploy hook
  *
- * Permissions required: none
+ * Permissions required: cms_editor or design_editor (a rebuild only publishes content or design changes,
+ * so it is restricted to callers who can make one of those)
  *
  * Meta: none
  * Body: none
@@ -74,6 +76,12 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     const auth_response = auth_check(request, locals.identity, [], false)
     if (auth_response !== null) {
         return auth_response
+    }
+    // auth_check's own perms list is an AND across permissions (requiresAllOf); this needs an OR of the
+    // two, so it is checked separately here. locals.identity is only undefined when auth is disabled
+    // (local dev, per auth_check above), which is left unrestricted like every other endpoint here.
+    if (locals.identity && !locals.identity.admin && !requiresOneOf(["cms_editor", "design_editor"], locals.identity, false)) {
+        return constructResponse(request, null, 403, "Forbidden")
     }
     // rebuilds redeploy the live Worker, which is meaningless from a local development build
     if (detectEnvironment(request) === "development") {

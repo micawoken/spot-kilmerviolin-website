@@ -14,7 +14,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -22,9 +22,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -33,6 +33,7 @@ import {
     type ImportType,
     type WorksContext,
     type BuildResult,
+    type BuildIssue,
     MAX_IMPORT_ROWS,
     columnSpec,
     compositionKey,
@@ -126,11 +127,19 @@ export function initImport(type: ImportType): void {
         return columns.includes(token) ? [token] : []
     }
 
+    /** Either a plain server-reported message (BulkDryRunReport.rows[].issues) or a client BuildIssue. */
+    type RowIssue = string | BuildIssue
+
+    function issueMessage(issue: RowIssue): string {
+        return typeof issue === "string" ? issue : issue.message
+    }
+
     /**
-     * Extracts the grid columns implicated by an issue message. Both the client builders and the server
-     * validators name fields by token (e.g. "…parameter(s): name, type", "…invalid value for publish_year…",
-     * "unknown composer …"); any word matching a known column/field token is mapped to its grid column(s) so
-     * the exact input can be highlighted. Unmatched messages simply highlight the row without a specific box.
+     * Extracts the grid columns implicated by an issue message. Server dry-run issues are plain strings, so
+     * they are matched by word: both the server and the client builders name fields by token (e.g.
+     * "…parameter(s): name, type", "…invalid value for publish_year…"); any word matching a known
+     * column/field token is mapped to its grid column(s) so the exact input can be highlighted. Unmatched
+     * messages simply highlight the row without a specific box.
      */
     function columnsFromIssue(issue: string): string[] {
         const found = new Set<string>()
@@ -144,8 +153,22 @@ export function initImport(type: ImportType): void {
         return Array.from(found)
     }
 
+    /**
+     * Resolves the grid column(s) an issue implicates. Client BuildIssues that name their column directly
+     * are trusted as-is — this is what fixes the pre-server column misalignment, since some client messages
+     * share a generic noun (e.g. "composer") with a different column's own name and would otherwise
+     * word-match the wrong one. Falls back to the word-matching heuristic for plain-string issues, which is
+     * all the server dry-run report provides.
+     */
+    function columnsForIssue(issue: RowIssue): string[] {
+        if (typeof issue !== "string" && issue.column !== undefined) {
+            return [issue.column]
+        }
+        return columnsFromIssue(issueMessage(issue))
+    }
+
     /** Renders a row's issues in place: updates its status cell, row highlight, and per-field input highlights. */
-    function markRow(row: RowState, issues: string[]): void {
+    function markRow(row: RowState, issues: RowIssue[]): void {
         for (const input of Object.values(row.inputs)) {
             input.classList.remove("import-input-error")
         }
@@ -155,12 +178,12 @@ export function initImport(type: ImportType): void {
             row.tr.classList.remove("import-row-error")
             return
         }
-        row.issueCell.textContent = issues.join("; ")
+        row.issueCell.textContent = issues.map(issueMessage).join("; ")
         row.issueCell.className = "import-issue import-issue-error"
         row.tr.classList.add("import-row-error")
         const columnsToFlag = new Set<string>()
         for (const issue of issues) {
-            for (const column of columnsFromIssue(issue)) {
+            for (const column of columnsForIssue(issue)) {
                 columnsToFlag.add(column)
             }
         }

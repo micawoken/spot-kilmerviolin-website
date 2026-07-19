@@ -27,7 +27,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -35,9 +35,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -54,7 +54,7 @@ import {
     fetchPublishedTheme,
     type CollectionField
 } from "../lib/build/design-api"
-import { collectRoutes } from "../lib/build/route-authority"
+import { breadcrumbAncestors, collectRoutes } from "../lib/build/route-authority"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
@@ -142,7 +142,7 @@ export async function getStaticPaths() {
 
     return routes.map((route) => ({
         params: { slug: route.slug === "home" ? undefined : route.slug },
-        props: { ...route.props, theme }
+        props: { ...route.props, theme, breadcrumbs: breadcrumbAncestors(routes, route.slug) }
     }))
 }
 
@@ -180,7 +180,9 @@ const headCss = props.kind === "design" ? compositorCss : ""
             <Render
                 config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: props.entry,
-                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
+                    breadcrumbs: props.breadcrumbs,
+                    pageTitle: props.title
                 })}
                 data={props.doc.puck}
             />

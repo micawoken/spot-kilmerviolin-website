@@ -11,7 +11,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -19,9 +19,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -50,10 +50,22 @@ export interface NamedRecord {
     name: string
 }
 
+/**
+ * A client-side blocking issue: a human-readable message plus, when the issue concerns exactly one grid
+ * column, that column's name. `column` lets import.ts highlight the right input directly instead of
+ * guessing from the message text (its columnsFromIssue heuristic, still used for server dry-run issues,
+ * which arrive as plain strings) — guessing is what let an unresolved author_secondary name wrongly light
+ * up the composer column, since resolveReference's generic label there is also "composer".
+ */
+export interface BuildIssue {
+    message: string
+    column?: string
+}
+
 /** The outcome of building one record from its cells: the API object plus any client-side blocking issues. */
 export interface BuildResult {
     record: Record<string, unknown>
-    issues: string[]
+    issues: BuildIssue[]
 }
 
 /**
@@ -151,6 +163,11 @@ export function indexByName(records: NamedRecord[]): { byName: Map<string, Named
 /**
  * Resolves a single (required or optional) name reference to an id.
  *
+ * @param label the human noun used in the message (e.g. "composer", "contributor") — may legitimately
+ *   collide with a different field's own column name (author_secondary resolves against composer names),
+ *   so it is never used for column highlighting; `column` carries that instead.
+ * @param column the exact grid column this reference came from, tagged onto the issue so import.ts can
+ *   highlight it directly
  * @returns the resolved id (or null when blank/unresolved) and, when unresolved, a human-readable issue that
  *   includes a "did you mean…?" suggestion where a close match exists
  */
@@ -158,8 +175,9 @@ function resolveReference(
     raw: string,
     byName: Map<string, NamedRecord>,
     candidates: string[],
-    label: string
-): { id: number | null; issue: string | null } {
+    label: string,
+    column: string
+): { id: number | null; issue: BuildIssue | null } {
     const trimmed = raw.trim()
     if (trimmed === "") {
         return { id: null, issue: null }
@@ -170,15 +188,15 @@ function resolveReference(
     }
     const suggestion = nearestName(trimmed, candidates)
     const hint = suggestion !== null ? ` — did you mean "${suggestion}"?` : ""
-    return { id: null, issue: `unknown ${label} "${trimmed}"${hint}` }
+    return { id: null, issue: { message: `unknown ${label} "${trimmed}"${hint}`, column } }
 }
 
 /** Builds a composer record from its CSV cells (blank optional fields → null; tags split on ";"). */
 export function buildComposer(cells: Record<string, string>): BuildResult {
-    const issues: string[] = []
+    const issues: BuildIssue[] = []
     const name = cells.name.trim()
     if (name === "") {
-        issues.push("name is required")
+        issues.push({ message: "name is required", column: "name" })
     }
     return {
         record: {
@@ -200,10 +218,10 @@ export function buildComposer(cells: Record<string, string>): BuildResult {
  * blank identity_email is filled with a generated fallback address server-side. No permissions are conferred.
  */
 export function buildContributor(cells: Record<string, string>): BuildResult {
-    const issues: string[] = []
+    const issues: BuildIssue[] = []
     const name = cells.name.trim()
     if (name === "") {
-        issues.push("name is required")
+        issues.push({ message: "name is required", column: "name" })
     }
     return {
         record: {
@@ -231,15 +249,15 @@ export function buildContributor(cells: Record<string, string>): BuildResult {
  * the authoritative server dry-run reports any remaining problems.
  */
 export function buildComposition(cells: Record<string, string>, ctx: WorksContext): BuildResult {
-    const issues: string[] = []
+    const issues: BuildIssue[] = []
     const name = cells.name.trim()
     if (name === "") {
-        issues.push("name is required")
+        issues.push({ message: "name is required", column: "name" })
     }
 
-    const composer = resolveReference(cells.composer, ctx.composerByName, ctx.composerNames, "composer")
+    const composer = resolveReference(cells.composer, ctx.composerByName, ctx.composerNames, "composer", "composer")
     if (cells.composer.trim() === "") {
-        issues.push("composer is required")
+        issues.push({ message: "composer is required", column: "composer" })
     } else if (composer.issue !== null) {
         issues.push(composer.issue)
     }
@@ -248,10 +266,11 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         cells.contrib_primary_1,
         ctx.contributorByName,
         ctx.contributorNames,
-        "contributor"
+        "contributor",
+        "contrib_primary_1"
     )
     if (cells.contrib_primary_1.trim() === "") {
-        issues.push("contrib_primary_1 is required")
+        issues.push({ message: "contrib_primary_1 is required", column: "contrib_primary_1" })
     } else if (primary1.issue !== null) {
         issues.push(primary1.issue)
     }
@@ -260,7 +279,8 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         cells.contrib_primary_2,
         ctx.contributorByName,
         ctx.contributorNames,
-        "contributor"
+        "contributor",
+        "contrib_primary_2"
     )
     if (primary2.issue !== null) {
         issues.push(primary2.issue)
@@ -268,7 +288,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
 
     // list-valued references: every named entry must resolve, else the row is blocked
     const additional = splitList(cells.contrib_addl).map((entry) =>
-        resolveReference(entry, ctx.contributorByName, ctx.contributorNames, "contributor")
+        resolveReference(entry, ctx.contributorByName, ctx.contributorNames, "contributor", "contrib_addl")
     )
     for (const resolved of additional) {
         if (resolved.issue !== null) {
@@ -276,7 +296,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
     const secondary = splitList(cells.author_secondary).map((entry) =>
-        resolveReference(entry, ctx.composerByName, ctx.composerNames, "composer")
+        resolveReference(entry, ctx.composerByName, ctx.composerNames, "composer", "author_secondary")
     )
     for (const resolved of secondary) {
         if (resolved.issue !== null) {
@@ -291,13 +311,20 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         const mapping = ctx.phaseMap.get(periodRaw) ?? ""
         phases = parsePhases(mapping)
         if (phases.length === 0) {
-            issues.push(`contribution period "${periodRaw}" is not mapped to a phase`)
+            issues.push({
+                message: `contribution period "${periodRaw}" is not mapped to a phase`,
+                column: "contribution_period"
+            })
         }
     }
 
     // a rating member that is non-blank but out of range is silently nulled by constructRating (indistinguishable
     // from "not rated"), so check for that separately and block the row instead of dropping the data
-    issues.push(...ratingIssues(stringOrNull(cells.rating_suzuki), stringOrNull(cells.rating_nyssma)))
+    issues.push(
+        ...ratingIssues(stringOrNull(cells.rating_suzuki), stringOrNull(cells.rating_nyssma)).map((message) => ({
+            message
+        }))
+    )
 
     return {
         record: {
@@ -379,9 +406,9 @@ export function flagCompositionDuplicates(results: BuildResult[], existingKeys: 
         const key = keyOf(result)
         if (key !== null) {
             if (existingKeys.has(key)) {
-                result.issues.push("a composition with this name and part already exists for this composer")
+                result.issues.push({ message: "a composition with this name and part already exists for this composer" })
             } else if ((keyCounts.get(key) ?? 0) > 1) {
-                result.issues.push("duplicate composition (same name, composer, and part) within this file")
+                result.issues.push({ message: "duplicate composition (same name, composer, and part) within this file" })
             }
         }
     }
@@ -412,9 +439,9 @@ export function flagNameDuplicates(results: BuildResult[], existingNames: Set<st
         if (typeof name === "string" && name.trim() !== "") {
             const key = normalizeName(name)
             if (existingNames.has(key)) {
-                result.issues.push(`a ${label} with this name already exists`)
+                result.issues.push({ message: `a ${label} with this name already exists`, column: "name" })
             } else if ((counts.get(key) ?? 0) > 1) {
-                result.issues.push(`duplicate ${label} name within this file`)
+                result.issues.push({ message: `duplicate ${label} name within this file`, column: "name" })
             }
         }
     }

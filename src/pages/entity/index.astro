@@ -13,7 +13,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -21,9 +21,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -31,15 +31,9 @@ import PublicPage from "../../layouts/PublicPage.astro"
 import { fetchComposers, fetchCompositions, fetchContributors } from "../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../lib/build/design-api"
 import { resolveEntityTemplates } from "../../lib/build/entity-routes"
-import type { EntityNoun } from "../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, type EntityNoun } from "../../lib/compositor/entity-fields"
 
 export const prerender = true
-
-const NOUN_LABELS: Record<EntityNoun, string> = {
-    composer: "Composers",
-    composition: "Works",
-    contributor: "Contributors"
-}
 
 // Same dual-source-dependency gate as entity/[noun]/index.astro (resolved default template AND at least
 // one D1 record) — reused independently here (not a shared computation, matching that file's own
@@ -62,6 +56,14 @@ const availableNouns = resolutions
 ---
 
 <PublicPage title="Database" description="Find composers, works, and contributors" pagefindFilter="scope:database">
+    {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+        not a Puck design, so the component can never be placed here. */}
+    <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+        <ol>
+            <li><a href="/">Home</a></li>
+            <li aria-current="page">Database</li>
+        </ol>
+    </nav>
     <h1>Database</h1>
     <p>What can we help you find?</p>
 
@@ -83,7 +85,7 @@ const availableNouns = resolutions
                 <ul class="entity-noun-links">
                     {availableNouns.map((noun) => (
                         <li>
-                            <a href={`/entity/${noun}/`}>{NOUN_LABELS[noun]}</a>
+                            <a href={`/entity/${noun}/`}>{ENTITY_NOUN_LABELS[noun]}</a>
                         </li>
                     ))}
                 </ul>
@@ -93,6 +95,29 @@ const availableNouns = resolutions
 </PublicPage>
 
 <style>
+    .entity-breadcrumbs ol {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0;
+        margin: 0 0 1rem;
+        padding: 0;
+        list-style: none;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.85rem);
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+    }
+    .entity-breadcrumbs li:not(:first-child)::before {
+        content: "/";
+        margin-inline: 0.5em;
+        opacity: 0.6;
+    }
+    .entity-breadcrumbs a {
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+    }
+    .entity-breadcrumbs li[aria-current="page"] {
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+    }
     .entity-search-form {
         display: flex;
         gap: 0.75rem;

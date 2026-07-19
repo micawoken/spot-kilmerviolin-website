@@ -14,7 +14,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -22,9 +22,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -605,7 +605,12 @@ const WEB_FONT_FAMILY_PATTERN = /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/
  * Each family is validated against `WEB_FONT_FAMILY_PATTERN` and its weights are constrained to distinct
  * positive integers (≤ 1000), so a hand-edited theme cannot inject arbitrary text into the emitted
  * `<link href>`. A family that fails validation is skipped rather than aborting the whole URL. A family
- * with no valid weight loads weight 400. `display=swap` keeps text visible while the font downloads.
+ * with no valid weight loads weight 400. `display=optional` (mirroring AdminTypeface's self-hosted Inter)
+ * renders the fallback for the very first paint and never swaps to the web font mid-page — trading "the
+ * custom font may not appear on an uncached first visit" for "no post-paint reflow", which is the layout
+ * shift this theme font otherwise caused (docs/dev/miscellaneous.txt's "initial load layout shift"). Unlike
+ * the self-hosted admin face, this stylesheet cannot be `<link rel="preload">`d (its font-file URL is only
+ * known after Google's CSS response resolves), so there's no way to raise the odds of a same-visit swap.
  *
  * @param {WebFont[]} fonts - the theme's declared web fonts
  * @returns {string | null} - the css2 stylesheet URL, or null if no font is valid
@@ -621,7 +626,7 @@ export function webFontsHref(fonts: WebFont[]): string | null {
         families.push(`family=${font.family.replace(/ /g, "+")}:wght@${list.join(";")}`)
     }
     if (families.length === 0) return null
-    return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`
+    return `https://fonts.googleapis.com/css2?${families.join("&")}&display=optional`
 }
 
 /** One dangling reference from a button variant to a token that is not in the catalog. */
