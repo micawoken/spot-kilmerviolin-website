@@ -16,7 +16,7 @@ This project benefits from the contributions from many different individuals. A 
 ## License
 This source code is &copy; 2026 Michael Wong, and later contributors.
 
-This project is licensed under the GNU General Public License, version 3 or later. For more information about the GNU GPLv3, visit <https://www.gnu.org/licenses/quick-guide-gplv3.html> or LICENSE.md.
+This project is licensed under the GNU Affero General Public License, version 3 or later. For more information about the GNU AGPLv3, visit <https://www.gnu.org/licenses/agpl-3.0.html> or LICENSE.md.
 
 The following additional terms apply to the license:
 1. All conveyed copies must include the license and the additional terms verbatim;
