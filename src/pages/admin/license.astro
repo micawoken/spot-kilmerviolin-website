@@ -16,7 +16,7 @@ const date = new Date()
     <body>
         <main class="admin-main" role="main">
             <h1>Project License</h1>
-            <p>Thank you for using “Diversifying the Violin Curriculum for Private Teaching" administrative services. The following licenses describe who is responsible for this service and what rights, if any, you may have.</p>
+            <p>Thank you for using "Diversifying the Violin Curriculum for Private Teaching" administrative services. The following licenses describe who is responsible for this service and what rights, if any, you may have.</p>
             <h2>Content License</h2>
             <p>&copy; {date.getFullYear()} by the following contributors:</p>
             <ul>
@@ -31,11 +31,13 @@ const date = new Date()
             <p>All rights reserved by the respective copyright holders. Content contributed through the administrative services is licensed under the <a href="/terms-of-use">Terms of Use</a>. This license applies to any database entries or other content or designs they save to the website.</p>
             <h2>Program License</h2>
             <p>&copy; {date.getFullYear()} Michael Wong.</p>
-            <p>The program that generates and runs this the administrative services is © 2026 Michael Wong. It is licensed under the <a
+            <p>The program that generates and runs the administrative services is © 2026 Michael Wong. It is licensed under the <a
                     href="https://www.gnu.org/licenses/agpl-3.0.html"
                     target="_blank"
                     rel="noopener noreferrer">GNU Affero General Public License, version 3 or later</a
-                >, and additional terms as specified below. The source code is available at GitHub.</p>
+                >, and additional terms as specified below.</p>
+            <p>To view a copy of the complete license text that applies to this program, you can visit <a href="/license.txt" target="_blank" rel="noopener noreferrer">license.txt</a>. (This site's content management system may generate a <a href="/license">License</a> page as well.)</p>
+            <p>To obtain a copy of the source code, visit the program's <a href="https://github.com/micawoken/spot-kilmerviolin-website" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
             <h3>AGPL Additional Terms</h3>
             <p>
                 The following additional terms apply to this License, as incorporated under section 7 of the AGPL:
@@ -60,6 +62,13 @@ const date = new Date()
                     This License grants no rights to use the following trademarks: "Diversifying the Violin Curriculum for Private Teaching", "mwmsc.net" (and its variants, such as "go.mwmsc.net"), "michaelwongmusic.com", and "Michael Wong Music".
                 </li>
             </ul>
+            <h3>Disclaimer</h3>
+            <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>
+            <h3>AGPL Remote Network Interaction Nuance</h3>
+            <small class="general-infohelp">This does not constitute legal advice or interpretation. For questions, consult a lawyer.</small>
+            <p>The GNU Affero General Public License (AGPL) grants you a right to access a program's source code if you interact with it over a network. The applicability of this to a predominantly static-generated site is unclear.</p>
+            <p>For the public-facing pages, this is most apparent: pages are statically generated using configuration data (database entries and CMS data), and the output is delivered to users over the Internet. As such, since configuration data is not subject to the AGPL, and an AGPL program's output is not necessarily licensed under the AGPL, interacting with the public-facing website output of this program is unlikely to trigger the AGPL's automatic downstream licensing provision (though it may cover in-line and first-party scripts).</p>
+            <p>However, this does not apply to the administrative services: since administrative services pages and its API interact with the program in real time when you access it over a computer network, you are likely subject to its automatic downstream licensing provision. Therefore, a link to receive the source code is provided above.</p>
             <h2>Contact</h2>
             <p>For questions about the license, please contact <a href="mailto:kilmer@mwmsc.net">kilmer@mwmsc.net</a>. For security concerns, please contact <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>.</p>
         </main>
