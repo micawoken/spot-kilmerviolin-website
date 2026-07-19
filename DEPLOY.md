@@ -18,6 +18,7 @@ The Astro worker is a Cloudflare Worker powering a website using the Astro frame
   - Access: Policies (Read and Edit) — account-level. This is all the worker needs to manage enrollment; it edits the reusable Access policy's inline email rules directly. Do NOT grant the broad "Zero Trust (Read and Write)" scope — the worker no longer touches Gateway lists.
 - CF_DEPLOY_HOOK: the last part of the deploy hook URL that the site can call to trigger a rebuild using Worker Builds
   - Create a deploy hook URL at cloudflare.com > Compute > Workers > (your worker) > Settings > Deploy Hooks. Only put the part after .../builds/deploy_hooks/[**secret**]
+- CF_ANALYTICS_TOKEN: a Cloudflare Account API token scoped to "Account Analytics: Read", used only by the admin site-analytics view (src/lib/api/analytics.ts) to query the GraphQL Analytics API. Optional — if left unset, the admin analytics page just shows a "not configured" message instead of failing.
 5. Load the secrets you just set in wrangler secrets into a .env file.
 - Create a .env file in the root of this directory
 - Add the secrets, in the format [secret_name]=[secret_value]
@@ -30,6 +31,7 @@ The Astro worker is a Cloudflare Worker powering a website using the Astro frame
   - CF_ACCESS_AUD: the AUD tag of the Zero Trust Access Policy, accessible at Zero Trust > Applications > (your application name) > Additional settings > AUD tag
     - To create an Access application: Zero Trust > Applications > Create new application
   - TEAM_DOMAIN: the team domain of your Cloudflare Access config, available in your Zero Trust home
+  - CF_ANALYTICS_SITE_TAG: optional. Create a Web Analytics site for your domain at Analytics & Logs > Web Analytics > Add a site, then copy its "Site tag" (Manage site page) here. Also copy the "token" field from the same page's JavaScript snippet into CF_WEB_ANALYTICS_TOKEN in your build-time .env (see .env.example) — that is a *different* value from the site tag, and is what actually renders the beacon on public pages. Leave both blank to skip Web Analytics entirely.
 - Set up your new databases for:
   - D1: create your D1 database and copy over the new ID
     - After you create it, run this command at the root of the astro website repo to set up your database: *npx wrangler d1 execute (your database name) --remote --file="./db_init.sql"*

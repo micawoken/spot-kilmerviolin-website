@@ -4,7 +4,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -12,9 +12,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -41,6 +41,10 @@ interface ImportMetaEnv {
     readonly CF_ACCESS_CLIENT_SECRET?: string
     readonly EMDASH_API_TOKEN?: string
     readonly EMDASH_MEDIA_PUBLIC_URL?: string
+    // Cloudflare Web Analytics beacon token (public, non-secret — it ships verbatim in every page's HTML).
+    // Build-time-only like the rest of this interface: public pages are prerendered (see PublicHead.astro),
+    // so this must come from the build environment, not a wrangler runtime var. See .env.example.
+    readonly CF_WEB_ANALYTICS_TOKEN?: string
 }
 
 declare module "jose" {
@@ -200,4 +204,25 @@ interface CfResponseInfoAccessPolicy {
     messages: ResponseInfo[]
     success: boolean
     result?: AccessPolicy
+}
+
+// Cloudflare GraphQL Analytics API response shape for the Web Analytics (RUM) summary query in
+// lib/api/analytics.ts. Only the fields that query actually selects are declared — the real schema is
+// much larger (see https://developers.cloudflare.com/analytics/graphql-api/).
+interface CfGraphqlError {
+    message: string
+}
+
+interface CfRumPageloadEventsGroup {
+    count: number
+    sum: { visits: number }
+}
+
+interface CfGraphqlAnalyticsResponse {
+    data?: {
+        viewer?: {
+            accounts?: { rumPageloadEventsAdaptiveGroups?: CfRumPageloadEventsGroup[] }[]
+        }
+    }
+    errors?: CfGraphqlError[]
 }

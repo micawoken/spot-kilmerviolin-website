@@ -34,10 +34,15 @@
 		// include rules directly — it no longer references a reusable email list. See DEPLOY.md.
 		"CF_ACCESS_POLICY_ID": "f160e549-396d-47bd-883c-f80b0b3615b6",
 		"CF_ACCOUNT_ID": "49d973b0738799edc1a8edac208b35be", // the account ID
+		// REPLACE with the "Site tag" of the Cloudflare Web Analytics site created for this domain (Analytics
+		// & Logs > Web Analytics > Add a site > your site > Manage site > the "siteTag", NOT the beacon
+		// token used in the public <script> snippet — see CF_WEB_ANALYTICS_TOKEN in .env.example and DEPLOY.md).
+		// Left blank disables the admin analytics view (it renders a "not configured" message instead).
+		"CF_ANALYTICS_SITE_TAG": "",
 		"CF_ACCESS_AUD": "c4cc189f52d80c62581f358cb9650e332a13613d8ed7990c3acb3dee897fb776", // the aud for the Access policy to validate the JWT against
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"TEAM_DOMAIN": "https://nrnnetint.cloudflareaccess.com", // the domain for the Access policy to validate the JWT against
-		"REBUILD_COOLDOWN_SEC": 900, // 15 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
+		"REBUILD_COOLDOWN_SEC": 1800, // 30 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
 		// DB write gating is now determined dynamically by the runtime environment (see dbWriteEnabled in src/lib/api/environment.ts)
 		"IDENTITY_CACHE_TTL_MS": 45000, // 45 seconds; per-isolate identity-record cache TTL (see _getIdentityRecord in src/lib/api/authorize.ts)
 		"MAX_UPLOAD_BYTES": 26214400, // 25 MiB; maximum size of a single uploaded file (see maxUploadBytes in src/lib/api/r2.ts)
@@ -48,7 +53,16 @@
 	},
 	// secret requirements
 	"secrets": {
-		"required": ["CF_ACCESS_TOKEN", "CF_DEPLOY_HOOK", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+		// CF_ANALYTICS_TOKEN is optional at runtime (see lib/api/analytics.ts's "unconfigured" fallback) but
+		// listed here so a fresh deploy is reminded to set it; a missing value only disables the admin
+		// analytics view, it never fails a request.
+		"required": [
+			"CF_ACCESS_TOKEN",
+			"CF_DEPLOY_HOOK",
+			"CF_ACCESS_CLIENT_ID",
+			"CF_ACCESS_CLIENT_SECRET",
+			"CF_ANALYTICS_TOKEN"
+		]
 	},
 	// api bindings
 	"assets": {
