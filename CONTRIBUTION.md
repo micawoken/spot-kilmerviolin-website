@@ -19,13 +19,13 @@ The following groups may contribute to this project:
 
 ## What may be contributed
 Any individual who may contribute to this project may contribute the following:
-1. Reporting of any issues - publicly to GitHub Issues, and privately to kilmer@mwmsc.net (for the official website);
+1. Reporting of any issues - publicly to GitHub Issues, and privately to kilmer_security@mwmsc.net (for the official website);
 2. Bug fixes for any legitimate purpose - security-related, design-related, compliance-related, or otherwise; and
 3. Suggestions of features.
 
 ## How to contribute
 ### Issue reporting
-As mentioned earlier, you may report issues either publicly on GitHub Issues, or privately to kilmer@mwmsc.net. When you report an issue, please include the following:
+As mentioned earlier, you may report issues either publicly on GitHub Issues, or privately to kilmer_security@mwmsc.net. When you report an issue, please include the following:
 1. A description of the issue: in 1-2 sentences, what is wrong;
 2. Intended behavior: what should the code be doing;
 3. Actual behavior: what the code is doing;

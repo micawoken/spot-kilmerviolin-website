@@ -6,7 +6,7 @@ You are permitted to search for vulnerabilities in the project source code, so l
 2. Do not steal or exfiltrate any data from the service, including, but not limited to, any data you are not authorized to access; and
 3. Do not attempt to deny the availability of the service for general users.
 
-All security vulnerabilities should be reported to the system administrator at kilmer@mwmsc.net. 
+All security vulnerabilities should be reported to the system administrator at [kilmer_security@mwmsc.net](mailto:kilmer_security@mwmsc.net). 
 
 When you make a report, please provide a detailed description of the vulnerability, including the steps to reproduce it if possible. 
 

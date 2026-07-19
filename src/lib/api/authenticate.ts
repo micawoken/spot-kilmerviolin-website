@@ -7,7 +7,8 @@
  *
  *
  * Portions of this file borrow code from the mwm-go-shorturl project (mwmsc.net) by
- * Michael Wong; for questions, contact him at contact@michaelwongmusic.com
+ * Michael Wong: said portions are authored by Michael Wong and are used by permission;
+ * for questions, contact them at contact@michaelwongmusic.com
  *
  *
  * Copyright (C) 2026 Michael Wong.

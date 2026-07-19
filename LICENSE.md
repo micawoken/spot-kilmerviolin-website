@@ -3,11 +3,12 @@
 This document contains:
 1. A copyright statement for the source code;
 2. The terms under which this source code is licensed;
-3. Additional terms modifying the stated license; and
-4. A list of software dependencies, and a statement of their licenses.
+3. Additional terms modifying the stated license;
+4. A statement in relation to the source code author's prior student status; and
+5. A list of software dependencies, and a statement of their licenses.
 
 ## Copyright
-&copy; 2026 Michael Wong, and later contributors.
+&copy; 2026 Michael Wong.
 
 This work is licensed under the GNU Affero General Public License, version 3 or later, whose text follows.
 Additional terms are specified following the statement of the license.
@@ -627,17 +628,30 @@ an absolute waiver of all civil liability in connection with the
 Program, unless a warranty or assumption of liability accompanies a
 copy of the Program in return for a fee.
 
-## LICENSE ADDITIONAL TERMS
-The following additional terms apply to this License: in all covered works conveyed under this License, you shall:
- - Include and preserve the License (the GNU Affero General Public License, version 3) and these additional terms verbatim as a specific legal notice;
- - Include and preserve all author attributions, including, but not limited to the copyright notice in all source files, the notice in README.md, and the list in CONTRIBUTORS.md;
- - Not represent any modified works as the original unmodified work; 
- - Clearly identify whether alterations were made in all conveyances of this work and any modified copies, identifying the relevant date of a modification and the purpose of the modification at the place of modification;
- - Clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices of a program that has an interactive user interface;
- - Not use the names of licensors or authors of material in any publicity related to the conveyance of a modification of this work in a manner so as to imply endorsement;
- - Not use any trade names, trademarks, or servicemarks, registered or otherwise, associated with the original source code so as to imply endorsement.
+## License Additional Terms
+The following additional terms apply to this License:
+- You shall include and preserve this License (the GNU Affero General Public License, version 3 or later) and these additional terms verbatim as a specific legal notice, including (but not limited to) in the Appropriate Legal Notices.
+- You shall preserve the copyright notices, author attribution notices, and contributor attribution notices contained in README.md and CONTRIBUTORS.md.
+- You shall not represent any modified works as the original unmodified work. 
+- You shall clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices.
+- No rights under rights of publicity, personality, or similar rights in the identities of the authors and contributors are granted by this License.
+- This License grants no rights to use the following trademarks: "Diversifying the Violin Curriculum for Private Teaching", "mwmsc.net" (and its variants, such as "go.mwmsc.net"), "michaelwongmusic.com", and "Michael Wong Music".
 
-## THIRD-PARTY LICENSES
+## Notes Regarding License
+The following notes relating to the License are from the author of this program and aim to provide additional information.
+
+### Author contact information
+To contact the author of this program, they can be reached at [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com). For inquiries related to this project specifically, they can be reached at [kilmer@mwmsc.net](mailto:kilmer@mwmsc.net). For inquiries related to security issues, they can be reached at [kilmer_security@mwmsc.net](mailto:kilmer_security@mwmsc.net).
+
+### Prior student status
+The sole copyright claimant, as of the initial date of publication, was a student enrolled in an undergraduate degree program at SUNY Potsdam, a public college in New York State, United States, at the time of conception of this project. This program was written for the benefit of the Diversifying the Violin Curriculum for Private Teaching research project at the college, but this program was written on their own accord: not by direction of a faculty member, not for any coursework or credited course, and without funding or use of specific college resources for this project. As of the date of initial publication, the claimant has graduated and is no longer enrolled. Since this program was incomplete during their period as a student, it was not used in any activities related to said research project. Therefore, it is the claimant's belief that they are the sole copyright claimant and that the college does not enjoy any special license or rights to it.
+
+Notwithstanding the claimant's belief, this software is licensed under the GNU Affero General Public License, version 3 or later: as such, the research project's contributors, the college, and any individual who comes into possession of the source code of this program may benefit from it, subject to the terms of the License.
+
+### Separate licensing
+This program is primarily distributed using the GNU Affero General Public License. To request licensing of this program or a portion thereof under a different license, contact the author.
+
+## Third-Party Licenses
 This source code repository depends on the following third-party software packages:
 | Name                            | License period | Material not material | License type      | Link                                              | Remote version | Installed version | Defined version | Author                                |
 | :------------------------------ | :------------- | :-------------------- | :---------------- | :------------------------------------------------ | :------------- | :---------------- | :-------------- | :------------------------------------ |
