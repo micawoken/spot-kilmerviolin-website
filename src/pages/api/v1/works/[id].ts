@@ -31,7 +31,8 @@ import {
     _constructHeaders,
     constructResponse,
     constructResponseErrorHook,
-    lastModifiedHeader
+    lastModifiedHeader,
+    createdAtHeader
 } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import {
@@ -86,14 +87,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (d1_record === null) {
             return constructResponse(request, null, 404)
         }
-        // change_date carries the record's last-modified time; surface it as the Last-Modified header
-        const last_modified = lastModifiedHeader(d1_record)
+        // change_date/entry_date carry the record's last-modified/created times; surface them as headers
+        const timing_headers = { ...lastModifiedHeader(d1_record), ...createdAtHeader(d1_record) }
         // optionally pair the record with its resolved composer names
         if (names_flag === true) {
             const [enhanced] = await attachCompositionNames(context.locals.cfContext, [d1_record])
-            return constructResponse(request, enhanced, 200, undefined, last_modified)
+            return constructResponse(request, enhanced, 200, undefined, timing_headers)
         }
-        return constructResponse(request, d1_record, 200, undefined, last_modified)
+        return constructResponse(request, d1_record, 200, undefined, timing_headers)
     } catch (error) {
         return constructResponseErrorHook(request, error, 404)
     }

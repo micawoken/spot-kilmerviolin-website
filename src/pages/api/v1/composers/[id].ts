@@ -31,7 +31,8 @@ import {
     _constructHeaders,
     constructResponse,
     constructResponseErrorHook,
-    lastModifiedHeader
+    lastModifiedHeader,
+    createdAtHeader
 } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../../../../lib/api/d1"
@@ -67,8 +68,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (d1_record === null) {
             return constructResponse(request, null, 404)
         }
-        // change_date carries the record's last-modified time; surface it as the Last-Modified header
-        return constructResponse(request, d1_record, 200, undefined, lastModifiedHeader(d1_record))
+        // change_date/entry_date carry the record's last-modified/created times; surface them as headers
+        return constructResponse(request, d1_record, 200, undefined, {
+            ...lastModifiedHeader(d1_record),
+            ...createdAtHeader(d1_record)
+        })
     } catch (error) {
         console.error(error)
         return constructResponseErrorHook(request, error, 404)

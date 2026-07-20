@@ -36,7 +36,13 @@ import {
 } from "../../../lib/api/database"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook, handleBulkCreate, lastModifiedHeader } from "../../../lib/api/http"
+import {
+    constructResponse,
+    constructResponseErrorHook,
+    handleBulkCreate,
+    lastModifiedHeader,
+    createdAtHeader
+} from "../../../lib/api/http"
 import { canCreate } from "../../../lib/api/authorize"
 import { authEnabled } from "../../../lib/api/environment"
 
@@ -79,9 +85,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (data === null) {
             return constructResponse(request, null, 500, "Unknown state: list composition operation returned null")
         }
-        // the latest change_date across the listed records is the collection's last-modified time, sent
-        // as Last-Modified on every shape (full records, names-enriched, or the ID-only list)
-        const last_modified = lastModifiedHeader(data)
+        // the latest change_date/entry_date across the listed records set the collection's freshness
+        // headers (Last-Modified, X-Created-At), sent on every shape (full records, names-enriched, or
+        // the ID-only list)
+        const timing_headers = { ...lastModifiedHeader(data), ...createdAtHeader(data) }
         switch (api_request.meta?.full) {
             case true:
                 // return full composition records, optionally paired with resolved names
@@ -91,15 +98,15 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                         await attachCompositionNames(context.locals.cfContext, data),
                         200,
                         undefined,
-                        last_modified
+                        timing_headers
                     )
                 }
-                return constructResponse(request, data, 200, undefined, last_modified)
+                return constructResponse(request, data, 200, undefined, timing_headers)
             case false:
             case undefined:
                 // return composition IDs only
                 const ids = data.map((record) => record.id)
-                return constructResponse(request, ids, 200, undefined, last_modified)
+                return constructResponse(request, ids, 200, undefined, timing_headers)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
         }

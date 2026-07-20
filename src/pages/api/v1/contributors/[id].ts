@@ -31,7 +31,8 @@ import {
     _constructHeaders,
     constructResponse,
     constructResponseErrorHook,
-    lastModifiedHeader
+    lastModifiedHeader,
+    createdAtHeader
 } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import {
@@ -91,9 +92,9 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 404)
         }
 
-        // change_date carries the record's last-modified time; surface it as the Last-Modified header
-        // (change_date is not a protected property, so it survives the redaction below)
-        const last_modified = lastModifiedHeader(record)
+        // change_date/entry_date carry the record's last-modified/created times; surface them as headers
+        // (neither is a protected property, so both survive the redaction below)
+        const timing_headers = { ...lastModifiedHeader(record), ...createdAtHeader(record) }
         const auth_enabled: boolean = authEnabled(request)
         // validate self identity
         if (
@@ -104,10 +105,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             // identity is not self, and either elevate is false or user is not admin
             // filter out protected properties from the record before returning
             const filtered_record = redactProtected(CONTRIBUTOR, record)
-            return constructResponse(request, filtered_record, 200, undefined, last_modified)
+            return constructResponse(request, filtered_record, 200, undefined, timing_headers)
         }
         // return full record
-        return constructResponse(request, record, 200, undefined, last_modified)
+        return constructResponse(request, record, 200, undefined, timing_headers)
     } catch (error) {
         return constructResponseErrorHook(request, error, 404)
     }

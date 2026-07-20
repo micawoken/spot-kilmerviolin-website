@@ -185,6 +185,9 @@ export const API_headers = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
+    // Last-Modified is CORS-safelisted and needs no entry here; X-Created-At is a custom header and is
+    // invisible to cross-origin fetch() callers unless explicitly exposed
+    "Access-Control-Expose-Headers": "X-Created-At",
     Allow: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     Vary: "Origin"
 }
@@ -361,6 +364,49 @@ export function lastModifiedHeader(payload: unknown): Record<string, string> {
     }
     // Last-Modified must be an RFC 7231 HTTP-date; toUTCString() produces the required IMF-fixdate form
     return { "Last-Modified": new Date(Math.max(...timestamps)).toUTCString() }
+}
+
+/**
+ * Recursively collects the entry_date timestamps (as epoch milliseconds) carried by an API payload.
+ *
+ * @param {unknown} value - the payload (or a nested fragment of it) to scan
+ * @param {number[]} out - accumulator of parsed epoch-millisecond timestamps
+ */
+function collectEntryDates(value: unknown, out: number[]): void {
+    if (value === null || typeof value !== "object") {
+        return
+    }
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectEntryDates(item, out)
+        }
+        return
+    }
+    const record = value as Record<string, unknown>
+    // a CompositionWithNames wrapper keeps the entity record (which carries entry_date) under "object"
+    if (record.object !== undefined && record.object !== null && typeof record.object === "object") {
+        collectEntryDates(record.object, out)
+    }
+    if (typeof record.entry_date === "number") {
+        out.push(record.entry_date)
+    }
+}
+
+/**
+ * Builds an X-Created-At header from the entity record(s) in an API payload using the entry_date. For a
+ * collection, the most recently created record's entry_date is used, mirroring lastModifiedHeader's use
+ * of the most recent change_date.
+ *
+ * @param {unknown} payload - the API payload being returned (a record, array of records, or names wrapper)
+ * @returns {Record<string, string>} a { "X-Created-At": <HTTP-date> } header, or {} when none applies
+ */
+export function createdAtHeader(payload: unknown): Record<string, string> {
+    const timestamps: number[] = []
+    collectEntryDates(payload, timestamps)
+    if (timestamps.length === 0) {
+        return {}
+    }
+    return { "X-Created-At": new Date(Math.max(...timestamps)).toUTCString() }
 }
 
 /**

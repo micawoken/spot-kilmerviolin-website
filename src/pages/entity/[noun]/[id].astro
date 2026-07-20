@@ -51,6 +51,7 @@
 import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../../../layouts/PublicPage.astro"
+import EntityOgMeta from "../../../components/EntityOgMeta.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
@@ -134,6 +135,7 @@ const title = typeof entry.name === "string" ? entry.name : undefined
 
 <PublicPage title={title} pagefindFilter="scope:database">
     <style slot="head" set:html={compositorCss} />
+    <EntityOgMeta slot="head" entryDate={entry.entry_date} changeDate={entry.change_date} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
         that file's header for why. `fields` is passed at build (not just for the editor's pickers):
         `ContentField` uses each field's declared kind (date formatting, the default label) at render. */}
