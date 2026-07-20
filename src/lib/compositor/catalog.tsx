@@ -770,9 +770,8 @@ function PublicationUriValue({ value }: { value: ResolvedReferenceLike & { uriTy
 
 /** Long-form date formatting for `entry_date`/`change_date` (fixed locale/options — build output must
  * be deterministic, so this never reads the reader's locale). `timeZone: "UTC"` is load-bearing: D1
- * stores a date-only string ("2026-01-15"), which `new Date(…)` parses as UTC midnight — formatting in
- * the build machine's local timezone would shift the displayed date by a day whenever that zone is
- * behind UTC. */
+ * stores these as epoch-millisecond instants; formatting in the build machine's local timezone would
+ * shift the displayed date/time depending on where the build runs, so it is always rendered in UTC. */
 const ENTITY_DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" })
 
 /**
@@ -791,9 +790,9 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
 
     switch (kind) {
         case "date": {
-            if (typeof value !== "string" || value === "") return ""
+            if (typeof value !== "number") return ""
             const date = new Date(value)
-            return Number.isNaN(date.getTime()) ? value : ENTITY_DATE_FORMAT.format(date)
+            return Number.isNaN(date.getTime()) ? String(value) : ENTITY_DATE_FORMAT.format(date)
         }
         case "reference":
             return isResolvedReferenceLike(value) ? <ReferenceLink value={value} /> : ""

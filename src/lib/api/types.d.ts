@@ -199,26 +199,26 @@ interface SQLiteErrorMsgPrimitive {
  * @property {string} name - the user's name
  * @property {string[]} tags - tags associated with the user
  * @property {number[]} phases - the phases the user is involved in
- * @property {string} entry_date - the date the user was registered, as ISO 8601
+ * @property {number | null} entry_date - the date the user was registered, as epoch milliseconds, or null when no record
  * @property {number | null} class_year - the user's class year, or null if omitted
  * @property {string | null} major - the user's major, or null if omitted
  * @property {string | null} bio - the user's biography, or null if omitted
  * @property {string | null} public_email - the user's public-facing email, or null if omitted
  * @property {string | null} image - the user's image reference, or null if omitted
- * @property {string} change_date - the record's last-modified date as ISO 8601, or "" when no record
+ * @property {number | null} change_date - the record's last-modified date as epoch milliseconds, or null when no record
  */
 interface UserInfo {
     ok: boolean
     name: string
     tags: string[]
     phases: number[]
-    entry_date: string
+    entry_date: number | null
     class_year: number | null
     major: string | null
     bio: string | null
     public_email: string | null
     image: string | null
-    change_date: string
+    change_date: number | null
 }
 
 // BaseIdentity is returned by the authentication library
@@ -432,8 +432,8 @@ interface Contributor extends ContributorPrimitive {
 interface ContributorRecord extends Contributor {
     // Contributor, but with fields indicating that it originates from D1
     id: number
-    entry_date: string // ISO 8601 format; creation date, managed by business logic
-    change_date: string // ISO 8601 format; last-modified date, managed by business logic
+    entry_date: number // epoch milliseconds; creation date, managed by business logic, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date, managed by business logic
 }
 
 /**
@@ -441,7 +441,7 @@ interface ContributorRecord extends Contributor {
  *
  * @namespace D1Contributor
  * @property {number} contributor_id - the database primary key
- * @property {string} entry_date - the date the record was entered into the database, in ISO 8601 format
+ * @property {number} entry_date - the date the record was entered into the database, as epoch milliseconds
  * @property {number} active - whether the contributor is active; a boolean stored as a number
  * @property {number} admin - whether the contributor is an admin; a boolean stored as a number
  * @property {string | null} phases - the phases the contributor is involved in; comma-separated, or null if omitted
@@ -452,8 +452,8 @@ interface ContributorRecord extends Contributor {
 interface D1Contributor extends ContributorPrimitive {
     // database representation of Contributor
     contributor_id: number
-    entry_date: string // ISO 8601 format; creation date
-    change_date: string // ISO 8601 format; last-modified date
+    entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
+    change_date: number // epoch milliseconds; last-modified date
     active: number
     admin: number
     phases: string | null // comma-separated phase numbers, or null if omitted
@@ -500,8 +500,8 @@ interface ComposerRecord extends Composer {
     // Composer, but with fields indicating that it originates from D1
     // the default construct for a composer object that originates from D1
     id: number
-    entry_date: string // ISO 8601 format; creation date, managed by business logic
-    change_date: string // ISO 8601 format; last-modified date, managed by business logic
+    entry_date: number // epoch milliseconds; creation date, managed by business logic, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date, managed by business logic
 }
 
 /**
@@ -512,8 +512,8 @@ interface D1Composer extends ComposerPrimitive {
     // the actual object representation stored in D1 before processing as a ComposerRecord
     // see D1Composition - record representation is different
     composer_id: number
-    entry_date: string // ISO 8601 format; creation date
-    change_date: string // ISO 8601 format; last-modified date
+    entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
+    change_date: number // epoch milliseconds; last-modified date
     tags: string // comma-separated tags
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }
@@ -614,8 +614,8 @@ interface Composition extends CompositionPrimitive {
 interface CompositionRecord extends Composition {
     // the default construct for a composition object that originates from D1
     id: number
-    entry_date: string // ISO 8601 format; creation date, managed by business logic
-    change_date: string // ISO 8601 format; last-modified date, managed by business logic
+    entry_date: number // epoch milliseconds; creation date, managed by business logic, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date, managed by business logic
 }
 
 /**
@@ -678,8 +678,8 @@ interface D1Composition extends CompositionPrimitive {
     rating_suzuki: number | null
     rating_nyssma: number | null
     tags: string // comma-separated list
-    entry_date: string // ISO 8601 format; creation date
-    change_date: string // ISO 8601 format; last-modified date
+    entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
+    change_date: number // epoch milliseconds; last-modified date
     full_name?: string // generated and stored in d1, but not used in middleware and business logic
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }

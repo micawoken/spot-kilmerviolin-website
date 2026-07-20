@@ -61,8 +61,8 @@ import {
  *   admin INTEGER NOT NULL,
  *   image TEXT,
  *   tags TEXT,
- *   entry_date TEXT NOT NULL,
- *   change_date TEXT
+ *   entry_date INTEGER NOT NULL,
+ *   change_date INTEGER
  * );
  *
  * CREATE TABLE composers (
@@ -75,8 +75,8 @@ import {
  *   bio TEXT,
  *   image TEXT,
  *   tags TEXT,
- *   entry_date TEXT NOT NULL,
- *   change_date TEXT
+ *   entry_date INTEGER NOT NULL,
+ *   change_date INTEGER
  * );
  *
  * CREATE TABLE compositions (
@@ -104,9 +104,9 @@ import {
  *   notes_other TEXT,
  *   image TEXT,
  *   phases TEXT NOT NULL,
- *   entry_date TEXT NOT NULL,
+ *   entry_date INTEGER NOT NULL,
  *   tags TEXT,
- *   change_date TEXT,
+ *   change_date INTEGER,
  *   FOREIGN KEY (composer_id) REFERENCES composers(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  *   FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  *   FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
@@ -153,8 +153,8 @@ export const CONTRIBUTOR: D1Schema = {
         admin: "number",
         image: "string",
         tags: "string",
-        entry_date: "string",
-        change_date: "string"
+        entry_date: "number",
+        change_date: "number"
     },
     protected: ["roles", "admin", "identity_email"]
 }
@@ -191,8 +191,8 @@ export const COMPOSER: D1Schema = {
         bio: "string",
         image: "string",
         tags: "string",
-        entry_date: "string",
-        change_date: "string"
+        entry_date: "number",
+        change_date: "number"
     }
 }
 
@@ -260,9 +260,9 @@ export const COMPOSITION: D1Schema = {
         notes_other: "string",
         image: "string",
         phases: "string", // comma-separated phase numbers, which are converted to a number array later
-        entry_date: "string",
+        entry_date: "number",
         tags: "string",
-        change_date: "string"
+        change_date: "number"
     }
 }
 

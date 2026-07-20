@@ -59,8 +59,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const composers_ddl = `
@@ -74,8 +74,8 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 // runs a database.ts call with a fresh ExecutionContext and flushes its waitUntil work,
@@ -106,8 +106,8 @@ function makeComposer(name: string): Composer {
 function makeCompositionRecord(overrides: Partial<CompositionRecord>): CompositionRecord {
     return {
         id: 1,
-        entry_date: new Date().toISOString(),
-        change_date: new Date().toISOString(),
+        entry_date: Date.now(),
+        change_date: Date.now(),
         name: "Test Work",
         composer_id: 0,
         contrib_primary_1: 1,

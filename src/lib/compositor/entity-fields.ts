@@ -206,8 +206,8 @@ export function isEmptyFieldValue(value: unknown, kind: string | undefined): boo
             return !isRecord(value) || typeof value.uri !== "string" || value.uri.trim() === ""
         case "number":
         case "yearOrLiving":
+        case "date": // entry_date/change_date are epoch-millisecond numbers
             return typeof value !== "number"
-        case "date":
         case "string":
         case "text":
         case "countryCode":

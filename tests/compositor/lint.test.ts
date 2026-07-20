@@ -267,7 +267,7 @@ const ENTRY: Record<string, unknown> = {
     // NOTHING (the file route is keyed by the storage key), which is why lint treats it as empty.
     cover: { id: "med_1", alt: "A violin", provider: "local", meta: { storageKey: "med_1.jpg" } },
     birth_year: 1990,
-    entry_date: "2026-01-15",
+    entry_date: 1768435200000, // 2026-01-15T00:00:00Z
     composer: { id: 5, name: "Jane Composer", href: "/entity/composer/5" },
     contrib_addl: [{ id: 10, name: "Primary Editor", href: "/entity/contributor/10" }],
     tags: ["romantic", "advanced"],

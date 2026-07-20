@@ -192,25 +192,25 @@ export function formatInfoValue(type_name: string, key: string, value: unknown, 
 }
 
 /**
- * Formats a stored ISO 8601 timestamp (a record's entry_date/change_date) into a human-readable
+ * Formats a stored epoch-millisecond timestamp (a record's entry_date/change_date) into a human-readable
  * date-and-time string for display, using the same format as the admin footer (see AdminFooter.astro). A
- * blank/missing value renders as the shared "not provided" marker, and an unparseable value falls back to
- * the raw string so nothing is silently dropped. Shared by the metadata page's SSR view and its
+ * missing value renders as the shared "not provided" marker, and an unparseable value falls back to the
+ * raw value (stringified) so nothing is silently dropped. Shared by the metadata page's SSR view and its
  * client-side fetch.
  *
- * @param {string | null | undefined} iso the ISO 8601 timestamp, or null/undefined/"" when absent
+ * @param {number | null | undefined} epochMs the epoch-millisecond timestamp, or null/undefined when absent
  * @param {string} [timeZone] the IANA time zone to render in (e.g. the visitor's Cloudflare cf.timezone on
  *   the server); when omitted, the runtime's default zone is used (the browser's local zone on the client)
  * @returns {string} the formatted timestamp, the raw value if unparseable, or the "not provided" marker
  */
-export function formatTimestamp(iso: string | null | undefined, timeZone?: string): string {
-    if (iso === null || iso === undefined || iso.trim() === "") {
+export function formatTimestamp(epochMs: number | null | undefined, timeZone?: string): string {
+    if (epochMs === null || epochMs === undefined) {
         return NOT_PROVIDED
     }
-    const parsed = new Date(iso)
+    const parsed = new Date(epochMs)
     if (isNaN(parsed.getTime())) {
-        // not a valid date string; surface the raw stored value rather than an empty/incorrect render
-        return iso
+        // not a valid timestamp; surface the raw stored value rather than an empty/incorrect render
+        return String(epochMs)
     }
     // mirrors the date/time format the admin footer renders
     const options: Intl.DateTimeFormatOptions = {

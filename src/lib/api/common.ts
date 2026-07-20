@@ -555,7 +555,7 @@ export function formatCompToD1(record: Composer | ComposerRecord): D1Composer {
             // record is just Composer
             ;({ tags, ...data } = record as Composer)
             id = null
-            entry_date = new Date().toISOString() // it is assumed that Composers retain their shape; also, entry_date is ignored for updates
+            entry_date = Date.now() // it is assumed that Composers retain their shape; also, entry_date is ignored for updates
             change_date = entry_date // change_date is set by business logic on insert/update (see database.ts); seeded to entry_date for a new record
             break
     }
@@ -629,7 +629,7 @@ export function formatContribToD1(record: Contributor | ContributorRecord): D1Co
             // record is just Contributor
             ;({ ...data } = record as Contributor)
             id = null
-            entry_date = new Date().toISOString() // it is assumed that Contributors retain their shape; also, entry_date is ignored for updates
+            entry_date = Date.now() // it is assumed that Contributors retain their shape; also, entry_date is ignored for updates
             change_date = entry_date // change_date is set by business logic on insert/update (see database.ts); seeded to entry_date for a new record
             break
     }

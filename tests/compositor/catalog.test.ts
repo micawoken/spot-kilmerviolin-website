@@ -450,7 +450,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         name: "Ada",
         bio: "",
         birth_year: 1990,
-        entry_date: "2026-01-15",
+        entry_date: 1768435200000, // 2026-01-15T00:00:00Z
         composer: { id: 5, name: "Jane Composer", href: "/entity/composer/5" },
         contrib_addl: [
             { id: 10, name: "Primary Editor", href: "/entity/contributor/10" },

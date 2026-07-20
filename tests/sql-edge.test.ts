@@ -124,8 +124,8 @@ describe("VirtualSQLTable.valueConvert", () => {
 
 describe("VirtualSQLTable execution against typed cells", () => {
     const rows: Record<string, string | number | null>[] = [
-        { contributor_id: 1, name: "Empty Bio", class_year: 2000, major: "Music", phases: "1", bio: "", public_email: "a@x.com", identity_email: "a@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: "2024-01-01T00:00:00Z" },
-        { contributor_id: 2, name: "Has Bio", class_year: 2001, major: "Music", phases: "1", bio: "hello", public_email: "b@x.com", identity_email: "b@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: "2024-01-01T00:00:00Z" }
+        { contributor_id: 1, name: "Empty Bio", class_year: 2000, major: "Music", phases: "1", bio: "", public_email: "a@x.com", identity_email: "a@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: 1704067200000 },
+        { contributor_id: 2, name: "Has Bio", class_year: 2001, major: "Music", phases: "1", bio: "hello", public_email: "b@x.com", identity_email: "b@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: 1704067200000 }
     ]
     const table = new VirtualSQLTable(CONTRIBUTOR, rows)
 

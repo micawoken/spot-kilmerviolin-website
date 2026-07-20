@@ -342,11 +342,8 @@ function collectChangeDates(value: unknown, out: number[]): void {
     if (record.object !== undefined && record.object !== null && typeof record.object === "object") {
         collectChangeDates(record.object, out)
     }
-    if (typeof record.change_date === "string") {
-        const parsed = Date.parse(record.change_date)
-        if (!isNaN(parsed)) {
-            out.push(parsed)
-        }
+    if (typeof record.change_date === "number") {
+        out.push(record.change_date)
     }
 }
 

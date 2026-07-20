@@ -64,8 +64,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const composers_ddl = `
@@ -79,8 +79,8 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const compositions_ddl = `
@@ -110,8 +110,8 @@ notes_other TEXT,
 image TEXT,
 phases TEXT NOT NULL,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const composition_unique_index = `CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name_part ON compositions (composer_id, name, COALESCE(part, ''));`

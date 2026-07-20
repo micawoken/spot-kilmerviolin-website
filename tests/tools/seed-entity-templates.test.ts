@@ -68,8 +68,8 @@ const ENTRIES: Record<EntityNoun, Record<string, unknown>> = {
         bio: "Baroque composer.",
         image: "https://images.example.test/bach.jpg",
         tags: ["baroque"],
-        entry_date: "2026-01-01",
-        change_date: "2026-01-01"
+        entry_date: 1767225600000,
+        change_date: 1767225600000
     },
     contributor: {
         name: "Ada",
@@ -79,8 +79,8 @@ const ENTRIES: Record<EntityNoun, Record<string, unknown>> = {
         public_email: "ada@example.test",
         image: null,
         tags: [],
-        entry_date: "2026-01-01",
-        change_date: "2026-01-01"
+        entry_date: 1767225600000,
+        change_date: 1767225600000
     },
     composition: {
         name: "Concerto",
@@ -107,8 +107,8 @@ const ENTRIES: Record<EntityNoun, Record<string, unknown>> = {
         notes_pedagogical: "Good for advanced students.",
         notes_other: "",
         tags: ["romantic"],
-        entry_date: "2026-01-01",
-        change_date: "2026-01-01"
+        entry_date: 1767225600000,
+        change_date: 1767225600000
     }
 }
 

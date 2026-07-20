@@ -40,8 +40,8 @@ const composer: D1Composer = {
     bio: "",
     image: null,
     tags: "",
-    entry_date: "2026-01-01",
-    change_date: "2026-01-01"
+    entry_date: 1767225600000,
+    change_date: 1767225600000
 }
 
 const activeContributor: D1Contributor = {
@@ -58,8 +58,8 @@ const activeContributor: D1Contributor = {
     admin: 0,
     image: null,
     tags: "",
-    entry_date: "2026-01-01",
-    change_date: "2026-01-01"
+    entry_date: 1767225600000,
+    change_date: 1767225600000
 }
 
 const inactiveContributor: D1Contributor = {
@@ -94,9 +94,9 @@ const composition: D1Composition = {
     notes_other: null,
     image: null,
     phases: "",
-    entry_date: "2026-01-01",
+    entry_date: 1767225600000,
     tags: "",
-    change_date: "2026-01-01"
+    change_date: 1767225600000
 }
 
 const ALL_PAGES: Record<EntityNoun, boolean> = { composer: true, composition: true, contributor: true }

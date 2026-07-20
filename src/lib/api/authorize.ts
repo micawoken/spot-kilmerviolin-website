@@ -249,17 +249,17 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
                       .map((p: string) => parseInt(p.trim()))
                       .filter((p: number) => !isNaN(p))
                 : [],
-        entry_date: record ? record.entry_date : "",
+        entry_date: record ? record.entry_date : null,
         // the remaining non-authorization profile fields are stashed here so self-service flows can read
         // the acting user's own record straight from the identity rather than issuing a second lookup
         // (authorization state — roles/admin/active/id and the sign-in identity_email — is excluded; it
-        // lives on the Identity proper). Nullable columns default to null, change_date to "" when no record.
+        // lives on the Identity proper). Nullable columns default to null, including entry_date/change_date when no record.
         class_year: record ? record.class_year : null,
         major: record ? record.major : null,
         bio: record ? record.bio : null,
         public_email: record ? record.public_email : null,
         image: record ? record.image : null,
-        change_date: record ? record.change_date : "",
+        change_date: record ? record.change_date : null,
         ok: record !== null
     }
     return {

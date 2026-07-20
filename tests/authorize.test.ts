@@ -76,8 +76,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 /** Builds an Identity, overriding only the fields a given test cares about. */
@@ -93,7 +93,7 @@ function makeIdentity(overrides: Partial<Identity> = {}): Identity {
         roles: [] as string[],
         id: 1,
         admin: false,
-        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: "", class_year: null, major: null, bio: null, public_email: null, image: null, change_date: "" },
+        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: null, class_year: null, major: null, bio: null, public_email: null, image: null, change_date: null },
         ...overrides,
     }
     // derive permissions from the (possibly overridden) roles unless a test pins them explicitly, mirroring

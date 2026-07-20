@@ -59,13 +59,13 @@ function buildIdentity(
             name: "Test User",
             tags: [],
             phases: [],
-            entry_date: "",
+            entry_date: null,
             class_year: null,
             major: null,
             bio: null,
             public_email: null,
             image: null,
-            change_date: ""
+            change_date: null
         },
         permissions
     }

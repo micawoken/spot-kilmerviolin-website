@@ -250,9 +250,9 @@ describe("fetchCompositions — flat D1 record shape (unified field-outlet rewri
             notes_other: null,
             image: null,
             phases: "",
-            entry_date: "2026-01-01",
+            entry_date: 1767225600000,
             tags: "",
-            change_date: "2026-01-01"
+            change_date: 1767225600000
         }
 
         const fetchSpy = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
