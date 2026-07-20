@@ -28,7 +28,7 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import ImageCrop from "../../../components/ImageCrop.astro"
-import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { ADMIN_PAGE_TITLE_PRFX, MAX_ALT_TEXT_LENGTH } from "../../../consts"
 
 import { getStorageUsage } from "../../../lib/api/files"
 import { authEnabled } from "../../../lib/api/environment"
@@ -91,6 +91,18 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                             />
                         </div>
                     </fieldset>
+                    <fieldset>
+                        <legend>Alt text<span class="field-required" aria-hidden="true">*</span></legend>
+                        <div class="field-row">
+                            <textarea
+                                id="file-upload-alt"
+                                name="alt"
+                                maxlength={MAX_ALT_TEXT_LENGTH}
+                                placeholder="Describe the image for screen readers and search engines"
+                                required
+                            ></textarea>
+                        </div>
+                    </fieldset>
                     <!-- live storage figure (mirrors /admin/files); updates with a projection once a file is chosen.
                  used/max bytes are carried in data attributes for the client estimate (a define:vars script
                  cannot also use module imports, so the values are read from the DOM instead). -->
@@ -114,10 +126,12 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                 const status = document.getElementById("transaction-status")
                 const file_input = document.getElementById("file-upload-input")
                 const name_input = document.getElementById("file-upload-name")
+                const alt_input = document.getElementById("file-upload-alt")
                 const usage_elem = document.getElementById("file-storage-usage")
                 const crop_elem = document.getElementById("image-crop")
 
                 const IMAGE_ONLY_MESSAGE = "Please choose an image file (JPEG, PNG, WebP, GIF, AVIF)."
+                const ALT_REQUIRED_MESSAGE = "Alt text is required."
 
                 // live storage estimate: shows current usage and projects how much will remain after the upload
                 if (usage_elem) {
@@ -130,7 +144,8 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                     form instanceof HTMLFormElement &&
                     status &&
                     file_input instanceof HTMLInputElement &&
-                    name_input instanceof HTMLInputElement
+                    name_input instanceof HTMLInputElement &&
+                    alt_input instanceof HTMLTextAreaElement
                 ) {
                     const input = file_input
 
@@ -149,9 +164,16 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                         else clearFieldError(input)
                     })
 
+                    // live required feedback as soon as alt text is edited
+                    alt_input.addEventListener("input", () => {
+                        if (alt_input.value.trim() === "") showFieldError(alt_input, ALT_REQUIRED_MESSAGE)
+                        else clearFieldError(alt_input)
+                    })
+
                     form.addEventListener("submit", async (evt: Event) => {
                         evt.preventDefault()
                         const file = input.files?.[0]
+                        const alt = alt_input.value.trim()
                         if (!file) {
                             status.textContent = "Please choose a file to upload."
                             return
@@ -162,9 +184,14 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                             status.textContent = IMAGE_ONLY_MESSAGE
                             return
                         }
+                        if (!alt) {
+                            showFieldError(alt_input, ALT_REQUIRED_MESSAGE)
+                            status.textContent = ALT_REQUIRED_MESSAGE
+                            return
+                        }
                         status.textContent = "Uploading..."
                         try {
-                            const key = await uploadFile(file, name_input.value.trim() || undefined, crop)
+                            const key = await uploadFile(file, alt, name_input.value.trim() || undefined, crop)
                             status.innerHTML = `Upload complete. <a href="/admin/files/info?id=${encodeURIComponent(key)}">View file info &gt;</a>`
                             form.reset()
                             // form.reset() does not fire change; nudge the crop component to clear its preview

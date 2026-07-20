@@ -18,6 +18,8 @@
  * Props:
  * - contributor (optional): a (possibly partial) ContributorRecord provided by SSR, if any
  * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
+ * - imageAlt (optional): pre-resolved alt text for the image (see resolveEntityImageAlt); falls back to
+ *   a generic "Image of contributor {name}" caption when not provided
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -44,6 +46,7 @@ import { NOT_PROVIDED } from "../../consts"
 
 const contributor: Partial<ContributorRecord> | null = Astro.props.contributor || null
 const hidden: boolean = Astro.props.hidden || false
+const imageAlt: string | undefined = Astro.props.imageAlt
 
 // renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
 // empty array so a "not supplied" field is visually distinct from an unset/blank render. Booleans
@@ -107,8 +110,8 @@ const authorized = contributor !== null && "identity_email" in contributor
                 id="contributor-image"
                 class={`entity-result-image${contributor?.image ? "" : " hidden"}`}
                 src={contributor?.image ?? undefined}
-                alt={`Image of contributor ${contributor?.name ?? ""}`}
-                title={`Image of contributor ${contributor?.name ?? ""}`}
+                alt={imageAlt ?? `Image of contributor ${contributor?.name ?? ""}`}
+                title={imageAlt ?? `Image of contributor ${contributor?.name ?? ""}`}
             />
             <p
                 id="contributor-image-missing"

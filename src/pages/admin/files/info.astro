@@ -27,7 +27,7 @@ import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
-import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { ADMIN_PAGE_TITLE_PRFX, MAX_ALT_TEXT_LENGTH } from "../../../consts"
 
 import { getFileMeta } from "../../../lib/api/files"
 import { getContributor } from "../../../lib/api/database"
@@ -95,12 +95,20 @@ function formatBytes(bytes: number): string {
                         </div>
                     </div>
                     <div class="entity-result-image-container">
-                        <img class="entity-result-image" src={`/api/v1/files/${file.key}`} alt={`Preview of ${file.key}`} title={`Preview of ${file.key}`} />
+                        <img class="entity-result-image" src={`/api/v1/files/${file.key}`} alt={file.alt || `Preview of ${file.key}`} title={file.alt || `Preview of ${file.key}`} />
                     </div>
                     <div class="entity-result-groups">
                         <div id="file-details-image" class="entity-result-group entity-result-details">
                             <div class="entity-field"><strong>Dimensions:</strong> <span>{file.width && file.height ? `${file.width}×${file.height}` : "(not an image)"}</span></div>
                             <div class="entity-field"><strong>Optimized:</strong> <span>{file.optimized ? "Yes" : "No"}</span></div>
+                            <div class="entity-field">
+                                <strong>Alt text:</strong>
+                                <form id="file-alt-form" class="generic-form" data-key={file.key}>
+                                    <textarea id="file-alt-input" name="alt" maxlength={MAX_ALT_TEXT_LENGTH} required>{file.alt}</textarea>
+                                    <button type="submit" id="file-alt-button">Save alt text</button>
+                                    <span id="file-alt-status" role="status"></span>
+                                </form>
+                            </div>
                         </div>
                         <div id="file-details-provenance" class="entity-result-group entity-result-details">
                             <div class="entity-field"><strong>Uploaded by:</strong> <span>{file.uploader ? <a href={`/admin/contributors/info?id=${file.uploader}`}>{uploader_label}</a> : uploader_label}</span></div>
@@ -142,6 +150,7 @@ function formatBytes(bytes: number): string {
     }
     <script>
         import { attachFileSearch } from "../../../scripts/file_picker"
+        import { updateFileAlt } from "../../../scripts/connector"
 
         // live search: find uploaded files by name and link each hit to its info page
         attachFileSearch("file-search-input", "file-search-button", "file-search-results")
@@ -155,6 +164,30 @@ function formatBytes(bytes: number): string {
                 const key = input.value.trim()
                 if (key) {
                     window.location.href = `/admin/files/info?id=${encodeURIComponent(key)}`
+                }
+            })
+        }
+
+        // inline alt-text edit: saves without re-uploading the file's bytes
+        const alt_form = document.getElementById("file-alt-form")
+        const alt_input = document.getElementById("file-alt-input")
+        const alt_status = document.getElementById("file-alt-status")
+        if (alt_form instanceof HTMLFormElement && alt_input instanceof HTMLTextAreaElement && alt_status) {
+            const key = alt_form.dataset.key ?? ""
+            alt_form.addEventListener("submit", async (evt: Event) => {
+                evt.preventDefault()
+                const alt = alt_input.value.trim()
+                if (!alt) {
+                    alt_status.textContent = "Alt text is required."
+                    return
+                }
+                alt_status.textContent = "Saving..."
+                try {
+                    await updateFileAlt(key, alt)
+                    alt_status.textContent = "Saved."
+                } catch (error) {
+                    alt_status.textContent = `Save failed: ${error instanceof Error ? error.message : String(error)}`
+                    console.error(error)
                 }
             })
         }

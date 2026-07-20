@@ -76,7 +76,7 @@ import { isEmptyFieldValue } from "./entity-fields"
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
-import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl } from "./media"
+import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl, type MediaSource } from "./media"
 // scripts/publication.ts is framework-agnostic (only imports ./escape) and returns markup-safe HTML
 // (every value escapeHtml-encoded); ContentField's "uri" kind reuses it for the composition publication
 // link, the one composite field this catalog still knows the shape of. Safe to import into both the
@@ -121,6 +121,14 @@ export interface BuildConfigContext {
      */
     breadcrumbs?: { label: string; href: string | null }[]
     pageTitle?: string
+    /**
+     * Bundled (src/files) image alt text, keyed by the /files/<key> suffix (lib/build/bundled-file-alt.ts's
+     * loadBundledFileAlt) — resolves real alt text for a plain-string entity `image` field that points
+     * at a bundled asset. R2-uploaded (/api/v1/files/<key>) and external images have no build-time alt
+     * source (see catalog.tsx's ContentImage/MediaText renders) and still render alt="". A plain object,
+     * not a Map — see loadBundledFileAlt's header for why.
+     */
+    bundledFileAlt?: Record<string, string>
 }
 
 /**
@@ -590,6 +598,20 @@ export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4",
             {text}
         </Tag>
     )
+}
+
+const BUNDLED_FILE_PREFIX = "/files/"
+
+/**
+ * Resolves a bundled (src/files) image source's alt text from the build-time sidecar index
+ * (BuildConfigContext.bundledFileAlt). Returns undefined for an R2/EmDash `key` source or a non-bundled
+ * `url` source (external https, or no index available — the editor target never has one).
+ */
+function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, string> | undefined): string | undefined {
+    if (source.kind !== "url" || !index || !source.url.startsWith(BUNDLED_FILE_PREFIX)) {
+        return undefined
+    }
+    return index[source.url.slice(BUNDLED_FILE_PREFIX.length)]
 }
 
 /** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). Not
@@ -1153,9 +1175,14 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 const source = mediaSource(image)
                 if (source) {
                     const url = source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url
-                    // D1 entities carry no alt field, so a string-sourced image renders with alt="" —
-                    // a known accessibility gap versus EmDash media, which does have one.
-                    const alt = isRecord(image) && typeof image.alt === "string" ? image.alt : ""
+                    // D1 entities carry no alt field of their own. A bundled (/files/<key>) image resolves
+                    // its alt from the build-time sidecar index; an R2-uploaded (/api/v1/files/<key>) or
+                    // external image has no build-time alt source and still renders alt="" — a known
+                    // accessibility gap versus EmDash media, which does have one (see BuildConfigContext).
+                    const alt =
+                        (isRecord(image) && typeof image.alt === "string" ? image.alt : undefined) ??
+                        bundledAlt(source, context?.bundledFileAlt) ??
+                        ""
                     const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
                     const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
                     return renderImageTag(url, alt, width, height, aspect, size, radius, border, shadow)
@@ -1276,7 +1303,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                             <div className="cmp-media-text__media" data-size={size}>
                                 {renderImageTag(
                                     source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url,
-                                    isRecord(image) && typeof image.alt === "string" ? image.alt : "",
+                                    (isRecord(image) && typeof image.alt === "string" ? image.alt : undefined) ??
+                                        bundledAlt(source, context?.bundledFileAlt) ??
+                                        "",
                                     isRecord(image) && typeof image.width === "number" ? image.width : undefined,
                                     isRecord(image) && typeof image.height === "number" ? image.height : undefined,
                                     aspect,

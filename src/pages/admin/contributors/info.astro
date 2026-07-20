@@ -36,6 +36,7 @@ import { getContributor } from "../../../lib/api/database"
 import { guardPage } from "../../../lib/api/page_auth"
 import { guardedRead } from "../../../lib/api/http"
 import { authEnabled } from "../../../lib/api/environment"
+import { resolveEntityImageAlt } from "../../../lib/api/files"
 
 export const prerender = false
 
@@ -78,6 +79,11 @@ if (id) {
         use_id = true
     }
 }
+const imageAlt = await resolveEntityImageAlt(
+    Astro.locals.cfContext,
+    contributor_data?.image,
+    `Image of contributor ${contributor_data?.name ?? ""}`
+)
 ---
 
 <!doctype html>
@@ -91,7 +97,7 @@ if (id) {
         <main class="admin-main" role="main">
             <h2>View a Contributor</h2>
             <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
-            <ContributorInfo contributor={use_id ? contributor_data : null} hidden={!use_id} />
+            <ContributorInfo contributor={use_id ? contributor_data : null} hidden={!use_id} imageAlt={use_id ? imageAlt : undefined} />
             <p id="transaction-status">
                 {
                     use_id

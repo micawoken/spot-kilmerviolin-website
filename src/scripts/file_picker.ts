@@ -52,13 +52,15 @@ async function _loadBundledFiles(): Promise<FilePickerEntry[]> {
             url: string
             w?: number | null
             h?: number | null
+            alt?: string | null
         }[]
         _bundled_files_cache = manifest.map((entry) => ({
             source: "bundled" as const,
             name: entry.name,
             url: entry.url,
             width: entry.w ?? null,
-            height: entry.h ?? null
+            height: entry.h ?? null,
+            alt: entry.alt ?? null
         }))
     } catch {
         // no manifest available; the picker simply falls back to R2 files
@@ -91,7 +93,7 @@ export async function appendBundledFiles(container_id: string): Promise<void> {
         const img = document.createElement("img")
         img.className = "list-result-thumb"
         img.src = entry.url
-        img.alt = `Preview of ${entry.name}`
+        img.alt = entry.alt || `Preview of ${entry.name}`
         img.loading = "lazy"
         img.width = 48
         img.height = 48
@@ -160,7 +162,8 @@ export function attachFilePicker(
                       name: file.key,
                       url: fileApiUrl(file.key),
                       width: file.width,
-                      height: file.height
+                      height: file.height,
+                      alt: file.alt || null
                   }))
                 : []
             const all_entries = [...bundled, ...r2_entries]

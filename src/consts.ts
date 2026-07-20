@@ -36,6 +36,11 @@ export const ADMIN_PAGE_TITLE_PRFX = "Administrative Services - "
 // (a distinct marker so a blank field is not confused with an empty/unset render)
 export const NOT_PROVIDED = "(not provided)"
 
+// maximum length of an uploaded/bundled image's alt text (docs/dev/miscellaneous.txt's "data model
+// changes" section specifies 256 for bundled sidecar files; the same cap applies to R2-uploaded alt
+// text for consistency, since no distinct limit was specified for that case)
+export const MAX_ALT_TEXT_LENGTH = 256
+
 // origins permitted to make credentialed cross-origin requests. Because the API sends
 // Access-Control-Allow-Credentials: true, the Access-Control-Allow-Origin value must be restricted to
 // a known allowlist rather than reflecting an arbitrary request Origin. Entries are full origins

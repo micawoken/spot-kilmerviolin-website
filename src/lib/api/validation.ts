@@ -24,6 +24,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { MAX_ALT_TEXT_LENGTH } from "../../consts"
+
 // Pragmatic email check: a single @ separating non-empty, space-free local and (dotted) domain parts.
 // This is deliberately lenient — it guards links/prefills against junk, not against every RFC edge case.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -241,6 +243,23 @@ export function isValidImageUrl(value: string): boolean {
  */
 export function isImageMimeType(type: string): boolean {
     return type.trim().toLowerCase().startsWith("image/")
+}
+
+/**
+ * Validates a candidate alt-text value: required (non-empty after trimming) and within
+ * MAX_ALT_TEXT_LENGTH characters (docs/dev/miscellaneous.txt's "data model changes" section)
+ *
+ * @param {string} value - the trimmed candidate alt text
+ * @returns {string | null} - an error message if invalid, or null if the value is acceptable
+ */
+export function validateAltText(value: string): string | null {
+    if (value === "") {
+        return "Alt text is required"
+    }
+    if (value.length > MAX_ALT_TEXT_LENGTH) {
+        return `Alt text must be ${MAX_ALT_TEXT_LENGTH} characters or fewer`
+    }
+    return null
 }
 
 /**

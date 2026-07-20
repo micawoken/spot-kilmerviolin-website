@@ -73,7 +73,7 @@ function formatBytes(bytes: number): string {
                                 <img
                                     class="list-result-thumb"
                                     src={`/api/v1/files/${file.key}`}
-                                    alt={`Preview of ${file.key}`}
+                                    alt={file.alt || `Preview of ${file.key}`}
                                     loading="lazy"
                                     width="48"
                                     height="48"

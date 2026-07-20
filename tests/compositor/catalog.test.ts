@@ -339,7 +339,9 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         // An id and nothing else — no usable handle at all (the file route is keyed by storage key).
         coverIdOnly: { id: "med_3", alt: "Orphan" },
         // A D1 entity's `image` column: a plain string, not an EmDash media object.
-        entityCover: "https://images.example.test/composer.jpg"
+        entityCover: "https://images.example.test/composer.jpg",
+        // A D1 entity's `image` column pointing at a bundled (src/files) asset.
+        bundledCover: "/files/composer-portrait.webp"
     }
 
     it("renders nothing at build with no entry context (design_page path, D3)", () => {
@@ -405,6 +407,20 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
         const html = render(config, "ContentImage", { field: "entityCover", aspect: "original" })
         expect(html).toContain('src="https://images.example.test/composer.jpg"')
+        expect(html).toContain('alt=""')
+    })
+
+    it("ContentImage resolves a bundled image's alt text from the build-time sidecar index", () => {
+        const bundledFileAlt = { "composer-portrait.webp": "Portrait of the composer" }
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN, bundledFileAlt })
+        const html = render(config, "ContentImage", { field: "bundledCover", aspect: "original" })
+        expect(html).toContain('src="/files/composer-portrait.webp"')
+        expect(html).toContain('alt="Portrait of the composer"')
+    })
+
+    it("ContentImage renders empty alt for a bundled image absent from the sidecar index", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN, bundledFileAlt: {} })
+        const html = render(config, "ContentImage", { field: "bundledCover", aspect: "original" })
         expect(html).toContain('alt=""')
     })
 

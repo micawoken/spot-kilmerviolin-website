@@ -685,13 +685,15 @@ function appendCrop(body: FormData, crop?: CropSelection | null): void {
  * Uploads a new file (multipart/form-data), returning the stored key
  *
  * @param file the file to upload
+ * @param alt the file's required alt text
  * @param [name] an optional name to derive the key from; defaults to the file's own name
  * @param [crop] an optional crop selection; images are cropped to a canonical shape (default centered portrait)
  * @return the stored file key
  */
-export async function uploadFile(file: File, name?: string, crop?: CropSelection | null): Promise<string> {
+export async function uploadFile(file: File, alt: string, name?: string, crop?: CropSelection | null): Promise<string> {
     const body = new FormData()
     body.append("file", file)
+    body.append("alt", alt)
     if (name) {
         body.append("name", name)
     }
@@ -714,14 +716,30 @@ export async function uploadFile(file: File, name?: string, crop?: CropSelection
  *
  * @param key the file key to replace
  * @param file the replacement file
+ * @param alt the file's required alt text
  * @param [crop] an optional crop selection; images are cropped to a canonical shape (default centered portrait)
  * @return
  */
-export async function replaceFile(key: string, file: File, crop?: CropSelection | null): Promise<void> {
+export async function replaceFile(key: string, file: File, alt: string, crop?: CropSelection | null): Promise<void> {
     const body = new FormData()
     body.append("file", file)
+    body.append("alt", alt)
     appendCrop(body, crop)
     return requestVoid("file replace", composeUrl("files", key), { method: "PUT", body: body })
+}
+
+/**
+ * PUT /api/v1/files/{key}
+ * Updates a stored file's alt text without touching its bytes (multipart/form-data, no "file" part)
+ *
+ * @param key the file key to update
+ * @param alt the new alt text
+ * @return
+ */
+export async function updateFileAlt(key: string, alt: string): Promise<void> {
+    const body = new FormData()
+    body.append("alt", alt)
+    return requestVoid("alt text update", composeUrl("files", key), { method: "PUT", body: body })
 }
 
 /**

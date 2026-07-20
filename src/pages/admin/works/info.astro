@@ -35,6 +35,7 @@ import { COMPOSITION } from "../../../lib/api/d1"
 import { attachCompositionNames, getComposition } from "../../../lib/api/database"
 import { guardPage } from "../../../lib/api/page_auth"
 import { guardedRead } from "../../../lib/api/http"
+import { resolveEntityImageAlt } from "../../../lib/api/files"
 
 export const prerender = false
 
@@ -71,6 +72,11 @@ if (id) {
         composition_names = enhanced_result[0].names
     }
 }
+const imageAlt = await resolveEntityImageAlt(
+    Astro.locals.cfContext,
+    composition_data?.image,
+    `Image for composition ${composition_data?.name ?? ""}`
+)
 ---
 
 <!doctype html>
@@ -88,6 +94,7 @@ if (id) {
                 composition={use_id ? (composition_data as CompositionRecord) : null}
                 names={use_id ? composition_names : null}
                 hidden={!use_id}
+                imageAlt={use_id ? imageAlt : undefined}
             />
             <p id="transaction-status">
                 {

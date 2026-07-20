@@ -88,6 +88,7 @@ interface SearchResult {
  * @property {number | null} width - the image width in pixels, or null for non-images
  * @property {number | null} height - the image height in pixels, or null for non-images
  * @property {boolean} optimized - whether the stored bytes are an optimized image variant
+ * @property {string} alt - the required alt text supplied at upload/replace time
  */
 interface FileMeta {
     key: string
@@ -99,6 +100,7 @@ interface FileMeta {
     width: number | null
     height: number | null
     optimized: boolean
+    alt: string
 }
 
 /**
@@ -118,6 +120,7 @@ type FileSource = "r2" | "bundled"
  *   /files/<name> for bundled)
  * @property {number | null} width - the image width in pixels, if known
  * @property {number | null} height - the image height in pixels, if known
+ * @property {string | null} alt - the entry's alt text, if known
  */
 interface FilePickerEntry {
     source: FileSource
@@ -125,6 +128,7 @@ interface FilePickerEntry {
     url: string
     width: number | null
     height: number | null
+    alt: string | null
 }
 
 /**

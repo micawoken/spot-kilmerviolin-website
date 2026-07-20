@@ -32,6 +32,7 @@ import { maxUploadBytes, R2CapacityError } from "../../../lib/api/r2"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { validateAltText } from "../../../lib/api/validation"
 
 /**
  * GET /api/v1/files
@@ -88,9 +89,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: none (authenticated identity)
  *
  * Meta: none
- * Body: required; multipart/form-data with a "file" part and an optional "name" field. Unlike the JSON
- *   entity endpoints, files are binary, so this endpoint accepts a multipart upload rather than a
- *   single-item JSON array. The object key is derived from "name" (or the upload's filename).
+ * Body: required; multipart/form-data with a "file" part, a required "alt" (alt text, 1-256 chars) part,
+ *   and an optional "name" field. Unlike the JSON entity endpoints, files are binary, so this endpoint
+ *   accepts a multipart upload rather than a single-item JSON array. The object key is derived from
+ *   "name" (or the upload's filename).
  *
  * @param context - the Astro API context
  * @returns the created file's metadata, or an error message
@@ -140,10 +142,16 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (crop instanceof Error) {
         return constructResponse(request, null, 400, crop.message)
     }
+    const provided_alt = form.get("alt")
+    const alt = typeof provided_alt === "string" ? provided_alt.trim() : ""
+    const alt_error = validateAltText(alt)
+    if (alt_error !== null) {
+        return constructResponse(request, null, 400, alt_error)
+    }
     try {
         // reading the upload's bytes can throw if the client aborts mid-stream; keep it inside the try
         const bytes = await file.arrayBuffer()
-        const meta = await addFile(context.locals.cfContext, key, bytes, content_type, uploader, crop)
+        const meta = await addFile(context.locals.cfContext, key, bytes, content_type, uploader, alt, crop)
         return constructResponse(request, meta, 201, undefined, {
             Location: `/api/v1/files/${key}`
         })

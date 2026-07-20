@@ -38,6 +38,13 @@
 // chosen, and a warning is emitted when the source is not already that ratio (since it will be cropped).
 // The IMAGES binding used for uploads is a runtime-only Worker API and is not available during this Node
 // build step, so sharp is used here instead.
+//
+// Alt text (docs/dev/miscellaneous.txt's "data model changes" section): every image asset (raster or
+// SVG) must carry a sidecar text file at "<name>.txt" alongside it (e.g. photo.jpg's alt text lives in
+// photo.jpg.txt) with 1-256 characters of alt text. A missing or oversized sidecar fails the build — this
+// mirrors the R2 upload API's hard "alt is required" validation (see lib/api/validation.ts), just enforced
+// at build time here since bundled assets are added by committing files, not through that endpoint.
+// Non-image files (if any) are published without an alt requirement.
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
@@ -46,15 +53,46 @@ import sharp from "sharp"
 
 // This build-time integration runs under Node (not the Worker runtime) and cannot read the Cloudflare
 // `env`, so these mirror the runtime config literally: TARGET_QUALITY tracks the TARGET_IMAGE_QUALITY
-// wrangler var, and CANON tracks CANON_PORTRAIT / CANON_LANDSCAPE in src/lib/api/images.ts. Keep in sync.
+// wrangler var, CANON tracks CANON_PORTRAIT / CANON_LANDSCAPE in src/lib/api/images.ts, and
+// MAX_ALT_LENGTH tracks MAX_ALT_TEXT_LENGTH in src/consts.ts. Keep in sync.
 const TARGET_QUALITY = 82
 const CANON = { portrait: { w: 1280, h: 1600 }, landscape: { w: 1600, h: 1280 } }
 const PORTRAIT_RATIO = CANON.portrait.w / CANON.portrait.h // 0.8
 const LANDSCAPE_RATIO = CANON.landscape.w / CANON.landscape.h // 1.25
+const MAX_ALT_LENGTH = 256
 
 const SRC_DIR = "src/files"
 const OUT_SUBDIR = "files"
 const RASTER_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"])
+const IMAGE_EXT = new Set([...RASTER_EXT, ".svg"])
+const ALT_SIDECAR_EXT = ".txt"
+
+/**
+ * Reads and validates an image asset's required alt-text sidecar ("<name>.txt"), throwing a
+ * build-blocking error when it is missing, empty, or over MAX_ALT_LENGTH characters.
+ */
+async function readAltSidecar(srcRoot, name) {
+    const sidecarPath = path.join(srcRoot, `${name}${ALT_SIDECAR_EXT}`)
+    let raw
+    try {
+        raw = await fs.readFile(sidecarPath, "utf-8")
+    } catch {
+        throw new Error(
+            `[build] src/files/${name} is missing its required alt-text sidecar: src/files/${name}${ALT_SIDECAR_EXT} ` +
+                `(1-${MAX_ALT_LENGTH} characters). Add the sidecar file or remove the image.`
+        )
+    }
+    const alt = raw.trim()
+    if (alt === "") {
+        throw new Error(`[build] src/files/${name}${ALT_SIDECAR_EXT} is empty; alt text is required.`)
+    }
+    if (alt.length > MAX_ALT_LENGTH) {
+        throw new Error(
+            `[build] src/files/${name}${ALT_SIDECAR_EXT} is ${alt.length} characters; alt text must be ${MAX_ALT_LENGTH} or fewer.`
+        )
+    }
+    return alt
+}
 
 export default function optimizeFiles() {
     return {
@@ -79,6 +117,12 @@ export default function optimizeFiles() {
                     }
                     const name = entry.name
                     const ext = path.extname(name).toLowerCase()
+                    // alt-text sidecars are metadata for another entry, not a publishable asset themselves
+                    if (ext === ALT_SIDECAR_EXT) {
+                        continue
+                    }
+                    const is_image = IMAGE_EXT.has(ext)
+                    const alt = is_image ? await readAltSidecar(src_root, name) : null
                     const input = await fs.readFile(path.join(src_root, name))
                     if (RASTER_EXT.has(ext)) {
                         // crop+scale to the closest canonical shape, matching the upload pipeline (optimizeImage)
@@ -99,11 +143,11 @@ export default function optimizeFiles() {
                         const out_bytes = await pipe.webp({ quality: TARGET_QUALITY }).toBuffer()
                         const out_name = `${name.slice(0, name.length - ext.length)}.webp`
                         await fs.writeFile(path.join(out_dir, out_name), out_bytes)
-                        manifest.push({ name, url: `/${OUT_SUBDIR}/${out_name}`, w: target.w, h: target.h })
+                        manifest.push({ name, url: `/${OUT_SUBDIR}/${out_name}`, w: target.w, h: target.h, alt })
                     } else {
                         // SVGs and non-images are published verbatim
                         await fs.writeFile(path.join(out_dir, name), input)
-                        manifest.push({ name, url: `/${OUT_SUBDIR}/${name}`, w: null, h: null })
+                        manifest.push({ name, url: `/${OUT_SUBDIR}/${name}`, w: null, h: null, alt })
                     }
                 }
                 await fs.writeFile(path.join(out_root, "files-manifest.json"), JSON.stringify(manifest, null, 2))

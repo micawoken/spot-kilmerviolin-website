@@ -104,6 +104,32 @@ export function extractUploadedFileKey(image: string): string | null {
 }
 
 /**
+ * Resolves the alt text to show for an entity's image field: the uploaded file's own stored alt text
+ * when the image is an R2-uploaded reference, or the given fallback otherwise (a bundled/external image,
+ * an absent image, or an uploaded file with no alt text on record)
+ *
+ * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
+ * @param {string | null | undefined} image - the entity's image field value
+ * @param {string} fallback - the alt text to use when no stored alt text is resolvable
+ * @returns {Promise<string>} the alt text to render
+ */
+export async function resolveEntityImageAlt(
+    ctx: ExecutionContext,
+    image: string | null | undefined,
+    fallback: string
+): Promise<string> {
+    if (!image) {
+        return fallback
+    }
+    const key = extractUploadedFileKey(image)
+    if (key === null) {
+        return fallback
+    }
+    const meta = await getFileMeta(ctx, key)
+    return meta?.alt || fallback
+}
+
+/**
  * Converts an R2 object (from a listing or head) into the API file metadata representation
  */
 function _toMeta(object: R2Object): FileMeta {
@@ -117,7 +143,9 @@ function _toMeta(object: R2Object): FileMeta {
         uploader: custom.uploader ?? null,
         width: custom.width ? Number(custom.width) : null,
         height: custom.height ? Number(custom.height) : null,
-        optimized: custom.optimized === "true"
+        optimized: custom.optimized === "true",
+        // pre-existing objects written before alt text was required have no stored value
+        alt: custom.alt ?? ""
     }
 }
 
@@ -236,11 +264,13 @@ function _buildCustomMetadata(
     uploader: string | null,
     width: number | null,
     height: number | null,
-    optimized: boolean
+    optimized: boolean,
+    alt: string
 ): Record<string, string> {
     const metadata: Record<string, string> = {
         content_type,
-        optimized: optimized ? "true" : "false"
+        optimized: optimized ? "true" : "false",
+        alt
     }
     if (uploader !== null) {
         metadata.uploader = uploader
@@ -262,6 +292,7 @@ function _buildCustomMetadata(
  * @param {ArrayBuffer | Uint8Array} bytes - the original file bytes
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
+ * @param {string} alt - the file's required alt text
  * @param {number} usage_budget - bytes already used to count this write against (excludes the key when replacing)
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
@@ -273,6 +304,7 @@ async function _writeFile(
     bytes: ArrayBuffer | Uint8Array,
     content_type: string,
     uploader: string | null,
+    alt: string,
     usage_budget: number,
     crop?: CropInstruction
 ): Promise<FileMeta> {
@@ -282,7 +314,8 @@ async function _writeFile(
         uploader,
         optimized.width,
         optimized.height,
-        optimized.optimized
+        optimized.optimized,
+        alt
     )
     const stored = await putObject(key, optimized.bytes, optimized.content_type, custom, usage_budget)
     _invalidate(ctx, key)
@@ -297,6 +330,7 @@ async function _writeFile(
  * @param {ArrayBuffer | Uint8Array} bytes - the original file bytes
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
+ * @param {string} alt - the file's required alt text
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {Error} if a file already exists at the key (caller should map to 409)
@@ -308,6 +342,7 @@ export async function addFile(
     bytes: ArrayBuffer | Uint8Array,
     content_type: string,
     uploader: string | null,
+    alt: string,
     crop?: CropInstruction
 ): Promise<FileMeta> {
     const files = await listFiles(ctx)
@@ -315,7 +350,7 @@ export async function addFile(
         throw new Error(`A file already exists at key "${key}"`)
     }
     const used = files.reduce((total, file) => total + file.size, 0)
-    return await _writeFile(ctx, key, bytes, content_type, uploader, used, crop)
+    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
 }
 
 /**
@@ -326,6 +361,7 @@ export async function addFile(
  * @param {ArrayBuffer | Uint8Array} bytes - the new file bytes
  * @param {string} content_type - the new MIME type
  * @param {string | null} uploader - the contributor id performing the replacement, or null
+ * @param {string} alt - the file's required alt text
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {Error} if no file exists at the key (caller should map to 404)
@@ -337,6 +373,7 @@ export async function replaceFile(
     bytes: ArrayBuffer | Uint8Array,
     content_type: string,
     uploader: string | null,
+    alt: string,
     crop?: CropInstruction
 ): Promise<FileMeta> {
     const files = await listFiles(ctx)
@@ -346,7 +383,36 @@ export async function replaceFile(
     }
     // count this write against current usage minus the object being overwritten
     const used = files.reduce((total, file) => total + file.size, 0) - existing.size
-    return await _writeFile(ctx, key, bytes, content_type, uploader, used, crop)
+    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
+}
+
+/**
+ * Updates a stored file's alt text without rewriting its bytes (an R2 write always requires a body, so
+ * this re-puts the existing bytes read back from the store — see readFileBytes's Cache API layer, which
+ * makes this cheap for a recently-read file)
+ *
+ * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
+ * @param {string} key - the file key to update; must already exist
+ * @param {string} alt - the new alt text
+ * @returns {Promise<FileMeta>} the stored file's metadata
+ * @throws {Error} if no file exists at the key (caller should map to 404)
+ */
+export async function updateFileAlt(ctx: ExecutionContext, key: string, alt: string): Promise<FileMeta> {
+    const files = await listFiles(ctx)
+    const existing = files.find((file) => file.key === key)
+    if (existing === undefined) {
+        throw new Error(`No file exists at key "${key}"`)
+    }
+    const data = await readFileBytes(key)
+    if (data === null) {
+        throw new Error(`No file exists at key "${key}"`)
+    }
+    const custom = _buildCustomMetadata(data.content_type, existing.uploader, existing.width, existing.height, existing.optimized, alt)
+    // re-writing the same bytes does not change total usage, so the budget excludes this object's own size
+    const used = files.reduce((total, file) => total + file.size, 0) - existing.size
+    const stored = await putObject(key, data.bytes, data.content_type, custom, used)
+    _invalidate(ctx, key)
+    return _toMeta(stored)
 }
 
 /**
