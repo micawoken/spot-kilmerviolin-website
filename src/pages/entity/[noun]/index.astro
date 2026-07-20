@@ -44,6 +44,7 @@ import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { ENTITY_NOUN_LABELS, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import "../../../styles/public-entities.css"
 
 export const prerender = true
 
@@ -109,18 +110,29 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
 <PublicPage title={title} pagefindFilter="scope:database">
-    {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
-        not a Puck design, so the component can never be placed here. Entity indexes always point straight
-        to Home (docs/dev/miscellaneous.txt), skipping the /entity root as an intermediate crumb. */}
-    <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
-        <ol>
-            <li><a href="/">Home</a></li>
-            <li aria-current="page">{title}</li>
-        </ol>
-    </nav>
-    <h1>{title}</h1>
-    <ListResults noun={noun} enviro="public" results={results} />
-    <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
+    {/* Single wrapper, not four bare children directly under <main>: public-chrome.css's
+        `main > :not(.cmp-section, article)` rule insets each direct child individually via
+        `var(--dtk-space-md)`. That token can be authored as a font-relative expression (e.g. a
+        `clamp(..., (100vw - 66ch) / 2, ...)` reading-width trick) — a custom property's relative units
+        resolve per consuming element, so the breadcrumbs/h1/list/footnote (each a different font size)
+        would each compute a different actual inset, drifting out of alignment with each other and with
+        the header at some viewport widths. Applying the inset once, on one wrapper that inherits the
+        body's own font size, keeps this page's whole content column aligned with the header at every
+        width. */}
+    <div class="entity-index-body">
+        {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+            not a Puck design, so the component can never be placed here. Entity indexes always point straight
+            to Home (docs/dev/miscellaneous.txt), skipping the /entity root as an intermediate crumb. */}
+        <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li><a href="/">Home</a></li>
+                <li aria-current="page">{title}</li>
+            </ol>
+        </nav>
+        <h1>{title}</h1>
+        <ListResults noun={noun} enviro="public" results={results} />
+        <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
+    </div>
 </PublicPage>
 
 <style>
