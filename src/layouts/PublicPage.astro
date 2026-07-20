@@ -83,6 +83,11 @@ const themeHead = await getThemeHead()
             columnsStackBreakpointCss). Always present, theme or not — it replaces what used to be a rule
             hardcoded into compositor.css. Harmless on a page with no .cmp-columns element. */}
         <style set:html={themeHead.columnsBreakpointCss} />
+        {/* Cross-document view transitions (theme-authored; see tokens.ts's viewTransitionCss). Enabled by
+            default, matching the site's original always-on global.css rule; "" (rendering nothing) when
+            the theme has explicitly disabled it. Unsupported browsers (Firefox, Safari) just fall back to
+            a normal navigation with no regression either way. */}
+        {themeHead.viewTransitionCss && <style set:html={themeHead.viewTransitionCss} />}
         {/* Optional per-page head content. Design pages inject the compositor component stylesheet here;
             every other caller simply leaves it empty. */}
         <slot name="head" />

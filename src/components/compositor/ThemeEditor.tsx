@@ -149,6 +149,9 @@ type EditableCatalog = {
     siteChrome: SiteChromeRow
     /** names a `breakpoints` token driving Columns' stack point; "" keeps the historical fixed 768px. */
     layoutStackBreakpoint: string
+    /** whether cross-document view transitions are enabled site-wide; defaults to true (the historical
+     *  always-on behavior) when the catalog has never set `viewTransitions`. */
+    viewTransitions: boolean
 } & Record<TokenKind, Row[]>
 
 /** The token kinds and their fields (§4.3), in the order they render. Drives load, edit, and save. */
@@ -284,6 +287,8 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
         fonts,
         siteChrome,
         layoutStackBreakpoint: catalog.layoutStackBreakpoint ?? "",
+        // Absent means enabled (the trap-A default): the site's original always-on global.css rule.
+        viewTransitions: catalog.viewTransitions ?? true,
         ...(rows as Record<TokenKind, Row[]>)
     }
 }
@@ -334,6 +339,10 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
     if (chromeEntries.length > 0) catalog.siteChrome = Object.fromEntries(chromeEntries)
 
     if (editable.layoutStackBreakpoint.trim() !== "") catalog.layoutStackBreakpoint = editable.layoutStackBreakpoint
+
+    // Only emit when disabled (the non-default): an untouched theme stays absent, matching the trap-A
+    // contract every other optional field here follows.
+    if (!editable.viewTransitions) catalog.viewTransitions = false
 
     return catalog as unknown as TokenCatalog
 }
@@ -1276,6 +1285,25 @@ export default function ThemeEditor() {
                         </span>
                     )}
                 </div>
+            </section>
+
+            <section className="theme-editor__section">
+                <h3>Page transitions</h3>
+                <p className="theme-editor__hint">
+                    Crossfades between page navigations instead of the browser's default blank flash. Native CSS, no
+                    JS; unsupported browsers (Firefox, Safari) just fall back to a normal navigation with no
+                    regression either way.
+                </p>
+                <label className="theme-editor__switch">
+                    <input
+                        type="checkbox"
+                        checked={editable.viewTransitions}
+                        onChange={(event) =>
+                            setEditable((current) => (current ? { ...current, viewTransitions: event.target.checked } : current))
+                        }
+                    />
+                    Enable page transitions
+                </label>
             </section>
 
             {renderTokenSection(sectionByKind.colors)}

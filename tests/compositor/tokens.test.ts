@@ -35,6 +35,7 @@ import {
     tokensToCss,
     tokenVar,
     tokenVarName,
+    viewTransitionCss,
     webFontsHref,
     type TokenCatalog
 } from "../../src/lib/compositor/tokens"
@@ -271,6 +272,20 @@ describe("isTokenCatalog — colorScheme is optional (trap A)", () => {
     })
 })
 
+describe("isTokenCatalog — viewTransitions is optional (trap A)", () => {
+    it("ACCEPTS a catalog that omits viewTransitions entirely", () => {
+        expect("viewTransitions" in catalog).toBe(false)
+        expect(isTokenCatalog(catalog)).toBe(true)
+    })
+    it("accepts either boolean", () => {
+        expect(isTokenCatalog({ ...catalog, viewTransitions: true })).toBe(true)
+        expect(isTokenCatalog({ ...catalog, viewTransitions: false })).toBe(true)
+    })
+    it("rejects a present-but-non-boolean viewTransitions", () => {
+        expect(isTokenCatalog({ ...catalog, viewTransitions: "true" })).toBe(false)
+    })
+})
+
 describe("webFontsHref", () => {
     it("builds a css2 URL with each family's weights, sorted, deduped, and display=optional", () => {
         const href = webFontsHref([
@@ -326,5 +341,21 @@ describe("columnsStackBreakpointCss", () => {
             layoutStackBreakpoint: "tablet"
         }
         expect(columnsStackBreakpointCss(withRem)).toContain("max-width: 48rem")
+    })
+})
+
+describe("viewTransitionCss", () => {
+    it("is enabled by default when no theme is published (empty catalog)", () => {
+        expect(viewTransitionCss(EMPTY_TOKEN_CATALOG)).toBe("@view-transition {\n    navigation: auto;\n}")
+    })
+    it("is enabled when viewTransitions is unset on a real catalog", () => {
+        expect("viewTransitions" in catalog).toBe(false)
+        expect(viewTransitionCss(catalog)).toBe("@view-transition {\n    navigation: auto;\n}")
+    })
+    it("is enabled when viewTransitions is explicitly true", () => {
+        expect(viewTransitionCss({ ...catalog, viewTransitions: true })).toBe("@view-transition {\n    navigation: auto;\n}")
+    })
+    it("emits nothing when viewTransitions is explicitly false", () => {
+        expect(viewTransitionCss({ ...catalog, viewTransitions: false })).toBe("")
     })
 })

@@ -49,7 +49,7 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 
 <!--
   Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
-  cross-document view transitions (see global.css) never reveal a flash of the wrong scheme. The
+  cross-document view transitions (see below) never reveal a flash of the wrong scheme. The
   color-scheme meta tag is parsed synchronously with the rest of <head> and tells the browser which UA
   default to use for anything not yet styled (scrollbars, form controls); the inline <style> paints the
   exact --color-bg value from global.css (not just the UA's approximate dark canvas) since it also
@@ -61,6 +61,19 @@ const noindex = detectEnvironment(Astro.request) === "staging"
     html { background: #ffffff; }
     @media (prefers-color-scheme: dark) {
         html { background: #1a1a1a; }
+    }
+</style>
+
+<!--
+  Cross-document view transitions: crossfades between page navigations instead of the browser's default
+  blank flash. Native CSS, no JS; unsupported browsers (Firefox, Safari) just fall back to a normal
+  navigation with no regression. Admin-only and not theme-controlled (unlike the public site's own copy
+  of this rule, layouts/PublicPage.astro via tokens.ts's viewTransitionCss) — the admin has no design
+  theme of its own to read a toggle from.
+-->
+<style is:global>
+    @view-transition {
+        navigation: auto;
     }
 </style>
 

@@ -59,7 +59,8 @@ const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.
 
 <!--
   Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
-  cross-document view transitions (see global.css) never reveal a flash of the wrong scheme. The
+  cross-document view transitions (theme-authored; see layouts/PublicPage.astro) never reveal a flash of
+  the wrong scheme. The
   color-scheme meta tag is parsed synchronously with the rest of <head> and tells the browser which UA
   default to use for anything not yet styled (scrollbars, form controls); the inline <style> paints the
   exact --color-bg value from global.css (not just the UA's approximate dark canvas) since it also

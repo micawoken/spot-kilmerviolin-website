@@ -42,6 +42,7 @@ import {
     columnsStackBreakpointCss,
     EMPTY_TOKEN_CATALOG,
     tokensToCss,
+    viewTransitionCss,
     WEB_FONT_PRECONNECT_ORIGINS,
     webFontsHref
 } from "../compositor/tokens"
@@ -57,15 +58,20 @@ export interface ThemeHead {
     /** the `Columns` stacking `@media` rule (`columnsStackBreakpointCss`); always present, theme or not,
      *  since it replaces what used to be a hardcoded rule in the static `compositor.css`. */
     columnsBreakpointCss: string
+    /** the `@view-transition { … }` rule (`viewTransitionCss`), or "" when the theme disables it; always
+     *  enabled when no theme is published, matching the site's historical always-on `global.css` rule. */
+    viewTransitionCss: string
 }
 
-// No published theme still needs the Columns breakpoint rule at its historical fixed cutoff — it used to
-// be unconditionally present in the static compositor.css, theme or not.
+// No published theme still needs the Columns breakpoint rule at its historical fixed cutoff, and view
+// transitions default to enabled — both used to be unconditionally present in the static stylesheets,
+// theme or not.
 const NO_THEME_HEAD: ThemeHead = {
     preconnect: [],
     stylesheet: null,
     tokenCss: "",
-    columnsBreakpointCss: columnsStackBreakpointCss(EMPTY_TOKEN_CATALOG)
+    columnsBreakpointCss: columnsStackBreakpointCss(EMPTY_TOKEN_CATALOG),
+    viewTransitionCss: viewTransitionCss(EMPTY_TOKEN_CATALOG)
 }
 
 /**
@@ -85,7 +91,8 @@ export async function getThemeHead(): Promise<ThemeHead> {
             preconnect: stylesheet ? WEB_FONT_PRECONNECT_ORIGINS : [],
             stylesheet,
             tokenCss: tokensToCss(theme),
-            columnsBreakpointCss: columnsStackBreakpointCss(theme)
+            columnsBreakpointCss: columnsStackBreakpointCss(theme),
+            viewTransitionCss: viewTransitionCss(theme)
         }
     } catch {
         return NO_THEME_HEAD

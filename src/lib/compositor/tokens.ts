@@ -204,6 +204,15 @@ export interface TokenCatalog {
      * (or naming a token that doesn't exist) preserves the original hardcoded 768px behavior.
      */
     layoutStackBreakpoint?: string
+    /**
+     * Whether cross-document view transitions (`@view-transition { navigation: auto; }`) are enabled on
+     * the public site. Site-wide, like `layoutStackBreakpoint`: a real `@view-transition` at-rule, not a
+     * `--dtk-*` custom property, so it is read at CSS-generation time (`theme-head.ts`) rather than
+     * emitted by `tokensToCss`. OPTIONAL, trap A: absent means enabled, matching the site's original
+     * always-on `styles/global.css` behavior before this control existed. Only `false` (explicitly
+     * disabled) changes anything.
+     */
+    viewTransitions?: boolean
 }
 
 /**
@@ -478,6 +487,21 @@ export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
     return `@media (max-width: ${maxWidth}) {\n    .cmp-columns {\n        grid-template-columns: 1fr;\n    }\n}`
 }
 
+/**
+ * The `@view-transition { navigation: auto; }` at-rule that crossfades between page navigations, or `""`
+ * when the theme has explicitly disabled it. Generated here rather than hardcoded in the static
+ * stylesheet (`styles/global.css`) because it is theme-authored, like `columnsStackBreakpointCss`.
+ * Falls back to enabled (the historical always-on behavior) when the catalog doesn't set
+ * `viewTransitions` at all — only an explicit `false` turns it off.
+ *
+ * @param {TokenCatalog} catalog - the theme catalog
+ * @returns {string} - the `@view-transition { … }` rule, or `""` when disabled
+ */
+export function viewTransitionCss(catalog: TokenCatalog): string {
+    if (catalog.viewTransitions === false) return ""
+    return "@view-transition {\n    navigation: auto;\n}"
+}
+
 /** Whether every element of an array passes a per-element guard. */
 function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
     return Array.isArray(value) && value.every(guard)
@@ -590,7 +614,9 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
         (value.fonts === undefined || isArrayOf(value.fonts, isWebFont)) &&
         // Optional, same trap-A contract as buttonVariants.
         (value.siteChrome === undefined || isSiteChromeRoles(value.siteChrome)) &&
-        (value.layoutStackBreakpoint === undefined || typeof value.layoutStackBreakpoint === "string")
+        (value.layoutStackBreakpoint === undefined || typeof value.layoutStackBreakpoint === "string") &&
+        // Optional, trap-A: a theme predating this field must still validate (defaults to enabled on read).
+        (value.viewTransitions === undefined || typeof value.viewTransitions === "boolean")
     )
 }
 
