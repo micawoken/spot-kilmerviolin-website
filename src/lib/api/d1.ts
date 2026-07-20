@@ -228,8 +228,8 @@ export const COMPOSITION: D1Schema = {
         "notes_other",
         "image",
         "phases",
-        "entry_date",
         "tags",
+        "entry_date",
         "change_date"
     ],
     index: ["composition_id"],
@@ -260,8 +260,8 @@ export const COMPOSITION: D1Schema = {
         notes_other: "string",
         image: "string",
         phases: "string", // comma-separated phase numbers, which are converted to a number array later
-        entry_date: "number",
         tags: "string",
+        entry_date: "number",
         change_date: "number"
     }
 }

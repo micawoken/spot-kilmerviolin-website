@@ -115,10 +115,9 @@ import { invalidateIdentityCache } from "./authorize.ts"
  * notes_other TEXT,
  * image TEXT,
  * phases TEXT NOT NULL, // comma-separated list of phase numbers
- * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
  * tags TEXT, // comma-separated list of tags for filtering and search
+ * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
  * change_date INTEGER, // epoch milliseconds; last-modified date, hidden from users and managed by business logic
- * full_name TEXT UNIQUE NOT NULL GENERATED ALWAYS AS ((SELECT name FROM composers WHERE composers.composer_id = compositions.composer_id) || ' (' || name || ')') STORED // used for indexing and search
  * FOREIGN KEY (composer_id) REFERENCES COMPOSERS(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  * FOREIGN KEY (contrib_primary_1) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  * FOREIGN KEY (contrib_primary_2) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
