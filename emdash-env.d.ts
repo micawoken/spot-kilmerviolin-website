@@ -5,32 +5,6 @@
 
 import type { ContentBylineCredit, TaxonomyTerm, PortableTextBlock } from "emdash";
 
-export interface DesignPage {
-  id: string;
-  slug: string | null;
-  status: string;
-  title: string;
-  description?: string;
-  design: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-  publishedAt: Date | null;
-  bylines?: ContentBylineCredit[];
-  terms?: Record<string, TaxonomyTerm[]>;
-}
-
-export interface DesignTheme {
-  id: string;
-  slug: string | null;
-  status: string;
-  tokens: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-  publishedAt: Date | null;
-  bylines?: ContentBylineCredit[];
-  terms?: Record<string, TaxonomyTerm[]>;
-}
-
 export interface Page {
   id: string;
   slug: string | null;
@@ -61,8 +35,6 @@ export interface Post {
 
 declare module "emdash" {
   interface EmDashCollections {
-    design_page: DesignPage;
-    design_theme: DesignTheme;
     pages: Page;
     posts: Post;
   }
