@@ -42,7 +42,8 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: false,
         conferrable: true,
         cms_editor: false,
-        design_editor: false
+        design_editor: false,
+        rebuild: false
     },
     userenroll: {
         overrides_lockout: false,
@@ -51,7 +52,8 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: true,
         conferrable: false,
         cms_editor: false,
-        design_editor: false
+        design_editor: false,
+        rebuild: false
     },
     siteeditor: {
         overrides_lockout: false,
@@ -60,7 +62,8 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: false,
         conferrable: false,
         cms_editor: true,
-        design_editor: true
+        design_editor: true,
+        rebuild: true
     },
     designonly: {
         overrides_lockout: false,
@@ -69,7 +72,8 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: false,
         conferrable: false,
         cms_editor: false,
-        design_editor: true
+        design_editor: true,
+        rebuild: true
     },
     contentonly: {
         overrides_lockout: false,
@@ -79,7 +83,8 @@ export const roles: Record<string, RoleProfile> = {
         // per doc: only the content-only role is inheritable (conferrable) between the two
         conferrable: true,
         cms_editor: true,
-        design_editor: false
+        design_editor: false,
+        rebuild: true
     }
 }
 
@@ -97,7 +102,8 @@ const PERMISSION_KEYS = [
     "user_addition",
     "conferrable",
     "cms_editor",
-    "design_editor"
+    "design_editor",
+    "rebuild"
 ] as const satisfies readonly (keyof RoleProfile)[]
 
 // compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in

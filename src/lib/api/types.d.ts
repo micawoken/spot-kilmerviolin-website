@@ -329,6 +329,11 @@ interface Identity extends BaseIdentity {
  *   design_editor to a fixed ALLOWLIST of the paths it calls (its own design_* collections; read-only
  *   entry, schema and media reads) and denies the rest of the CMS — the admin UI, other collections'
  *   writes, settings, users. cms_editor is a superset and does not require this permission.
+ * @property {boolean} rebuild - Whether the role provides authorization to trigger a site rebuild
+ *   (POST /api/v1/site, and the /admin/site/rebuild page). A rebuild only publishes content or design
+ *   changes, so this is a dedicated permission assigned alongside cms_editor and/or design_editor on every
+ *   role that carries either, rather than the caller being checked against those two permissions directly
+ *   (auth_check/guardPage only support ANDing a permission list, not ORing one).
  *
  * Contribution edit lockout: by default, users are granted read-only access to entries made by others, which is enforced by the API.
  * By default, administrators bypass the lockout, but certain use-cases (such as peer review) merit a lift of this restriction so that
@@ -344,6 +349,7 @@ interface RoleProfile {
     conferrable: boolean
     cms_editor: boolean
     design_editor: boolean
+    rebuild: boolean
 }
 
 /**

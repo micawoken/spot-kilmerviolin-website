@@ -32,11 +32,11 @@ import { guardPage } from "../../../lib/api/page_auth"
 
 export const prerender = false
 
-// a rebuild only publishes content or design changes, so it is restricted to callers who can make one of
-// those (mirrors the same OR check on POST /api/v1/site)
+// a rebuild only publishes content or design changes, so access is gated on the dedicated rebuild
+// permission (assigned to every role carrying cms_editor and/or design_editor; mirrors POST /api/v1/site)
 const denied = guardPage(Astro.request, Astro.locals.identity, {
     kind: "permission",
-    permissions: ["cms_editor", "design_editor"]
+    permissions: ["rebuild"]
 })
 if (denied) {
     return denied

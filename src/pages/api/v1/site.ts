@@ -32,7 +32,6 @@ import verinfo from "../../../lib/api/verinfo"
 import rebuild, { RebuildCooldownError } from "../../../lib/api/rebuild"
 import { purgeCacheAll } from "../../../lib/api/database"
 import { detectEnvironment } from "../../../lib/api/environment"
-import { requiresOneOf } from "../../../lib/api/authorize"
 
 /**
  * GET /api/v1/site
@@ -65,8 +64,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * POST /api/v1/site
  * Triggers a rebuild on Worker Builds using the deploy hook
  *
- * Permissions required: cms_editor or design_editor (a rebuild only publishes content or design changes,
- * so it is restricted to callers who can make one of those)
+ * Permissions required: rebuild (assigned to every role that carries cms_editor and/or design_editor,
+ * since a rebuild only publishes content or design changes)
  *
  * Meta: none
  * Body: none
@@ -77,15 +76,9 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 export const POST: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
     // validate identity
-    const auth_response = auth_check(request, locals.identity, [], false)
+    const auth_response = auth_check(request, locals.identity, ["rebuild"], false)
     if (auth_response !== null) {
         return auth_response
-    }
-    // auth_check's own perms list is an AND across permissions (requiresAllOf); this needs an OR of the
-    // two, so it is checked separately here. locals.identity is only undefined when auth is disabled
-    // (local dev, per auth_check above), which is left unrestricted like every other endpoint here.
-    if (locals.identity && !locals.identity.admin && !requiresOneOf(["cms_editor", "design_editor"], locals.identity, false)) {
-        return constructResponse(request, null, 403, "Forbidden")
     }
     // rebuilds redeploy the live Worker, which is meaningless from a local development build
     if (detectEnvironment(request) === "development") {
