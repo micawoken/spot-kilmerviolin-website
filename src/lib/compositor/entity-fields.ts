@@ -72,8 +72,10 @@ export const ENTITY_NOUN_LABELS: Record<EntityNoun, string> = {
  * (`"yearOrLiving"` — the -1 "still living" sentinel formats as "Present", mirroring the admin's
  * `ComposerInfo.astro`/`format.ts` treatment), a composer's ISO 3166-1 country code (`"countryCode"`
  * — formats to its English display name), a contributor's public email (`"email"` — renders as a
- * `mailto:` link), and a composer's role (`"titleCase"` — title-cased for display regardless of how it
- * was entered). "string"/"text"/"image" intentionally reuse the same
+ * `mailto:` link), a composer's role (`"titleCase"` — title-cased for display regardless of how it
+ * was entered), and a composer/composition's optional citations map (`"citations"` — a key-value object
+ * rendered as a list of hyperlinks, the key as display text; see scripts/citations.ts).
+ * "string"/"text"/"image" intentionally reuse the same
  * vocabulary `OUTLET_PROPS` (catalog.tsx) already accepts for `ContentText`/`ContentImage`, so those two
  * components work unmodified against entity fields; the rest are new kinds only `ContentField` accepts.
  */
@@ -91,6 +93,7 @@ export type EntityFieldKind =
     | "countryCode"
     | "email"
     | "titleCase"
+    | "citations"
 
 /** One bindable entity field: what a picker shows, and what a render needs to interpret its value. */
 export interface EntityField {
@@ -113,6 +116,7 @@ const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "bio", label: "Bio", type: "text" },
     { slug: "image", label: "Image", type: "image" },
     { slug: "tags", label: "Tags", type: "list" },
+    { slug: "citations", label: "Citations", type: "citations" },
     { slug: "entry_date", label: "Added", type: "date" },
     { slug: "change_date", label: "Last Updated", type: "date" }
 ]
@@ -160,6 +164,7 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "notes_pedagogical", label: "Pedagogical Notes", type: "text" },
     { slug: "notes_other", label: "Other Notes", type: "text" },
     { slug: "tags", label: "Tags", type: "list" },
+    { slug: "citations", label: "Citations", type: "citations" },
     { slug: "entry_date", label: "Added", type: "date" },
     { slug: "change_date", label: "Last Updated", type: "date" }
 ]
@@ -204,6 +209,8 @@ export function isEmptyFieldValue(value: unknown, kind: string | undefined): boo
             return !Array.isArray(value) || value.length === 0
         case "uri":
             return !isRecord(value) || typeof value.uri !== "string" || value.uri.trim() === ""
+        case "citations":
+            return !isRecord(value) || Object.keys(value).length === 0
         case "number":
         case "yearOrLiving":
         case "date": // entry_date/change_date are epoch-millisecond numbers

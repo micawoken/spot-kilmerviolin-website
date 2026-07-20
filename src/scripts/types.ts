@@ -51,7 +51,8 @@ export const composer_interface: Record<string, FieldPair> = {
     bio: ["string", true],
     image: ["string", true],
     role: ["string", false],
-    tags: ["string[]", true]
+    tags: ["string[]", true],
+    citations: ["citations", true] // "Source Name: value" per line; see scripts/citations.ts
 }
 
 // class_year, major, and phases map to nullable database columns: they are optional, and
@@ -123,7 +124,8 @@ export const composition_interface: Record<string, FieldPair> = {
     publication_info: ["X-Publication-Info", true],
     author_secondary: ["number[]", true], // list of secondary authors
     phases: ["number[]", true],
-    tags: ["string[]", true]
+    tags: ["string[]", true],
+    citations: ["citations", true] // "Source Name: value" per line; see scripts/citations.ts
 }
 
 export const interface_data: Record<

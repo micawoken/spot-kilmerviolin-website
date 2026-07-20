@@ -345,6 +345,56 @@ export function validateURIForType(uri_type: string, uri: string): boolean {
 }
 
 /**
+ * Classifies a citation value by sniffing its shape: an https link, a DOI, or an ISBN
+ * (docs/dev/miscellaneous.txt's "data model changes" section). Unlike a composition's own
+ * publication_info, a citation carries no separate declared uri_type field, so the type is inferred
+ * from the value itself rather than looked up.
+ *
+ * @param {string} value - the candidate citation value
+ * @returns {"https" | "doi" | "isbn" | null} the detected type, or null if it matches none
+ */
+export function classifyCitationValue(value: string): "https" | "doi" | "isbn" | null {
+    const trimmed = value.trim()
+    if (trimmed === "") {
+        return null
+    }
+    if (validateURIForType("https", trimmed)) {
+        return "https"
+    }
+    if (validateURIForType("doi", trimmed)) {
+        return "doi"
+    }
+    if (isValidISBN(trimmed)) {
+        return "isbn"
+    }
+    return null
+}
+
+/**
+ * Validates a candidate citations map: an optional key-value object where each key is a non-blank source
+ * name (the link's display text) and each value is an https link, a DOI, or an ISBN. An empty object is
+ * valid (citations are optional); a non-object/array value, a blank key, or a value matching none of the
+ * three accepted formats is rejected.
+ *
+ * @param {unknown} value - the candidate citations value (already known to be present)
+ * @returns {string | null} an error message if invalid, or null if the value is acceptable
+ */
+export function validateCitations(value: unknown): string | null {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return "Citations must be a key-value object"
+    }
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        if (key.trim() === "") {
+            return "A citation's source name cannot be blank"
+        }
+        if (typeof entry !== "string" || classifyCitationValue(entry) === null) {
+            return `Citation "${key}" must be an https link, a DOI, or an ISBN`
+        }
+    }
+    return null
+}
+
+/**
  * Intl.DisplayNames instance configured to resolve ISO 3166-1 alpha-2 region codes to country names
  */
 const region_validator = new Intl.DisplayNames(["en"], { type: "region", fallback: "none" })

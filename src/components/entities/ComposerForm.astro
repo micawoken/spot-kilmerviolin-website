@@ -37,6 +37,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import { citationsToTextarea } from "../../scripts/citations"
+
 const required: boolean = Astro.props.required || false
 const hidden: boolean = Astro.props.hidden || false
 const composer: ComposerRecord | null = Astro.props.composer || null
@@ -286,6 +288,37 @@ const patch: boolean = Astro.props.patch || false
                             <span class="field-edittarget">
                                 <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
                                 <label for="form-composers-tags-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">Citations</h3>
+            <fieldset>
+                <legend>Citations</legend>
+                <div class="field-row field-row-textarea">
+                    <textarea
+                        id="form-composers-citations"
+                        name="citations"
+                        placeholder={"IMSLP: https://imslp.org/wiki/...\nGrove Music Online: 10.1000/example"}
+                        >{citationsToTextarea(composer?.citations)}</textarea
+                    >
+                    <small class="general-infohelp field-inline-help"
+                        >one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
+                        ISBN</small
+                    >
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input
+                                    type="checkbox"
+                                    id="form-composers-citations-edittarget"
+                                    name="citations-edittarget"
+                                />
+                                <label for="form-composers-citations-edittarget">Edit this field</label>
                             </span>
                         ) : null
                     }

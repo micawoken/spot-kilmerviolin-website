@@ -145,6 +145,7 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
         notes_pedagogical: record.notes_pedagogical,
         notes_other: record.notes_other,
         tags: record.tags,
+        citations: record.citations ?? {},
         entry_date: record.entry_date,
         change_date: record.change_date
     }

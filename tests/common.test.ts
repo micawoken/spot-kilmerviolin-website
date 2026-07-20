@@ -41,7 +41,8 @@ const d1_composer_record: D1Composer = {
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
     image: null,
-    tags: ""
+    tags: "",
+    citations: ""
 }
 
 const composer_record: ComposerRecord = {
@@ -55,7 +56,8 @@ const composer_record: ComposerRecord = {
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
     image: null,
-    tags: []
+    tags: [],
+    citations: {}
 }
 
 const composer: Composer = {
@@ -80,7 +82,8 @@ const d1_composer_if_new: D1Composer = {
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
     image: null,
-    tags: ""
+    tags: "",
+    citations: ""
 }
 
 const partial_composer_record: Partial<Composer> & { id: number } = {

@@ -65,9 +65,9 @@ describe("SQLStatement.finish guards", () => {
         // keys provided out of schema order, and several columns omitted entirely
         stmt.addValueGroup({ birth_year: 1900, name: "Test Person", country: "Nowhere" })
         const [command, params] = stmt.finish()
-        expect(command).toBe("INSERT INTO composers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
-        // schema order: composer_id, name, role, birth_year, death_year, country, bio, image, tags, entry_date, change_date
-        expect(params).toEqual([null, "Test Person", null, "1900", null, "Nowhere", null, null, null, null, null])
+        expect(command).toBe("INSERT INTO composers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
+        // schema order: composer_id, name, role, birth_year, death_year, country, bio, image, tags, citations, entry_date, change_date
+        expect(params).toEqual([null, "Test Person", null, "1900", null, "Nowhere", null, null, null, null, null, null])
     })
 
     it("rejects columns that are not part of the schema", () => {

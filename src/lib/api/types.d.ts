@@ -489,11 +489,14 @@ interface ComposerPrimitive {
  * @property {string} country - the composer's country as an ISO 3166-1 alpha-2 code, validated on the client and server (see lib/api/validation.ts)
  * @property {string} bio - a short biography of the composer
  * @property {string | null} image - the URL of the composer image, or null
+ * @property {Record<string, string>} [citations] - optional key-value citations: source name to an https
+ *   link, DOI, or ISBN (docs/dev/miscellaneous.txt); omitted or {} when there are none
  */
 interface Composer extends ComposerPrimitive {
     // the API representation of a composer
     // an object representation of a composer
     tags: string[] // list of tags associated with the composer
+    citations?: Record<string, string>
 }
 
 /**
@@ -519,6 +522,7 @@ interface D1Composer extends ComposerPrimitive {
     entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
     change_date: number // epoch milliseconds; last-modified date
     tags: string // comma-separated tags
+    citations: string // JSON-encoded { [sourceName]: httpsLink | doi | isbn }, "" when empty
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }
 
@@ -601,6 +605,8 @@ interface CompositionPrimitive {
  * @property {number[]} author_secondary - a list of secondary authors pointing to composer records
  * @property {number[]} phases - what phases it was in
  * @property {string[]} tags - what tags it has
+ * @property {Record<string, string>} [citations] - optional key-value citations: source name to an
+ *   https link, DOI, or ISBN (docs/dev/miscellaneous.txt); omitted or {} when there are none
  */
 interface Composition extends CompositionPrimitive {
     // the default construct for objects representing a composition
@@ -610,6 +616,7 @@ interface Composition extends CompositionPrimitive {
     author_secondary: number[] // list of secondary authors
     phases: number[]
     tags: string[]
+    citations?: Record<string, string>
 }
 
 /**
@@ -682,6 +689,7 @@ interface D1Composition extends CompositionPrimitive {
     rating_suzuki: number | null
     rating_nyssma: number | null
     tags: string // comma-separated list
+    citations: string // JSON-encoded { [sourceName]: httpsLink | doi | isbn }, "" when empty
     entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
     change_date: number // epoch milliseconds; last-modified date
     full_name?: string // generated and stored in d1, but not used in middleware and business logic

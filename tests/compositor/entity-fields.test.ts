@@ -46,7 +46,8 @@ const KINDS: readonly EntityFieldKind[] = [
     "yearOrLiving",
     "countryCode",
     "email",
-    "titleCase"
+    "titleCase",
+    "citations"
 ]
 
 describe("ENTITY_NOUNS / isEntityNoun", () => {
@@ -75,6 +76,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
             "bio",
             "image",
             "tags",
+            "citations",
             "entry_date",
             "change_date"
         ])

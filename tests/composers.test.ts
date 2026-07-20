@@ -71,3 +71,60 @@ describe("composer birth/death year consistency", () => {
         expect(_stateTypeAssertPartialComposer({ death_year: 1800 }, false)).not.toBeTypeOf("string")
     })
 })
+
+// citations is optional (docs/dev/miscellaneous.txt): a complete-mode create must still pass with the
+// field entirely absent (this is the case assertRecordBySpec's complete-mode loop does NOT auto-skip an
+// undefined field for — the base check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
+describe("composer citations validation", () => {
+    it("a complete create with no citations key passes", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer(), false)).not.toBeTypeOf("string")
+    })
+
+    it("a complete create with citations: null passes", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ citations: null }), false)).not.toBeTypeOf("string")
+    })
+
+    it("accepts an empty citations object", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ citations: {} }), false)).not.toBeTypeOf("string")
+    })
+
+    it("accepts a well-formed citations map", () => {
+        expect(
+            _stateTypeAssertCompleteComposer(
+                makeComposer({ citations: { IMSLP: "https://imslp.org/wiki/Test" } }),
+                false
+            )
+        ).not.toBeTypeOf("string")
+    })
+
+    it("rejects a citations value that is not an https link, DOI, or ISBN", () => {
+        expect(
+            _stateTypeAssertCompleteComposer(makeComposer({ citations: { IMSLP: "not-a-real-value" } }), false)
+        ).toBeTypeOf("string")
+    })
+
+    it("rejects a citations entry with a blank source name", () => {
+        expect(
+            _stateTypeAssertCompleteComposer(
+                makeComposer({ citations: { "  ": "https://imslp.org/wiki/Test" } }),
+                false
+            )
+        ).toBeTypeOf("string")
+    })
+
+    it("rejects a non-object citations value", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ citations: "not an object" }), false)).toBeTypeOf(
+            "string"
+        )
+    })
+
+    it("a partial update with no citations key is untouched (field simply absent from the diff)", () => {
+        expect(_stateTypeAssertPartialComposer({ name: "Renamed" }, false)).not.toBeTypeOf("string")
+    })
+
+    it("a partial update rejects a malformed citations value when present", () => {
+        expect(
+            _stateTypeAssertPartialComposer({ citations: { IMSLP: "not-a-real-value" } }, false)
+        ).toBeTypeOf("string")
+    })
+})

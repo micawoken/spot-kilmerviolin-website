@@ -149,7 +149,8 @@ describe("OUTLET_PROPS", () => {
                 "yearOrLiving",
                 "countryCode",
                 "email",
-                "titleCase"
+                "titleCase",
+                "citations"
             ],
             MediaText: ["image"]
         })
@@ -457,7 +458,8 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         { slug: "tags", label: "Tags", type: "list" },
         { slug: "publication_uri", label: "Publication Link", type: "uri" },
         { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
-        { slug: "country", label: "Country", type: "countryCode" }
+        { slug: "country", label: "Country", type: "countryCode" },
+        { slug: "citations", label: "Citations", type: "citations" }
     ]
 
     // Shapes exactly as entity-records.ts's normalizer produces them (references pre-resolved, no
@@ -475,7 +477,8 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         tags: ["romantic", "advanced"],
         publication_uri: { uriType: "https", uri: "https://example.test/score" },
         death_year: -1,
-        country: "DE"
+        country: "DE",
+        citations: { IMSLP: "https://imslp.org/wiki/Category:Bach,_Johann_Sebastian" }
     }
     const base = {
         label: "",
@@ -539,6 +542,13 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         const config = buildConfig(theme, "build", { entry, fields })
         const html = render(config, "ContentField", { ...base, field: "publication_uri" })
         expect(html).toContain('href="https://example.test/score"')
+    })
+
+    it("renders a citations map as a hyperlink with the source name as display text", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "citations" })
+        expect(html).toContain('href="https://imslp.org/wiki/Category:Bach,_Johann_Sebastian"')
+        expect(html).toContain(">IMSLP<")
     })
 
     it("owner decision: an empty/null value renders an EMPTY value (row still present), never a placeholder string", () => {

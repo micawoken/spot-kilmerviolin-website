@@ -34,6 +34,7 @@
  */
 import { NOT_PROVIDED } from "../../consts"
 import { countryCodeName } from "../../scripts/format"
+import { renderCitationsList } from "../../scripts/citations"
 
 const composer: ComposerRecord | null = Astro.props.composer || null
 const hidden: boolean = Astro.props.hidden || false
@@ -109,5 +110,14 @@ const dispDeath = (value: number | null | undefined): string =>
     <!-- tags follow the bio text, pulled below the head to span the full card width -->
     <div id="composer-details-tags" class="entity-result-fullwidth entity-result-details">
         <div class="entity-field"><strong>Tags:</strong> <span id="composer-tags">{disp(composer?.tags)}</span></div>
+        <!-- citations render as a comma-separated list of hyperlinks (key as display text); renderCitationsList
+         returns markup-safe HTML (every value escapeHtml-encoded), so it is emitted via set:html. Mirrored
+         client-side in populateInfo. -->
+        <div class="entity-field">
+            <strong>Citations:</strong> <span
+                id="composer-citations"
+                set:html={renderCitationsList(composer?.citations, NOT_PROVIDED)}
+            />
+        </div>
     </div>
 </div>

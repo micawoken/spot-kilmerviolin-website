@@ -64,7 +64,8 @@ export const COMPOSITION_LABELS = {
     notesHistorical: "Historical Notes",
     notesPedagogical: "Pedagogical Notes",
     notesOther: "Other Notes",
-    tags: "Tags"
+    tags: "Tags",
+    citations: "Citations"
 } as const
 
 /** "Not supplied" copy for each field. Mirrors `CompositionInfo.astro`'s `disp()`/anchor placeholder args. */

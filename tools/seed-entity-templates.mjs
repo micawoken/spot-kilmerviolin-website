@@ -94,6 +94,7 @@ const COMPOSER_DOC = doc([
         ]),
         contentField("bio"),
         contentField("tags"),
+        contentField("citations"),
         divider(),
         row([contentField("entry_date"), contentField("change_date")])
     ])
@@ -134,6 +135,7 @@ const COMPOSITION_DOC = doc([
         heading("Notes"),
         columns([[contentField("notes_historical")], [contentField("notes_pedagogical")], [contentField("notes_other")]]),
         contentField("tags"),
+        contentField("citations"),
         divider(),
         row([contentField("entry_date"), contentField("change_date")])
     ])

@@ -38,6 +38,7 @@
 import { NOT_PROVIDED } from "../../consts"
 import { COMPOSITION_LABELS, COMPOSITION_PLACEHOLDERS, displayValue } from "../../lib/compositor/composition-fields"
 import { renderPublicationUri } from "../../scripts/publication"
+import { renderCitationsList } from "../../scripts/citations"
 import {
     renderContributorRefLink,
     renderContributorRefLinks,
@@ -242,6 +243,15 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
         <div id="composition-details-tags" class="entity-result-details">
             <div class="entity-field">
                 <strong>{COMPOSITION_LABELS.tags}:</strong> <span id="composition-tags">{disp(composition?.tags)}</span>
+            </div>
+            <!-- citations render as a comma-separated list of hyperlinks (key as display text);
+             renderCitationsList returns markup-safe HTML, so it is emitted via set:html. Mirrored client-side
+             in populateInfo. -->
+            <div class="entity-field">
+                <strong>{COMPOSITION_LABELS.citations}:</strong> <span
+                    id="composition-citations"
+                    set:html={renderCitationsList(composition?.citations, NOT_PROVIDED)}
+                />
             </div>
         </div>
     </div>

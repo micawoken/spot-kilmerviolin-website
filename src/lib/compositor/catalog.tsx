@@ -82,6 +82,10 @@ import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl, type Medi
 // link, the one composite field this catalog still knows the shape of. Safe to import into both the
 // editor (browser) and build (Node) targets.
 import { renderPublicationUri } from "../../scripts/publication"
+// scripts/citations.ts is likewise framework-agnostic (only imports ./escape and lib/api/validation, which
+// itself carries no server-only bindings) — ContentField's "citations" kind reuses it so the public render
+// matches the admin Info cards' rendering exactly.
+import { renderCitationsList } from "../../scripts/citations"
 // scripts/format.ts is likewise framework-agnostic (only Intl + a consts import) — reused here so the
 // composer death_year/country special cases render identically to the admin's ComposerInfo.astro/
 // format.ts treatment, rather than a second hand-written copy of the same "-1 => Present" / code=>name logic.
@@ -157,7 +161,8 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
         "yearOrLiving",
         "countryCode",
         "email",
-        "titleCase"
+        "titleCase",
+        "citations"
     ],
     MediaText: ["image"]
 }
@@ -790,6 +795,15 @@ function PublicationUriValue({ value }: { value: ResolvedReferenceLike & { uriTy
     return <span dangerouslySetInnerHTML={{ __html: renderPublicationUri(uriType, uri, "") }} />
 }
 
+/** A composer/composition's citations map, rendered as comma-separated hyperlinks (see citations.ts). */
+function CitationsValue({ value }: { value: Record<string, unknown> }) {
+    const citations: Record<string, string> = {}
+    for (const [key, entry] of Object.entries(value)) {
+        if (typeof entry === "string") citations[key] = entry
+    }
+    return <span dangerouslySetInnerHTML={{ __html: renderCitationsList(citations, "") }} />
+}
+
 /** Long-form date formatting for `entry_date`/`change_date` (fixed locale/options — build output must
  * be deterministic, so this never reads the reader's locale). `timeZone: "UTC"` is load-bearing: D1
  * stores these as epoch-millisecond instants; formatting in the build machine's local timezone would
@@ -822,6 +836,8 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
             return Array.isArray(value) ? <ReferenceLinkList values={value} /> : ""
         case "uri":
             return isRecord(value) ? <PublicationUriValue value={value} /> : ""
+        case "citations":
+            return isRecord(value) ? <CitationsValue value={value} /> : ""
         case "list":
             return Array.isArray(value)
                 ? value.filter((item) => item !== null && item !== undefined && item !== "").join(", ")

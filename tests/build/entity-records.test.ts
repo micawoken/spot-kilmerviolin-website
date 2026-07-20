@@ -40,6 +40,7 @@ const composer: D1Composer = {
     bio: "",
     image: null,
     tags: "",
+    citations: "",
     entry_date: 1767225600000,
     change_date: 1767225600000
 }
@@ -96,6 +97,7 @@ const composition: D1Composition = {
     phases: "",
     entry_date: 1767225600000,
     tags: "",
+    citations: "",
     change_date: 1767225600000
 }
 

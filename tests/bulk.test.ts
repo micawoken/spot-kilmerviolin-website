@@ -79,6 +79,7 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
+citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 );`
@@ -110,6 +111,7 @@ notes_other TEXT,
 image TEXT,
 phases TEXT NOT NULL,
 tags TEXT,
+citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 );`

@@ -74,6 +74,7 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
+citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 );`
@@ -164,6 +165,19 @@ describe("composer CRUD with cache invalidation", () => {
         expect(record!.birth_year).toBe(1900)
         expect(record!.tags).toEqual(["test", "baroque"])
         expect(record!.image).toBeNull()
+    })
+
+    it("citations is optional: a composer created without it defaults to an empty object", async () => {
+        const id = await withCtx(ctx => addComposer(ctx, makeComposer("No-Citations Composer")))
+        const record = await withCtx(ctx => getComposer(ctx, "composer_id", String(id)))
+        expect(record!.citations).toEqual({})
+    })
+
+    it("a well-formed citations map round-trips through the D1 write/read path", async () => {
+        const composer = { ...makeComposer("Cited Composer"), citations: { IMSLP: "https://imslp.org/wiki/Cited" } }
+        const id = await withCtx(ctx => addComposer(ctx, composer))
+        const record = await withCtx(ctx => getComposer(ctx, "composer_id", String(id)))
+        expect(record!.citations).toEqual({ IMSLP: "https://imslp.org/wiki/Cited" })
     })
 
     it("list reflects inserts made after the table was cached (Cache API + KV invalidation)", async () => {

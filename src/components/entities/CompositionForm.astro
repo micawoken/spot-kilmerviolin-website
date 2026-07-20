@@ -48,6 +48,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { WorkType, Key } from "../../lib/api/common"
+import { citationsToTextarea } from "../../scripts/citations"
 
 const required: boolean = Astro.props.required || false
 const hidden: boolean = Astro.props.hidden || false
@@ -661,6 +662,37 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                             <span class="field-edittarget">
                                 <input type="checkbox" id="form-composition-tags-edittarget" name="tags-edittarget" />
                                 <label for="form-composition-tags-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">Citations</h3>
+            <fieldset>
+                <legend>Citations</legend>
+                <div class="field-row field-row-textarea">
+                    <textarea
+                        id="form-composition-citations"
+                        name="citations"
+                        placeholder={"IMSLP: https://imslp.org/wiki/...\nGrove Music Online: 10.1000/example"}
+                        >{citationsToTextarea(composition?.citations)}</textarea
+                    >
+                    <small class="general-infohelp field-inline-help"
+                        >one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
+                        ISBN</small
+                    >
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input
+                                    type="checkbox"
+                                    id="form-composition-citations-edittarget"
+                                    name="citations-edittarget"
+                                />
+                                <label for="form-composition-citations-edittarget">Edit this field</label>
                             </span>
                         ) : null
                     }

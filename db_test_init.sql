@@ -99,6 +99,7 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
+citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 */
@@ -112,6 +113,7 @@ INSERT INTO composers VALUES (
     "Doing some counterpoint",
     NULL,
     "test-tag,commaless,",
+    NULL, -- citations
     1704067200000, -- entry_date (creation)
     1704067200000  -- change_date (last modified)
 ), (
@@ -124,6 +126,7 @@ INSERT INTO composers VALUES (
     "americaaaaaaa",
     "https://mwmsc.net/favicon.ico",
     ",",
+    '{"IMSLP":"https://imslp.org/wiki/Category:Barber,_Samuel"}', -- citations
     1704067200000,
     1704067200000
 ), (
@@ -136,6 +139,7 @@ INSERT INTO composers VALUES (
     "A test composer",
     NULL,
     "test",
+    NULL, -- citations
     1704067200000,
     1704067200000
 );
@@ -166,6 +170,7 @@ notes_other TEXT,
 image TEXT,
 phases TEXT NOT NULL,
 tags TEXT,
+citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL,
 */
@@ -197,6 +202,7 @@ INSERT INTO compositions VALUES (
     NULL,
     "1,2",
     "test,", -- tags
+    NULL, -- citations
     1704067200000, -- entry_date (creation)
     1704067200000  -- change_date (last modified)
 ), (
@@ -226,6 +232,7 @@ INSERT INTO compositions VALUES (
     "https://mwmsc.net/favicon.ico",
     "3,4",
     "test,barber", -- tags
+    '{"IMSLP":"https://imslp.org/wiki/Category:Barber,_Samuel","DOI Example":"10.1000/testdoi"}', -- citations
     1704067200000, -- entry_date (creation)
     1704067200000  -- change_date (last modified)
 );
