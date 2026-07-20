@@ -6,6 +6,14 @@
  * longer exists as a route now that public pages are prerendered — is served from the Cloudflare ASSETS
  * binding with no D1 or KV lookup.
  *
+ * Designable (8-task plan #8): an owner can author the 404 body through the compositor, the same way they
+ * author any other design page, by giving a `design_page` the reserved slug `NOT_FOUND_PAGE_SLUG` (see its
+ * doc comment in lib/build/design-api.ts) in /admin/designs. That page is looked up here, linted the same
+ * way [...slug].astro lints every design page (loud and early — a design that fails the a11y/safety lint
+ * must not reach the public 404), and rendered through the same zero-JS Puck path. With no such page
+ * published, this falls back to the original static markup below, so a fresh build with no CMS content
+ * still ships a working Not Found page.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,14 +30,62 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import { Render } from "@puckeditor/core/rsc"
+
 import PublicPage from "../layouts/PublicPage.astro"
+import { fetchPublishedDesignPages, fetchPublishedTheme, NOT_FOUND_PAGE_SLUG, partitionDesignPages } from "../lib/build/design-api"
+import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
+import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
+import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
+import compositorCss from "../lib/compositor/compositor.css?raw"
 
 export const prerender = true
+
+const [designPages, theme] = await Promise.all([fetchPublishedDesignPages(), fetchPublishedTheme()])
+const { notFoundPage } = partitionDesignPages(designPages)
+
+if (notFoundPage) {
+    const findings = lintDesign(notFoundPage.doc, theme, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
+    for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
+        console.warn(`[build] 404 design page — ${finding.path}: ${finding.message}`)
+    }
+    if (hasBlockingError(findings)) {
+        const errors = findings
+            .filter((finding) => finding.severity === "error")
+            .map((finding) => `  ${finding.path}: ${finding.message}`)
+            .join("\n")
+        throw new Error(
+            `[build] the reserved "${NOT_FOUND_PAGE_SLUG}" design page fails the design lint and cannot be ` +
+                `published:\n${errors}\nFix it in /admin/designs, or unpublish the page to fall back to the ` +
+                "static Not Found page."
+        )
+    }
+}
+
+const title = notFoundPage?.title || "Page not found"
+const description = notFoundPage?.description || "The page you requested does not exist."
 ---
 
-<PublicPage title="Page not found" description="The page you requested does not exist.">
-    <article>
-        <h1>Page not found</h1>
-        <p>The page you requested does not exist. <a href="/">Return home</a>.</p>
-    </article>
-</PublicPage>
+{
+    notFoundPage ? (
+        <PublicPage title={title} description={description}>
+            <style slot="head" set:html={compositorCss} />
+            {/* No entry (a design_page, same as [...slug].astro's design_page branch): outlets render
+                nothing. No client directive → server-rendered, zero JS. */}
+            <Render
+                config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
+                    entry: null,
+                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+                })}
+                data={notFoundPage.doc.puck}
+            />
+        </PublicPage>
+    ) : (
+        <PublicPage title={title} description={description}>
+            <article>
+                <h1>Page not found</h1>
+                <p>The page you requested does not exist. <a href="/">Return home</a>.</p>
+            </article>
+        </PublicPage>
+    )
+}

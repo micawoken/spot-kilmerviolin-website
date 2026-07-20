@@ -52,6 +52,7 @@ import {
     fetchPublishedDesignPages,
     fetchPublishedTemplates,
     fetchPublishedTheme,
+    partitionDesignPages,
     type CollectionField
 } from "../lib/build/design-api"
 import { collectRoutes } from "../lib/build/route-authority"
@@ -70,13 +71,18 @@ export const prerender = true
 // The page authored with slug "home" is the site's designated home page and is routed to "/" (an undefined
 // rest-param matches the route's root) instead of "/home", so there is exactly one URL for it.
 export async function getStaticPaths() {
-    const [pages, posts, designPages, templates, theme] = await Promise.all([
+    const [pages, posts, allDesignPages, templates, theme] = await Promise.all([
         fetchPublishedPages(),
         fetchPublishedPosts(),
         fetchPublishedDesignPages(),
         fetchPublishedTemplates(),
         fetchPublishedTheme()
     ])
+
+    // The reserved 404 design page is owned entirely by pages/404.astro (its own fetch, lint, and
+    // render) — excluded here so it never claims a live "/404" route or a duplicate-slug collision
+    // against it. See partitionDesignPages' doc comment.
+    const { routable: designPages } = partitionDesignPages(allDesignPages)
 
     // Lint every published design before it can reach the build output. Errors are the a11y/safety rules
     // the editor's Publish dialog already blocks on; reaching here means a design was published around the

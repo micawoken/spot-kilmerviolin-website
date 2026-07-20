@@ -20,7 +20,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-import { fetchPublishedEntityTemplates, fetchPublishedTemplates } from "../../src/lib/build/design-api"
+import {
+    fetchPublishedEntityTemplates,
+    fetchPublishedTemplates,
+    NOT_FOUND_PAGE_SLUG,
+    partitionDesignPages,
+    type BuildDesignPage
+} from "../../src/lib/build/design-api"
 import { CmsReadError } from "../../src/lib/build/emdash-api"
 import { emptyDesignDoc } from "../../src/lib/compositor/migrations"
 
@@ -216,5 +222,32 @@ describe("fetchPublishedTemplates — EmDash's 1/0 boolean encoding", () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: both } })))
 
         await expect(fetchPublishedTemplates()).resolves.toMatchObject([{ isDefault: true }, { isDefault: false }])
+    })
+})
+
+/** A published `design_page` fixture, as `fetchPublishedDesignPages` flattens it. */
+function designPage(slug: string, overrides: Partial<BuildDesignPage> = {}): BuildDesignPage {
+    return { slug, title: `Page ${slug}`, description: "", doc: emptyDesignDoc(), ...overrides }
+}
+
+describe("partitionDesignPages", () => {
+    it("routes every ordinary design page and reports no 404 page when none is published", () => {
+        const pages = [designPage("about"), designPage("home")]
+
+        expect(partitionDesignPages(pages)).toEqual({ routable: pages, notFoundPage: null })
+    })
+
+    it("pulls the reserved-slug page out of the routable set", () => {
+        const about = designPage("about")
+        const notFound = designPage(NOT_FOUND_PAGE_SLUG, { title: "Not found" })
+
+        const { routable, notFoundPage } = partitionDesignPages([about, notFound, designPage("home")])
+
+        expect(routable.map((page) => page.slug)).toEqual(["about", "home"])
+        expect(notFoundPage).toEqual(notFound)
+    })
+
+    it("reports no 404 page, and no exclusion, when the list is empty", () => {
+        expect(partitionDesignPages([])).toEqual({ routable: [], notFoundPage: null })
     })
 })

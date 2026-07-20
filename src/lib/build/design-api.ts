@@ -112,6 +112,42 @@ export type { TemplateCollection }
 export const TEMPLATE_NONE_SLUG = "none"
 
 /**
+ * The reserved item slug that designates a `design_page` as the site's Not Found page (8-task plan #8).
+ * An owner makes the 404 page editable through the compositor the same way they author any other design
+ * page — by giving it this slug in `/admin/designs`. `pages/404.astro` looks it up directly and renders
+ * it through the same Puck path `[...slug].astro` uses for an untemplated design page (kind "design",
+ * `entry: null`).
+ *
+ * Unlike every other design page, a page with this slug is deliberately EXCLUDED from `[...slug].astro`'s
+ * route table (see its `getStaticPaths`): claiming a real "/404" URL would be redundant with (and
+ * confusing next to) the dedicated static `dist/404.html` that Cloudflare's ASSETS binding serves for any
+ * unmatched path, and — unlike "home" → "/" — there is no second path this slug should ALSO own.
+ */
+export const NOT_FOUND_PAGE_SLUG = "404"
+
+/**
+ * Splits a fetched `design_page` list into the routable set `[...slug].astro` builds a route table from
+ * and the reserved 404 page (if published), so the two callers that must agree on this split — the
+ * catch-all route and `pages/404.astro` — share one definition instead of two independent filters that
+ * could quietly drift apart. EmDash enforces per-collection slug uniqueness, so at most one page matches.
+ *
+ * @param {BuildDesignPage[]} designPages - every published design page, as `fetchPublishedDesignPages` returns it
+ * @returns {{ routable: BuildDesignPage[]; notFoundPage: BuildDesignPage | null }} the split
+ */
+export function partitionDesignPages(designPages: BuildDesignPage[]): {
+    routable: BuildDesignPage[]
+    notFoundPage: BuildDesignPage | null
+} {
+    const routable: BuildDesignPage[] = []
+    let notFoundPage: BuildDesignPage | null = null
+    for (const designPage of designPages) {
+        if (designPage.slug === NOT_FOUND_PAGE_SLUG) notFoundPage = designPage
+        else routable.push(designPage)
+    }
+    return { routable, notFoundPage }
+}
+
+/**
  * What a `design_template.collection` field may legitimately target across the whole system: an EmDash
  * collection routed by `route-authority.ts` (`TemplateCollection`), or a D1-backed entity noun routed by
  * `entity-routes.ts` (`EntityNoun`). Deliberately wider than `TemplateCollection` alone, and deliberately
