@@ -901,9 +901,12 @@ export async function getSite(): Promise<any | null> {
 /**
  * POST /api/v1/site
  * Trigger rebuild
+ *
+ * @param elevate optional; if true and the user is an admin, enforces the shorter admin-override cooldown
+ *   instead of the standard one
  */
-export async function rebuildSite(): Promise<any | null> {
-    return requestPayload(composeUrl("site"), { method: "POST" })
+export async function rebuildSite(elevate?: boolean): Promise<any | null> {
+    return requestPayload(composeUrl("site"), jsonInit("POST", undefined, { elevate: elevate }))
 }
 
 /**

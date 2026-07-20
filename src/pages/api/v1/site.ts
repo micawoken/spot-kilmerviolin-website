@@ -28,6 +28,7 @@
 import type { APIRoute } from "astro"
 import { auth_check } from "../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { parseAPIRequest } from "../../../lib/api/common"
 import verinfo from "../../../lib/api/verinfo"
 import rebuild, { RebuildCooldownError } from "../../../lib/api/rebuild"
 import { purgeCacheAll } from "../../../lib/api/database"
@@ -67,7 +68,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: rebuild (assigned to every role that carries cms_editor and/or design_editor,
  * since a rebuild only publishes content or design changes)
  *
- * Meta: none
+ * Meta: optional
+ * Meta fields:
+ *  - elevate: {boolean} if true, and the user is an admin, enforce the shorter admin-override cooldown
+ *    (see ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC in rebuild.ts) instead of the standard REBUILD_COOLDOWN_SEC
+ *    window; defaults to false
+ *
  * Body: none
  *
  * @param context - the Astro API context
@@ -84,8 +90,14 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (detectEnvironment(request) === "development") {
         return constructResponse(request, null, 403, "Site rebuild is disabled in the development environment")
     }
+    // parse api request (elevate is optional, defaults to false; mirrors the contributors/works convention)
+    const api_request = await parseAPIRequest(request, [])
+    if (api_request instanceof Error) {
+        return constructResponse(request, null, 400, api_request.message)
+    }
+    const is_elevated_admin = api_request.meta?.elevate === true && locals.identity?.admin === true
     try {
-        const data = await rebuild()
+        const data = await rebuild(is_elevated_admin)
         return constructResponse(request, data, 200)
     } catch (error) {
         // a rebuild requested too soon after the last build is rejected as 429, surfacing the wait time

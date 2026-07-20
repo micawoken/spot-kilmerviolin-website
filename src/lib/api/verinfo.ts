@@ -27,6 +27,7 @@
 
 import { env } from "cloudflare:workers"
 import { authEnabled, dbWriteEnabled, detectEnvironment, richErrors } from "./environment"
+import { ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC } from "./rebuild"
 
 export default function verinfo(request: Request) {
     const data = env.CF_VERSION_METADATA
@@ -39,7 +40,10 @@ export default function verinfo(request: Request) {
             errordesc: richErrors(request),
             // minimum wait (seconds) after this build before another rebuild may be triggered; the client
             // uses it together with the build timestamp above to block early rebuild requests
-            rebuild_cooldown_sec: Number(env.REBUILD_COOLDOWN_SEC)
+            rebuild_cooldown_sec: Number(env.REBUILD_COOLDOWN_SEC),
+            // shorter cooldown available to admins via the rebuild page's override checkbox (meta.elevate);
+            // hard-coded rather than env-sourced (see rebuild.ts)
+            admin_rebuild_cooldown_sec: ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC
         },
         environment: {
             name: detectEnvironment(request),
