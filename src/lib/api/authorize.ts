@@ -8,18 +8,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -38,7 +42,8 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: false,
         conferrable: true,
         cms_editor: false,
-        design_editor: false
+        design_editor: false,
+        rebuild: false
     },
     userenroll: {
         overrides_lockout: false,
@@ -47,7 +52,8 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: true,
         conferrable: false,
         cms_editor: false,
-        design_editor: false
+        design_editor: false,
+        rebuild: false
     },
     siteeditor: {
         overrides_lockout: false,
@@ -56,7 +62,29 @@ export const roles: Record<string, RoleProfile> = {
         user_addition: false,
         conferrable: false,
         cms_editor: true,
-        design_editor: true
+        design_editor: true,
+        rebuild: true
+    },
+    designonly: {
+        overrides_lockout: false,
+        lockout_ignore_admin: false,
+        user_activation: false,
+        user_addition: false,
+        conferrable: false,
+        cms_editor: false,
+        design_editor: true,
+        rebuild: true
+    },
+    contentonly: {
+        overrides_lockout: false,
+        lockout_ignore_admin: false,
+        user_activation: false,
+        user_addition: false,
+        // per doc: only the content-only role is inheritable (conferrable) between the two
+        conferrable: true,
+        cms_editor: true,
+        design_editor: false,
+        rebuild: true
     }
 }
 
@@ -74,13 +102,14 @@ const PERMISSION_KEYS = [
     "user_addition",
     "conferrable",
     "cms_editor",
-    "design_editor"
+    "design_editor",
+    "rebuild"
 ] as const satisfies readonly (keyof RoleProfile)[]
 
 // compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in
 // PERMISSION_KEYS, the conditional resolves to `false` and this type fails its `extends true` constraint
 type _Assert<T extends true> = T
-type _PermissionKeysExhaustive = _Assert<keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false>
+export type _PermissionKeysExhaustive = _Assert<keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false>
 
 /**
  * Filters a list of role names down to those defined in {@link roles}. This is the server-side guard
@@ -226,17 +255,17 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
                       .map((p: string) => parseInt(p.trim()))
                       .filter((p: number) => !isNaN(p))
                 : [],
-        entry_date: record ? record.entry_date : "",
+        entry_date: record ? record.entry_date : null,
         // the remaining non-authorization profile fields are stashed here so self-service flows can read
         // the acting user's own record straight from the identity rather than issuing a second lookup
         // (authorization state — roles/admin/active/id and the sign-in identity_email — is excluded; it
-        // lives on the Identity proper). Nullable columns default to null, change_date to "" when no record.
+        // lives on the Identity proper). Nullable columns default to null, including entry_date/change_date when no record.
         class_year: record ? record.class_year : null,
         major: record ? record.major : null,
         bio: record ? record.bio : null,
         public_email: record ? record.public_email : null,
         image: record ? record.image : null,
-        change_date: record ? record.change_date : "",
+        change_date: record ? record.change_date : null,
         ok: record !== null
     }
     return {

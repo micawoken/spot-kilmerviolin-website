@@ -4,18 +4,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -24,8 +28,25 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { guardPage } from "../../../lib/api/page_auth"
+import { ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC } from "../../../lib/api/rebuild"
 
 export const prerender = false
+
+// a rebuild only publishes content or design changes, so access is gated on the dedicated rebuild
+// permission (assigned to every role carrying cms_editor and/or design_editor; mirrors POST /api/v1/site)
+const denied = guardPage(Astro.request, Astro.locals.identity, {
+    kind: "permission",
+    permissions: ["rebuild"]
+})
+if (denied) {
+    return denied
+}
+
+// the cooldown override is an admin-only escape hatch; the checkbox is only ever rendered for an admin,
+// mirroring the show_elevate convention on CompositionForm/ContributorForm. This is a UI convenience only:
+// the server independently re-checks admin status on the meta.elevate flag (see POST /api/v1/site)
+const is_admin = Astro.locals.identity?.admin === true
 ---
 
 <!doctype html>
@@ -50,6 +71,23 @@ export const prerender = false
                 not be made public until you rebuild.
             </p>
             <button type="button" id="site-rebuild-button">Rebuild site</button>
+            {
+                is_admin ? (
+                    <div class="form-section">
+                        <h3 class="form-section-title">Administrative Options</h3>
+                        <fieldset>
+                            <legend>Admin Cooldown Override</legend>
+                            <input type="checkbox" id="site-rebuild-admin-override" name="elevate" />
+                            <label for="site-rebuild-admin-override">Use administrator cooldown override</label>
+                            <p class="general-warning">
+                                When checked, a rebuild may be triggered as often as once every{" "}
+                                {ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC} seconds instead of the standard cooldown. Use
+                                sparingly, as rebuilds consume Worker Builds compute minutes.
+                            </p>
+                        </fieldset>
+                    </div>
+                ) : null
+            }
             <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
             <script>
                 import { rebuildSite, getSite } from "../../../scripts/connector"
@@ -57,6 +95,9 @@ export const prerender = false
 
                 const button = document.getElementById("site-rebuild-button") as HTMLButtonElement
                 const message = getTransactionElem()
+                // absent entirely for a non-admin (see is_admin in the frontmatter); the server independently
+                // re-checks admin status on the meta.elevate flag, so this checkbox is a UI convenience only
+                const overrideCheckbox = document.getElementById("site-rebuild-admin-override") as HTMLInputElement | null
 
                 /**
                  * Detects whether the page is being served from a local development build, mirroring the
@@ -69,10 +110,13 @@ export const prerender = false
                     return hostname === "localhost" || hostname === "127.0.0.1"
                 }
 
-                // The earliest time (epoch ms) at which a rebuild is permitted, derived from the current build's
-                // timestamp plus its cooldown. While the cooldown is active the button stays disabled so the user
-                // cannot press it (and the rebuild request is never sent); the server enforces the same window.
+                // The earliest time (epoch ms) at which a standard rebuild is permitted, derived from the current
+                // build's timestamp plus the standard cooldown.
                 let allowedAt = 0
+                // The earliest time (epoch ms) at which an admin-override rebuild is permitted, derived from the
+                // same build timestamp plus the shorter override cooldown. Only ever consulted when the override
+                // checkbox is present and checked; the server enforces the same window on meta.elevate.
+                let overrideAllowedAt = 0
 
                 /**
                  * Formats a duration in seconds as a short "Xm Ys" (or "Ys") string for the cooldown notice.
@@ -86,12 +130,18 @@ export const prerender = false
                 /**
                  * Re-evaluates the cooldown: disables the button and shows the remaining wait while it is active,
                  * re-enabling it once the window elapses. Schedules itself to refresh while a cooldown is pending.
+                 * Consults the override cooldown instead of the standard one whenever the admin-only override
+                 * checkbox is present and checked.
                  */
                 function refreshCooldown(): void {
-                    const remaining = Math.ceil((allowedAt - Date.now()) / 1000)
+                    const overridden = overrideCheckbox?.checked === true
+                    const effectiveAllowedAt = overridden ? overrideAllowedAt : allowedAt
+                    const remaining = Math.ceil((effectiveAllowedAt - Date.now()) / 1000)
                     if (remaining > 0) {
                         button.disabled = true
-                        message.textContent = `Too soon since the last rebuild. You can rebuild again in ${formatWait(remaining)}.`
+                        message.textContent = overridden
+                            ? `Too soon since the last rebuild. With the admin override, you can rebuild again in ${formatWait(remaining)}.`
+                            : `Too soon since the last rebuild. You can rebuild again in ${formatWait(remaining)}.`
                         window.setTimeout(refreshCooldown, 1000)
                     } else {
                         button.disabled = false
@@ -104,33 +154,44 @@ export const prerender = false
                     button.disabled = true
                     message.textContent = "Site rebuild is disabled in the development environment."
                 } else {
-                    // On load, read the current build's timestamp and cooldown to gate the button before any click.
+                    // On load, read the current build's timestamp and cooldowns to gate the button before any click.
                     try {
                         const info = await getSite()
                         const built = info?.timestamp ? Date.parse(info.timestamp) : NaN
                         const cooldownSec = Number(info?.settings?.rebuild_cooldown_sec)
+                        const overrideCooldownSec = Number(info?.settings?.admin_rebuild_cooldown_sec)
                         if (!isNaN(built) && !isNaN(cooldownSec)) {
                             allowedAt = built + cooldownSec * 1000
-                            refreshCooldown()
                         }
+                        if (!isNaN(built) && !isNaN(overrideCooldownSec)) {
+                            overrideAllowedAt = built + overrideCooldownSec * 1000
+                        }
+                        refreshCooldown()
                     } catch (error) {
                         // a failure to read build info should not block manual rebuilds; the server still enforces the cooldown
                         console.error(error)
                     }
 
+                    // toggling the checkbox switches which cooldown gates the button, so re-evaluate immediately
+                    overrideCheckbox?.addEventListener("change", refreshCooldown)
+
                     button.addEventListener("click", async () => {
-                        if (Date.now() < allowedAt) {
+                        const overridden = overrideCheckbox?.checked === true
+                        if (Date.now() < (overridden ? overrideAllowedAt : allowedAt)) {
                             // guard against a click slipping through before the cooldown UI refreshes
                             refreshCooldown()
                             return
                         }
-                        if (!confirm("Are you sure you want to trigger a site rebuild and redeploy?")) {
+                        const confirmMessage = overridden
+                            ? "Are you sure you want to use the admin cooldown override to trigger a site rebuild and redeploy?"
+                            : "Are you sure you want to trigger a site rebuild and redeploy?"
+                        if (!confirm(confirmMessage)) {
                             return
                         }
                         message.textContent = "Processing request..."
                         button.disabled = true
                         try {
-                            await rebuildSite()
+                            await rebuildSite(overridden)
                             message.textContent =
                                 "Request succeeded: rebuild triggered. The new build will be live in a few minutes."
                         } catch (error) {

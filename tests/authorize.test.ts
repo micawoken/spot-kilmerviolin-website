@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -72,8 +76,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 /** Builds an Identity, overriding only the fields a given test cares about. */
@@ -89,7 +93,7 @@ function makeIdentity(overrides: Partial<Identity> = {}): Identity {
         roles: [] as string[],
         id: 1,
         admin: false,
-        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: "", class_year: null, major: null, bio: null, public_email: null, image: null, change_date: "" },
+        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: null, class_year: null, major: null, bio: null, public_email: null, image: null, change_date: null },
         ...overrides,
     }
     // derive permissions from the (possibly overridden) roles unless a test pins them explicitly, mirroring

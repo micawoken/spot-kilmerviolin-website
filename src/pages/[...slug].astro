@@ -26,18 +26,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -52,9 +56,10 @@ import {
     fetchPublishedDesignPages,
     fetchPublishedTemplates,
     fetchPublishedTheme,
+    partitionDesignPages,
     type CollectionField
 } from "../lib/build/design-api"
-import { collectRoutes } from "../lib/build/route-authority"
+import { breadcrumbAncestors, collectRoutes } from "../lib/build/route-authority"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
@@ -70,13 +75,18 @@ export const prerender = true
 // The page authored with slug "home" is the site's designated home page and is routed to "/" (an undefined
 // rest-param matches the route's root) instead of "/home", so there is exactly one URL for it.
 export async function getStaticPaths() {
-    const [pages, posts, designPages, templates, theme] = await Promise.all([
+    const [pages, posts, allDesignPages, templates, theme] = await Promise.all([
         fetchPublishedPages(),
         fetchPublishedPosts(),
         fetchPublishedDesignPages(),
         fetchPublishedTemplates(),
         fetchPublishedTheme()
     ])
+
+    // The reserved 404 design page is owned entirely by pages/404.astro (its own fetch, lint, and
+    // render) — excluded here so it never claims a live "/404" route or a duplicate-slug collision
+    // against it. See partitionDesignPages' doc comment.
+    const { routable: designPages } = partitionDesignPages(allDesignPages)
 
     // Lint every published design before it can reach the build output. Errors are the a11y/safety rules
     // the editor's Publish dialog already blocks on; reaching here means a design was published around the
@@ -142,7 +152,7 @@ export async function getStaticPaths() {
 
     return routes.map((route) => ({
         params: { slug: route.slug === "home" ? undefined : route.slug },
-        props: { ...route.props, theme }
+        props: { ...route.props, theme, breadcrumbs: breadcrumbAncestors(routes, route.slug) }
     }))
 }
 
@@ -180,7 +190,9 @@ const headCss = props.kind === "design" ? compositorCss : ""
             <Render
                 config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: props.entry,
-                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
+                    breadcrumbs: props.breadcrumbs,
+                    pageTitle: props.title
                 })}
                 data={props.doc.puck}
             />

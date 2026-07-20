@@ -3,24 +3,28 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { describe, it, expect } from "vitest"
 
-import { collectRoutes } from "../../src/lib/build/route-authority"
+import { breadcrumbAncestors, collectRoutes } from "../../src/lib/build/route-authority"
 import { TEMPLATE_NONE_SLUG, type BuildDesignPage, type BuildTemplate } from "../../src/lib/build/design-api"
 import type { BuildPage } from "../../src/lib/build/emdash-api"
 import type { DesignDoc } from "../../src/lib/compositor/types"
@@ -446,6 +450,51 @@ describe("collectRoutes — posts are routed under the /posts/ prefix", () => {
         const { routes } = collectRoutes({ pages: [], posts: [post("home")], designPages: [], templates: [] })
 
         expect(routes[0].slug).toBe("posts/home")
+    })
+})
+
+describe("breadcrumbAncestors — auto-derives the trail's ancestor crumbs", () => {
+    it("gives a post the fixed, unlinked Posts ancestor regardless of the route table", () => {
+        const { routes } = collectRoutes({ pages: [], posts: [post("first")], designPages: [], templates: [] })
+        expect(breadcrumbAncestors(routes, "posts/first")).toEqual([{ label: "Posts", href: null }])
+    })
+
+    it("returns no ancestors for a top-level slug", () => {
+        const { routes } = collectRoutes({ pages: [page("about")], posts: [], designPages: [], templates: [] })
+        expect(breadcrumbAncestors(routes, "about")).toEqual([])
+    })
+
+    it("walks each prefix that resolves to a real published route", () => {
+        const { routes } = collectRoutes({
+            pages: [page("about"), page("about/team")],
+            posts: [],
+            designPages: [],
+            templates: []
+        })
+        expect(breadcrumbAncestors(routes, "about/team")).toEqual([{ label: "Page about", href: "/about" }])
+    })
+
+    it("stops at the first prefix that does not resolve, rather than skipping the gap", () => {
+        const { routes } = collectRoutes({
+            pages: [page("a/b/c")],
+            posts: [],
+            designPages: [designPage("a/b")], // "a" itself is not published, only "a/b"
+            templates: []
+        })
+        expect(breadcrumbAncestors(routes, "a/b/c")).toEqual([])
+    })
+
+    it("includes a deeper valid prefix once the shallower one resolves", () => {
+        const { routes } = collectRoutes({
+            pages: [page("a")],
+            posts: [],
+            designPages: [designPage("a/b"), designPage("a/b/c")],
+            templates: []
+        })
+        expect(breadcrumbAncestors(routes, "a/b/c")).toEqual([
+            { label: "Page a", href: "/a" },
+            { label: "Design a/b", href: "/a/b" }
+        ])
     })
 })
 

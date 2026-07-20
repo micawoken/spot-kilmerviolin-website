@@ -6,21 +6,26 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { env } from "cloudflare:workers"
 import { createAPIPayload, sanitizeInputStrings } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
 import { richErrors, isActiveRequestDev } from "./environment"
@@ -107,15 +112,11 @@ export const preflight_headers = {
 }
 
 /**
- * A fallback origin to use for CORS headers when a request does not include an allowed "Origin"
- */
-export const cors_fallback_origin = "https://spot-kilmer-violin-website.mwmsc.workers.dev" // temporary, workers.dev domain
-
-/**
  * Resolves the value to send in Access-Control-Allow-Origin for a request.
  *
  * @param {Request} request - the original Request object
- * @returns {string} the Origin to echo (when allowlisted) or the fallback origin
+ * @returns {string} the Origin to echo (when allowlisted) or the fallback origin (WORKER_ORIGIN, this
+ *   worker's own origin — see wrangler.jsonc)
  */
 export function resolveAllowedOrigin(request: Request): string {
     const origin = request.headers.get("Origin")
@@ -128,7 +129,7 @@ export function resolveAllowedOrigin(request: Request): string {
             // malformed Origin header; fall through to the fallback
         }
     }
-    return cors_fallback_origin
+    return env.WORKER_ORIGIN
 }
 
 /**
@@ -181,6 +182,9 @@ export const API_headers = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
+    // Last-Modified is CORS-safelisted and needs no entry here; X-Created-At is a custom header and is
+    // invisible to cross-origin fetch() callers unless explicitly exposed
+    "Access-Control-Expose-Headers": "X-Created-At",
     Allow: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     Vary: "Origin"
 }
@@ -338,11 +342,8 @@ function collectChangeDates(value: unknown, out: number[]): void {
     if (record.object !== undefined && record.object !== null && typeof record.object === "object") {
         collectChangeDates(record.object, out)
     }
-    if (typeof record.change_date === "string") {
-        const parsed = Date.parse(record.change_date)
-        if (!isNaN(parsed)) {
-            out.push(parsed)
-        }
+    if (typeof record.change_date === "number") {
+        out.push(record.change_date)
     }
 }
 
@@ -360,6 +361,49 @@ export function lastModifiedHeader(payload: unknown): Record<string, string> {
     }
     // Last-Modified must be an RFC 7231 HTTP-date; toUTCString() produces the required IMF-fixdate form
     return { "Last-Modified": new Date(Math.max(...timestamps)).toUTCString() }
+}
+
+/**
+ * Recursively collects the entry_date timestamps (as epoch milliseconds) carried by an API payload.
+ *
+ * @param {unknown} value - the payload (or a nested fragment of it) to scan
+ * @param {number[]} out - accumulator of parsed epoch-millisecond timestamps
+ */
+function collectEntryDates(value: unknown, out: number[]): void {
+    if (value === null || typeof value !== "object") {
+        return
+    }
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectEntryDates(item, out)
+        }
+        return
+    }
+    const record = value as Record<string, unknown>
+    // a CompositionWithNames wrapper keeps the entity record (which carries entry_date) under "object"
+    if (record.object !== undefined && record.object !== null && typeof record.object === "object") {
+        collectEntryDates(record.object, out)
+    }
+    if (typeof record.entry_date === "number") {
+        out.push(record.entry_date)
+    }
+}
+
+/**
+ * Builds an X-Created-At header from the entity record(s) in an API payload using the entry_date. For a
+ * collection, the most recently created record's entry_date is used, mirroring lastModifiedHeader's use
+ * of the most recent change_date.
+ *
+ * @param {unknown} payload - the API payload being returned (a record, array of records, or names wrapper)
+ * @returns {Record<string, string>} a { "X-Created-At": <HTTP-date> } header, or {} when none applies
+ */
+export function createdAtHeader(payload: unknown): Record<string, string> {
+    const timestamps: number[] = []
+    collectEntryDates(payload, timestamps)
+    if (timestamps.length === 0) {
+        return {}
+    }
+    return { "X-Created-At": new Date(Math.max(...timestamps)).toUTCString() }
 }
 
 /**

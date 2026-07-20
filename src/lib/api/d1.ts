@@ -9,18 +9,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -37,6 +41,7 @@ import {
     isValidPosition,
     isValidYear,
     SUPPORTED_URI_TYPES,
+    validateCitations,
     validateURIForType
 } from "./validation.ts"
 
@@ -57,8 +62,8 @@ import {
  *   admin INTEGER NOT NULL,
  *   image TEXT,
  *   tags TEXT,
- *   entry_date TEXT NOT NULL,
- *   change_date TEXT
+ *   entry_date INTEGER NOT NULL,
+ *   change_date INTEGER
  * );
  *
  * CREATE TABLE composers (
@@ -71,8 +76,9 @@ import {
  *   bio TEXT,
  *   image TEXT,
  *   tags TEXT,
- *   entry_date TEXT NOT NULL,
- *   change_date TEXT
+ *   citations TEXT,
+ *   entry_date INTEGER NOT NULL,
+ *   change_date INTEGER
  * );
  *
  * CREATE TABLE compositions (
@@ -100,9 +106,10 @@ import {
  *   notes_other TEXT,
  *   image TEXT,
  *   phases TEXT NOT NULL,
- *   entry_date TEXT NOT NULL,
  *   tags TEXT,
- *   change_date TEXT,
+ *   citations TEXT,
+ *   entry_date INTEGER NOT NULL,
+ *   change_date INTEGER,
  *   FOREIGN KEY (composer_id) REFERENCES composers(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  *   FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  *   FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
@@ -149,8 +156,8 @@ export const CONTRIBUTOR: D1Schema = {
         admin: "number",
         image: "string",
         tags: "string",
-        entry_date: "string",
-        change_date: "string"
+        entry_date: "number",
+        change_date: "number"
     },
     protected: ["roles", "admin", "identity_email"]
 }
@@ -171,6 +178,7 @@ export const COMPOSER: D1Schema = {
         "bio",
         "image",
         "tags",
+        "citations",
         "entry_date",
         "change_date"
     ],
@@ -187,8 +195,9 @@ export const COMPOSER: D1Schema = {
         bio: "string",
         image: "string",
         tags: "string",
-        entry_date: "string",
-        change_date: "string"
+        citations: "string", // JSON-encoded { [sourceName]: httpsLink | doi | isbn }, "" when empty
+        entry_date: "number",
+        change_date: "number"
     }
 }
 
@@ -224,8 +233,9 @@ export const COMPOSITION: D1Schema = {
         "notes_other",
         "image",
         "phases",
-        "entry_date",
         "tags",
+        "citations",
+        "entry_date",
         "change_date"
     ],
     index: ["composition_id"],
@@ -256,9 +266,10 @@ export const COMPOSITION: D1Schema = {
         notes_other: "string",
         image: "string",
         phases: "string", // comma-separated phase numbers, which are converted to a number array later
-        entry_date: "string",
         tags: "string",
-        change_date: "string"
+        citations: "string", // JSON-encoded { [sourceName]: httpsLink | doi | isbn }, "" when empty
+        entry_date: "number",
+        change_date: "number"
     }
 }
 
@@ -737,6 +748,9 @@ const _invalidNullableImage = (v: any) =>
     v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidImageUrl(v)))
 // a nullable email field: null, or a string that (when non-blank) is a valid email address
 const _invalidNullableEmail = (v: any) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidEmail(v)))
+// an optional key-value object field (citations): undefined/null is valid (the field is optional); a
+// present value must be a non-array object, with per-entry format errors surfaced via elementCheck
+const _invalidOptionalObject = (v: any) => v !== undefined && v !== null && (typeof v !== "object" || Array.isArray(v))
 // every element of an array is a positive integer (used for id and phase-number lists)
 const _allPositiveIntegers = (v: any[]) =>
     v.every((item: any) => typeof item === "number" && Number.isInteger(item) && item >= 1)
@@ -787,7 +801,13 @@ const COMPOSER_SPEC: RecordSpec = {
     // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
     country: { invalid: (v) => typeof v !== "string" || !isValidCountryCode(v) },
     image: { invalid: _invalidNullableImage },
-    bio: { invalid: _invalidNullableString }
+    bio: { invalid: _invalidNullableString },
+    // citations is optional (docs/dev/miscellaneous.txt); when present, every entry must be a non-blank
+    // source name mapped to an https link, DOI, or ISBN (validateCitations)
+    citations: {
+        invalid: _invalidOptionalObject,
+        elementCheck: (v) => (v === undefined || v === null ? null : validateCitations(v))
+    }
 }
 
 /**
@@ -1075,6 +1095,12 @@ const COMPOSITION_SPEC: RecordSpec = {
     publication_info: {
         invalid: (v) => typeof v !== "object" || v === null,
         elementCheck: (v, partial) => validatePubInfoDetail(v, partial)
+    },
+    // citations is optional (docs/dev/miscellaneous.txt); when present, every entry must be a non-blank
+    // source name mapped to an https link, DOI, or ISBN (validateCitations)
+    citations: {
+        invalid: _invalidOptionalObject,
+        elementCheck: (v) => (v === undefined || v === null ? null : validateCitations(v))
     }
 }
 

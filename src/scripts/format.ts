@@ -9,18 +9,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { NOT_PROVIDED } from "../consts"
@@ -131,6 +135,20 @@ export function formatLifespan(birthYear: number, deathYear: number): string {
 }
 
 /**
+ * Title-cases a role string for public display (e.g. "primary author" -> "Primary Author"). Splits on
+ * whitespace so multi-word roles are cased consistently regardless of how an editor typed them.
+ *
+ * @param {string} role the stored role text
+ * @returns {string} the title-cased role
+ */
+export function titleCaseRole(role: string): string {
+    return role
+        .split(" ")
+        .map((word) => (word.length > 0 ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word))
+        .join(" ")
+}
+
+/**
  * Formats a scalar record field value for the entity info card, mirroring the SSR `disp` helper: a
  * null/undefined/blank/empty-array value renders as the shared "not provided" marker, and per-entity
  * special cases (living-composer death year, country code → name, top-level id "ID #" prefix, contributor
@@ -174,25 +192,25 @@ export function formatInfoValue(type_name: string, key: string, value: unknown, 
 }
 
 /**
- * Formats a stored ISO 8601 timestamp (a record's entry_date/change_date) into a human-readable
+ * Formats a stored epoch-millisecond timestamp (a record's entry_date/change_date) into a human-readable
  * date-and-time string for display, using the same format as the admin footer (see AdminFooter.astro). A
- * blank/missing value renders as the shared "not provided" marker, and an unparseable value falls back to
- * the raw string so nothing is silently dropped. Shared by the metadata page's SSR view and its
+ * missing value renders as the shared "not provided" marker, and an unparseable value falls back to the
+ * raw value (stringified) so nothing is silently dropped. Shared by the metadata page's SSR view and its
  * client-side fetch.
  *
- * @param {string | null | undefined} iso the ISO 8601 timestamp, or null/undefined/"" when absent
+ * @param {number | null | undefined} epochMs the epoch-millisecond timestamp, or null/undefined when absent
  * @param {string} [timeZone] the IANA time zone to render in (e.g. the visitor's Cloudflare cf.timezone on
  *   the server); when omitted, the runtime's default zone is used (the browser's local zone on the client)
  * @returns {string} the formatted timestamp, the raw value if unparseable, or the "not provided" marker
  */
-export function formatTimestamp(iso: string | null | undefined, timeZone?: string): string {
-    if (iso === null || iso === undefined || iso.trim() === "") {
+export function formatTimestamp(epochMs: number | null | undefined, timeZone?: string): string {
+    if (epochMs === null || epochMs === undefined) {
         return NOT_PROVIDED
     }
-    const parsed = new Date(iso)
+    const parsed = new Date(epochMs)
     if (isNaN(parsed.getTime())) {
-        // not a valid date string; surface the raw stored value rather than an empty/incorrect render
-        return iso
+        // not a valid timestamp; surface the raw stored value rather than an empty/incorrect render
+        return String(epochMs)
     }
     // mirrors the date/time format the admin footer renders
     const options: Intl.DateTimeFormatOptions = {

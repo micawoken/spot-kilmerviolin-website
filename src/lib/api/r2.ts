@@ -7,18 +7,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -30,10 +34,14 @@ import { env } from "cloudflare:workers"
  */
 
 /**
- * The maximum total number of bytes the bucket is allowed to hold
+ * The maximum total number of bytes this app is allowed to store in R2, combined across every bucket it
+ * owns (R2_FILES and EMDASH_MEDIA)
  *
- * Kept below the R2 free-plan 10 GB ceiling to leave headroom; putObject rejects writes that would
- * push total usage past this value.
+ * Cloudflare's R2 free-plan 10 GB storage ceiling is account-wide, not per-bucket, so the two buckets draw
+ * against the same budget rather than each getting their own 9 GiB. Kept below 10 GB to leave headroom.
+ * putObject (R2_FILES writes) and the EmDash media-upload capacity guard (middleware/emdash_media_capacity.ts,
+ * for EMDASH_MEDIA writes) both reject writes that would push their caller-supplied usage figure — which
+ * must already include the *other* bucket's current usage — past this value.
  */
 export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
 
@@ -77,6 +85,29 @@ export async function listObjects(
     include: ("httpMetadata" | "customMetadata")[] = ["httpMetadata", "customMetadata"]
 ): Promise<R2Objects> {
     return await env.R2_FILES.list({ prefix, cursor, include })
+}
+
+/**
+ * Sums the total bytes currently stored in EMDASH_MEDIA (the EmDash CMS media library bucket), scanning
+ * its full listing
+ *
+ * EMDASH_MEDIA has no cached listing of its own to reuse the way R2_FILES does via files.ts's listFiles —
+ * CMS media uploads are a low-frequency, permission-gated admin action, so a fresh Class B list scan on
+ * each capacity check is acceptable rather than adding a caching layer for it.
+ *
+ * @returns {Promise<number>} the total bytes currently stored in EMDASH_MEDIA
+ */
+export async function emdashMediaUsageBytes(): Promise<number> {
+    let total = 0
+    let cursor: string | undefined = undefined
+    do {
+        const listing: R2Objects = await env.EMDASH_MEDIA.list({ cursor })
+        for (const object of listing.objects) {
+            total += object.size
+        }
+        cursor = listing.truncated ? listing.cursor : undefined
+    } while (cursor !== undefined)
+    return total
 }
 
 /**

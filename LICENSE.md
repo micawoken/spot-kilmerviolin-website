@@ -3,18 +3,19 @@
 This document contains:
 1. A copyright statement for the source code;
 2. The terms under which this source code is licensed;
-3. Additional terms modifying the stated license; and
-4. A list of software dependencies, and a statement of their licenses.
+3. Additional terms modifying the stated license;
+4. A statement in relation to the source code author's prior student status; and
+5. A list of software dependencies, and a statement of their licenses.
 
 ## Copyright
-&copy; 2026 Michael Wong, and later contributors.
+&copy; 2026 Michael Wong.
 
-This work is licensed under the GNU General Public License, version 3 or later, whose text follows.
+This work is licensed under the GNU Affero General Public License, version 3 or later, whose text follows.
 Additional terms are specified following the statement of the license.
 
-## GNU GENERAL PUBLIC LICENSE
+## GNU AFFERO GENERAL PUBLIC LICENSE
 
-Version 3, 29 June 2007
+Version 3, 19 November 2007
 
 Copyright (C) 2007 Free Software Foundation, Inc.
 <https://fsf.org/>
@@ -24,17 +25,15 @@ license document, but changing it is not allowed.
 
 ### Preamble
 
-The GNU General Public License is a free, copyleft license for
-software and other kinds of works.
+The GNU Affero General Public License is a free, copyleft license for
+software and other kinds of works, specifically designed to ensure
+cooperation with the community in the case of network server software.
 
 The licenses for most software and other practical works are designed
 to take away your freedom to share and change the works. By contrast,
-the GNU General Public License is intended to guarantee your freedom
-to share and change all versions of a program--to make sure it remains
-free software for all its users. We, the Free Software Foundation, use
-the GNU General Public License for most of our software; it applies
-also to any other work released this way by its authors. You can apply
-it to your programs, too.
+our General Public Licenses are intended to guarantee your freedom to
+share and change all versions of a program--to make sure it remains
+free software for all its users.
 
 When we speak of free software, we are referring to freedom, not
 price. Our General Public Licenses are designed to make sure that you
@@ -43,46 +42,34 @@ them if you wish), that you receive source code or can get it if you
 want it, that you can change the software or use pieces of it in new
 free programs, and that you know you can do these things.
 
-To protect your rights, we need to prevent others from denying you
-these rights or asking you to surrender the rights. Therefore, you
-have certain responsibilities if you distribute copies of the
-software, or if you modify it: responsibilities to respect the freedom
-of others.
+Developers that use our General Public Licenses protect your rights
+with two steps: (1) assert copyright on the software, and (2) offer
+you this License which gives you legal permission to copy, distribute
+and/or modify the software.
 
-For example, if you distribute copies of such a program, whether
-gratis or for a fee, you must pass on to the recipients the same
-freedoms that you received. You must make sure that they, too, receive
-or can get the source code. And you must show them these terms so they
-know their rights.
+A secondary benefit of defending all users' freedom is that
+improvements made in alternate versions of the program, if they
+receive widespread use, become available for other developers to
+incorporate. Many developers of free software are heartened and
+encouraged by the resulting cooperation. However, in the case of
+software used on network servers, this result may fail to come about.
+The GNU General Public License permits making a modified version and
+letting the public access it on a server without ever releasing its
+source code to the public.
 
-Developers that use the GNU GPL protect your rights with two steps:
-(1) assert copyright on the software, and (2) offer you this License
-giving you legal permission to copy, distribute and/or modify it.
+The GNU Affero General Public License is designed specifically to
+ensure that, in such cases, the modified source code becomes available
+to the community. It requires the operator of a network server to
+provide the source code of the modified version running there to the
+users of that server. Therefore, public use of a modified version, on
+a publicly accessible server, gives the public access to the source
+code of the modified version.
 
-For the developers' and authors' protection, the GPL clearly explains
-that there is no warranty for this free software. For both users' and
-authors' sake, the GPL requires that modified versions be marked as
-changed, so that their problems will not be attributed erroneously to
-authors of previous versions.
-
-Some devices are designed to deny users access to install or run
-modified versions of the software inside them, although the
-manufacturer can do so. This is fundamentally incompatible with the
-aim of protecting users' freedom to change the software. The
-systematic pattern of such abuse occurs in the area of products for
-individuals to use, which is precisely where it is most unacceptable.
-Therefore, we have designed this version of the GPL to prohibit the
-practice for those products. If such problems arise substantially in
-other domains, we stand ready to extend this provision to those
-domains in future versions of the GPL, as needed to protect the
-freedom of users.
-
-Finally, every program is threatened constantly by software patents.
-States should not allow patents to restrict development and use of
-software on general-purpose computers, but in those that do, we wish
-to avoid the special danger that patents applied to a free program
-could make it effectively proprietary. To prevent this, the GPL
-assures that patents cannot be used to render the program non-free.
+An older license, called the Affero General Public License and
+published by Affero, was designed to accomplish similar goals. This is
+a different license, not a version of the Affero GPL, but Affero has
+released a new version of the Affero GPL which permits relicensing
+under this license.
 
 The precise terms and conditions for copying, distribution and
 modification follow.
@@ -91,7 +78,8 @@ modification follow.
 
 #### 0. Definitions.
 
-"This License" refers to version 3 of the GNU General Public License.
+"This License" refers to version 3 of the GNU Affero General Public
+License.
 
 "Copyright" also means copyright-like laws that apply to other kinds
 of works, such as semiconductor masks.
@@ -560,37 +548,47 @@ from those to whom you convey the Program, the only way you could
 satisfy both those terms and this License would be to refrain entirely
 from conveying the Program.
 
-#### 13. Use with the GNU Affero General Public License.
+#### 13. Remote Network Interaction; Use with the GNU General Public License.
+
+Notwithstanding any other provision of this License, if you modify the
+Program, your modified version must prominently offer all users
+interacting with it remotely through a computer network (if your
+version supports such interaction) an opportunity to receive the
+Corresponding Source of your version by providing access to the
+Corresponding Source from a network server at no charge, through some
+standard or customary means of facilitating copying of software. This
+Corresponding Source shall include the Corresponding Source for any
+work covered by version 3 of the GNU General Public License that is
+incorporated pursuant to the following paragraph.
 
 Notwithstanding any other provision of this License, you have
 permission to link or combine any covered work with a work licensed
-under version 3 of the GNU Affero General Public License into a single
+under version 3 of the GNU General Public License into a single
 combined work, and to convey the resulting work. The terms of this
 License will continue to apply to the part which is the covered work,
-but the special requirements of the GNU Affero General Public License,
-section 13, concerning interaction through a network will apply to the
-combination as such.
+but the work with which it is combined will remain governed by version
+3 of the GNU General Public License.
 
 #### 14. Revised Versions of this License.
 
 The Free Software Foundation may publish revised and/or new versions
-of the GNU General Public License from time to time. Such new versions
-will be similar in spirit to the present version, but may differ in
-detail to address new problems or concerns.
+of the GNU Affero General Public License from time to time. Such new
+versions will be similar in spirit to the present version, but may
+differ in detail to address new problems or concerns.
 
 Each version is given a distinguishing version number. If the Program
-specifies that a certain numbered version of the GNU General Public
-License "or any later version" applies to it, you have the option of
-following the terms and conditions either of that numbered version or
-of any later version published by the Free Software Foundation. If the
-Program does not specify a version number of the GNU General Public
-License, you may choose any version ever published by the Free
-Software Foundation.
+specifies that a certain numbered version of the GNU Affero General
+Public License "or any later version" applies to it, you have the
+option of following the terms and conditions either of that numbered
+version or of any later version published by the Free Software
+Foundation. If the Program does not specify a version number of the
+GNU Affero General Public License, you may choose any version ever
+published by the Free Software Foundation.
 
 If the Program specifies that a proxy can decide which future versions
-of the GNU General Public License can be used, that proxy's public
-statement of acceptance of a version permanently authorizes you to
-choose that version for the Program.
+of the GNU Affero General Public License can be used, that proxy's
+public statement of acceptance of a version permanently authorizes you
+to choose that version for the Program.
 
 Later license versions may give you additional or different
 permissions. However, no additional obligations are imposed on any
@@ -630,17 +628,30 @@ an absolute waiver of all civil liability in connection with the
 Program, unless a warranty or assumption of liability accompanies a
 copy of the Program in return for a fee.
 
-## LICENSE ADDITIONAL TERMS
-The following additional terms apply to this License: in all covered works conveyed under this License, you shall:
- - Include and preserve the License (the GNU General Public License, version 3) and these additional terms verbatim as a specific legal notice;
- - Include and preserve all author attributions, including, but not limited to the copyright notice in all source files, the notice in README.md, and the list in CONTRIBUTORS.md;
- - Not represent any modified works as the original unmodified work; 
- - Clearly identify whether alterations were made in all conveyances of this work and any modified copies, identifying the relevant date of a modification and the purpose of the modification at the place of modification;
- - Clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices of a program that has an interactive user interface;
- - Not use the names of licensors or authors of material in any publicity related to the conveyance of a modification of this work in a manner so as to imply endorsement;
- - Not use any trade names, trademarks, or servicemarks, registered or otherwise, associated with the original source code so as to imply endorsement.
+## License Additional Terms
+The following additional terms apply to this License:
+- You shall include and preserve this License (the GNU Affero General Public License, version 3 or later) and these additional terms verbatim as a specific legal notice, including (but not limited to) in the Appropriate Legal Notices.
+- You shall preserve the copyright notices, author attribution notices, and contributor attribution notices contained in README.md and CONTRIBUTORS.md.
+- You shall not represent any modified works as the original unmodified work. 
+- You shall clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices.
+- No rights under rights of publicity, personality, or similar rights in the identities of the authors and contributors are granted by this License.
+- This License grants no rights to use the following trademarks: "Diversifying the Violin Curriculum for Private Teaching", "mwmsc.net" (and its variants, such as "go.mwmsc.net"), "michaelwongmusic.com", and "Michael Wong Music".
 
-## THIRD-PARTY LICENSES
+## Notes Regarding License
+The following notes relating to the License are from the author of this program and aim to provide additional information.
+
+### Author contact information
+To contact the author of this program, you can email them at [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com). For inquiries related to this project specifically, please email [kilmer@mwmsc.net](mailto:kilmer@mwmsc.net). For inquiries related to security issues, please email [kilmer_security@mwmsc.net](mailto:kilmer_security@mwmsc.net).
+
+### Prior student status
+The sole copyright claimant, as of the initial date of publication, was a student enrolled in an undergraduate degree program at SUNY Potsdam, a public college in New York State, United States, at the time of conception of this project. This program was written for the benefit of the Diversifying the Violin Curriculum for Private Teaching research project at the college, but this program was written on their own accord: not by direction of a faculty member, not for any coursework or credited course, and without funding or use of specific college resources for this project. As of the date of initial publication, the claimant has graduated and is no longer enrolled. Since this program was incomplete during their period as a student, it was not used in any activities related to said research project. Therefore, it is the claimant's belief that they are the sole copyright claimant and that the college does not enjoy any special license or rights to it.
+
+Notwithstanding the claimant's belief, this software is licensed under the GNU Affero General Public License, version 3 or later: as such, the research project's contributors, the college, and any individual who comes into possession of the source code of this program may benefit from it, subject to the terms of the License.
+
+### Separate licensing
+This program is primarily distributed using the GNU Affero General Public License. To request licensing of this program or a portion thereof under a different license, contact the author.
+
+## Third-Party Licenses
 This source code repository depends on the following third-party software packages:
 | Name                            | License period | Material not material | License type      | Link                                              | Remote version | Installed version | Defined version | Author                                |
 | :------------------------------ | :------------- | :-------------------- | :---------------- | :------------------------------------------------ | :------------- | :---------------- | :-------------- | :------------------------------------ |

@@ -13,18 +13,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -108,6 +112,9 @@ function resolveRefList(index: Map<number, ReferenceTarget>, ids: number[], noun
 
 /** Flattens one CompositionRecord (nested `rating`/`publication_info`) into a normalized flat entry. */
 function flattenComposition(record: CompositionRecord, refs: EntityReferenceIndex): Record<string, unknown> {
+    const contrib_primary_1 = resolveRef(refs.contributor, record.contrib_primary_1, "contributor")
+    const contrib_primary_2 = resolveRef(refs.contributor, record.contrib_primary_2, "contributor")
+    const contrib_addl = resolveRefList(refs.contributor, record.contrib_addl, "contributor")
     return {
         id: record.id,
         name: record.name,
@@ -116,9 +123,14 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
         image: record.image,
         composer: resolveRef(refs.composer, record.composer_id, "composer"),
         author_secondary: resolveRefList(refs.composer, record.author_secondary, "composer"),
-        contrib_primary_1: resolveRef(refs.contributor, record.contrib_primary_1, "contributor"),
-        contrib_primary_2: resolveRef(refs.contributor, record.contrib_primary_2, "contributor"),
-        contrib_addl: resolveRefList(refs.contributor, record.contrib_addl, "contributor"),
+        contrib_primary_1,
+        contrib_primary_2,
+        contrib_addl,
+        // Derived, not a D1 column: primary/additional-primary/additional is an internal-only distinction
+        // (owner decision) — public pages bind this single combined list instead, in one line.
+        contributors: [contrib_primary_1, contrib_primary_2, ...contrib_addl].filter(
+            (ref): ref is ResolvedReference => ref !== null
+        ),
         phases: record.phases,
         key: record.key,
         range: record.range,
@@ -133,6 +145,7 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
         notes_pedagogical: record.notes_pedagogical,
         notes_other: record.notes_other,
         tags: record.tags,
+        citations: record.citations ?? {},
         entry_date: record.entry_date,
         change_date: record.change_date
     }

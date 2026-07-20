@@ -19,20 +19,26 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import { citationsToTextarea } from "../../scripts/citations"
+
 const required: boolean = Astro.props.required || false
 const hidden: boolean = Astro.props.hidden || false
 const composer: ComposerRecord | null = Astro.props.composer || null
@@ -282,6 +288,37 @@ const patch: boolean = Astro.props.patch || false
                             <span class="field-edittarget">
                                 <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
                                 <label for="form-composers-tags-edittarget">Edit this field</label>
+                            </span>
+                        ) : null
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">Citations</h3>
+            <fieldset>
+                <legend>Citations</legend>
+                <div class="field-row field-row-textarea">
+                    <textarea
+                        id="form-composers-citations"
+                        name="citations"
+                        placeholder={"IMSLP: https://imslp.org/wiki/...\nGrove Music Online: 10.1000/example"}
+                        >{citationsToTextarea(composer?.citations)}</textarea
+                    >
+                    <small class="general-infohelp field-inline-help"
+                        >one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
+                        ISBN</small
+                    >
+                    {
+                        patch ? (
+                            <span class="field-edittarget">
+                                <input
+                                    type="checkbox"
+                                    id="form-composers-citations-edittarget"
+                                    name="citations-edittarget"
+                                />
+                                <label for="form-composers-citations-edittarget">Edit this field</label>
                             </span>
                         ) : null
                     }

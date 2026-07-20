@@ -18,18 +18,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -39,7 +43,8 @@ import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContribut
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
-import type { EntityNoun } from "../../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import "../../../styles/public-entities.css"
 
 export const prerender = true
 
@@ -90,10 +95,72 @@ export async function getStaticPaths() {
 }
 
 const { noun, results } = Astro.props
-const title = `${noun.charAt(0).toUpperCase()}${noun.slice(1)}s`
+const title = ENTITY_NOUN_LABELS[noun]
+
+// This page is prerendered once at build time and served identically to every visitor, so "now" here is
+// the build/generation time, not a per-request value — pinned to UTC (like catalog.tsx's
+// ENTITY_DATE_FORMAT) so the same build always produces the same displayed timestamp regardless of the
+// machine/CI runner's local zone.
+const GENERATED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long",
+    timeStyle: "long",
+    timeZone: "UTC"
+})
+const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
-<PublicPage title={title}>
-    <h1>{title}</h1>
-    <ListResults noun={noun} enviro="public" results={results} />
+<PublicPage title={title} pagefindFilter="scope:database">
+    {/* Single wrapper, not four bare children directly under <main>: public-chrome.css's
+        `main > :not(.cmp-section, article)` rule insets each direct child individually via
+        `var(--dtk-space-md)`. That token can be authored as a font-relative expression (e.g. a
+        `clamp(..., (100vw - 66ch) / 2, ...)` reading-width trick) — a custom property's relative units
+        resolve per consuming element, so the breadcrumbs/h1/list/footnote (each a different font size)
+        would each compute a different actual inset, drifting out of alignment with each other and with
+        the header at some viewport widths. Applying the inset once, on one wrapper that inherits the
+        body's own font size, keeps this page's whole content column aligned with the header at every
+        width. */}
+    <div class="entity-index-body">
+        {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+            not a Puck design, so the component can never be placed here. Entity indexes always point straight
+            to Home (docs/dev/miscellaneous.txt), skipping the /entity root as an intermediate crumb. */}
+        <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li><a href="/">Home</a></li>
+                <li aria-current="page">{title}</li>
+            </ol>
+        </nav>
+        <h1>{title}</h1>
+        <ListResults noun={noun} enviro="public" results={results} />
+        <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
+    </div>
 </PublicPage>
+
+<style>
+    .entity-index-generated-note {
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        font-size: 0.875rem;
+    }
+    .entity-breadcrumbs ol {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0;
+        margin: 0 0 1rem;
+        padding: 0;
+        list-style: none;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.85rem);
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+    }
+    .entity-breadcrumbs li:not(:first-child)::before {
+        content: "/";
+        margin-inline: 0.5em;
+        opacity: 0.6;
+    }
+    .entity-breadcrumbs a {
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+    }
+    .entity-breadcrumbs li[aria-current="page"] {
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+    }
+</style>

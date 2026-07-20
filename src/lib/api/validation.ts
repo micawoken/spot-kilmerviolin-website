@@ -5,20 +5,26 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
+import { MAX_ALT_TEXT_LENGTH } from "../../consts"
 
 // Pragmatic email check: a single @ separating non-empty, space-free local and (dotted) domain parts.
 // This is deliberately lenient — it guards links/prefills against junk, not against every RFC edge case.
@@ -240,6 +246,23 @@ export function isImageMimeType(type: string): boolean {
 }
 
 /**
+ * Validates a candidate alt-text value: required (non-empty after trimming) and within
+ * MAX_ALT_TEXT_LENGTH characters (docs/dev/miscellaneous.txt's "data model changes" section)
+ *
+ * @param {string} value - the trimmed candidate alt text
+ * @returns {string | null} - an error message if invalid, or null if the value is acceptable
+ */
+export function validateAltText(value: string): string | null {
+    if (value === "") {
+        return "Alt text is required"
+    }
+    if (value.length > MAX_ALT_TEXT_LENGTH) {
+        return `Alt text must be ${MAX_ALT_TEXT_LENGTH} characters or fewer`
+    }
+    return null
+}
+
+/**
  * Whether a comma-separated input contains stray (empty) segments — a leading, trailing, or
  * doubled comma that yields a blank entry
  *
@@ -319,6 +342,56 @@ export function validateURIForType(uri_type: string, uri: string): boolean {
         default:
             return false
     }
+}
+
+/**
+ * Classifies a citation value by sniffing its shape: an https link, a DOI, or an ISBN
+ * (docs/dev/miscellaneous.txt's "data model changes" section). Unlike a composition's own
+ * publication_info, a citation carries no separate declared uri_type field, so the type is inferred
+ * from the value itself rather than looked up.
+ *
+ * @param {string} value - the candidate citation value
+ * @returns {"https" | "doi" | "isbn" | null} the detected type, or null if it matches none
+ */
+export function classifyCitationValue(value: string): "https" | "doi" | "isbn" | null {
+    const trimmed = value.trim()
+    if (trimmed === "") {
+        return null
+    }
+    if (validateURIForType("https", trimmed)) {
+        return "https"
+    }
+    if (validateURIForType("doi", trimmed)) {
+        return "doi"
+    }
+    if (isValidISBN(trimmed)) {
+        return "isbn"
+    }
+    return null
+}
+
+/**
+ * Validates a candidate citations map: an optional key-value object where each key is a non-blank source
+ * name (the link's display text) and each value is an https link, a DOI, or an ISBN. An empty object is
+ * valid (citations are optional); a non-object/array value, a blank key, or a value matching none of the
+ * three accepted formats is rejected.
+ *
+ * @param {unknown} value - the candidate citations value (already known to be present)
+ * @returns {string | null} an error message if invalid, or null if the value is acceptable
+ */
+export function validateCitations(value: unknown): string | null {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return "Citations must be a key-value object"
+    }
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        if (key.trim() === "") {
+            return "A citation's source name cannot be blank"
+        }
+        if (typeof entry !== "string" || classifyCitationValue(entry) === null) {
+            return `Citation "${key}" must be an https link, a DOI, or an ISBN`
+        }
+    }
+    return null
 }
 
 /**

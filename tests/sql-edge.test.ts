@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -61,9 +65,9 @@ describe("SQLStatement.finish guards", () => {
         // keys provided out of schema order, and several columns omitted entirely
         stmt.addValueGroup({ birth_year: 1900, name: "Test Person", country: "Nowhere" })
         const [command, params] = stmt.finish()
-        expect(command).toBe("INSERT INTO composers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
-        // schema order: composer_id, name, role, birth_year, death_year, country, bio, image, tags, entry_date, change_date
-        expect(params).toEqual([null, "Test Person", null, "1900", null, "Nowhere", null, null, null, null, null])
+        expect(command).toBe("INSERT INTO composers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
+        // schema order: composer_id, name, role, birth_year, death_year, country, bio, image, tags, citations, entry_date, change_date
+        expect(params).toEqual([null, "Test Person", null, "1900", null, "Nowhere", null, null, null, null, null, null])
     })
 
     it("rejects columns that are not part of the schema", () => {
@@ -120,8 +124,8 @@ describe("VirtualSQLTable.valueConvert", () => {
 
 describe("VirtualSQLTable execution against typed cells", () => {
     const rows: Record<string, string | number | null>[] = [
-        { contributor_id: 1, name: "Empty Bio", class_year: 2000, major: "Music", phases: "1", bio: "", public_email: "a@x.com", identity_email: "a@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: "2024-01-01T00:00:00Z" },
-        { contributor_id: 2, name: "Has Bio", class_year: 2001, major: "Music", phases: "1", bio: "hello", public_email: "b@x.com", identity_email: "b@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: "2024-01-01T00:00:00Z" }
+        { contributor_id: 1, name: "Empty Bio", class_year: 2000, major: "Music", phases: "1", bio: "", public_email: "a@x.com", identity_email: "a@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: 1704067200000 },
+        { contributor_id: 2, name: "Has Bio", class_year: 2001, major: "Music", phases: "1", bio: "hello", public_email: "b@x.com", identity_email: "b@id.com", active: 1, roles: "", admin: 0, image: null, tags: "", entry_date: 1704067200000 }
     ]
     const table = new VirtualSQLTable(CONTRIBUTOR, rows)
 

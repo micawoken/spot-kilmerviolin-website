@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -681,13 +685,15 @@ function appendCrop(body: FormData, crop?: CropSelection | null): void {
  * Uploads a new file (multipart/form-data), returning the stored key
  *
  * @param file the file to upload
+ * @param alt the file's required alt text
  * @param [name] an optional name to derive the key from; defaults to the file's own name
  * @param [crop] an optional crop selection; images are cropped to a canonical shape (default centered portrait)
  * @return the stored file key
  */
-export async function uploadFile(file: File, name?: string, crop?: CropSelection | null): Promise<string> {
+export async function uploadFile(file: File, alt: string, name?: string, crop?: CropSelection | null): Promise<string> {
     const body = new FormData()
     body.append("file", file)
+    body.append("alt", alt)
     if (name) {
         body.append("name", name)
     }
@@ -710,14 +716,30 @@ export async function uploadFile(file: File, name?: string, crop?: CropSelection
  *
  * @param key the file key to replace
  * @param file the replacement file
+ * @param alt the file's required alt text
  * @param [crop] an optional crop selection; images are cropped to a canonical shape (default centered portrait)
  * @return
  */
-export async function replaceFile(key: string, file: File, crop?: CropSelection | null): Promise<void> {
+export async function replaceFile(key: string, file: File, alt: string, crop?: CropSelection | null): Promise<void> {
     const body = new FormData()
     body.append("file", file)
+    body.append("alt", alt)
     appendCrop(body, crop)
     return requestVoid("file replace", composeUrl("files", key), { method: "PUT", body: body })
+}
+
+/**
+ * PUT /api/v1/files/{key}
+ * Updates a stored file's alt text without touching its bytes (multipart/form-data, no "file" part)
+ *
+ * @param key the file key to update
+ * @param alt the new alt text
+ * @return
+ */
+export async function updateFileAlt(key: string, alt: string): Promise<void> {
+    const body = new FormData()
+    body.append("alt", alt)
+    return requestVoid("alt text update", composeUrl("files", key), { method: "PUT", body: body })
 }
 
 /**
@@ -879,9 +901,12 @@ export async function getSite(): Promise<any | null> {
 /**
  * POST /api/v1/site
  * Trigger rebuild
+ *
+ * @param elevate optional; if true and the user is an admin, enforces the shorter admin-override cooldown
+ *   instead of the standard one
  */
-export async function rebuildSite(): Promise<any | null> {
-    return requestPayload(composeUrl("site"), { method: "POST" })
+export async function rebuildSite(elevate?: boolean): Promise<any | null> {
+    return requestPayload(composeUrl("site"), jsonInit("POST", undefined, { elevate: elevate }))
 }
 
 /**

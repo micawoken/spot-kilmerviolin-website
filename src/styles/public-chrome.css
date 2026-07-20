@@ -23,7 +23,25 @@
  * Section's inset to that token (compositor.css .cmp-section), so matching it here aligns the header,
  * footer, and untemplated article content to the same reading column the design pages use.
  *
- * Copyright (C) 2026 Michael Wong. GPL-3.0-or-later; see README.md for additional terms.
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /* Base surface + body type. `html body` (specificity 0,0,2) so it wins over global.css `body` regardless
@@ -66,12 +84,18 @@ header {
 }
 header nav {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
+	gap: 0.9rem;
+	padding-block: 1.3rem;
+	padding-inline: var(--dtk-space-md, 1rem);
+}
+/* Title and search toggle are locked together on their own row (always exactly two items, so it never
+ * wraps unevenly), independent of the nav-links row below wrapping on narrow viewports. */
+header .header-top-row {
+	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 1.5rem;
-	padding-block: 1.3rem;
-	padding-inline: var(--dtk-space-md, 1rem);
 }
 header .site-title {
 	font-family: var(--dtk-type-body-family, inherit);
@@ -81,6 +105,71 @@ header .site-title {
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 	text-decoration: none;
 }
+header #search-toggle {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem;
+	border: none;
+	background: none;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	cursor: pointer;
+}
+/* Both icons render (so no client-side icon swap is needed); CSS shows exactly one at a time based on the
+ * toggle's open/closed state, kept in sync with aria-expanded by the header's own script. */
+header #search-toggle .icon-close {
+	display: none;
+}
+header #search-toggle.is-open .icon-search {
+	display: none;
+}
+header #search-toggle.is-open .icon-close {
+	display: inline;
+}
+/* The nav-links row doubles as the search overlay's anchor: opening search covers this row (never the
+ * title/toggle row above, which must stay visible so the toggle can close it again) with an opaque bar
+ * pinned to the row's top edge. The overlay's height is intrinsic (from its own input/button padding), not
+ * stretched to the row's full height, so if the nav-links have wrapped onto extra lines on a narrow
+ * viewport, it only covers the space a single unwrapped line would occupy — the wrapped links are hidden
+ * rather than shown through, but the bar doesn't grow to chase them. */
+header .nav-row {
+	position: relative;
+}
+header #header-search-form {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	z-index: 1;
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+}
+/* `hidden` alone would lose to the ID selector above without this: the attribute selector's extra
+ * specificity is what makes the closed state actually take effect. */
+header #header-search-form[hidden] {
+	display: none;
+}
+header #header-search-form input {
+	flex: 1;
+	padding: 0.4rem 0.6rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	font-size: 1rem;
+}
+header #header-search-form button {
+	padding: 0.4rem 0.9rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: transparent;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	cursor: pointer;
+}
 header .nav-links {
 	display: flex;
 	flex-wrap: wrap;
@@ -88,6 +177,11 @@ header .nav-links {
 	margin: 0;
 	padding: 0;
 	list-style: none;
+}
+/* Hidden (not just visually covered) while the search overlay is open, so the wrapped-line tail isn't
+ * left showing beneath the bar and its links aren't reachable by keyboard while covered. */
+header.search-open .nav-links {
+	visibility: hidden;
 }
 /* The mono, uppercase, tracked nav treatment — the theme's `label` typography (IBM Plex Mono). */
 header .nav-links a {

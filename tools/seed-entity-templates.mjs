@@ -94,6 +94,7 @@ const COMPOSER_DOC = doc([
         ]),
         contentField("bio"),
         contentField("tags"),
+        contentField("citations"),
         divider(),
         row([contentField("entry_date"), contentField("change_date")])
     ])
@@ -119,6 +120,10 @@ const COMPOSITION_DOC = doc([
             [contentField("composer"), contentField("author_secondary")],
             [contentField("contrib_primary_1"), contentField("contrib_primary_2"), contentField("contrib_addl")]
         ]),
+        // Demonstrates the single-line alternative to the three fields above (owner decision: the
+        // primary/additional-primary/additional distinction is internal-only) — an editor can delete
+        // whichever of the two contributor layouts they don't want.
+        contentField("contributors"),
         heading("Details"),
         columns([
             [contentField("key"), contentField("range"), contentField("position_highest")],
@@ -130,6 +135,7 @@ const COMPOSITION_DOC = doc([
         heading("Notes"),
         columns([[contentField("notes_historical")], [contentField("notes_pedagogical")], [contentField("notes_other")]]),
         contentField("tags"),
+        contentField("citations"),
         divider(),
         row([contentField("entry_date"), contentField("change_date")])
     ])

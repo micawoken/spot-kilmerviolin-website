@@ -25,7 +25,25 @@
  *   - Flex layout does not margin-collapse. Vertical rhythm between stacked children comes from `gap`,
  *     never from a child's own margin.
  *
- * Copyright (C) 2026 Michael Wong. GPL-3.0-or-later; see README.md for additional terms.
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /* Root — the top-level anchor for the flow invariant (catalog.tsx's `root.render`): every design's
@@ -216,6 +234,67 @@
 }
 .cmp-field__value a {
 	color: inherit;
+}
+
+/* Breadcrumbs — an auto-derived trail (catalog.tsx's Breadcrumbs render, fed by route-authority.ts). Each
+ * crumb sits inline, separated by a themed "/" — the last crumb (the current page) carries no link. */
+.cmp-breadcrumbs ol {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.85rem);
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+.cmp-breadcrumbs li {
+	display: flex;
+	align-items: center;
+}
+.cmp-breadcrumbs li:not(:first-child)::before {
+	content: "/";
+	margin-inline: 0.5em;
+	opacity: 0.6;
+}
+.cmp-breadcrumbs a {
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+}
+.cmp-breadcrumbs li[aria-current="page"] {
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+}
+
+/* PagefindSearch — a GET form to /search, same look as entity/index.astro's own database-scoped search
+ * box (its inline styles are the source for these rules) so the two read as one search affordance. */
+.cmp-search {
+	display: flex;
+	gap: var(--dtk-space-sm, 0.75rem);
+}
+.cmp-search input[type="search"] {
+	flex: 1;
+	padding: 0.5rem 0.75rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	font-size: 1rem;
+}
+.cmp-search button {
+	padding: 0.5rem 1rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: transparent;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	cursor: pointer;
+}
+.cmp-search button:hover {
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
 /* MediaText (unified field-outlet rewrite) — the collapsing media+text primitive (concern #3): the

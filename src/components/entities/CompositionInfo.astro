@@ -12,26 +12,33 @@
  * - names (optional): resolved composer names (CompositionNames) provided by SSR, if any; the composer_name
  *   and author_secondary_names fields are also populated client-side via the composition-{key} element ids
  * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
+ * - imageAlt (optional): pre-resolved alt text for the image (see resolveEntityImageAlt); falls back to
+ *   a generic "Image for composition {name}" caption when not provided
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { NOT_PROVIDED } from "../../consts"
 import { COMPOSITION_LABELS, COMPOSITION_PLACEHOLDERS, displayValue } from "../../lib/compositor/composition-fields"
 import { renderPublicationUri } from "../../scripts/publication"
+import { renderCitationsList } from "../../scripts/citations"
 import {
     renderContributorRefLink,
     renderContributorRefLinks,
@@ -42,6 +49,7 @@ import {
 const composition: CompositionRecord | null = Astro.props.composition || null
 const names: CompositionNames | null = Astro.props.names || null
 const hidden: boolean = Astro.props.hidden || false
+const imageAlt: string | undefined = Astro.props.imageAlt
 
 // renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
 // empty array, so a "not supplied" field is visually distinct from an unset/blank render (shared with
@@ -74,8 +82,8 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                 id="composition-image"
                 class={`entity-result-image${composition?.image ? "" : " hidden"}`}
                 src={composition?.image ?? undefined}
-                alt={`Image for composition ${composition?.name ?? ""}`}
-                title={`Image for composition ${composition?.name ?? ""}`}
+                alt={imageAlt ?? `Image for composition ${composition?.name ?? ""}`}
+                title={imageAlt ?? `Image for composition ${composition?.name ?? ""}`}
             />
             <p
                 id="composition-image-missing"
@@ -235,6 +243,15 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
         <div id="composition-details-tags" class="entity-result-details">
             <div class="entity-field">
                 <strong>{COMPOSITION_LABELS.tags}:</strong> <span id="composition-tags">{disp(composition?.tags)}</span>
+            </div>
+            <!-- citations render as a comma-separated list of hyperlinks (key as display text);
+             renderCitationsList returns markup-safe HTML, so it is emitted via set:html. Mirrored client-side
+             in populateInfo. -->
+            <div class="entity-field">
+                <strong>{COMPOSITION_LABELS.citations}:</strong> <span
+                    id="composition-citations"
+                    set:html={renderCitationsList(composition?.citations, NOT_PROVIDED)}
+                />
             </div>
         </div>
     </div>

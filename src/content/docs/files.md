@@ -10,11 +10,21 @@ Some database fields, such as image URL, are used to display website media. To s
 
 The following actions are available from the [File Management home](/admin/files):
 
-- **Add new file** — upload a file (images are optimized automatically).
-- **View file info** — see a file's key, URL, type, size, and dimensions.
+- **Add new file** — upload a file (images are optimized automatically). Alt text is required.
+- **View file info** — see a file's key, URL, type, size, dimensions, and alt text; alt text can be
+  edited here without re-uploading the file.
 - **Replace existing file** — swap new bytes in while keeping the same key (and existing references).
+  Alt text is required here too.
 - **Delete file** — permanently remove a file.
 - **List files** — browse every stored file with previews.
+
+### Alt text
+
+Every uploaded file requires alt text (up to 256 characters), describing the image for screen readers
+and search engines. It is set when a file is uploaded or replaced, and can be edited afterward from a
+file's info page. Files added to `src/files` (see below) require alt text too, supplied as a sidecar text
+file rather than through the admin interface. Because of this, a `.txt` file placed in `src/files` is
+always treated as an alt-text sidecar and is never itself published as a servable asset.
 
 ## Video Guide
 
@@ -42,8 +52,11 @@ down so it is no wider than 1600 pixels. We do this to conserve storage space.
 
 ## Adding a File
 You can either:
-1. Use [Add new file](/admin/file/add), or
-2. Add the file to the src/files folder, commit the file to the development branch on GitHub, and follow the deployment verification process.
+1. Use [Add new file](/admin/file/add), entering the required alt text alongside the image, or
+2. Add the file to the src/files folder along with a same-named `.txt` sidecar carrying its alt text
+   (e.g. `composer-portrait.jpg` needs `composer-portrait.jpg.txt`, 1-256 characters), commit both files
+   to the development branch on GitHub, and follow the deployment verification process. A missing or
+   oversized sidecar fails the build.
 
 ## Viewing a File
 Use [View file info](/admin/file/view).
@@ -67,8 +80,16 @@ The file store is built in layers, mirroring the database stack:
 - `src/lib/api/files.ts` — the cached service layer other code should use; wraps R2 with Cache API + KV
   caching and invalidates on writes.
 - `src/pages/api/v1/files.ts` and `src/pages/api/v1/files/[id].ts` — the REST endpoints (see the
-  [API reference](/admin/docs/api)).
-- `integrations/optimize-files.mjs` — the build step that publishes `src/files`.
+  [API reference](/admin/docs/api)). `PUT` also supports an alt-text-only update (no `file` part).
+- `integrations/optimize-files.mjs` — the build step that publishes `src/files`, enforcing the alt-text
+  sidecar requirement.
+- `src/lib/build/bundled-file-alt.ts` — reads the same sidecar files at page-build time so entity pages
+  can render bundled images with real alt text.
 
-Files are R2-only: the object key is the file's identity and metadata lives in the object's
-customMetadata; there is no database table for files.
+Files are R2-only: the object key is the file's identity and metadata (including alt text) lives in the
+object's customMetadata; there is no database table for files.
+
+R2-uploaded files referenced by an entity's image field (as opposed to a bundled `src/files` asset) are
+not currently visible to anonymous public visitors — `/api/v1/files/{id}` requires an authenticated
+identity, so a public entity page using such an image will show a broken image. Prefer bundled or
+external images for public-facing entity records until this is addressed.

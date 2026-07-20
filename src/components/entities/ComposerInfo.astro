@@ -9,28 +9,36 @@
  * Props:
  * - composer (optional): a ComposerRecord provided by SSR, if any
  * - hidden (optional): whether to keep the result container hidden (used until the ID form is submitted)
+ * - imageAlt (optional): pre-resolved alt text for the image (see resolveEntityImageAlt); falls back to
+ *   a generic "Image of composer {name}" caption when not provided
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { NOT_PROVIDED } from "../../consts"
 import { countryCodeName } from "../../scripts/format"
+import { renderCitationsList } from "../../scripts/citations"
 
 const composer: ComposerRecord | null = Astro.props.composer || null
 const hidden: boolean = Astro.props.hidden || false
+const imageAlt: string | undefined = Astro.props.imageAlt
 
 // renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
 // empty array, so a "not supplied" field is visually distinct from an unset/blank render
@@ -85,8 +93,8 @@ const dispDeath = (value: number | null | undefined): string =>
                 id="composer-image"
                 class={`entity-result-image${composer?.image ? "" : " hidden"}`}
                 src={composer?.image ?? undefined}
-                alt={`Image of composer ${composer?.name ?? ""}`}
-                title={`Image of composer ${composer?.name ?? ""}`}
+                alt={imageAlt ?? `Image of composer ${composer?.name ?? ""}`}
+                title={imageAlt ?? `Image of composer ${composer?.name ?? ""}`}
             />
             <p id="composer-image-missing" class={`entity-result-image-missing${composer?.image ? " hidden" : ""}`}>
                 No image available.
@@ -102,5 +110,14 @@ const dispDeath = (value: number | null | undefined): string =>
     <!-- tags follow the bio text, pulled below the head to span the full card width -->
     <div id="composer-details-tags" class="entity-result-fullwidth entity-result-details">
         <div class="entity-field"><strong>Tags:</strong> <span id="composer-tags">{disp(composer?.tags)}</span></div>
+        <!-- citations render as a comma-separated list of hyperlinks (key as display text); renderCitationsList
+         returns markup-safe HTML (every value escapeHtml-encoded), so it is emitted via set:html. Mirrored
+         client-side in populateInfo. -->
+        <div class="entity-field">
+            <strong>Citations:</strong> <span
+                id="composer-citations"
+                set:html={renderCitationsList(composer?.citations, NOT_PROVIDED)}
+            />
+        </div>
     </div>
 </div>

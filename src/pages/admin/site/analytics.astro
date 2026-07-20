@@ -1,0 +1,116 @@
+---
+/**
+ * pages/admin/site/analytics.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { guardPage } from "../../../lib/api/page_auth"
+import { getWebAnalyticsSummary, type AnalyticsRange } from "../../../lib/api/analytics"
+
+export const prerender = false
+
+// same access level as the other read-only Site Management pages (verinfo, rebuild): any active contributor
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
+if (denied) {
+    return denied
+}
+
+const RANGE_LABELS: Record<AnalyticsRange, string> = { "1d": "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days" }
+const ranges = Object.keys(RANGE_LABELS) as AnalyticsRange[]
+
+const requested = Astro.url.searchParams.get("range")
+const range: AnalyticsRange = ranges.includes(requested as AnalyticsRange) ? (requested as AnalyticsRange) : "7d"
+
+const summary = await getWebAnalyticsSummary(range)
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Site Analytics`} description="View public site analytics" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Site Analytics</h2>
+            <p class="general-infohelp">
+                Pageview and visit counts reported by the public site's Cloudflare Web Analytics beacon. This
+                data is cookieless and requires no visitor consent banner.
+            </p>
+            {
+                summary.ok ? (
+                    <>
+                        <nav aria-label="Time range">
+                            <ul class="analytics-range-nav">
+                                {ranges.map((r) => (
+                                    <li>
+                                        {r === range ? (
+                                            <strong>{RANGE_LABELS[r]}</strong>
+                                        ) : (
+                                            <a href={`/admin/site/analytics?range=${r}`}>{RANGE_LABELS[r]}</a>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </nav>
+                        <div class="entity-result-container site-info-card">
+                            <h3 class="entity-result-name">{RANGE_LABELS[range]}</h3>
+                            <div class="site-info-details entity-result-details">
+                                <div class="site-info-group">
+                                    <strong>Pageviews:</strong>
+                                    <span>{summary.pageviews.toLocaleString("en-US")}</span>
+                                    <strong>Visits:</strong>
+                                    <span>{summary.visits.toLocaleString("en-US")}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                ) : summary.reason === "unconfigured" ? (
+                    <p>
+                        Site analytics is not configured yet. Create a Web Analytics site for this domain in
+                        the Cloudflare dashboard, then set CF_ANALYTICS_SITE_TAG and CF_ANALYTICS_TOKEN (see
+                        DEPLOY.md) and redeploy.
+                    </p>
+                ) : (
+                    <p>Could not read analytics data: {summary.message}</p>
+                )
+            }
+        </main>
+        <AdminFooter />
+    </body>
+</html>
+
+<style>
+    .analytics-range-nav {
+        display: flex;
+        gap: 1rem;
+        list-style: none;
+        padding: 0;
+        margin-block: 0 1rem;
+    }
+</style>

@@ -16,23 +16,27 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { env } from "cloudflare:workers"
-import { deleteObject, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
+import { deleteObject, emdashMediaUsageBytes, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
 import { optimizeImage, type CropInstruction } from "./images.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 import { getKey, setKey, deleteKey } from "./kv.ts"
@@ -42,13 +46,15 @@ import { getKey, setKey, deleteKey } from "./kv.ts"
 const FILES_CACHE_STORE = "files_cache" // Cache API store holding the file listing
 const FILES_BLOB_STORE = "files_blob" // Cache API store holding individual file bodies
 const FILES_LIST_KEY = "files_list" // Cache API / KV key for the cached listing
-const blob_host = "https://spot-kilmer-violin-website.mwmsc.workers.dev" // origin for the cached file bodies; unified w/ production url since cloudflare says dns should be resolvable
 
 /**
  * Builds the Cache API request key for a file's cached body
+ *
+ * Uses WORKER_ORIGIN (this worker's own origin, see wrangler.jsonc) as the cache address's host, since
+ * Cloudflare recommends a resolvable domain name for cache keys.
  */
 function _blobKey(key: string): string {
-    return `${blob_host}/blob/${encodeURIComponent(key)}`
+    return `${env.WORKER_ORIGIN}/blob/${encodeURIComponent(key)}`
 }
 
 /**
@@ -100,6 +106,32 @@ export function extractUploadedFileKey(image: string): string | null {
 }
 
 /**
+ * Resolves the alt text to show for an entity's image field: the uploaded file's own stored alt text
+ * when the image is an R2-uploaded reference, or the given fallback otherwise (a bundled/external image,
+ * an absent image, or an uploaded file with no alt text on record)
+ *
+ * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
+ * @param {string | null | undefined} image - the entity's image field value
+ * @param {string} fallback - the alt text to use when no stored alt text is resolvable
+ * @returns {Promise<string>} the alt text to render
+ */
+export async function resolveEntityImageAlt(
+    ctx: ExecutionContext,
+    image: string | null | undefined,
+    fallback: string
+): Promise<string> {
+    if (!image) {
+        return fallback
+    }
+    const key = extractUploadedFileKey(image)
+    if (key === null) {
+        return fallback
+    }
+    const meta = await getFileMeta(ctx, key)
+    return meta?.alt || fallback
+}
+
+/**
  * Converts an R2 object (from a listing or head) into the API file metadata representation
  */
 function _toMeta(object: R2Object): FileMeta {
@@ -113,7 +145,9 @@ function _toMeta(object: R2Object): FileMeta {
         uploader: custom.uploader ?? null,
         width: custom.width ? Number(custom.width) : null,
         height: custom.height ? Number(custom.height) : null,
-        optimized: custom.optimized === "true"
+        optimized: custom.optimized === "true",
+        // pre-existing objects written before alt text was required have no stored value
+        alt: custom.alt ?? ""
     }
 }
 
@@ -232,11 +266,13 @@ function _buildCustomMetadata(
     uploader: string | null,
     width: number | null,
     height: number | null,
-    optimized: boolean
+    optimized: boolean,
+    alt: string
 ): Record<string, string> {
     const metadata: Record<string, string> = {
         content_type,
-        optimized: optimized ? "true" : "false"
+        optimized: optimized ? "true" : "false",
+        alt
     }
     if (uploader !== null) {
         metadata.uploader = uploader
@@ -258,6 +294,7 @@ function _buildCustomMetadata(
  * @param {ArrayBuffer | Uint8Array} bytes - the original file bytes
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
+ * @param {string} alt - the file's required alt text
  * @param {number} usage_budget - bytes already used to count this write against (excludes the key when replacing)
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
@@ -269,6 +306,7 @@ async function _writeFile(
     bytes: ArrayBuffer | Uint8Array,
     content_type: string,
     uploader: string | null,
+    alt: string,
     usage_budget: number,
     crop?: CropInstruction
 ): Promise<FileMeta> {
@@ -278,7 +316,8 @@ async function _writeFile(
         uploader,
         optimized.width,
         optimized.height,
-        optimized.optimized
+        optimized.optimized,
+        alt
     )
     const stored = await putObject(key, optimized.bytes, optimized.content_type, custom, usage_budget)
     _invalidate(ctx, key)
@@ -293,6 +332,7 @@ async function _writeFile(
  * @param {ArrayBuffer | Uint8Array} bytes - the original file bytes
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
+ * @param {string} alt - the file's required alt text
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {Error} if a file already exists at the key (caller should map to 409)
@@ -304,14 +344,17 @@ export async function addFile(
     bytes: ArrayBuffer | Uint8Array,
     content_type: string,
     uploader: string | null,
+    alt: string,
     crop?: CropInstruction
 ): Promise<FileMeta> {
     const files = await listFiles(ctx)
     if (files.some((file) => file.key === key)) {
         throw new Error(`A file already exists at key "${key}"`)
     }
-    const used = files.reduce((total, file) => total + file.size, 0)
-    return await _writeFile(ctx, key, bytes, content_type, uploader, used, crop)
+    // the capacity ceiling is shared with EMDASH_MEDIA (see r2.ts's MAX_R2_STORAGE_BYTES), so the budget
+    // must include that bucket's current usage too, not just this one's
+    const used = files.reduce((total, file) => total + file.size, 0) + (await emdashMediaUsageBytes())
+    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
 }
 
 /**
@@ -322,6 +365,7 @@ export async function addFile(
  * @param {ArrayBuffer | Uint8Array} bytes - the new file bytes
  * @param {string} content_type - the new MIME type
  * @param {string | null} uploader - the contributor id performing the replacement, or null
+ * @param {string} alt - the file's required alt text
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {Error} if no file exists at the key (caller should map to 404)
@@ -333,6 +377,7 @@ export async function replaceFile(
     bytes: ArrayBuffer | Uint8Array,
     content_type: string,
     uploader: string | null,
+    alt: string,
     crop?: CropInstruction
 ): Promise<FileMeta> {
     const files = await listFiles(ctx)
@@ -340,9 +385,40 @@ export async function replaceFile(
     if (existing === undefined) {
         throw new Error(`No file exists at key "${key}"`)
     }
-    // count this write against current usage minus the object being overwritten
-    const used = files.reduce((total, file) => total + file.size, 0) - existing.size
-    return await _writeFile(ctx, key, bytes, content_type, uploader, used, crop)
+    // count this write against current usage minus the object being overwritten; the budget also includes
+    // EMDASH_MEDIA's usage since the capacity ceiling is shared across both buckets (see r2.ts)
+    const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())
+    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
+}
+
+/**
+ * Updates a stored file's alt text without rewriting its bytes (an R2 write always requires a body, so
+ * this re-puts the existing bytes read back from the store — see readFileBytes's Cache API layer, which
+ * makes this cheap for a recently-read file)
+ *
+ * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
+ * @param {string} key - the file key to update; must already exist
+ * @param {string} alt - the new alt text
+ * @returns {Promise<FileMeta>} the stored file's metadata
+ * @throws {Error} if no file exists at the key (caller should map to 404)
+ */
+export async function updateFileAlt(ctx: ExecutionContext, key: string, alt: string): Promise<FileMeta> {
+    const files = await listFiles(ctx)
+    const existing = files.find((file) => file.key === key)
+    if (existing === undefined) {
+        throw new Error(`No file exists at key "${key}"`)
+    }
+    const data = await readFileBytes(key)
+    if (data === null) {
+        throw new Error(`No file exists at key "${key}"`)
+    }
+    const custom = _buildCustomMetadata(data.content_type, existing.uploader, existing.width, existing.height, existing.optimized, alt)
+    // re-writing the same bytes does not change total usage, so the budget excludes this object's own
+    // size; EMDASH_MEDIA's usage is still included since the capacity ceiling is shared (see r2.ts)
+    const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())
+    const stored = await putObject(key, data.bytes, data.content_type, custom, used)
+    _invalidate(ctx, key)
+    return _toMeta(stored)
 }
 
 /**
@@ -358,14 +434,18 @@ export async function deleteFile(ctx: ExecutionContext, key: string): Promise<vo
 }
 
 /**
- * Reports current and maximum storage usage for the bucket
+ * Reports current and maximum storage usage against the shared ceiling
+ *
+ * `used` is combined across both buckets this app owns (R2_FILES + EMDASH_MEDIA) since they draw against
+ * the same account-wide capacity ceiling — see r2.ts's MAX_R2_STORAGE_BYTES.
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
- * @returns {Promise<{ used: number, max: number }>} bytes used and the configured ceiling
+ * @returns {Promise<{ used: number, max: number }>} combined bytes used and the configured ceiling
  */
 export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: number; max: number }> {
     const files = await listFiles(ctx)
-    return { used: files.reduce((total, file) => total + file.size, 0), max: MAX_R2_STORAGE_BYTES }
+    const used = files.reduce((total, file) => total + file.size, 0) + (await emdashMediaUsageBytes())
+    return { used, max: MAX_R2_STORAGE_BYTES }
 }
 
 /**

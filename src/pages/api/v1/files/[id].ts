@@ -6,27 +6,32 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import type { APIRoute } from "astro"
-import { deleteFile, deriveFileKey, readFileBytes, replaceFile } from "../../../../lib/api/files"
+import { deleteFile, deriveFileKey, readFileBytes, replaceFile, updateFileAlt } from "../../../../lib/api/files"
 import { parseCropFromForm } from "../../../../lib/api/images"
 import { maxUploadBytes, R2CapacityError } from "../../../../lib/api/r2"
 import { auth_check } from "../../../../lib/public/authservice"
 import { constructResponse, constructResponseErrorHook, constructFileResponse } from "../../../../lib/api/http"
+import { validateAltText } from "../../../../lib/api/validation"
 import { env } from "cloudflare:workers"
 
 /**
@@ -64,11 +69,13 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * PUT /api/v1/files/{id}
- * Replaces an existing file's bytes, optimizing it when it is an image
+ * Replaces an existing file's bytes, optimizing it when it is an image; or, when the "file" part is
+ * omitted, updates only the file's stored alt text (the admin "modify alt text" affordance)
  *
  * Permissions required: none (authenticated identity)
  *
- * Body: required; multipart/form-data with a "file" part (see POST /api/v1/files)
+ * Body: required; multipart/form-data. Either a "file" part plus a required "alt" part (1-256 chars,
+ *   see POST /api/v1/files), or an "alt" part alone to update alt text without touching the file's bytes.
  *
  * @param context - the Astro API context
  * @returns 204 on success, or a JSON error
@@ -88,21 +95,40 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
             request,
             null,
             400,
-            "Invalid request body: expected multipart/form-data with a 'file' part"
+            "Invalid request body: expected multipart/form-data with a 'file' and/or 'alt' part"
         )
     }
+    // the key is fixed by the URL; the upload's own filename (if any) is ignored on replace
+    const key = deriveFileKey(params.id!)
+    if (key === "") {
+        return constructResponse(request, null, 400, "Invalid file key")
+    }
+    const provided_alt = form.get("alt")
+    const alt = typeof provided_alt === "string" ? provided_alt.trim() : ""
+    const alt_error = validateAltText(alt)
+    if (alt_error !== null) {
+        return constructResponse(request, null, 400, alt_error)
+    }
     const file = form.get("file")
+    if (file === null) {
+        // alt-only update: no bytes to rewrite
+        try {
+            await updateFileAlt(context.locals.cfContext, key, alt)
+            return constructResponse(request, null, 204)
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("No file exists")) {
+                return constructResponse(request, null, 404)
+            }
+            console.error(error)
+            return constructResponseErrorHook(request, error, 500, "Unknown error")
+        }
+    }
     if (!(file instanceof File)) {
-        return constructResponse(request, null, 400, "Invalid request body: missing 'file' part")
+        return constructResponse(request, null, 400, "Invalid request body: 'file' part is not a file")
     }
     // reject oversized uploads before reading the body into memory
     if (file.size > maxUploadBytes()) {
         return constructResponse(request, null, 413)
-    }
-    // the key is fixed by the URL; the upload's own filename is ignored on replace
-    const key = deriveFileKey(params.id!)
-    if (key === "") {
-        return constructResponse(request, null, 400, "Invalid file key")
     }
     const content_type = file.type || "application/octet-stream"
     const uploader = locals.identity ? String(locals.identity.id) : null
@@ -114,7 +140,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     try {
         // reading the upload's bytes can throw if the client aborts mid-stream; keep it inside the try
         const bytes = await file.arrayBuffer()
-        await replaceFile(context.locals.cfContext, key, bytes, content_type, uploader, crop)
+        await replaceFile(context.locals.cfContext, key, bytes, content_type, uploader, alt, crop)
         return constructResponse(request, null, 204)
     } catch (error) {
         if (error instanceof R2CapacityError) {

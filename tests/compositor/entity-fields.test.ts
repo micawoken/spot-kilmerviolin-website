@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -40,7 +44,10 @@ const KINDS: readonly EntityFieldKind[] = [
     "image",
     "uri",
     "yearOrLiving",
-    "countryCode"
+    "countryCode",
+    "email",
+    "titleCase",
+    "citations"
 ]
 
 describe("ENTITY_NOUNS / isEntityNoun", () => {
@@ -69,16 +76,18 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
             "bio",
             "image",
             "tags",
+            "citations",
             "entry_date",
             "change_date"
         ])
     })
 
-    it("declares death_year/country/life_span with their special-formatting kinds", () => {
+    it("declares death_year/country/life_span/role with their special-formatting kinds", () => {
         const bySlug = Object.fromEntries(entityFields("composer").map((f) => [f.slug, f]))
         expect(bySlug.death_year.type).toBe("yearOrLiving")
         expect(bySlug.country.type).toBe("countryCode")
         expect(bySlug.life_span.type).toBe("string")
+        expect(bySlug.role.type).toBe("titleCase")
     })
 
     it("gives contributor every content column, omitting active/roles/admin/identity_email", () => {
@@ -100,6 +109,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         for (const redacted of ["roles", "admin", "identity_email", "active"]) {
             expect(slugs).not.toContain(redacted)
         }
+        expect(fields.find((f) => f.slug === "public_email")?.type).toBe("email")
     })
 
     it("gives composition every content column, with foreign keys declared as reference/referenceList — never a raw id", () => {
@@ -111,6 +121,9 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         expect(bySlug.contrib_primary_1).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_primary_2).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_addl).toMatchObject({ type: "referenceList", refNoun: "contributor" })
+        // Combined single-line alternative to the three fields above (owner decision) — additive, not a
+        // replacement, so an already-authored template binding them individually keeps working.
+        expect(bySlug.contributors).toMatchObject({ type: "referenceList", refNoun: "contributor" })
 
         // No raw *_id column is ever separately bindable — only the resolved reference field is.
         for (const rawId of ["composer_id"]) {

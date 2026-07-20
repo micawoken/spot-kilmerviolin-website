@@ -4,18 +4,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -37,7 +41,16 @@ const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : `
 ---
 
 <div id={`list-result-${noun}-${id}`} class:list={["list-result-container", { "list-result-self": is_self }]}>
-    {display_name && <span class="list-result-id">ID #{id}</span>}
+    {display_name && (
+        // Not useful to a public visitor and shouldn't surface in search (a query like "38" would
+        // otherwise match every record's id badge) — kept visible for admin, where the id is load-bearing.
+        // admin-entities.css absolutely-positions this badge into the card corner (no inline gap needed
+        // there); the public index page loads no such stylesheet, so the badge renders inline and needs
+        // an explicit trailing space or it runs straight into the name that follows.
+        <span class="list-result-id" data-pagefind-ignore={enviro === "admin" ? undefined : "all"}>
+            ID #{id}
+        </span>
+    )}{" "}
     <a href={pointer_address} class="list-result-link">{pointer_text}</a>
     {
         enviro === "admin" ? (

@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  */
@@ -47,7 +51,8 @@ export const composer_interface: Record<string, FieldPair> = {
     bio: ["string", true],
     image: ["string", true],
     role: ["string", false],
-    tags: ["string[]", true]
+    tags: ["string[]", true],
+    citations: ["citations", true] // "Source Name: value" per line; see scripts/citations.ts
 }
 
 // class_year, major, and phases map to nullable database columns: they are optional, and
@@ -119,7 +124,8 @@ export const composition_interface: Record<string, FieldPair> = {
     publication_info: ["X-Publication-Info", true],
     author_secondary: ["number[]", true], // list of secondary authors
     phases: ["number[]", true],
-    tags: ["string[]", true]
+    tags: ["string[]", true],
+    citations: ["citations", true] // "Source Name: value" per line; see scripts/citations.ts
 }
 
 export const interface_data: Record<

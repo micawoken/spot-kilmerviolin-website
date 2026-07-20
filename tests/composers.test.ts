@@ -5,18 +5,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -65,5 +69,62 @@ describe("composer birth/death year consistency", () => {
 
     it("accepts a partial update that touches only the death year (no birth year to compare)", () => {
         expect(_stateTypeAssertPartialComposer({ death_year: 1800 }, false)).not.toBeTypeOf("string")
+    })
+})
+
+// citations is optional (docs/dev/miscellaneous.txt): a complete-mode create must still pass with the
+// field entirely absent (this is the case assertRecordBySpec's complete-mode loop does NOT auto-skip an
+// undefined field for — the base check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
+describe("composer citations validation", () => {
+    it("a complete create with no citations key passes", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer(), false)).not.toBeTypeOf("string")
+    })
+
+    it("a complete create with citations: null passes", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ citations: null }), false)).not.toBeTypeOf("string")
+    })
+
+    it("accepts an empty citations object", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ citations: {} }), false)).not.toBeTypeOf("string")
+    })
+
+    it("accepts a well-formed citations map", () => {
+        expect(
+            _stateTypeAssertCompleteComposer(
+                makeComposer({ citations: { IMSLP: "https://imslp.org/wiki/Test" } }),
+                false
+            )
+        ).not.toBeTypeOf("string")
+    })
+
+    it("rejects a citations value that is not an https link, DOI, or ISBN", () => {
+        expect(
+            _stateTypeAssertCompleteComposer(makeComposer({ citations: { IMSLP: "not-a-real-value" } }), false)
+        ).toBeTypeOf("string")
+    })
+
+    it("rejects a citations entry with a blank source name", () => {
+        expect(
+            _stateTypeAssertCompleteComposer(
+                makeComposer({ citations: { "  ": "https://imslp.org/wiki/Test" } }),
+                false
+            )
+        ).toBeTypeOf("string")
+    })
+
+    it("rejects a non-object citations value", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ citations: "not an object" }), false)).toBeTypeOf(
+            "string"
+        )
+    })
+
+    it("a partial update with no citations key is untouched (field simply absent from the diff)", () => {
+        expect(_stateTypeAssertPartialComposer({ name: "Renamed" }, false)).not.toBeTypeOf("string")
+    })
+
+    it("a partial update rejects a malformed citations value when present", () => {
+        expect(
+            _stateTypeAssertPartialComposer({ citations: { IMSLP: "not-a-real-value" } }, false)
+        ).toBeTypeOf("string")
     })
 })

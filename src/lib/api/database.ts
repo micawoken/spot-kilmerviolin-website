@@ -7,7 +7,7 @@
  * Copyright (C) 2026 Michael Wong.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
@@ -15,9 +15,9 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -74,8 +74,8 @@ import { invalidateIdentityCache } from "./authorize.ts"
  * admin INTEGER NOT NULL, // 0 or 1
  * image TEXT // URL to contributor image
  * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date TEXT NOT NULL, // ISO 8601 format; creation date, hidden from users and managed by business logic
- * change_date TEXT // ISO 8601 format; last-modified date, hidden from users and managed by business logic
+ * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
+ * change_date INTEGER // epoch milliseconds; last-modified date, hidden from users and managed by business logic
  *
  * COMPOSERS:
  * composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,8 +87,8 @@ import { invalidateIdentityCache } from "./authorize.ts"
  * bio TEXT,
  * image TEXT, // refers to a file in assets, or an external URL
  * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date TEXT NOT NULL, // ISO 8601 format; creation date, hidden from users and managed by business logic
- * change_date TEXT // ISO 8601 format; last-modified date, hidden from users and managed by business logic
+ * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
+ * change_date INTEGER // epoch milliseconds; last-modified date, hidden from users and managed by business logic
  *
  * COMPOSITIONS:
  * composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,10 +115,9 @@ import { invalidateIdentityCache } from "./authorize.ts"
  * notes_other TEXT,
  * image TEXT,
  * phases TEXT NOT NULL, // comma-separated list of phase numbers
- * entry_date TEXT NOT NULL, // ISO 8601 format; creation date, hidden from users and managed by business logic
  * tags TEXT, // comma-separated list of tags for filtering and search
- * change_date TEXT, // ISO 8601 format; last-modified date, hidden from users and managed by business logic
- * full_name TEXT UNIQUE NOT NULL GENERATED ALWAYS AS ((SELECT name FROM composers WHERE composers.composer_id = compositions.composer_id) || ' (' || name || ')') STORED // used for indexing and search
+ * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
+ * change_date INTEGER, // epoch milliseconds; last-modified date, hidden from users and managed by business logic
  * FOREIGN KEY (composer_id) REFERENCES COMPOSERS(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  * FOREIGN KEY (contrib_primary_1) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
  * FOREIGN KEY (contrib_primary_2) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
@@ -484,7 +483,7 @@ async function _addPrimitive(
     stmt.voidValue(0, schema.primary_key)
     // entry_date (creation) and change_date (last-modified) are managed here, not from caller input;
     // on insert both are stamped with the same instant since creation is also the first modification
-    const now = new Date().toISOString()
+    const now = Date.now()
     stmt.editValue(0, "entry_date", now)
     stmt.editValue(0, "change_date", now)
     const output = await _exec_wrap(stmt, ctx)
@@ -519,7 +518,7 @@ async function _addPrimitiveBatch(
         throw new Error("No records supplied for batch insertion")
     }
     // a single timestamp for the whole batch: every record is created (and first modified) at the same instant
-    const now = new Date().toISOString()
+    const now = Date.now()
     const stmts = records.map((record) => {
         const stmt = new SQLStatement(schema, "INSERT", schema.name)
         let entry
@@ -641,7 +640,7 @@ async function _updatePrimitive(
     stmt.addColumns(schema.columns.filter((col) => col !== schema.primary_key && !schema.repr_exclude.includes(col))) // exclude primary key and hidden meta columns (entry_date, change_date) from update
     stmt.addValueGroup(entry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and hidden meta columns; change_date is restamped below, entry_date is preserved
     // change_date tracks the last modification, so it is stamped here on every update (entry_date is left untouched)
-    stmt.editValue(0, "change_date", new Date().toISOString())
+    stmt.editValue(0, "change_date", Date.now())
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
     await _exec_wrap(stmt, ctx)
     return null
@@ -708,7 +707,7 @@ async function _updatePrimitivePartial(
     stmt.addColumns(update_columns) // exclude primary key and hidden meta columns (entry_date, change_date) from update
     stmt.addValueGroup(cleanEntry, [schema.primary_key, ...schema.repr_exclude]) // exclude primary key and hidden meta columns from update
     // a real column changed (guarded above), so stamp change_date as the last-modified time (entry_date is left untouched)
-    stmt.editValue(0, "change_date", new Date().toISOString())
+    stmt.editValue(0, "change_date", Date.now())
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
     await _exec_wrap(stmt, ctx)
     return null

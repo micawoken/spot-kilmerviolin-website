@@ -22,18 +22,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -426,15 +430,15 @@ function lintHeadings(headings: HeadingRef[], findings: LintFinding[]): void {
  * context (pivot §5.5). Returns every finding (errors and warnings) in a stable order: per-component
  * findings in document order, then the whole-page heading and template-shape findings.
  *
- * @param {DesignDoc} doc - the design in stored form (rich text as Portable Text)
- * @param {TokenCatalog | null} theme - the live theme; when null, token-reference checks are skipped
- * @param {TokenPropRegistry} tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
- * @param {OutletPropRegistry} outletProps - outlet type → accepted field types (catalog `OUTLET_PROPS`)
- * @param {LintPairingContext} [context] - present for a `design_template` doc; absent for a `design_page`
- * @param {boolean} [published=false] - true for a document being published (build gate), which promotes
+ * @param doc - the design in stored form (rich text as Portable Text)
+ * @param theme - the live theme; when null, token-reference checks are skipped
+ * @param tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
+ * @param outletProps - outlet type → accepted field types (catalog `OUTLET_PROPS`)
+ * @param [context] - present for a `design_template` doc; absent for a `design_page`
+ * @param [published=false] - true for a document being published (build gate), which promotes
  *   the `unknown-token` finding to an error (DD2); false (the default, and the editor's intent) keeps it
  *   a warning so an author mid-rename is not blocked
- * @returns {LintFinding[]} - all findings; callers gate on `severity === "error"`
+ * @returns all findings; callers gate on `severity === "error"`
  */
 export function lintDesign(
     doc: DesignDoc,

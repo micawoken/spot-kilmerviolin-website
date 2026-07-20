@@ -7,18 +7,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -37,9 +41,13 @@ import {
     parsePhases,
     compositionKey,
     normalizeName,
-    type WorksContext
+    type WorksContext,
+    type BuildIssue
 } from "../src/scripts/import_build.ts"
 import { composer_csv_columns, composition_csv_columns } from "../src/scripts/types.ts"
+
+/** Plain message text for issues, for assertions that don't care about column tagging. */
+const messages = (issues: BuildIssue[]): string[] => issues.map((issue) => issue.message)
 
 describe("parseCsv", () => {
     it("parses a simple grid", () => {
@@ -155,7 +163,8 @@ describe("buildComposer", () => {
 
     it("flags a blank name", () => {
         const { issues } = buildComposer(composerCells({ name: "  " }))
-        expect(issues).toContain("name is required")
+        expect(messages(issues)).toContain("name is required")
+        expect(issues[0].column).toBe("name")
     })
 })
 
@@ -175,7 +184,7 @@ describe("buildContributor", () => {
     })
 
     it("flags a blank name", () => {
-        expect(buildContributor({ name: "" }).issues).toContain("name is required")
+        expect(messages(buildContributor({ name: "" }).issues)).toContain("name is required")
     })
 })
 
@@ -223,7 +232,7 @@ describe("buildComposition", () => {
         expect(record.phases).toEqual([1, 2])
     })
 
-    it("reports an unknown contributor with a did-you-mean suggestion", () => {
+    it("reports an unknown contributor with a did-you-mean suggestion, tagged to its own column", () => {
         const { issues } = buildComposition(
             compositionCells({
                 name: "Study",
@@ -233,12 +242,32 @@ describe("buildComposition", () => {
             }),
             makeCtx()
         )
-        expect(issues.some((issue) => /unknown contributor "Ada Lovelce".*did you mean "Ada Lovelace"/.test(issue))).toBe(
-            true
+        const issue = issues.find((candidate) =>
+            /unknown contributor "Ada Lovelce".*did you mean "Ada Lovelace"/.test(candidate.message)
         )
+        expect(issue).toBeDefined()
+        // the field this issue is really about, not the "composer" column the generic "contributor" label
+        // might otherwise be confused for
+        expect(issue?.column).toBe("contrib_primary_1")
     })
 
-    it("flags a non-blank contribution period that has not been mapped", () => {
+    it("tags an unknown author_secondary reference to its own column, not the composer column", () => {
+        const { issues } = buildComposition(
+            compositionCells({
+                name: "Study",
+                composer: "Amy Beach",
+                contrib_primary_1: "Ada Lovelace",
+                author_secondary: "Not A Real Composer",
+                type: "solo"
+            }),
+            makeCtx()
+        )
+        const issue = issues.find((candidate) => /unknown composer "Not A Real Composer"/.test(candidate.message))
+        expect(issue).toBeDefined()
+        expect(issue?.column).toBe("author_secondary")
+    })
+
+    it("flags a non-blank contribution period that has not been mapped, tagged to the contribution_period column", () => {
         const { issues } = buildComposition(
             compositionCells({
                 name: "Study",
@@ -249,7 +278,9 @@ describe("buildComposition", () => {
             }),
             makeCtx()
         )
-        expect(issues.some((issue) => /"Late period" is not mapped/.test(issue))).toBe(true)
+        const issue = issues.find((candidate) => /"Late period" is not mapped/.test(candidate.message))
+        expect(issue).toBeDefined()
+        expect(issue?.column).toBe("contribution_period")
     })
 
     it("leaves phases empty for a blank contribution period without an issue", () => {
@@ -281,25 +312,29 @@ describe("parsePhases", () => {
 describe("flagCompositionDuplicates", () => {
     it("flags a duplicate against the existing database", () => {
         const existing = new Set<string>([compositionKey(10, "Invention No. 1", null)])
-        const results = [{ record: { composer_id: 10, name: "Invention No. 1", part: null }, issues: [] as string[] }]
+        const results = [{ record: { composer_id: 10, name: "Invention No. 1", part: null }, issues: [] as BuildIssue[] }]
         flagCompositionDuplicates(results, existing)
-        expect(results[0].issues).toContain("a composition with this name and part already exists for this composer")
+        expect(messages(results[0].issues)).toContain(
+            "a composition with this name and part already exists for this composer"
+        )
     })
 
     it("flags two rows with the same composer, name, and part within the file", () => {
         const results = [
-            { record: { composer_id: 10, name: "Prelude", part: "Violin I" }, issues: [] as string[] },
-            { record: { composer_id: 10, name: "prelude", part: "violin i" }, issues: [] as string[] }
+            { record: { composer_id: 10, name: "Prelude", part: "Violin I" }, issues: [] as BuildIssue[] },
+            { record: { composer_id: 10, name: "prelude", part: "violin i" }, issues: [] as BuildIssue[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
         // second occurrence is flagged as a within-file duplicate (name and part compared case-insensitively)
-        expect(results[1].issues).toContain("duplicate composition (same name, composer, and part) within this file")
+        expect(messages(results[1].issues)).toContain(
+            "duplicate composition (same name, composer, and part) within this file"
+        )
     })
 
     it("does not flag same-name works by different composers", () => {
         const results = [
-            { record: { composer_id: 10, name: "Prelude", part: null }, issues: [] as string[] },
-            { record: { composer_id: 11, name: "Prelude", part: null }, issues: [] as string[] }
+            { record: { composer_id: 10, name: "Prelude", part: null }, issues: [] as BuildIssue[] },
+            { record: { composer_id: 11, name: "Prelude", part: null }, issues: [] as BuildIssue[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
         expect(results[0].issues).toEqual([])
@@ -308,8 +343,8 @@ describe("flagCompositionDuplicates", () => {
 
     it("does not flag same-name works by the same composer with different parts", () => {
         const results = [
-            { record: { composer_id: 10, name: "Sonata", part: "Violin I" }, issues: [] as string[] },
-            { record: { composer_id: 10, name: "Sonata", part: "Violin II" }, issues: [] as string[] }
+            { record: { composer_id: 10, name: "Sonata", part: "Violin I" }, issues: [] as BuildIssue[] },
+            { record: { composer_id: 10, name: "Sonata", part: "Violin II" }, issues: [] as BuildIssue[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
         expect(results[0].issues).toEqual([])
@@ -318,34 +353,36 @@ describe("flagCompositionDuplicates", () => {
 
     it("treats a null part and a blank part as the same part", () => {
         const existing = new Set<string>([compositionKey(10, "Etude", null)])
-        const results = [{ record: { composer_id: 10, name: "Etude", part: "" }, issues: [] as string[] }]
+        const results = [{ record: { composer_id: 10, name: "Etude", part: "" }, issues: [] as BuildIssue[] }]
         flagCompositionDuplicates(results, existing)
-        expect(results[0].issues).toContain("a composition with this name and part already exists for this composer")
+        expect(messages(results[0].issues)).toContain(
+            "a composition with this name and part already exists for this composer"
+        )
     })
 })
 
 describe("flagNameDuplicates", () => {
     it("flags a name that already exists in the database", () => {
         const existing = new Set<string>([normalizeName("Amy Beach")])
-        const results = [{ record: { name: "amy   beach" }, issues: [] as string[] }]
+        const results = [{ record: { name: "amy   beach" }, issues: [] as BuildIssue[] }]
         flagNameDuplicates(results, existing, "composer")
-        expect(results[0].issues).toContain("a composer with this name already exists")
+        expect(messages(results[0].issues)).toContain("a composer with this name already exists")
     })
 
     it("flags repeated names within the file (case-insensitive)", () => {
         const results = [
-            { record: { name: "Ada Lovelace" }, issues: [] as string[] },
-            { record: { name: "ada lovelace" }, issues: [] as string[] }
+            { record: { name: "Ada Lovelace" }, issues: [] as BuildIssue[] },
+            { record: { name: "ada lovelace" }, issues: [] as BuildIssue[] }
         ]
         flagNameDuplicates(results, new Set<string>(), "contributor")
-        expect(results[0].issues).toContain("duplicate contributor name within this file")
-        expect(results[1].issues).toContain("duplicate contributor name within this file")
+        expect(messages(results[0].issues)).toContain("duplicate contributor name within this file")
+        expect(messages(results[1].issues)).toContain("duplicate contributor name within this file")
     })
 
     it("does not flag distinct names", () => {
         const results = [
-            { record: { name: "Ada Lovelace" }, issues: [] as string[] },
-            { record: { name: "Grace Hopper" }, issues: [] as string[] }
+            { record: { name: "Ada Lovelace" }, issues: [] as BuildIssue[] },
+            { record: { name: "Grace Hopper" }, issues: [] as BuildIssue[] }
         ]
         flagNameDuplicates(results, new Set<string>(), "contributor")
         expect(results[0].issues).toEqual([])

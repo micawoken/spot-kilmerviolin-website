@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -308,6 +312,25 @@ function joinAndFilterItems(values: Array<string | number>): string {
         .join(",")
 }
 
+/**
+ * Parses a citations column's JSON-encoded text back into its key-value form. A blank or null column (no
+ * citations set — the ADD COLUMN migration leaves existing rows NULL until they are next written, the
+ * same as tags) parses to {}; a non-blank column is expected to be well-formed JSON written by
+ * {@link serializeCitations} (the only writer of this column) — a parse failure indicates database
+ * corruption, so it throws rather than silently discarding the value.
+ */
+function parseCitations(raw: string | null | undefined): Record<string, string> {
+    if (!raw || raw.trim() === "") {
+        return {}
+    }
+    return JSON.parse(raw) as Record<string, string>
+}
+
+/** Serializes a citations object to its D1-stored JSON text form; an empty/absent map stores as "". */
+function serializeCitations(value: Record<string, string> | undefined): string {
+    return value && Object.keys(value).length > 0 ? JSON.stringify(value) : ""
+}
+
 /** A per-field transform used by {@link applyPartialFields}; mutates `output` for a defined `value`. */
 type PartialFieldTransform = (value: any, output: Record<string, unknown>) => void
 
@@ -366,6 +389,7 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
         uri_type,
         uri,
         tags,
+        citations,
         ...data
     } = record
     const rating: CompositionRating = {
@@ -391,7 +415,8 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
         rating: rating,
         publication_info: publish_info,
         phases: phases_list,
-        tags: tag_list
+        tags: tag_list,
+        citations: parseCitations(citations)
     }
 }
 
@@ -404,7 +429,7 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
 export function formatWorkToD1(record: Composition | CompositionRecord): D1Composition {
     // converts a Composition object to D1Composition
     // if the supplied object is a Composition, and not a CompositionRecord, the id, entry_date, and change_date fields are set to null equivalents
-    let author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, change_date, tags, data
+    let author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, change_date, tags, citations, data
     switch ("id" in record) {
         case true:
             // record is a CompositionRecord, so it has the id, entry_date, and change_date fields, which are used in the output
@@ -418,13 +443,14 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
                 entry_date,
                 change_date,
                 tags,
+                citations,
                 ...data
             } = record as CompositionRecord)
 
             break
         case false:
             // record is a Composition, so it does not have the id, entry_date, or change_date fields; these are set to null equivalents in the output
-            ;({ author_secondary, contrib_addl, rating, phases, publication_info, tags, ...data } =
+            ;({ author_secondary, contrib_addl, rating, phases, publication_info, tags, citations, ...data } =
                 record as Composition)
             id = null
             entry_date = null // it is assumed that Compositions retain their shape; also, entry_date is ignored for updates
@@ -455,7 +481,8 @@ export function formatWorkToD1(record: Composition | CompositionRecord): D1Compo
         author_secondary: author_secondary ? joinAndFilterItems(author_secondary) : "",
         contrib_addl: contrib_addl ? joinAndFilterItems(contrib_addl) : "",
         phases: phases ? joinAndFilterItems(phases) : "",
-        tags: tags ? joinAndFilterItems(tags) : ""
+        tags: tags ? joinAndFilterItems(tags) : "",
+        citations: serializeCitations(citations)
     }
 }
 
@@ -473,6 +500,13 @@ export function formatWorkToD1Partial(record: Partial<Composition> & { id: numbe
         contrib_addl: joinOrEmpty("contrib_addl"),
         phases: joinOrEmpty("phases"),
         tags: joinOrEmpty("tags"),
+        // citations is only written when an object is supplied (no empty-string fallback for undefined,
+        // mirroring composer tags' partial-update convention below)
+        citations: (value, out) => {
+            if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                out.citations = serializeCitations(value as Record<string, string>)
+            }
+        },
         // normalize range and highest position to their canonical stored form when present
         range: (value, out) => {
             out.range = normalizeRangeValue(value)
@@ -525,11 +559,12 @@ export function formatWorkToD1Partial(record: Partial<Composition> & { id: numbe
 export function formatCompFromD1(record: D1Composer): ComposerRecord {
     // converts the D1Composer object representation in D1 to ComposerRecord
     // ComposerRecord and D1Composer are very similar; the only difference is the id signifier
-    const { composer_id, tags, ...data } = record
+    const { composer_id, tags, citations, ...data } = record
     return {
         ...data,
         id: composer_id,
-        tags: tags ? splitAndFilterItems(tags) : []
+        tags: tags ? splitAndFilterItems(tags) : [],
+        citations: parseCitations(citations)
     }
 }
 
@@ -541,23 +576,24 @@ export function formatCompFromD1(record: D1Composer): ComposerRecord {
  */
 export function formatCompToD1(record: Composer | ComposerRecord): D1Composer {
     // converts a Composer object to D1Composer
-    let data, id, entry_date, change_date, tags
+    let data, id, entry_date, change_date, tags, citations
     switch ("id" in record) {
         case true:
             // record is a ComposerRecord, so it has the id, entry_date, and change_date fields, which are used in the output
-            ;({ id, entry_date, change_date, tags, ...data } = record as ComposerRecord)
+            ;({ id, entry_date, change_date, tags, citations, ...data } = record as ComposerRecord)
             break
         case false:
             // record is just Composer
-            ;({ tags, ...data } = record as Composer)
+            ;({ tags, citations, ...data } = record as Composer)
             id = null
-            entry_date = new Date().toISOString() // it is assumed that Composers retain their shape; also, entry_date is ignored for updates
+            entry_date = Date.now() // it is assumed that Composers retain their shape; also, entry_date is ignored for updates
             change_date = entry_date // change_date is set by business logic on insert/update (see database.ts); seeded to entry_date for a new record
             break
     }
     return {
         ...data,
         tags: tags ? joinAndFilterItems(tags) : "",
+        citations: serializeCitations(citations),
         entry_date: entry_date,
         change_date: change_date,
         composer_id: id ? id : -1 // if id is set to -1, it cannot be used as a valid primary key for update
@@ -579,6 +615,12 @@ export function formatCompToD1Partial(record: Partial<Composer> & { id: number }
         // composer tags are only written when an array is supplied (no empty-string fallback)
         tags: (value, out) => {
             if (Array.isArray(value)) out.tags = joinAndFilterItems(value)
+        },
+        // citations is only written when an object is supplied (no empty-string fallback for undefined)
+        citations: (value, out) => {
+            if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                out.citations = serializeCitations(value as Record<string, string>)
+            }
         }
     })
     return output
@@ -625,7 +667,7 @@ export function formatContribToD1(record: Contributor | ContributorRecord): D1Co
             // record is just Contributor
             ;({ ...data } = record as Contributor)
             id = null
-            entry_date = new Date().toISOString() // it is assumed that Contributors retain their shape; also, entry_date is ignored for updates
+            entry_date = Date.now() // it is assumed that Contributors retain their shape; also, entry_date is ignored for updates
             change_date = entry_date // change_date is set by business logic on insert/update (see database.ts); seeded to entry_date for a new record
             break
     }

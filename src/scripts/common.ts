@@ -5,18 +5,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -24,6 +28,7 @@ import type { FieldPair } from "./types"
 import { custom_object_parsers } from "./types"
 import { isValidCountryCode, normalizeCountryCode } from "../lib/api/validation"
 import {
+    classifyCitationValue,
     hasStrayCommaSegments,
     isDeathYearConsistent,
     isPositiveIntegerString,
@@ -35,6 +40,7 @@ import {
     validateURIForType
 } from "../lib/api/validation"
 import { countryNameToCode } from "./format"
+import { parseCitationsTextarea } from "./citations"
 
 // PARSERS
 
@@ -66,7 +72,7 @@ export function argParse(
     param: string,
     type: string,
     raw_value: string
-): string | string[] | number | number[] | boolean | undefined {
+): string | string[] | number | number[] | boolean | Record<string, string> | undefined {
     switch (type) {
         case "string":
             return raw_value
@@ -106,6 +112,9 @@ export function argParse(
                 .map((s) => s.trim())
                 .filter((s) => s !== "")
                 .map((s) => parseIntegerStrict(s, param))
+        case "citations":
+            // one entry per line, "Source Name: value"; see scripts/citations.ts's header
+            return parseCitationsTextarea(raw_value)
         default:
             if (type.startsWith("X-")) {
                 throw new Error(
@@ -377,6 +386,27 @@ export const validateUriField: FieldValidator = (raw, form) => {
     return validateURIForType(uri_type, raw) ? null : `does not match the selected ${uri_type.toUpperCase()} format`
 }
 
+// unlike parseCitationsTextarea (scripts/citations.ts), which silently drops a malformed line for the
+// form's convenience at submit time, this walks every non-blank raw line so a mistake is actually
+// surfaced to the user instead of quietly vanishing from what gets saved
+export const validateCitationsField: FieldValidator = (raw) => {
+    const lines = raw
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line !== "")
+    for (const line of lines) {
+        const separator = line.indexOf(":")
+        if (separator === -1) return `each line must be "Source Name: value" (missing ":" in "${line}")`
+        const key = line.slice(0, separator).trim()
+        const value = line.slice(separator + 1).trim()
+        if (key === "") return `missing source name in "${line}"`
+        if (value === "" || classifyCitationValue(value) === null) {
+            return `"${value}" must be an https link, a DOI, or an ISBN`
+        }
+    }
+    return null
+}
+
 /** Maps a field's name (the input's name attribute) to its validator. Unlisted fields are not validated. */
 export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
     birth_year: validateYear(false),
@@ -404,7 +434,8 @@ export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
     roles: validateList(false),
     phases: validateList(true),
     author_secondary: validateList(true),
-    contrib_addl: validateList(true)
+    contrib_addl: validateList(true),
+    citations: validateCitationsField
 }
 
 /**

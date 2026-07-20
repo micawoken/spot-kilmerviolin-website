@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -52,8 +56,21 @@ const theme: TokenCatalog = {
 }
 
 /** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
- * container (unified field-outlet rewrite). A change here is a deliberate version bump. */
-const CATALOG_V1 = ["Section", "Columns", "Row", "Heading", "RichText", "Image", "Button", "Spacer", "Divider"]
+ * container (unified field-outlet rewrite) — and `PagefindSearch`/`Breadcrumbs`, the two components added
+ * per docs/dev/miscellaneous.txt "puck components to add". A change here is a deliberate version bump. */
+const CATALOG_V1 = [
+    "Section",
+    "Columns",
+    "Row",
+    "Heading",
+    "RichText",
+    "Image",
+    "Button",
+    "Spacer",
+    "Divider",
+    "PagefindSearch",
+    "Breadcrumbs"
+]
 
 /** The content outlets (pivot §4), including the unified field-outlet rewrite's `ContentField` (any
  * non-image entity field) and `MediaText` (the collapsing media+text primitive) — registered in every
@@ -130,7 +147,10 @@ describe("OUTLET_PROPS", () => {
                 "list",
                 "uri",
                 "yearOrLiving",
-                "countryCode"
+                "countryCode",
+                "email",
+                "titleCase",
+                "citations"
             ],
             MediaText: ["image"]
         })
@@ -254,6 +274,56 @@ describe("buildConfig — Button drives theme-authored variants through --cmp-bu
     })
 })
 
+describe("buildConfig — PagefindSearch renders a plain GET form to /search", () => {
+    const config = buildConfig(theme, "build")
+
+    it("defaults to whole-site scope (no hidden scope input)", () => {
+        const html = render(config, "PagefindSearch", { scope: "site" })
+        expect(html).toContain('action="/search"')
+        expect(html).toContain('method="get"')
+        expect(html).not.toContain('name="scope"')
+        expect(html).toContain('name="q"')
+    })
+
+    it("emits a hidden database-scope input when scoped to the database", () => {
+        const html = render(config, "PagefindSearch", { scope: "database" })
+        expect(html).toContain('type="hidden" name="scope" value="database"')
+    })
+})
+
+describe("buildConfig — Breadcrumbs auto-derives its trail from route context", () => {
+    it("shows an illustrative preview in the editor with no route context attached", () => {
+        const html = render(buildConfig(theme, "editor"), "Breadcrumbs", {})
+        expect(html).toContain(">Home</a>")
+        expect(html).toContain("Example page")
+    })
+
+    it("renders Home, each ancestor, and the current page title at build", () => {
+        const config = buildConfig(theme, "build", {
+            breadcrumbs: [{ label: "Composers", href: "/entity/composer/" }],
+            pageTitle: "Bach"
+        })
+        const html = render(config, "Breadcrumbs", {})
+        expect(html).toContain('<a href="/">Home</a>')
+        expect(html).toContain('<a href="/entity/composer/">Composers</a>')
+        expect(html).toContain('aria-current="page">Bach<')
+    })
+
+    it("renders a null-href ancestor as plain text, not a link", () => {
+        const config = buildConfig(theme, "build", { breadcrumbs: [{ label: "Posts", href: null }], pageTitle: "My post" })
+        const html = render(config, "Breadcrumbs", {})
+        expect(html).toContain("<span>Posts</span>")
+        expect(html).not.toContain('href="null"')
+    })
+
+    it("falls back to Home alone when no breadcrumb context resolves at build", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "Breadcrumbs", {})
+        expect(html).toContain('<a href="/">Home</a>')
+        expect(html).not.toContain("aria-current")
+    })
+})
+
 describe("buildConfig — outlet renders resolve through the entry context (D7)", () => {
     const MEDIA_ORIGIN = "https://store.example.test"
 
@@ -270,7 +340,9 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         // An id and nothing else — no usable handle at all (the file route is keyed by storage key).
         coverIdOnly: { id: "med_3", alt: "Orphan" },
         // A D1 entity's `image` column: a plain string, not an EmDash media object.
-        entityCover: "https://images.example.test/composer.jpg"
+        entityCover: "https://images.example.test/composer.jpg",
+        // A D1 entity's `image` column pointing at a bundled (src/files) asset.
+        bundledCover: "/files/composer-portrait.webp"
     }
 
     it("renders nothing at build with no entry context (design_page path, D3)", () => {
@@ -339,6 +411,20 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         expect(html).toContain('alt=""')
     })
 
+    it("ContentImage resolves a bundled image's alt text from the build-time sidecar index", () => {
+        const bundledFileAlt = { "composer-portrait.webp": "Portrait of the composer" }
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN, bundledFileAlt })
+        const html = render(config, "ContentImage", { field: "bundledCover", aspect: "original" })
+        expect(html).toContain('src="/files/composer-portrait.webp"')
+        expect(html).toContain('alt="Portrait of the composer"')
+    })
+
+    it("ContentImage renders empty alt for a bundled image absent from the sidecar index", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN, bundledFileAlt: {} })
+        const html = render(config, "ContentImage", { field: "bundledCover", aspect: "original" })
+        expect(html).toContain('alt=""')
+    })
+
     it("Heading and ContentText produce identical markup for the same inputs (twin contract)", () => {
         const config = buildConfig(theme, "build", { entry })
         const viaHeading = render(config, "Heading", { text: "From the entry", level: "h2", typography: "display", align: "start" })
@@ -372,7 +458,8 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         { slug: "tags", label: "Tags", type: "list" },
         { slug: "publication_uri", label: "Publication Link", type: "uri" },
         { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
-        { slug: "country", label: "Country", type: "countryCode" }
+        { slug: "country", label: "Country", type: "countryCode" },
+        { slug: "citations", label: "Citations", type: "citations" }
     ]
 
     // Shapes exactly as entity-records.ts's normalizer produces them (references pre-resolved, no
@@ -381,7 +468,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         name: "Ada",
         bio: "",
         birth_year: 1990,
-        entry_date: "2026-01-15",
+        entry_date: 1768435200000, // 2026-01-15T00:00:00Z
         composer: { id: 5, name: "Jane Composer", href: "/entity/composer/5" },
         contrib_addl: [
             { id: 10, name: "Primary Editor", href: "/entity/contributor/10" },
@@ -390,7 +477,8 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         tags: ["romantic", "advanced"],
         publication_uri: { uriType: "https", uri: "https://example.test/score" },
         death_year: -1,
-        country: "DE"
+        country: "DE",
+        citations: { IMSLP: "https://imslp.org/wiki/Category:Bach,_Johann_Sebastian" }
     }
     const base = {
         label: "",
@@ -454,6 +542,13 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         const config = buildConfig(theme, "build", { entry, fields })
         const html = render(config, "ContentField", { ...base, field: "publication_uri" })
         expect(html).toContain('href="https://example.test/score"')
+    })
+
+    it("renders a citations map as a hyperlink with the source name as display text", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "citations" })
+        expect(html).toContain('href="https://imslp.org/wiki/Category:Bach,_Johann_Sebastian"')
+        expect(html).toContain(">IMSLP<")
     })
 
     it("owner decision: an empty/null value renders an EMPTY value (row still present), never a placeholder string", () => {

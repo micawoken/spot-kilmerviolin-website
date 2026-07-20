@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -31,6 +35,11 @@ export const ADMIN_PAGE_TITLE_PRFX = "Administrative Services - "
 // placeholder shown in entity result views when a field is null or was not supplied by the API
 // (a distinct marker so a blank field is not confused with an empty/unset render)
 export const NOT_PROVIDED = "(not provided)"
+
+// maximum length of an uploaded/bundled image's alt text (docs/dev/miscellaneous.txt's "data model
+// changes" section specifies 256 for bundled sidecar files; the same cap applies to R2-uploaded alt
+// text for consistency, since no distinct limit was specified for that case)
+export const MAX_ALT_TEXT_LENGTH = 256
 
 // origins permitted to make credentialed cross-origin requests. Because the API sends
 // Access-Control-Allow-Credentials: true, the Access-Control-Allow-Origin value must be restricted to

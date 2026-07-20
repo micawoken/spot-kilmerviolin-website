@@ -201,9 +201,6 @@ dist
 ### Astro ###
 .astro/
 
-#  hard-coded SQL files in root
-*.sql
-
 #  agent configs
 .claude/
 

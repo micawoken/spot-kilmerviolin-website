@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -25,6 +29,7 @@ import { interface_data } from "./types"
 import { NOT_PROVIDED } from "../consts"
 import { formatInfoValue } from "./format"
 import { renderPublicationUri } from "./publication"
+import { renderCitationsList } from "./citations"
 import {
     renderContributorRefLink,
     renderContributorRefLinks,
@@ -163,6 +168,20 @@ function hideLookupForRecordView(): void {
     document.getElementById("entity-search-container")?.classList.add("hidden")
 }
 
+/**
+ * Shows or hides ContributorInfo.astro's authorization-fields section (#contributor-authinfo) to match
+ * a freshly loaded contributor record: the API (GET /contributors/[id]) deletes every protected key
+ * (CONTRIBUTOR.protected in lib/api/d1.ts) from a record it redacts rather than nulling them out, so a
+ * protected key's presence reliably signals the caller is authorized to see it (checking one,
+ * identity_email, is enough — they are always redacted together). Mirrors ContributorInfo.astro's own
+ * SSR check; called on every contributor READ since a later, unauthorized lookup must re-hide a section
+ * a prior, authorized lookup left visible (populateInfo silently skips keys absent from `record`, so it
+ * cannot re-hide this on its own).
+ */
+function toggleContributorAuthSection(record: object): void {
+    document.getElementById("contributor-authinfo")?.classList.toggle("hidden", !("identity_email" in record))
+}
+
 export async function populateInfo(
     noun: keyof typeof interface_data,
     data: object,
@@ -172,6 +191,19 @@ export async function populateInfo(
     for (const [key, value] of Object.entries(data)) {
         const elem_id =
             force_prefix === undefined ? `${type_name}-${key}` : force_prefix === "" ? key : `${force_prefix}-${key}`
+        // citations is a dynamically-keyed object (source name -> https link/DOI/ISBN), not a fixed
+        // sub-field group like rating/publication_info — it must be handled before the generic nested-object
+        // recursion below, or each key would be walked as if it named a fixed DOM sub-element. Mirrors the
+        // set:html render in ComposerInfo.astro/CompositionInfo.astro.
+        if (key === "citations" && force_prefix === undefined) {
+            const elem = document.getElementById(elem_id)
+            if (!elem) {
+                console.warn(`Element with id ${elem_id} not found in DOM for populating info`)
+                continue
+            }
+            elem.innerHTML = renderCitationsList(value as Record<string, string> | null | undefined, NOT_PROVIDED)
+            continue
+        }
         if (value !== null && typeof value === "object" && !Array.isArray(value)) {
             // nested objects (rating, publication_info) populate elements prefixed with their own id
             await populateInfo(noun, value as object, elem_id)
@@ -528,6 +560,7 @@ const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => P
             if (rec) {
                 hideLookupForRecordView()
                 await populateInfo(noun, rec as any)
+                toggleContributorAuthSection(rec as object)
                 message.textContent = "Request succeeded: contributor loaded"
             } else {
                 message.textContent = "No contributor found for given ID"

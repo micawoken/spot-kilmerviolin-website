@@ -1,10 +1,3 @@
-/* Cross-document view transitions: crossfades between page navigations instead of the browser's
- * default blank flash. Native CSS, no JS; unsupported browsers (Firefox, Safari) just fall back to
- * a normal navigation with no regression. */
-@view-transition {
-	navigation: auto;
-}
-
 /* root static color configs w/ light-dark() */
 :root {
 	color-scheme: light dark;
@@ -48,6 +41,12 @@
 	--color-placeholder-bg: light-dark(#d8d8d8, #2c2c2c);
 	--color-placeholder-text: light-dark(#2a2a2a, #cfcfcf);
 	--color-placeholder-border: light-dark(#bdbdbd, #4a4a4a);
+}
+
+html {
+	/* Reserve the scrollbar's width whether or not the current page needs one, so navigating between a
+	 * page that scrolls and one that doesn't never shifts the header/content horizontally. */
+	scrollbar-gutter: stable;
 }
 
 body {

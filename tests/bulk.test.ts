@@ -9,18 +9,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -60,8 +64,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const composers_ddl = `
@@ -75,8 +79,9 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+citations TEXT,
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const compositions_ddl = `
@@ -106,8 +111,9 @@ notes_other TEXT,
 image TEXT,
 phases TEXT NOT NULL,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+citations TEXT,
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const composition_unique_index = `CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name_part ON compositions (composer_id, name, COALESCE(part, ''));`

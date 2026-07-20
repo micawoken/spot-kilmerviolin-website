@@ -21,18 +21,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -49,13 +53,29 @@ export function isEntityNoun(value: string): value is EntityNoun {
 }
 
 /**
+ * Public-facing plural label for each entity noun. "composition" is the internal/database name; the
+ * public object name is "work", so its label reads "Works" everywhere a noun is titled on a public page
+ * (the database root nav, an entity index page's title/h1, etc.) — composer and contributor already
+ * match their internal names, so only composition's label diverges.
+ */
+export const ENTITY_NOUN_LABELS: Record<EntityNoun, string> = {
+    composer: "Composers",
+    composition: "Works",
+    contributor: "Contributors"
+}
+
+/**
  * The closed vocabulary a bindable entity field can be. Deliberately kept to what the D1 columns
  * actually are (no speculative kinds): plain scalars ("string"/"text"/"number"), a formatted timestamp
  * ("date"), a resolved foreign key ("reference"/"referenceList"), a joined array ("list"), a media
  * reference ("image"), the composition-only publication link composite ("uri"), a composer's death_year
  * (`"yearOrLiving"` — the -1 "still living" sentinel formats as "Present", mirroring the admin's
- * `ComposerInfo.astro`/`format.ts` treatment), and a composer's ISO 3166-1 country code (`"countryCode"`
- * — formats to its English display name). "string"/"text"/"image" intentionally reuse the same
+ * `ComposerInfo.astro`/`format.ts` treatment), a composer's ISO 3166-1 country code (`"countryCode"`
+ * — formats to its English display name), a contributor's public email (`"email"` — renders as a
+ * `mailto:` link), a composer's role (`"titleCase"` — title-cased for display regardless of how it
+ * was entered), and a composer/composition's optional citations map (`"citations"` — a key-value object
+ * rendered as a list of hyperlinks, the key as display text; see scripts/citations.ts).
+ * "string"/"text"/"image" intentionally reuse the same
  * vocabulary `OUTLET_PROPS` (catalog.tsx) already accepts for `ContentText`/`ContentImage`, so those two
  * components work unmodified against entity fields; the rest are new kinds only `ContentField` accepts.
  */
@@ -71,6 +91,9 @@ export type EntityFieldKind =
     | "uri"
     | "yearOrLiving"
     | "countryCode"
+    | "email"
+    | "titleCase"
+    | "citations"
 
 /** One bindable entity field: what a picker shows, and what a render needs to interpret its value. */
 export interface EntityField {
@@ -83,7 +106,7 @@ export interface EntityField {
 
 const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "name", label: "Name", type: "string" },
-    { slug: "role", label: "Role", type: "string" },
+    { slug: "role", label: "Role", type: "titleCase" },
     { slug: "birth_year", label: "Birth Year", type: "number" },
     { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
     { slug: "country", label: "Country", type: "countryCode" },
@@ -93,6 +116,7 @@ const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "bio", label: "Bio", type: "text" },
     { slug: "image", label: "Image", type: "image" },
     { slug: "tags", label: "Tags", type: "list" },
+    { slug: "citations", label: "Citations", type: "citations" },
     { slug: "entry_date", label: "Added", type: "date" },
     { slug: "change_date", label: "Last Updated", type: "date" }
 ]
@@ -102,7 +126,7 @@ const CONTRIBUTOR_FIELDS: readonly EntityField[] = [
     { slug: "class_year", label: "Class Year", type: "number" },
     { slug: "major", label: "Major", type: "string" },
     { slug: "bio", label: "Bio", type: "text" },
-    { slug: "public_email", label: "Email", type: "string" },
+    { slug: "public_email", label: "Email", type: "email" },
     { slug: "image", label: "Image", type: "image" },
     { slug: "tags", label: "Tags", type: "list" },
     { slug: "entry_date", label: "Added", type: "date" },
@@ -120,6 +144,12 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "contrib_primary_1", label: "Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_primary_2", label: "Additional Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList", refNoun: "contributor" },
+    // Combines contrib_primary_1/_2/contrib_addl into one line, since the primary/additional-primary/
+    // additional distinction is internal-only (owner decision) and shouldn't have to appear on a public
+    // page — kept alongside the individual fields above (not a replacement) so an already-authored
+    // template binding those separately keeps working; a template can opt into this single-line field
+    // instead when convenient.
+    { slug: "contributors", label: "Contributors (single line)", type: "referenceList", refNoun: "contributor" },
     { slug: "phases", label: "Phases", type: "list" },
     { slug: "key", label: "Key", type: "string" },
     { slug: "range", label: "Range", type: "string" },
@@ -134,6 +164,7 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "notes_pedagogical", label: "Pedagogical Notes", type: "text" },
     { slug: "notes_other", label: "Other Notes", type: "text" },
     { slug: "tags", label: "Tags", type: "list" },
+    { slug: "citations", label: "Citations", type: "citations" },
     { slug: "entry_date", label: "Added", type: "date" },
     { slug: "change_date", label: "Last Updated", type: "date" }
 ]
@@ -178,10 +209,12 @@ export function isEmptyFieldValue(value: unknown, kind: string | undefined): boo
             return !Array.isArray(value) || value.length === 0
         case "uri":
             return !isRecord(value) || typeof value.uri !== "string" || value.uri.trim() === ""
+        case "citations":
+            return !isRecord(value) || Object.keys(value).length === 0
         case "number":
         case "yearOrLiving":
+        case "date": // entry_date/change_date are epoch-millisecond numbers
             return typeof value !== "number"
-        case "date":
         case "string":
         case "text":
         case "countryCode":

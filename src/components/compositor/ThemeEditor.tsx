@@ -27,18 +27,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -145,6 +149,9 @@ type EditableCatalog = {
     siteChrome: SiteChromeRow
     /** names a `breakpoints` token driving Columns' stack point; "" keeps the historical fixed 768px. */
     layoutStackBreakpoint: string
+    /** whether cross-document view transitions are enabled site-wide; defaults to true (the historical
+     *  always-on behavior) when the catalog has never set `viewTransitions`. */
+    viewTransitions: boolean
 } & Record<TokenKind, Row[]>
 
 /** The token kinds and their fields (§4.3), in the order they render. Drives load, edit, and save. */
@@ -280,6 +287,8 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
         fonts,
         siteChrome,
         layoutStackBreakpoint: catalog.layoutStackBreakpoint ?? "",
+        // Absent means enabled (the trap-A default): the site's original always-on global.css rule.
+        viewTransitions: catalog.viewTransitions ?? true,
         ...(rows as Record<TokenKind, Row[]>)
     }
 }
@@ -330,6 +339,10 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
     if (chromeEntries.length > 0) catalog.siteChrome = Object.fromEntries(chromeEntries)
 
     if (editable.layoutStackBreakpoint.trim() !== "") catalog.layoutStackBreakpoint = editable.layoutStackBreakpoint
+
+    // Only emit when disabled (the non-default): an untouched theme stays absent, matching the trap-A
+    // contract every other optional field here follows.
+    if (!editable.viewTransitions) catalog.viewTransitions = false
 
     return catalog as unknown as TokenCatalog
 }
@@ -1272,6 +1285,25 @@ export default function ThemeEditor() {
                         </span>
                     )}
                 </div>
+            </section>
+
+            <section className="theme-editor__section">
+                <h3>Page transitions</h3>
+                <p className="theme-editor__hint">
+                    Crossfades between page navigations instead of the browser's default blank flash. Native CSS, no
+                    JS; unsupported browsers (Firefox, Safari) just fall back to a normal navigation with no
+                    regression either way.
+                </p>
+                <label className="theme-editor__switch">
+                    <input
+                        type="checkbox"
+                        checked={editable.viewTransitions}
+                        onChange={(event) =>
+                            setEditable((current) => (current ? { ...current, viewTransitions: event.target.checked } : current))
+                        }
+                    />
+                    Enable page transitions
+                </label>
             </section>
 
             {renderTokenSection(sectionByKind.colors)}

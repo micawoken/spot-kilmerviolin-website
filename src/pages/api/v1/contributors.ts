@@ -15,18 +15,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -37,7 +41,8 @@ import {
     constructResponse,
     constructResponseErrorHook,
     handleBulkCreate,
-    lastModifiedHeader
+    lastModifiedHeader,
+    createdAtHeader
 } from "../../../lib/api/http"
 import { auth_check } from "../../../lib/public/authservice"
 import {
@@ -87,30 +92,30 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 500, "Unknown state: list contributor operation returned null")
         }
         const auth_enabled: boolean = authEnabled(request)
-        // the latest change_date across the listed records is the collection's last-modified time;
-        // redaction only strips protected properties (change_date is not one), so the value is unaffected
-        const last_modified = lastModifiedHeader(data)
+        // the latest change_date/entry_date across the listed records set the collection's freshness
+        // headers; redaction only strips protected properties (neither is one), so the values are unaffected
+        const timing_headers = { ...lastModifiedHeader(data), ...createdAtHeader(data) }
         switch (api_request.meta?.full) {
             case true:
                 if (!auth_enabled) {
-                    return constructResponse(request, data, 200, undefined, last_modified)
+                    return constructResponse(request, data, 200, undefined, timing_headers)
                 }
                 // any viewer may request full records; admins see every record unredacted, while other
                 // users see their own record in full and every other record with its protected
                 // properties stripped (the same row-level security as GET /contributors/[id])
                 if (locals.identity!.admin) {
-                    return constructResponse(request, data, 200, undefined, last_modified)
+                    return constructResponse(request, data, 200, undefined, timing_headers)
                 }
                 const self_id = locals.identity?.id
                 const redacted = data.map((record) =>
                     record.id === self_id ? record : redactProtected(CONTRIBUTOR, record)
                 )
-                return constructResponse(request, redacted, 200, undefined, last_modified)
+                return constructResponse(request, redacted, 200, undefined, timing_headers)
             case false:
             case undefined:
                 // return contributor IDs only
                 const ids = data.map((record) => record.id)
-                return constructResponse(request, ids, 200, undefined, last_modified)
+                return constructResponse(request, ids, 200, undefined, timing_headers)
             default:
                 return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be boolean")
         }

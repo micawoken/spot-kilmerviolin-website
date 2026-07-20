@@ -48,18 +48,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -72,16 +76,20 @@ import { isEmptyFieldValue } from "./entity-fields"
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
-import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl } from "./media"
+import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl, type MediaSource } from "./media"
 // scripts/publication.ts is framework-agnostic (only imports ./escape) and returns markup-safe HTML
 // (every value escapeHtml-encoded); ContentField's "uri" kind reuses it for the composition publication
 // link, the one composite field this catalog still knows the shape of. Safe to import into both the
 // editor (browser) and build (Node) targets.
 import { renderPublicationUri } from "../../scripts/publication"
+// scripts/citations.ts is likewise framework-agnostic (only imports ./escape and lib/api/validation, which
+// itself carries no server-only bindings) — ContentField's "citations" kind reuses it so the public render
+// matches the admin Info cards' rendering exactly.
+import { renderCitationsList } from "../../scripts/citations"
 // scripts/format.ts is likewise framework-agnostic (only Intl + a consts import) — reused here so the
 // composer death_year/country special cases render identically to the admin's ComposerInfo.astro/
 // format.ts treatment, rather than a second hand-written copy of the same "-1 => Present" / code=>name logic.
-import { countryCodeName, formatDeathYear } from "../../scripts/format"
+import { countryCodeName, formatDeathYear, titleCaseRole } from "../../scripts/format"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 
@@ -106,6 +114,25 @@ export interface BuildConfigContext {
      * proxy, which is correct for an authenticated admin.
      */
     mediaBaseUrl?: string
+    /**
+     * The current route's breadcrumb trail (docs/dev/miscellaneous.txt), split the same way as `entry`:
+     * `breadcrumbs` is the *ancestor* crumbs only (Home is implicit — the `Breadcrumbs` component always
+     * prepends it), and `pageTitle` is the current page's own display title — the trail's final, unlinked
+     * crumb. Both are computed once per route at the page level (`route-authority.ts`'s
+     * `breadcrumbAncestors`, or the noun's own index link for an entity page) — catalog.tsx has no access
+     * to the full published route set needed to derive this itself. Absent in the editor (a template has
+     * no single fixed route) and the `Breadcrumbs` render falls back to an illustrative preview.
+     */
+    breadcrumbs?: { label: string; href: string | null }[]
+    pageTitle?: string
+    /**
+     * Bundled (src/files) image alt text, keyed by the /files/<key> suffix (lib/build/bundled-file-alt.ts's
+     * loadBundledFileAlt) — resolves real alt text for a plain-string entity `image` field that points
+     * at a bundled asset. R2-uploaded (/api/v1/files/<key>) and external images have no build-time alt
+     * source (see catalog.tsx's ContentImage/MediaText renders) and still render alt="". A plain object,
+     * not a Map — see loadBundledFileAlt's header for why.
+     */
+    bundledFileAlt?: Record<string, string>
 }
 
 /**
@@ -132,7 +159,10 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
         "list",
         "uri",
         "yearOrLiving",
-        "countryCode"
+        "countryCode",
+        "email",
+        "titleCase",
+        "citations"
     ],
     MediaText: ["image"]
 }
@@ -525,6 +555,12 @@ interface ContentFieldProps {
     /** Shown in place of the value when empty and `onEmpty` is "placeholder". */
     emptyValue: string
 }
+interface PagefindSearchProps {
+    /** "site" (the default, and search.astro's untagged behavior) searches every indexed public page;
+     *  "database" restricts to pages carrying `data-pagefind-filter="scope:database"` (see search.astro
+     *  and layouts/PublicPage.astro's `pagefindFilter` prop) — the three entity nouns' index/detail pages. */
+    scope: "site" | "database"
+}
 interface MediaTextProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
@@ -567,6 +603,20 @@ export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4",
             {text}
         </Tag>
     )
+}
+
+const BUNDLED_FILE_PREFIX = "/files/"
+
+/**
+ * Resolves a bundled (src/files) image source's alt text from the build-time sidecar index
+ * (BuildConfigContext.bundledFileAlt). Returns undefined for an R2/EmDash `key` source or a non-bundled
+ * `url` source (external https, or no index available — the editor target never has one).
+ */
+function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, string> | undefined): string | undefined {
+    if (source.kind !== "url" || !index || !source.url.startsWith(BUNDLED_FILE_PREFIX)) {
+        return undefined
+    }
+    return index[source.url.slice(BUNDLED_FILE_PREFIX.length)]
 }
 
 /** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). Not
@@ -618,6 +668,62 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
         >
             {label}
         </a>
+    )
+}
+
+/** The pagefind search-box markup: a plain GET form to /search, same convention as entity/index.astro's
+ * database-scoped search box — native browser navigation, no client JS required either here or on the
+ * canvas (the catalog purity rule: no hooks, no state). Submitting with an empty query navigates to
+ * /search with no `q`, which renders its own empty-state UI, matching that precedent exactly. */
+function renderPagefindSearchTag(scope: "site" | "database") {
+    return (
+        <form className="cmp-search" action="/search" method="get">
+            {scope === "database" && <input type="hidden" name="scope" value="database" />}
+            <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
+            <button type="submit">Search</button>
+        </form>
+    )
+}
+
+/**
+ * The breadcrumb-trail markup: Home, then each ancestor crumb (linked, or plain text when `href` is
+ * null — the "Posts" case, see route-authority.ts), then the current page's own title as the final,
+ * unlinked crumb. With no route context at all (the editor, previewing a template rather than a fixed
+ * route — see BuildConfigContext), an illustrative fallback trail stands in so the canvas still shows
+ * what the component looks like.
+ */
+function renderBreadcrumbsTag(
+    ancestors: { label: string; href: string | null }[] | undefined,
+    pageTitle: string | undefined,
+    isEditorPreview: boolean
+) {
+    if (ancestors === undefined && pageTitle === undefined && isEditorPreview) {
+        return (
+            <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
+                <ol>
+                    <li>
+                        <a href="/">Home</a>
+                    </li>
+                    <li>
+                        <span>Example section</span>
+                    </li>
+                    <li aria-current="page">Example page</li>
+                </ol>
+            </nav>
+        )
+    }
+    return (
+        <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li>
+                    <a href="/">Home</a>
+                </li>
+                {(ancestors ?? []).map((crumb, index) => (
+                    <li key={index}>{crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}</li>
+                ))}
+                {pageTitle && <li aria-current="page">{pageTitle}</li>}
+            </ol>
+        </nav>
     )
 }
 
@@ -689,11 +795,19 @@ function PublicationUriValue({ value }: { value: ResolvedReferenceLike & { uriTy
     return <span dangerouslySetInnerHTML={{ __html: renderPublicationUri(uriType, uri, "") }} />
 }
 
+/** A composer/composition's citations map, rendered as comma-separated hyperlinks (see citations.ts). */
+function CitationsValue({ value }: { value: Record<string, unknown> }) {
+    const citations: Record<string, string> = {}
+    for (const [key, entry] of Object.entries(value)) {
+        if (typeof entry === "string") citations[key] = entry
+    }
+    return <span dangerouslySetInnerHTML={{ __html: renderCitationsList(citations, "") }} />
+}
+
 /** Long-form date formatting for `entry_date`/`change_date` (fixed locale/options — build output must
  * be deterministic, so this never reads the reader's locale). `timeZone: "UTC"` is load-bearing: D1
- * stores a date-only string ("2026-01-15"), which `new Date(…)` parses as UTC midnight — formatting in
- * the build machine's local timezone would shift the displayed date by a day whenever that zone is
- * behind UTC. */
+ * stores these as epoch-millisecond instants; formatting in the build machine's local timezone would
+ * shift the displayed date/time depending on where the build runs, so it is always rendered in UTC. */
 const ENTITY_DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" })
 
 /**
@@ -712,9 +826,9 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
 
     switch (kind) {
         case "date": {
-            if (typeof value !== "string" || value === "") return ""
+            if (typeof value !== "number") return ""
             const date = new Date(value)
-            return Number.isNaN(date.getTime()) ? value : ENTITY_DATE_FORMAT.format(date)
+            return Number.isNaN(date.getTime()) ? String(value) : ENTITY_DATE_FORMAT.format(date)
         }
         case "reference":
             return isResolvedReferenceLike(value) ? <ReferenceLink value={value} /> : ""
@@ -722,6 +836,8 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
             return Array.isArray(value) ? <ReferenceLinkList values={value} /> : ""
         case "uri":
             return isRecord(value) ? <PublicationUriValue value={value} /> : ""
+        case "citations":
+            return isRecord(value) ? <CitationsValue value={value} /> : ""
         case "list":
             return Array.isArray(value)
                 ? value.filter((item) => item !== null && item !== undefined && item !== "").join(", ")
@@ -734,6 +850,14 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
         case "countryCode":
             // A composer's ISO 3166-1 alpha-2 country code, rendered as its English display name.
             return typeof value === "string" && value.trim() !== "" ? countryCodeName(value) : ""
+        case "email":
+            return typeof value === "string" && value.trim() !== "" ? (
+                <a href={`mailto:${value}`}>{value}</a>
+            ) : (
+                ""
+            )
+        case "titleCase":
+            return typeof value === "string" ? titleCaseRole(value) : ""
         case "string":
         case "text":
             return typeof value === "string" ? value : ""
@@ -963,6 +1087,27 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 />
             )
         },
+        Breadcrumbs: {
+            label: "Breadcrumbs",
+            fields: {},
+            defaultProps: {},
+            render: () => renderBreadcrumbsTag(context?.breadcrumbs, context?.pageTitle, isEditor)
+        },
+        PagefindSearch: {
+            label: "Search box",
+            fields: {
+                scope: {
+                    type: "select" as const,
+                    label: "Search scope",
+                    options: [
+                        { label: "Whole site", value: "site" },
+                        { label: "Database only", value: "database" }
+                    ]
+                }
+            },
+            defaultProps: { scope: "site" },
+            render: ({ scope }: PagefindSearchProps) => renderPagefindSearchTag(scope)
+        },
         // --- Content outlets (pivot §4, D7): read the routed entry from the `context` closure. Each is
         // a twin of the component above it — same markup via the shared render body — differing only in
         // where the value comes from. With no resolvable value: placeholder in the editor, nothing at build.
@@ -1046,9 +1191,14 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 const source = mediaSource(image)
                 if (source) {
                     const url = source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url
-                    // D1 entities carry no alt field, so a string-sourced image renders with alt="" —
-                    // a known accessibility gap versus EmDash media, which does have one.
-                    const alt = isRecord(image) && typeof image.alt === "string" ? image.alt : ""
+                    // D1 entities carry no alt field of their own. A bundled (/files/<key>) image resolves
+                    // its alt from the build-time sidecar index; an R2-uploaded (/api/v1/files/<key>) or
+                    // external image has no build-time alt source and still renders alt="" — a known
+                    // accessibility gap versus EmDash media, which does have one (see BuildConfigContext).
+                    const alt =
+                        (isRecord(image) && typeof image.alt === "string" ? image.alt : undefined) ??
+                        bundledAlt(source, context?.bundledFileAlt) ??
+                        ""
                     const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
                     const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
                     return renderImageTag(url, alt, width, height, aspect, size, radius, border, shadow)
@@ -1106,7 +1256,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                             "--cmp-field-transform": tokenVar("typography", typography, "transform")
                         })}
                     >
-                        {!hideLabel && <strong className="cmp-field__label">{displayLabel}</strong>}
+                        {!hideLabel && (
+                            <strong className="cmp-field__label" data-pagefind-ignore="all">
+                                {displayLabel}
+                            </strong>
+                        )}
                         <span className="cmp-field__value">{formatted}</span>
                     </div>
                 )
@@ -1165,7 +1319,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                             <div className="cmp-media-text__media" data-size={size}>
                                 {renderImageTag(
                                     source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url,
-                                    isRecord(image) && typeof image.alt === "string" ? image.alt : "",
+                                    (isRecord(image) && typeof image.alt === "string" ? image.alt : undefined) ??
+                                        bundledAlt(source, context?.bundledFileAlt) ??
+                                        "",
                                     isRecord(image) && typeof image.width === "number" ? image.width : undefined,
                                     isRecord(image) && typeof image.height === "number" ? image.height : undefined,
                                     aspect,

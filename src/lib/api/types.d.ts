@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -84,6 +88,7 @@ interface SearchResult {
  * @property {number | null} width - the image width in pixels, or null for non-images
  * @property {number | null} height - the image height in pixels, or null for non-images
  * @property {boolean} optimized - whether the stored bytes are an optimized image variant
+ * @property {string} alt - the required alt text supplied at upload/replace time
  */
 interface FileMeta {
     key: string
@@ -95,6 +100,7 @@ interface FileMeta {
     width: number | null
     height: number | null
     optimized: boolean
+    alt: string
 }
 
 /**
@@ -114,6 +120,7 @@ type FileSource = "r2" | "bundled"
  *   /files/<name> for bundled)
  * @property {number | null} width - the image width in pixels, if known
  * @property {number | null} height - the image height in pixels, if known
+ * @property {string | null} alt - the entry's alt text, if known
  */
 interface FilePickerEntry {
     source: FileSource
@@ -121,6 +128,7 @@ interface FilePickerEntry {
     url: string
     width: number | null
     height: number | null
+    alt: string | null
 }
 
 /**
@@ -195,26 +203,26 @@ interface SQLiteErrorMsgPrimitive {
  * @property {string} name - the user's name
  * @property {string[]} tags - tags associated with the user
  * @property {number[]} phases - the phases the user is involved in
- * @property {string} entry_date - the date the user was registered, as ISO 8601
+ * @property {number | null} entry_date - the date the user was registered, as epoch milliseconds, or null when no record
  * @property {number | null} class_year - the user's class year, or null if omitted
  * @property {string | null} major - the user's major, or null if omitted
  * @property {string | null} bio - the user's biography, or null if omitted
  * @property {string | null} public_email - the user's public-facing email, or null if omitted
  * @property {string | null} image - the user's image reference, or null if omitted
- * @property {string} change_date - the record's last-modified date as ISO 8601, or "" when no record
+ * @property {number | null} change_date - the record's last-modified date as epoch milliseconds, or null when no record
  */
 interface UserInfo {
     ok: boolean
     name: string
     tags: string[]
     phases: number[]
-    entry_date: string
+    entry_date: number | null
     class_year: number | null
     major: string | null
     bio: string | null
     public_email: string | null
     image: string | null
-    change_date: string
+    change_date: number | null
 }
 
 // BaseIdentity is returned by the authentication library
@@ -321,6 +329,11 @@ interface Identity extends BaseIdentity {
  *   design_editor to a fixed ALLOWLIST of the paths it calls (its own design_* collections; read-only
  *   entry, schema and media reads) and denies the rest of the CMS — the admin UI, other collections'
  *   writes, settings, users. cms_editor is a superset and does not require this permission.
+ * @property {boolean} rebuild - Whether the role provides authorization to trigger a site rebuild
+ *   (POST /api/v1/site, and the /admin/site/rebuild page). A rebuild only publishes content or design
+ *   changes, so this is a dedicated permission assigned alongside cms_editor and/or design_editor on every
+ *   role that carries either, rather than the caller being checked against those two permissions directly
+ *   (auth_check/guardPage only support ANDing a permission list, not ORing one).
  *
  * Contribution edit lockout: by default, users are granted read-only access to entries made by others, which is enforced by the API.
  * By default, administrators bypass the lockout, but certain use-cases (such as peer review) merit a lift of this restriction so that
@@ -336,6 +349,7 @@ interface RoleProfile {
     conferrable: boolean
     cms_editor: boolean
     design_editor: boolean
+    rebuild: boolean
 }
 
 /**
@@ -428,8 +442,8 @@ interface Contributor extends ContributorPrimitive {
 interface ContributorRecord extends Contributor {
     // Contributor, but with fields indicating that it originates from D1
     id: number
-    entry_date: string // ISO 8601 format; creation date, managed by business logic
-    change_date: string // ISO 8601 format; last-modified date, managed by business logic
+    entry_date: number // epoch milliseconds; creation date, managed by business logic, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date, managed by business logic
 }
 
 /**
@@ -437,7 +451,7 @@ interface ContributorRecord extends Contributor {
  *
  * @namespace D1Contributor
  * @property {number} contributor_id - the database primary key
- * @property {string} entry_date - the date the record was entered into the database, in ISO 8601 format
+ * @property {number} entry_date - the date the record was entered into the database, as epoch milliseconds
  * @property {number} active - whether the contributor is active; a boolean stored as a number
  * @property {number} admin - whether the contributor is an admin; a boolean stored as a number
  * @property {string | null} phases - the phases the contributor is involved in; comma-separated, or null if omitted
@@ -448,8 +462,8 @@ interface ContributorRecord extends Contributor {
 interface D1Contributor extends ContributorPrimitive {
     // database representation of Contributor
     contributor_id: number
-    entry_date: string // ISO 8601 format; creation date
-    change_date: string // ISO 8601 format; last-modified date
+    entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
+    change_date: number // epoch milliseconds; last-modified date
     active: number
     admin: number
     phases: string | null // comma-separated phase numbers, or null if omitted
@@ -481,11 +495,14 @@ interface ComposerPrimitive {
  * @property {string} country - the composer's country as an ISO 3166-1 alpha-2 code, validated on the client and server (see lib/api/validation.ts)
  * @property {string} bio - a short biography of the composer
  * @property {string | null} image - the URL of the composer image, or null
+ * @property {Record<string, string>} [citations] - optional key-value citations: source name to an https
+ *   link, DOI, or ISBN (docs/dev/miscellaneous.txt); omitted or {} when there are none
  */
 interface Composer extends ComposerPrimitive {
     // the API representation of a composer
     // an object representation of a composer
     tags: string[] // list of tags associated with the composer
+    citations?: Record<string, string>
 }
 
 /**
@@ -496,8 +513,8 @@ interface ComposerRecord extends Composer {
     // Composer, but with fields indicating that it originates from D1
     // the default construct for a composer object that originates from D1
     id: number
-    entry_date: string // ISO 8601 format; creation date, managed by business logic
-    change_date: string // ISO 8601 format; last-modified date, managed by business logic
+    entry_date: number // epoch milliseconds; creation date, managed by business logic, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date, managed by business logic
 }
 
 /**
@@ -508,9 +525,10 @@ interface D1Composer extends ComposerPrimitive {
     // the actual object representation stored in D1 before processing as a ComposerRecord
     // see D1Composition - record representation is different
     composer_id: number
-    entry_date: string // ISO 8601 format; creation date
-    change_date: string // ISO 8601 format; last-modified date
+    entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
+    change_date: number // epoch milliseconds; last-modified date
     tags: string // comma-separated tags
+    citations: string // JSON-encoded { [sourceName]: httpsLink | doi | isbn }, "" when empty
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }
 
@@ -593,6 +611,8 @@ interface CompositionPrimitive {
  * @property {number[]} author_secondary - a list of secondary authors pointing to composer records
  * @property {number[]} phases - what phases it was in
  * @property {string[]} tags - what tags it has
+ * @property {Record<string, string>} [citations] - optional key-value citations: source name to an
+ *   https link, DOI, or ISBN (docs/dev/miscellaneous.txt); omitted or {} when there are none
  */
 interface Composition extends CompositionPrimitive {
     // the default construct for objects representing a composition
@@ -602,6 +622,7 @@ interface Composition extends CompositionPrimitive {
     author_secondary: number[] // list of secondary authors
     phases: number[]
     tags: string[]
+    citations?: Record<string, string>
 }
 
 /**
@@ -610,8 +631,8 @@ interface Composition extends CompositionPrimitive {
 interface CompositionRecord extends Composition {
     // the default construct for a composition object that originates from D1
     id: number
-    entry_date: string // ISO 8601 format; creation date, managed by business logic
-    change_date: string // ISO 8601 format; last-modified date, managed by business logic
+    entry_date: number // epoch milliseconds; creation date, managed by business logic, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date, managed by business logic
 }
 
 /**
@@ -674,8 +695,9 @@ interface D1Composition extends CompositionPrimitive {
     rating_suzuki: number | null
     rating_nyssma: number | null
     tags: string // comma-separated list
-    entry_date: string // ISO 8601 format; creation date
-    change_date: string // ISO 8601 format; last-modified date
+    citations: string // JSON-encoded { [sourceName]: httpsLink | doi | isbn }, "" when empty
+    entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
+    change_date: number // epoch milliseconds; last-modified date
     full_name?: string // generated and stored in d1, but not used in middleware and business logic
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }

@@ -4,7 +4,7 @@ Vanessa Cruz, Kenny Hoang, Emma Kuegel, Cam Schwind, Alyssa Spina, Michael Wong
 Last updated (date tbd)
 
 ## Summary
-This repository contains an Astro framework website deployable to Cloudflare Workers representing the research products of this project. The project is deployed to Michael Wong's business Cloudflare account (contact@michaelwongmusic.com), and it uses bindings and tokens from his account to access the website's databases and authentication/authorization system for administrator pages.
+This repository contains an Astro framework website deployable to Cloudflare Workers representing the research products of this project. The project is deployed to Michael Wong's personal Cloudflare account, and it uses bindings and tokens from his account to access the website's databases and authentication/authorization system for administrator pages.
 
 Guides to modify the website are available in docs/guides. For a video version, visit URL. To modify database information, such as information on a composer or composition, use the administrator page at URL and follow the instructions in docs/guides/admin.md or in this video.
 
@@ -16,7 +16,7 @@ This project benefits from the contributions from many different individuals. A 
 ## License
 This source code is &copy; 2026 Michael Wong, and later contributors.
 
-This project is licensed under the GNU General Public License, version 3 or later. For more information about the GNU GPLv3, visit <https://www.gnu.org/licenses/quick-guide-gplv3.html> or LICENSE.md.
+This project is licensed under the GNU Affero General Public License, version 3 or later. For more information about the GNU AGPLv3, visit <https://www.gnu.org/licenses/agpl-3.0.html> or LICENSE.md.
 
 The following additional terms apply to the license:
 1. All conveyed copies must include the license and the additional terms verbatim;

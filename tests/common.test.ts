@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -28,8 +32,8 @@ import { formatCompFromD1, formatCompToD1, formatCompToD1Partial, SQLCompareOp, 
 
 const d1_composer_record: D1Composer = {
     composer_id: 1,
-    entry_date: "2024-01-01T00:00:00Z",
-    change_date: "2024-01-01T00:00:00Z",
+    entry_date: 1704067200000,
+    change_date: 1704067200000,
     name: "First Last",
     role: "composer",
     birth_year: 1900,
@@ -37,13 +41,14 @@ const d1_composer_record: D1Composer = {
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
     image: null,
-    tags: ""
+    tags: "",
+    citations: ""
 }
 
 const composer_record: ComposerRecord = {
     id: 1,
-    entry_date: "2024-01-01T00:00:00Z",
-    change_date: "2024-01-01T00:00:00Z",
+    entry_date: 1704067200000,
+    change_date: 1704067200000,
     name: "First Last",
     role: "composer",
     birth_year: 1900,
@@ -51,7 +56,8 @@ const composer_record: ComposerRecord = {
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
     image: null,
-    tags: []
+    tags: [],
+    citations: {}
 }
 
 const composer: Composer = {
@@ -67,8 +73,8 @@ const composer: Composer = {
 
 const d1_composer_if_new: D1Composer = {
     composer_id: -1,
-    entry_date: new Date().toISOString(), // analogue for current date
-    change_date: new Date().toISOString(), // analogue for current date (seeded to entry_date for a new record)
+    entry_date: Date.now(), // analogue for current date
+    change_date: Date.now(), // analogue for current date (seeded to entry_date for a new record)
     name: "First Last",
     role: "composer",
     birth_year: 1900,
@@ -76,7 +82,8 @@ const d1_composer_if_new: D1Composer = {
     country: "United States",
     bio: "Lorem ipsum dolor sit amet.",
     image: null,
-    tags: ""
+    tags: "",
+    citations: ""
 }
 
 const partial_composer_record: Partial<Composer> & { id: number } = {

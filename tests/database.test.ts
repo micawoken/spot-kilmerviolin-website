@@ -3,18 +3,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -55,8 +59,8 @@ roles TEXT NOT NULL,
 admin INTEGER NOT NULL,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 const composers_ddl = `
@@ -70,8 +74,9 @@ country TEXT NOT NULL,
 bio TEXT,
 image TEXT,
 tags TEXT,
-entry_date TEXT NOT NULL,
-change_date TEXT NOT NULL
+citations TEXT,
+entry_date INTEGER NOT NULL,
+change_date INTEGER NOT NULL
 );`
 
 // runs a database.ts call with a fresh ExecutionContext and flushes its waitUntil work,
@@ -102,8 +107,8 @@ function makeComposer(name: string): Composer {
 function makeCompositionRecord(overrides: Partial<CompositionRecord>): CompositionRecord {
     return {
         id: 1,
-        entry_date: new Date().toISOString(),
-        change_date: new Date().toISOString(),
+        entry_date: Date.now(),
+        change_date: Date.now(),
         name: "Test Work",
         composer_id: 0,
         contrib_primary_1: 1,
@@ -160,6 +165,19 @@ describe("composer CRUD with cache invalidation", () => {
         expect(record!.birth_year).toBe(1900)
         expect(record!.tags).toEqual(["test", "baroque"])
         expect(record!.image).toBeNull()
+    })
+
+    it("citations is optional: a composer created without it defaults to an empty object", async () => {
+        const id = await withCtx(ctx => addComposer(ctx, makeComposer("No-Citations Composer")))
+        const record = await withCtx(ctx => getComposer(ctx, "composer_id", String(id)))
+        expect(record!.citations).toEqual({})
+    })
+
+    it("a well-formed citations map round-trips through the D1 write/read path", async () => {
+        const composer = { ...makeComposer("Cited Composer"), citations: { IMSLP: "https://imslp.org/wiki/Cited" } }
+        const id = await withCtx(ctx => addComposer(ctx, composer))
+        const record = await withCtx(ctx => getComposer(ctx, "composer_id", String(id)))
+        expect(record!.citations).toEqual({ IMSLP: "https://imslp.org/wiki/Cited" })
     })
 
     it("list reflects inserts made after the table was cached (Cache API + KV invalidation)", async () => {

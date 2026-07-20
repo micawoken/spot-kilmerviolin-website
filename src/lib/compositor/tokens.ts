@@ -13,18 +13,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -200,6 +204,15 @@ export interface TokenCatalog {
      * (or naming a token that doesn't exist) preserves the original hardcoded 768px behavior.
      */
     layoutStackBreakpoint?: string
+    /**
+     * Whether cross-document view transitions (`@view-transition { navigation: auto; }`) are enabled on
+     * the public site. Site-wide, like `layoutStackBreakpoint`: a real `@view-transition` at-rule, not a
+     * `--dtk-*` custom property, so it is read at CSS-generation time (`theme-head.ts`) rather than
+     * emitted by `tokensToCss`. OPTIONAL, trap A: absent means enabled, matching the site's original
+     * always-on `styles/global.css` behavior before this control existed. Only `false` (explicitly
+     * disabled) changes anything.
+     */
+    viewTransitions?: boolean
 }
 
 /**
@@ -474,6 +487,21 @@ export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
     return `@media (max-width: ${maxWidth}) {\n    .cmp-columns {\n        grid-template-columns: 1fr;\n    }\n}`
 }
 
+/**
+ * The `@view-transition { navigation: auto; }` at-rule that crossfades between page navigations, or `""`
+ * when the theme has explicitly disabled it. Generated here rather than hardcoded in the static
+ * stylesheet (`styles/global.css`) because it is theme-authored, like `columnsStackBreakpointCss`.
+ * Falls back to enabled (the historical always-on behavior) when the catalog doesn't set
+ * `viewTransitions` at all — only an explicit `false` turns it off.
+ *
+ * @param {TokenCatalog} catalog - the theme catalog
+ * @returns {string} - the `@view-transition { … }` rule, or `""` when disabled
+ */
+export function viewTransitionCss(catalog: TokenCatalog): string {
+    if (catalog.viewTransitions === false) return ""
+    return "@view-transition {\n    navigation: auto;\n}"
+}
+
 /** Whether every element of an array passes a per-element guard. */
 function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
     return Array.isArray(value) && value.every(guard)
@@ -586,7 +614,9 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
         (value.fonts === undefined || isArrayOf(value.fonts, isWebFont)) &&
         // Optional, same trap-A contract as buttonVariants.
         (value.siteChrome === undefined || isSiteChromeRoles(value.siteChrome)) &&
-        (value.layoutStackBreakpoint === undefined || typeof value.layoutStackBreakpoint === "string")
+        (value.layoutStackBreakpoint === undefined || typeof value.layoutStackBreakpoint === "string") &&
+        // Optional, trap-A: a theme predating this field must still validate (defaults to enabled on read).
+        (value.viewTransitions === undefined || typeof value.viewTransitions === "boolean")
     )
 }
 
@@ -605,7 +635,12 @@ const WEB_FONT_FAMILY_PATTERN = /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/
  * Each family is validated against `WEB_FONT_FAMILY_PATTERN` and its weights are constrained to distinct
  * positive integers (≤ 1000), so a hand-edited theme cannot inject arbitrary text into the emitted
  * `<link href>`. A family that fails validation is skipped rather than aborting the whole URL. A family
- * with no valid weight loads weight 400. `display=swap` keeps text visible while the font downloads.
+ * with no valid weight loads weight 400. `display=optional` (mirroring AdminTypeface's self-hosted Inter)
+ * renders the fallback for the very first paint and never swaps to the web font mid-page — trading "the
+ * custom font may not appear on an uncached first visit" for "no post-paint reflow", which is the layout
+ * shift this theme font otherwise caused (docs/dev/miscellaneous.txt's "initial load layout shift"). Unlike
+ * the self-hosted admin face, this stylesheet cannot be `<link rel="preload">`d (its font-file URL is only
+ * known after Google's CSS response resolves), so there's no way to raise the odds of a same-visit swap.
  *
  * @param {WebFont[]} fonts - the theme's declared web fonts
  * @returns {string | null} - the css2 stylesheet URL, or null if no font is valid
@@ -621,7 +656,7 @@ export function webFontsHref(fonts: WebFont[]): string | null {
         families.push(`family=${font.family.replace(/ /g, "+")}:wght@${list.join(";")}`)
     }
     if (families.length === 0) return null
-    return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`
+    return `https://fonts.googleapis.com/css2?${families.join("&")}&display=optional`
 }
 
 /** One dangling reference from a button variant to a token that is not in the catalog. */

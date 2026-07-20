@@ -9,18 +9,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -43,17 +47,27 @@ export class RebuildCooldownError extends Error {
 }
 
 /**
+ * Cooldown, in seconds, available to an admin who opts into the override (see the `elevate` meta field on
+ * POST /api/v1/site, mirroring the elevate convention used by the contributor/work endpoints). This is a
+ * deliberate fixed escape hatch rather than a tunable setting, so it is hard-coded and not sourced from env.
+ */
+export const ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC = 180
+
+/**
  * Returns the number of seconds remaining before another rebuild is permitted (0 if allowed now)
  *
+ * @param {boolean} elevated - when true, checks against the shorter admin-override cooldown instead of
+ *   the standard REBUILD_COOLDOWN_SEC window
  * @returns {number} seconds remaining in the cooldown window, or 0 when a rebuild may proceed
  */
-export function rebuildCooldownRemaining(): number {
+export function rebuildCooldownRemaining(elevated: boolean = false): number {
     const built = Date.parse(env.CF_VERSION_METADATA.timestamp)
     if (isNaN(built)) {
         // without a usable build timestamp we cannot enforce the cooldown, so do not block
         return 0
     }
-    const cooldown_ms = Number(env.REBUILD_COOLDOWN_SEC) * 1000
+    const cooldown_sec = elevated ? ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC : Number(env.REBUILD_COOLDOWN_SEC)
+    const cooldown_ms = cooldown_sec * 1000
     const remaining_ms = built + cooldown_ms - Date.now()
     return remaining_ms > 0 ? Math.ceil(remaining_ms / 1000) : 0
 }
@@ -61,9 +75,11 @@ export function rebuildCooldownRemaining(): number {
 /**
  * Trigger an automated rebuild and deploy of the Astro site to Cloudflare Workers
  *
+ * @param {boolean} elevated - when true, enforces the shorter admin-override cooldown instead of the
+ *   standard one; the caller is responsible for verifying admin status before setting this
  */
-export default async function rebuild() {
-    const remaining = rebuildCooldownRemaining()
+export default async function rebuild(elevated: boolean = false) {
+    const remaining = rebuildCooldownRemaining(elevated)
     if (remaining > 0) {
         throw new RebuildCooldownError(remaining)
     }

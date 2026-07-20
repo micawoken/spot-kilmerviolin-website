@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -28,6 +32,7 @@ import { maxUploadBytes, R2CapacityError } from "../../../lib/api/r2"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { validateAltText } from "../../../lib/api/validation"
 
 /**
  * GET /api/v1/files
@@ -84,9 +89,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: none (authenticated identity)
  *
  * Meta: none
- * Body: required; multipart/form-data with a "file" part and an optional "name" field. Unlike the JSON
- *   entity endpoints, files are binary, so this endpoint accepts a multipart upload rather than a
- *   single-item JSON array. The object key is derived from "name" (or the upload's filename).
+ * Body: required; multipart/form-data with a "file" part, a required "alt" (alt text, 1-256 chars) part,
+ *   and an optional "name" field. Unlike the JSON entity endpoints, files are binary, so this endpoint
+ *   accepts a multipart upload rather than a single-item JSON array. The object key is derived from
+ *   "name" (or the upload's filename).
  *
  * @param context - the Astro API context
  * @returns the created file's metadata, or an error message
@@ -136,10 +142,16 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (crop instanceof Error) {
         return constructResponse(request, null, 400, crop.message)
     }
+    const provided_alt = form.get("alt")
+    const alt = typeof provided_alt === "string" ? provided_alt.trim() : ""
+    const alt_error = validateAltText(alt)
+    if (alt_error !== null) {
+        return constructResponse(request, null, 400, alt_error)
+    }
     try {
         // reading the upload's bytes can throw if the client aborts mid-stream; keep it inside the try
         const bytes = await file.arrayBuffer()
-        const meta = await addFile(context.locals.cfContext, key, bytes, content_type, uploader, crop)
+        const meta = await addFile(context.locals.cfContext, key, bytes, content_type, uploader, alt, crop)
         return constructResponse(request, meta, 201, undefined, {
             Location: `/api/v1/files/${key}`
         })

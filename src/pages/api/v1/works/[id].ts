@@ -6,18 +6,22 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -27,7 +31,8 @@ import {
     _constructHeaders,
     constructResponse,
     constructResponseErrorHook,
-    lastModifiedHeader
+    lastModifiedHeader,
+    createdAtHeader
 } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import {
@@ -82,14 +87,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         if (d1_record === null) {
             return constructResponse(request, null, 404)
         }
-        // change_date carries the record's last-modified time; surface it as the Last-Modified header
-        const last_modified = lastModifiedHeader(d1_record)
+        // change_date/entry_date carry the record's last-modified/created times; surface them as headers
+        const timing_headers = { ...lastModifiedHeader(d1_record), ...createdAtHeader(d1_record) }
         // optionally pair the record with its resolved composer names
         if (names_flag === true) {
             const [enhanced] = await attachCompositionNames(context.locals.cfContext, [d1_record])
-            return constructResponse(request, enhanced, 200, undefined, last_modified)
+            return constructResponse(request, enhanced, 200, undefined, timing_headers)
         }
-        return constructResponse(request, d1_record, 200, undefined, last_modified)
+        return constructResponse(request, d1_record, 200, undefined, timing_headers)
     } catch (error) {
         return constructResponseErrorHook(request, error, 404)
     }

@@ -2,27 +2,41 @@
 /**
  * components/PublicHeader.astro
  *
- * Public-facing site header, the public analog of AdminHeader. Renders the site title (linking home),
- * the CMS-managed header navigation (the "navigation" file, via lib/content/nav.ts), and a static Search
- * link to /search — unlike the rest of the nav, Search is not CMS-authored: it is core site infrastructure
- * (like the site-title link) that should not depend on an editor remembering to add it to a menu.
+ * Public-facing site header, the public analog of AdminHeader. Renders the site title (linking home), the
+ * CMS-managed header navigation (the "navigation" file, via lib/content/nav.ts), and an inline search
+ * toggle — unlike the rest of the nav, search is not CMS-authored: it is core site infrastructure (like the
+ * site-title link) that should not depend on an editor remembering to add it to a menu.
+ *
+ * Layout is two fixed rows rather than one wrapping flex row: the title and search toggle are locked
+ * together on the first row (balanced at any width — it's always exactly two items), and the nav links
+ * render on their own row below, free to wrap independently. This also gives the search form, when opened,
+ * a stable place to render (between the two rows) without reflowing the title/toggle row.
+ *
+ * The search form is a plain GET to /search (search.astro deep-links from ?q= with no JS required on this
+ * end) — see catalog.tsx's renderPagefindSearchTag for the same convention. The only client script here is
+ * the show/hide toggle and input focus; submission is native browser navigation.
  *
  * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or any later version.
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
  * This license is also subject to additional terms as specified in the README.md.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+import { Search, X } from "@lucide/astro"
 import { getSiteSettings } from "../lib/content/site"
 import { getNav } from "../lib/content/nav"
 
@@ -32,16 +46,67 @@ const links = await getNav()
 
 <header>
     <nav>
-        <a href="/" class="site-title">{title}</a>
-        <ul class="nav-links">
-            {links.map((link) => (
-                <li>
-                    <a href={link.href}>{link.label}</a>
-                </li>
-            ))}
-            <li>
-                <a href="/search">Search</a>
-            </li>
-        </ul>
+        <div class="header-top-row">
+            <a href="/" class="site-title">{title}</a>
+            <button
+                type="button"
+                id="search-toggle"
+                aria-expanded="false"
+                aria-controls="header-search-form"
+                aria-label="Search"
+            >
+                <Search aria-hidden="true" class="icon-search" />
+                <X aria-hidden="true" class="icon-close" />
+            </button>
+        </div>
+        <div class="nav-row">
+            <form id="header-search-form" action="/search" method="get" hidden>
+                <input
+                    type="search"
+                    name="q"
+                    placeholder="Search…"
+                    aria-label="Search query"
+                    autocomplete="off"
+                />
+                <button type="submit">Search</button>
+            </form>
+            <ul class="nav-links">
+                {links.map((link) => (
+                    <li>
+                        <a href={link.href}>{link.label}</a>
+                    </li>
+                ))}
+            </ul>
+        </div>
     </nav>
 </header>
+
+<script>
+    // Show/hide is the only JS this header needs: the form itself submits as a plain GET (native browser
+    // navigation to /search?q=...), matching search.astro's own deep-linking convention.
+    function initSearchToggle(): void {
+        const toggle = document.getElementById("search-toggle")
+        const form = document.getElementById("header-search-form")
+        const input = form?.querySelector("input")
+        const header = toggle?.closest("header")
+        if (!(toggle instanceof HTMLButtonElement) || !(form instanceof HTMLFormElement) || !input || !header) {
+            return
+        }
+
+        toggle.addEventListener("click", () => {
+            const isOpen = toggle.getAttribute("aria-expanded") === "true"
+            const willOpen = !isOpen
+            toggle.setAttribute("aria-expanded", String(willOpen))
+            form.hidden = !willOpen
+            toggle.classList.toggle("is-open", willOpen)
+            // Overlay covers the nav-links row; hide the links themselves too so they're not focusable
+            // (and don't show through) underneath the opened search bar.
+            header.classList.toggle("search-open", willOpen)
+            if (willOpen) {
+                input.focus()
+            }
+        })
+    }
+
+    initSearchToggle()
+</script>
