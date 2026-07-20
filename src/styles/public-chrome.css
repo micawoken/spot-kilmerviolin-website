@@ -125,9 +125,29 @@ header #search-toggle.is-open .icon-search {
 header #search-toggle.is-open .icon-close {
 	display: inline;
 }
+/* The nav-links row doubles as the search overlay's anchor: opening search covers this row (never the
+ * title/toggle row above, which must stay visible so the toggle can close it again) with an opaque bar
+ * pinned to the row's top edge. The overlay's height is intrinsic (from its own input/button padding), not
+ * stretched to the row's full height, so if the nav-links have wrapped onto extra lines on a narrow
+ * viewport, it only covers the space a single unwrapped line would occupy — the wrapped links are hidden
+ * rather than shown through, but the bar doesn't grow to chase them. */
+header .nav-row {
+	position: relative;
+}
 header #header-search-form {
 	display: flex;
+	align-items: center;
 	gap: 0.6rem;
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	z-index: 1;
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+}
+/* `hidden` alone would lose to the ID selector above without this: the attribute selector's extra
+ * specificity is what makes the closed state actually take effect. */
+header #header-search-form[hidden] {
+	display: none;
 }
 header #header-search-form input {
 	flex: 1;
@@ -157,6 +177,11 @@ header .nav-links {
 	margin: 0;
 	padding: 0;
 	list-style: none;
+}
+/* Hidden (not just visually covered) while the search overlay is open, so the wrapped-line tail isn't
+ * left showing beneath the bar and its links aren't reachable by keyboard while covered. */
+header.search-open .nav-links {
+	visibility: hidden;
 }
 /* The mono, uppercase, tracked nav treatment — the theme's `label` typography (IBM Plex Mono). */
 header .nav-links a {

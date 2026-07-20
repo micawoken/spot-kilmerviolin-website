@@ -59,23 +59,25 @@ const links = await getNav()
                 <X aria-hidden="true" class="icon-close" />
             </button>
         </div>
-        <form id="header-search-form" action="/search" method="get" hidden>
-            <input
-                type="search"
-                name="q"
-                placeholder="Search…"
-                aria-label="Search query"
-                autocomplete="off"
-            />
-            <button type="submit">Search</button>
-        </form>
-        <ul class="nav-links">
-            {links.map((link) => (
-                <li>
-                    <a href={link.href}>{link.label}</a>
-                </li>
-            ))}
-        </ul>
+        <div class="nav-row">
+            <form id="header-search-form" action="/search" method="get" hidden>
+                <input
+                    type="search"
+                    name="q"
+                    placeholder="Search…"
+                    aria-label="Search query"
+                    autocomplete="off"
+                />
+                <button type="submit">Search</button>
+            </form>
+            <ul class="nav-links">
+                {links.map((link) => (
+                    <li>
+                        <a href={link.href}>{link.label}</a>
+                    </li>
+                ))}
+            </ul>
+        </div>
     </nav>
 </header>
 
@@ -86,16 +88,21 @@ const links = await getNav()
         const toggle = document.getElementById("search-toggle")
         const form = document.getElementById("header-search-form")
         const input = form?.querySelector("input")
-        if (!(toggle instanceof HTMLButtonElement) || !(form instanceof HTMLFormElement) || !input) {
+        const header = toggle?.closest("header")
+        if (!(toggle instanceof HTMLButtonElement) || !(form instanceof HTMLFormElement) || !input || !header) {
             return
         }
 
         toggle.addEventListener("click", () => {
             const isOpen = toggle.getAttribute("aria-expanded") === "true"
-            toggle.setAttribute("aria-expanded", String(!isOpen))
-            form.hidden = isOpen
-            toggle.classList.toggle("is-open", !isOpen)
-            if (!isOpen) {
+            const willOpen = !isOpen
+            toggle.setAttribute("aria-expanded", String(willOpen))
+            form.hidden = !willOpen
+            toggle.classList.toggle("is-open", willOpen)
+            // Overlay covers the nav-links row; hide the links themselves too so they're not focusable
+            // (and don't show through) underneath the opened search bar.
+            header.classList.toggle("search-open", willOpen)
+            if (willOpen) {
                 input.focus()
             }
         })
