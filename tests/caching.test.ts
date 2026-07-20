@@ -64,14 +64,14 @@ describe("Put null into cache", () => {
 describe("Cache TTL policy", () => {
     it("uses the short TTL when long is false", async () => {
         await putCache("test_store", "short_ttl_key", array_data, "short", false)
-        const response = await _getCache("test_store", "https://spot-kilmer-violin-website.mwmsc.workers.dev/cache/short_ttl_key")
+        const response = await _getCache("test_store", `${env.WORKER_ORIGIN}/cache/short_ttl_key`)
         expect(response).toBeDefined()
         expect(response!.headers.get("Cache-Control")).toContain(`max-age=${env.CACHE_API_TTL}`)
     })
 
     it("uses the long TTL when long is true", async () => {
         await putCache("test_store", "long_ttl_key", array_data, "long", true)
-        const response = await _getCache("test_store", "https://spot-kilmer-violin-website.mwmsc.workers.dev/cache/long_ttl_key")
+        const response = await _getCache("test_store", `${env.WORKER_ORIGIN}/cache/long_ttl_key`)
         expect(response).toBeDefined()
         expect(response!.headers.get("Cache-Control")).toContain(`max-age=${env.CACHE_API_TTL_LONG}`)
     })

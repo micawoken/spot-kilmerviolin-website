@@ -24,7 +24,7 @@
 
 import { describe, it, expect } from "vitest"
 
-import { isFallbackEmail, generateFallbackEmail, resolveIdentityEmail, FALLBACK_EMAIL_DOMAIN } from "../src/lib/api/fallback.ts"
+import { isFallbackEmail, generateFallbackEmail, resolveIdentityEmail, fallbackEmailDomain } from "../src/lib/api/fallback.ts"
 
 describe("isFallbackEmail", () => {
     it("matches generated fallback addresses", () => {
@@ -62,7 +62,7 @@ describe("generateFallbackEmail", () => {
 
     it("always ends with a four-digit suffix and the reserved domain", () => {
         const email = generateFallbackEmail("Someone")
-        expect(email.endsWith(`@${FALLBACK_EMAIL_DOMAIN}`)).toBe(true)
+        expect(email.endsWith(`@${fallbackEmailDomain()}`)).toBe(true)
         expect(email).toMatch(/-\d{4}@/)
     })
 

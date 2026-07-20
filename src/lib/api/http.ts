@@ -25,6 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { env } from "cloudflare:workers"
 import { createAPIPayload, sanitizeInputStrings } from "./common"
 import { COMPOSER, COMPOSITION, CONTRIBUTOR } from "./d1"
 import { richErrors, isActiveRequestDev } from "./environment"
@@ -111,15 +112,11 @@ export const preflight_headers = {
 }
 
 /**
- * A fallback origin to use for CORS headers when a request does not include an allowed "Origin"
- */
-export const cors_fallback_origin = "https://spot-kilmer-violin-website.mwmsc.workers.dev" // temporary, workers.dev domain
-
-/**
  * Resolves the value to send in Access-Control-Allow-Origin for a request.
  *
  * @param {Request} request - the original Request object
- * @returns {string} the Origin to echo (when allowlisted) or the fallback origin
+ * @returns {string} the Origin to echo (when allowlisted) or the fallback origin (WORKER_ORIGIN, this
+ *   worker's own origin — see wrangler.jsonc)
  */
 export function resolveAllowedOrigin(request: Request): string {
     const origin = request.headers.get("Origin")
@@ -132,7 +129,7 @@ export function resolveAllowedOrigin(request: Request): string {
             // malformed Origin header; fall through to the fallback
         }
     }
-    return cors_fallback_origin
+    return env.WORKER_ORIGIN
 }
 
 /**

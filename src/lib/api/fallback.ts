@@ -25,12 +25,40 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** The reserved domain for fallback identity emails. */
-export const FALLBACK_EMAIL_DOMAIN = "mwmsc.net"
+import { env } from "cloudflare:workers"
 
-// matches any address whose local part begins with the "fallback+" subaddress prefix at the reserved
-// domain, case-insensitively
-const FALLBACK_EMAIL_PATTERN = /^fallback\+[^@]*@mwmsc\.net$/i
+/**
+ * Returns the reserved domain for fallback identity emails, read from the FALLBACK_EMAIL_DOMAIN
+ * wrangler var so it isn't hardcoded to this deployment's domain.
+ *
+ * @returns {string} - the configured fallback email domain
+ */
+export function fallbackEmailDomain(): string {
+    return env.FALLBACK_EMAIL_DOMAIN
+}
+
+/**
+ * Escapes characters with special meaning in a regular expression, so an arbitrary string (such as a
+ * configured domain) can be embedded literally in one.
+ *
+ * @param {string} str - the string to escape
+ * @returns {string} - the escaped string
+ */
+function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
+ * Builds the pattern matching any address whose local part begins with the "fallback+" subaddress
+ * prefix at the reserved domain, case-insensitively. Built fresh from the configured domain on each
+ * call rather than compiled once at module load, since env is not guaranteed to be populated yet at
+ * that point.
+ *
+ * @returns {RegExp} - the fallback email pattern
+ */
+function fallbackEmailPattern(): RegExp {
+    return new RegExp(`^fallback\\+[^@]*@${escapeRegExp(fallbackEmailDomain())}$`, "i")
+}
 
 /**
  * Returns whether an email is (or could be) a system-generated fallback identity email. Any address in
@@ -46,13 +74,13 @@ export function isFallbackEmail(email: string): boolean {
     if (typeof email !== "string") {
         return false
     }
-    return FALLBACK_EMAIL_PATTERN.test(email.trim())
+    return fallbackEmailPattern().test(email.trim())
 }
 
 /**
  * Builds a placeholder identity email
  *
- * Formatted as fallback+{slug}-{suffix}@{FALLBACK_EMAIL_DOMAIN}
+ * Formatted as fallback+{slug}-{suffix}@{fallbackEmailDomain()}
  *
  * @param {string} name - the contributor's name, used to make the address human-recognizable
  * @returns {string} - a generated fallback identity email
@@ -65,7 +93,7 @@ export function generateFallbackEmail(name: string): string {
         .replace(/[^a-z0-9_]/g, "")
     // a name that slugifies to nothing (empty or all-special) still needs a stable, valid local part
     const suffix = String(Math.floor(Math.random() * 10000)).padStart(4, "0")
-    return `fallback+${slug || "contributor"}-${suffix}@${FALLBACK_EMAIL_DOMAIN}`
+    return `fallback+${slug || "contributor"}-${suffix}@${fallbackEmailDomain()}`
 }
 
 /**

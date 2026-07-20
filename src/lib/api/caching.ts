@@ -63,18 +63,13 @@ import { env } from "cloudflare:workers"
  *
  */
 
-/**
- * The hostname to construct the caching address from
- *
- * Cloudflare recommends that this be a valid domain name since DNS resolution may occur, so this is being used for now
- *
- */
-const cache_host = "https://spot-kilmer-violin-website.mwmsc.workers.dev"
-
 function generateCacheKey(key: string): string {
     // keys are constants today (table names / fixed identifiers), but encode defensively so a key carrying
     // reserved URL characters cannot alter the cache address path (a one-time miss as constant keys re-derive)
-    return `${cache_host}/cache/${encodeURIComponent(key)}`
+    //
+    // Cloudflare recommends the cache address use a valid, resolvable domain name; WORKER_ORIGIN (this
+    // worker's own origin, see wrangler.jsonc) is used for that rather than a hardcoded literal
+    return `${env.WORKER_ORIGIN}/cache/${encodeURIComponent(key)}`
 }
 
 function constructResponse(payload: any[] | null, comment: string, long: boolean): Response {

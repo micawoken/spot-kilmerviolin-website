@@ -46,13 +46,15 @@ import { getKey, setKey, deleteKey } from "./kv.ts"
 const FILES_CACHE_STORE = "files_cache" // Cache API store holding the file listing
 const FILES_BLOB_STORE = "files_blob" // Cache API store holding individual file bodies
 const FILES_LIST_KEY = "files_list" // Cache API / KV key for the cached listing
-const blob_host = "https://spot-kilmer-violin-website.mwmsc.workers.dev" // origin for the cached file bodies; unified w/ production url since cloudflare says dns should be resolvable
 
 /**
  * Builds the Cache API request key for a file's cached body
+ *
+ * Uses WORKER_ORIGIN (this worker's own origin, see wrangler.jsonc) as the cache address's host, since
+ * Cloudflare recommends a resolvable domain name for cache keys.
  */
 function _blobKey(key: string): string {
-    return `${blob_host}/blob/${encodeURIComponent(key)}`
+    return `${env.WORKER_ORIGIN}/blob/${encodeURIComponent(key)}`
 }
 
 /**
