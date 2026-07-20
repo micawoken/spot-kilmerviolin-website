@@ -60,42 +60,47 @@ const availableNouns = resolutions
 ---
 
 <PublicPage title="Database" description="Find composers, works, and contributors" pagefindFilter="scope:database">
-    {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
-        not a Puck design, so the component can never be placed here. */}
-    <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
-        <ol>
-            <li><a href="/">Home</a></li>
-            <li aria-current="page">Database</li>
-        </ol>
-    </nav>
-    <h1>Database</h1>
-    <p>What can we help you find?</p>
+    {/* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
+        font-relative expression) is computed once instead of once per differently-sized child — see the
+        matching comment in entity/[noun]/index.astro for the full reasoning. */}
+    <div class="entity-index-body">
+        {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+            not a Puck design, so the component can never be placed here. */}
+        <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li><a href="/">Home</a></li>
+                <li aria-current="page">Database</li>
+            </ol>
+        </nav>
+        <h1>Database</h1>
+        <p>What can we help you find?</p>
 
-    <form action="/search" method="get" class="entity-search-form">
-        <input type="hidden" name="scope" value="database" />
-        <input
-            type="search"
-            name="q"
-            placeholder="Search the database…"
-            aria-label="Search the database"
-            autocomplete="off"
-        />
-        <button type="submit">Search</button>
-    </form>
+        <form action="/search" method="get" class="entity-search-form">
+            <input type="hidden" name="scope" value="database" />
+            <input
+                type="search"
+                name="q"
+                placeholder="Search the database…"
+                aria-label="Search the database"
+                autocomplete="off"
+            />
+            <button type="submit">Search</button>
+        </form>
 
-    {
-        availableNouns.length > 0 && (
-            <nav aria-label="Database sections">
-                <ul class="entity-noun-links">
-                    {availableNouns.map((noun) => (
-                        <li>
-                            <a href={`/entity/${noun}/`}>{ENTITY_NOUN_LABELS[noun]}</a>
-                        </li>
-                    ))}
-                </ul>
-            </nav>
-        )
-    }
+        {
+            availableNouns.length > 0 && (
+                <nav aria-label="Database sections">
+                    <ul class="entity-noun-links">
+                        {availableNouns.map((noun) => (
+                            <li>
+                                <a href={`/entity/${noun}/`}>{ENTITY_NOUN_LABELS[noun]}</a>
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+            )
+        }
+    </div>
 </PublicPage>
 
 <style>

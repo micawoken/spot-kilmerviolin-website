@@ -1,0 +1,117 @@
+/* styles/public-entities.css
+ *
+ * Public-facing styling for the D1-backed entity list results (components/entities/ListResults.astro,
+ * ListResult.astro). Those components are shared with the admin's `/admin/{noun}s/list` pages, which get
+ * their own grid/card treatment from styles/admin-entities.css — this file is their public counterpart,
+ * loaded only by the public `/entity/{noun}/` index pages so the admin styling isn't duplicated or
+ * fought over on the same shared markup. Unlike admin-entities.css this binds to the published design
+ * theme's `--dtk-*` tokens (see public-chrome.css for the fallback-chain convention this follows).
+ *
+ * Results flow into a fixed three-column grid on wide viewports (an explicit column count, not an
+ * auto-fill/minmax content-driven grid like the admin list, since a intentionally-columnar catalog page
+ * is the desired look here), stepping down to two and then one column as the viewport narrows.
+ *
+ * PUBLIC ONLY. Imported directly by pages/entity/[noun]/index.astro.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+.list-results-container {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1rem 1.5rem;
+	margin: 1.5rem 0;
+}
+
+@media (max-width: 900px) {
+	.list-results-container {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 560px) {
+	.list-results-container {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* an empty result set renders a single message paragraph, spanning every column */
+.list-results-container > p {
+	grid-column: 1 / -1;
+	margin: 0;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+
+.list-result-container {
+	position: relative;
+	min-width: 0;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	padding: 0.75rem 1rem;
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+}
+
+.list-result-container:hover {
+	border-color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--shade-7)));
+}
+
+/* corner badge: shown only when a name is the primary label (see ListResult.astro) */
+.list-result-id {
+	position: absolute;
+	top: 0.6rem;
+	right: 0.85rem;
+	font-size: 0.75em;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+
+.list-result-link {
+	font-weight: 600;
+	text-decoration: none;
+	display: inline-block;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+}
+
+/* leave room for the corner ID badge when a name is present */
+.list-result-id + .list-result-link {
+	padding-right: 3.5rem;
+}
+
+.list-result-link:hover {
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+	text-decoration: underline;
+}
+
+@media (max-width: 400px) {
+	/* the corner ID badge's reserved padding crowds the name at very narrow widths; drop it into
+	   normal flow (it precedes the link in the DOM, so it lands just above) and reclaim the space */
+	.list-result-id + .list-result-link {
+		padding-right: 0;
+	}
+	.list-result-id {
+		position: static;
+		display: block;
+		margin-bottom: 0.25rem;
+	}
+}
