@@ -95,7 +95,9 @@
 			"bucket_name": "spot-kilmerviolin-files"
 		},
 		// EmDash CMS media library (separate from R2_FILES, the admin composition-image pool). Create with
-		// `wrangler r2 bucket create emdash-media` (owner action).
+		// `wrangler r2 bucket create emdash-media` (owner action). Draws against the same account-wide
+		// storage ceiling as R2_FILES, not a separate one — see MAX_R2_STORAGE_BYTES in src/lib/api/r2.ts
+		// and the capacity guard in src/middleware/emdash_media_capacity.ts.
 		{
 			"binding": "EMDASH_MEDIA",
 			"bucket_name": "emdash-media"

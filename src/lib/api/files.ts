@@ -36,7 +36,7 @@
  */
 
 import { env } from "cloudflare:workers"
-import { deleteObject, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
+import { deleteObject, emdashMediaUsageBytes, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
 import { optimizeImage, type CropInstruction } from "./images.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 import { getKey, setKey, deleteKey } from "./kv.ts"
@@ -349,7 +349,9 @@ export async function addFile(
     if (files.some((file) => file.key === key)) {
         throw new Error(`A file already exists at key "${key}"`)
     }
-    const used = files.reduce((total, file) => total + file.size, 0)
+    // the capacity ceiling is shared with EMDASH_MEDIA (see r2.ts's MAX_R2_STORAGE_BYTES), so the budget
+    // must include that bucket's current usage too, not just this one's
+    const used = files.reduce((total, file) => total + file.size, 0) + (await emdashMediaUsageBytes())
     return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
 }
 
@@ -381,8 +383,9 @@ export async function replaceFile(
     if (existing === undefined) {
         throw new Error(`No file exists at key "${key}"`)
     }
-    // count this write against current usage minus the object being overwritten
-    const used = files.reduce((total, file) => total + file.size, 0) - existing.size
+    // count this write against current usage minus the object being overwritten; the budget also includes
+    // EMDASH_MEDIA's usage since the capacity ceiling is shared across both buckets (see r2.ts)
+    const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())
     return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
 }
 
@@ -408,8 +411,9 @@ export async function updateFileAlt(ctx: ExecutionContext, key: string, alt: str
         throw new Error(`No file exists at key "${key}"`)
     }
     const custom = _buildCustomMetadata(data.content_type, existing.uploader, existing.width, existing.height, existing.optimized, alt)
-    // re-writing the same bytes does not change total usage, so the budget excludes this object's own size
-    const used = files.reduce((total, file) => total + file.size, 0) - existing.size
+    // re-writing the same bytes does not change total usage, so the budget excludes this object's own
+    // size; EMDASH_MEDIA's usage is still included since the capacity ceiling is shared (see r2.ts)
+    const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())
     const stored = await putObject(key, data.bytes, data.content_type, custom, used)
     _invalidate(ctx, key)
     return _toMeta(stored)
@@ -428,14 +432,18 @@ export async function deleteFile(ctx: ExecutionContext, key: string): Promise<vo
 }
 
 /**
- * Reports current and maximum storage usage for the bucket
+ * Reports current and maximum storage usage against the shared ceiling
+ *
+ * `used` is combined across both buckets this app owns (R2_FILES + EMDASH_MEDIA) since they draw against
+ * the same account-wide capacity ceiling — see r2.ts's MAX_R2_STORAGE_BYTES.
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
- * @returns {Promise<{ used: number, max: number }>} bytes used and the configured ceiling
+ * @returns {Promise<{ used: number, max: number }>} combined bytes used and the configured ceiling
  */
 export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: number; max: number }> {
     const files = await listFiles(ctx)
-    return { used: files.reduce((total, file) => total + file.size, 0), max: MAX_R2_STORAGE_BYTES }
+    const used = files.reduce((total, file) => total + file.size, 0) + (await emdashMediaUsageBytes())
+    return { used, max: MAX_R2_STORAGE_BYTES }
 }
 
 /**
