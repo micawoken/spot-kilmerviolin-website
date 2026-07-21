@@ -82,22 +82,31 @@ header {
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
+/* Grid rather than flex so title/nav-area/toggle can be reassigned to two different area maps by the
+ * media query below without reparenting: below the breakpoint, title+toggle share a fixed top row (always
+ * exactly two items, so it never wraps unevenly) with nav-area on its own row underneath, free to wrap
+ * independently; at/above it, all three share a single row. `align-items: center` (both maps) is what keeps
+ * the toggle's icon vertically centered against the title text instead of pinned to the row's top edge. */
 header nav {
-	display: flex;
-	flex-direction: column;
-	gap: 0.9rem;
+	display: grid;
+	align-items: center;
+	column-gap: 1.5rem;
+	row-gap: 0.9rem;
+	grid-template-columns: 1fr auto;
+	grid-template-areas:
+		"title toggle"
+		"nav nav";
 	padding-block: 1.3rem;
 	padding-inline: var(--dtk-space-md, 1rem);
 }
-/* Title and search toggle are locked together on their own row (always exactly two items, so it never
- * wraps unevenly), independent of the nav-links row below wrapping on narrow viewports. */
-header .header-top-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1.5rem;
+@media (min-width: 720px) {
+	header nav {
+		grid-template-columns: auto 1fr auto;
+		grid-template-areas: "title nav toggle";
+	}
 }
 header .site-title {
+	grid-area: title;
 	font-family: var(--dtk-type-body-family, inherit);
 	font-weight: 600;
 	font-size: 1.05rem;
@@ -106,6 +115,7 @@ header .site-title {
 	text-decoration: none;
 }
 header #search-toggle {
+	grid-area: toggle;
 	display: inline-flex;
 	align-items: center;
 	padding: 0.25rem;
@@ -125,14 +135,18 @@ header #search-toggle.is-open .icon-search {
 header #search-toggle.is-open .icon-close {
 	display: inline;
 }
-/* The nav-links row doubles as the search overlay's anchor: opening search covers this row (never the
- * title/toggle row above, which must stay visible so the toggle can close it again) with an opaque bar
- * pinned to the row's top edge. The overlay's height is intrinsic (from its own input/button padding), not
- * stretched to the row's full height, so if the nav-links have wrapped onto extra lines on a narrow
- * viewport, it only covers the space a single unwrapped line would occupy — the wrapped links are hidden
- * rather than shown through, but the bar doesn't grow to chase them. */
-header .nav-row {
+/* nav-area doubles as the search overlay's anchor: opening search covers only this area (never the title or
+ * toggle around it, which must stay visible so the toggle can close it again) with an opaque bar pinned to
+ * the area's top edge. The overlay's height is intrinsic (from its own input/button padding), not stretched
+ * to the area's full height, so if the nav-links have wrapped onto extra lines (narrow layout, many links),
+ * it only covers the space a single unwrapped line would occupy — the wrapped links are hidden rather than
+ * shown through, but the bar doesn't grow to chase them. `min-width: 0` overrides the grid item's default
+ * auto min-width (content-based), which would otherwise force the nav column wider than the space actually
+ * available and push the toggle out of the row. */
+header .nav-area {
+	grid-area: nav;
 	position: relative;
+	min-width: 0;
 }
 header #header-search-form {
 	display: flex;
