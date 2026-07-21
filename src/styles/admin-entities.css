@@ -1214,6 +1214,36 @@ header[role="banner"] + .callout-emphasis {
 }
 
 /* ----------------------------------------------------------------------------
+ * Design / template list pages (admin/designs/index.astro, admin/designs/templates.astro)
+ * ------------------------------------------------------------------------- */
+
+.design-create form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 1rem;
+	margin-block: 1rem;
+}
+.design-create label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.design-table {
+	border-collapse: collapse;
+	width: 100%;
+}
+.design-table th,
+.design-table td {
+	border: 1px solid var(--shade-4);
+	padding: 0.5rem 0.75rem;
+	text-align: left !important;
+}
+.design-table th {
+	background: var(--shade-2);
+}
+
+/* ----------------------------------------------------------------------------
  * Default overrides
  * ------------------------------------------------------------------------- */
 

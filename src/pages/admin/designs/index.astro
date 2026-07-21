@@ -2,21 +2,23 @@
 /**
  * pages/admin/designs/index.astro
  *
- * The visual compositor's entry point (impl §6.5): lists every `design_page` and `design_template`
- * item and offers a create form for each. The lists are read client-side from EmDash's content API
- * (same-origin, session cookie) rather than server-side, because the design collections live in
- * EmDash, not the app database — mirroring how the public build reads them (lib/build/emdash-api.ts).
- * Middleware already gates the whole /admin/designs subtree on cms_editor (middleware/identity.ts),
- * so no in-page guard is needed.
+ * The visual compositor's entry point (impl §6.5): lists every `design_page` item and offers a create
+ * form. The list is read client-side from EmDash's content API (same-origin, session cookie) rather
+ * than server-side, because the design collections live in EmDash, not the app database — mirroring
+ * how the public build reads them (lib/build/emdash-api.ts). Middleware already gates the whole
+ * /admin/designs subtree on cms_editor (middleware/identity.ts), so no in-page guard is needed.
+ *
+ * Templates (design_template items) live on their own page, templates.astro, rather than here — one
+ * admin/designs page per topic, matching theme.astro.
  *
  * Trash/restore and revision history are intentionally absent here — those live in the EmDash admin
  * UI, which this page links to rather than duplicating (plan: "EmDash admin remains where content lives").
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -55,7 +57,8 @@ export const prerender = false
             <p class="general-infohelp">
                 Visual design pages are laid out in the editor and stored in the CMS. Changes stay private until you
                 publish a page and rebuild the site. To trash, restore, or review revisions, use the{" "}
-                <a href="/_emdash">EmDash admin</a>. Shared theme tokens are edited on the{" "}
+                <a href="/_emdash">EmDash admin</a>. Layouts for entity/collection entries are managed on the{" "}
+                <a href="/admin/designs/templates">Templates page</a>. Shared theme tokens are edited on the{" "}
                 <a href="/admin/designs/theme">Theme page</a>.
             </p>
 
@@ -87,57 +90,14 @@ export const prerender = false
                 <div id="design-list"></div>
             </section>
 
-            <h2>Templates</h2>
-            <p class="general-infohelp">
-                A template is a layout that content entries render through — it owns no URL of its own.
-                Bind content outlets to the collection's fields in the editor; a collection's default
-                template applies to every entry that names no template. The reserved
-                <code>none</code> template opts a single entry out of the default.
-            </p>
-
-            <section class="design-create" aria-labelledby="template-create-heading">
-                <h3 id="template-create-heading">Create a template</h3>
-                <form id="template-create-form">
-                    <label>
-                        Name
-                        <input type="text" id="template-name" name="name" required autocomplete="off" />
-                    </label>
-                    <label>
-                        Renders entries of
-                        <select id="template-collection" name="collection"></select>
-                    </label>
-                    <button type="submit" id="template-create-button">Create and open editor</button>
-                </form>
-                <p id="template-create-status" role="status" aria-live="polite"></p>
-            </section>
-
-            <section aria-labelledby="template-list-heading">
-                <h3 id="template-list-heading">Existing templates</h3>
-                <p id="template-list-status" role="status" aria-live="polite">Loading templates…</p>
-                <div id="template-list"></div>
-            </section>
-
             <script>
                 // A real module import forces Astro to emit this as an external hashed module (never inlined),
                 // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
                 import { emptyDesignDoc } from "../../../lib/compositor/migrations"
-                import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../lib/compositor/types"
-                import { ENTITY_NOUNS } from "../../../lib/compositor/entity-fields"
+                import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../lib/compositor/design-list"
 
                 const CONTENT_ENDPOINT = "/_emdash/api/content/design_page"
-                const TEMPLATE_ENDPOINT = "/_emdash/api/content/design_template"
                 const EDITOR_PATH = "/admin/designs/edit"
-
-                /** The subset of an EmDash content item this list renders (see emdash ContentItem). */
-                interface DesignItem {
-                    id: string
-                    slug: string | null
-                    status: string
-                    data: Record<string, unknown> | null
-                    updatedAt: string
-                    liveRevisionId: string | null
-                    draftRevisionId: string | null
-                }
 
                 const listStatus = document.getElementById("design-list-status") as HTMLParagraphElement
                 const listContainer = document.getElementById("design-list") as HTMLDivElement
@@ -146,53 +106,6 @@ export const prerender = false
                 const createStatus = document.getElementById("design-create-status") as HTMLParagraphElement
                 const nameInput = document.getElementById("design-name") as HTMLInputElement
                 const slugInput = document.getElementById("design-slug") as HTMLInputElement
-
-                /** Extracts a human message from an EmDash `{ error: { message } }` body, falling back to the status line. */
-                async function errorMessage(response: Response): Promise<string> {
-                    try {
-                        const body = (await response.json()) as { error?: { message?: string } }
-                        if (body.error?.message) return body.error.message
-                    } catch {
-                        // non-JSON error body; fall through to the status text
-                    }
-                    return `${response.status} ${response.statusText}`
-                }
-
-                /** Fetches every item of one design collection, following EmDash's cursor pagination. */
-                async function fetchItems(endpoint: string): Promise<DesignItem[]> {
-                    const items: DesignItem[] = []
-                    let cursor: string | undefined
-                    do {
-                        const query = new URLSearchParams({ limit: "100" })
-                        if (cursor) query.set("cursor", cursor)
-                        const response = await fetch(`${endpoint}?${query.toString()}`, {
-                            headers: { Accept: "application/json" }
-                        })
-                        if (!response.ok) throw new Error(await errorMessage(response))
-                        const body = (await response.json()) as {
-                            data?: { items?: DesignItem[]; nextCursor?: string }
-                        }
-                        if (body.data?.items) items.push(...body.data.items)
-                        cursor = body.data?.nextCursor
-                    } while (cursor)
-                    return items
-                }
-
-                /**
-                 * Publication state for the badge. List responses carry published-column data only, but the
-                 * revision ids reveal an unpublished draft staged over a published page (draft != live).
-                 */
-                function statusLabel(item: DesignItem): string {
-                    const pendingDraft = Boolean(item.draftRevisionId) && item.draftRevisionId !== item.liveRevisionId
-                    if (item.status === "published") return pendingDraft ? "Published · pending draft" : "Published"
-                    return "Draft"
-                }
-
-                function titleOf(item: DesignItem): string {
-                    const title = item.data?.title
-                    if (typeof title === "string" && title.trim() !== "") return title
-                    return item.slug ?? "(untitled)"
-                }
 
                 /** Renders the fetched designs as a table, or an empty-state message. */
                 function renderDesigns(items: DesignItem[]): void {
@@ -241,132 +154,6 @@ export const prerender = false
                         console.error(error)
                     }
                 }
-
-                // --- Templates ---------------------------------------------------------------------
-
-                const templateListStatus = document.getElementById("template-list-status") as HTMLParagraphElement
-                const templateListContainer = document.getElementById("template-list") as HTMLDivElement
-                const templateForm = document.getElementById("template-create-form") as HTMLFormElement
-                const templateButton = document.getElementById("template-create-button") as HTMLButtonElement
-                const templateStatus = document.getElementById("template-create-status") as HTMLParagraphElement
-                const templateNameInput = document.getElementById("template-name") as HTMLInputElement
-                const templateCollectionSelect = document.getElementById(
-                    "template-collection"
-                ) as unknown as HTMLSelectElement
-
-                /** Populates the collection select from the two canonical lists (EmDash collections + D1 entity nouns). */
-                function populateTemplateCollectionOptions(): void {
-                    const groups: [string, readonly string[]][] = [
-                        ["EmDash collections", TEMPLATE_COLLECTIONS],
-                        ["Database entities", ENTITY_NOUNS]
-                    ]
-                    for (const [label, values] of groups) {
-                        const group = document.createElement("optgroup")
-                        group.label = label
-                        for (const value of values) {
-                            const option = document.createElement("option")
-                            option.value = value
-                            option.textContent = value
-                            group.appendChild(option)
-                        }
-                        templateCollectionSelect.appendChild(group)
-                    }
-                }
-                populateTemplateCollectionOptions()
-
-                /** Renders the fetched templates as a table, or an empty-state message. */
-                function renderTemplates(items: DesignItem[]): void {
-                    templateListContainer.replaceChildren()
-                    if (items.length === 0) {
-                        templateListStatus.textContent = "No templates yet. Create one above to get started."
-                        return
-                    }
-                    templateListStatus.textContent = ""
-
-                    const table = document.createElement("table")
-                    table.className = "design-table"
-                    const head = table.createTHead().insertRow()
-                    for (const heading of ["Name", "Slug", "Collection", "Default", "Status", "Updated", ""]) {
-                        const th = document.createElement("th")
-                        th.scope = "col"
-                        th.textContent = heading
-                        head.appendChild(th)
-                    }
-
-                    const body = table.createTBody()
-                    for (const item of items) {
-                        const row = body.insertRow()
-                        row.insertCell().textContent = titleOf(item)
-                        row.insertCell().textContent = item.slug ?? "—"
-                        const collection = item.data?.collection
-                        row.insertCell().textContent = typeof collection === "string" ? collection : "—"
-                        row.insertCell().textContent = cmsBoolean(item.data?.is_default) ? "Yes" : ""
-                        row.insertCell().textContent = statusLabel(item)
-                        const updated = row.insertCell()
-                        updated.textContent = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "—"
-                        const actions = row.insertCell()
-                        const link = document.createElement("a")
-                        link.href = `${EDITOR_PATH}?id=${encodeURIComponent(item.id)}&type=template`
-                        link.textContent = "Open editor"
-                        actions.appendChild(link)
-                    }
-                    templateListContainer.appendChild(table)
-                }
-
-                async function loadTemplates(): Promise<void> {
-                    templateListStatus.textContent = "Loading templates…"
-                    try {
-                        renderTemplates(await fetchItems(TEMPLATE_ENDPOINT))
-                    } catch (error) {
-                        templateListStatus.textContent = `Could not load templates: ${
-                            error instanceof Error ? error.message : String(error)
-                        }`
-                        console.error(error)
-                    }
-                }
-
-                /** Creates a draft design_template seeded with an empty design doc, then opens the editor. */
-                async function createTemplate(name: string, collection: string): Promise<void> {
-                    const response = await fetch(TEMPLATE_ENDPOINT, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-EmDash-Request": "1"
-                        },
-                        body: JSON.stringify({
-                            data: { title: name, collection, is_default: false, design: emptyDesignDoc() },
-                            status: "draft"
-                        })
-                    })
-                    if (!response.ok) throw new Error(await errorMessage(response))
-
-                    const body = (await response.json()) as { data?: { item?: { id?: string } } }
-                    const id = body.data?.item?.id
-                    if (!id) throw new Error("The template was created but no id was returned")
-                    window.location.href = `${EDITOR_PATH}?id=${encodeURIComponent(id)}&type=template`
-                }
-
-                templateForm.addEventListener("submit", async (event) => {
-                    event.preventDefault()
-                    const name = templateNameInput.value.trim()
-                    if (!name) {
-                        templateStatus.textContent = "Please enter a name."
-                        return
-                    }
-                    templateButton.disabled = true
-                    templateStatus.textContent = "Creating…"
-                    try {
-                        await createTemplate(name, templateCollectionSelect.value)
-                        // navigation happens on success; leave the button disabled while it unloads
-                    } catch (error) {
-                        templateStatus.textContent = `Could not create the template: ${
-                            error instanceof Error ? error.message : String(error)
-                        }`
-                        console.error(error)
-                        templateButton.disabled = false
-                    }
-                })
 
                 /** Creates a draft design_page seeded with an empty design doc, then opens it in the editor. */
                 async function createDesign(name: string, slug: string): Promise<void> {
@@ -419,36 +206,7 @@ export const prerender = false
                 })
 
                 loadDesigns()
-                loadTemplates()
             </script>
-
-            <style>
-                .design-create form {
-                    display: flex;
-                    flex-wrap: wrap;
-                    align-items: end;
-                    gap: 1rem;
-                    margin-block: 1rem;
-                }
-                .design-create label {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.25rem;
-                }
-                .design-table {
-                    border-collapse: collapse;
-                    width: 100%;
-                }
-                .design-table th,
-                .design-table td {
-                    border: 1px solid var(--gray-light, #ccc);
-                    padding: 0.5rem 0.75rem;
-                    text-align: left !important;
-                }
-                .design-table th {
-                    background: var(--gray-light, #f0f0f0);
-                }
-            </style>
         </main>
         <AdminFooter />
     </body>

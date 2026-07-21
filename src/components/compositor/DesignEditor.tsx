@@ -530,17 +530,17 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     }, [publishOpen, theme, kind, schemaFields, previewEntry])
 
     if (phase === "loading") {
-        return <FullScreenMessage title="Loading design…" />
+        return <FullScreenMessage title="Loading design…" kind={kind} />
     }
     if (phase === "error") {
-        return <FullScreenMessage title="This design could not be opened" detail={loadError} />
+        return <FullScreenMessage title="This design could not be opened" detail={loadError} kind={kind} />
     }
 
     return (
         <div className="design-editor">
             <div className="design-editor__bar">
-                <a href="/admin/designs" className="design-editor__back">
-                    ← Designs
+                <a href={kind === "template" ? "/admin/designs/templates" : "/admin/designs"} className="design-editor__back">
+                    {kind === "template" ? "← Templates" : "← Designs"}
                 </a>
                 <strong className="design-editor__title">{meta.title || "(untitled)"}</strong>
                 {kind === "template" && <span className="design-editor__status">Template · {collection}</span>}
@@ -642,14 +642,18 @@ async function publishDesign(endpoint: string, id: string): Promise<void> {
 }
 
 /** A centered full-viewport message for the load and error states. */
-function FullScreenMessage({ title, detail }: { title: string; detail?: string }) {
+function FullScreenMessage({ title, detail, kind }: { title: string; detail?: string; kind: DocumentKind }) {
     return (
         <div className="design-editor__fullscreen" role="status">
             <div>
                 <h1>{title}</h1>
                 {detail && <p>{detail}</p>}
                 <p>
-                    <a href="/admin/designs">Back to Designs</a>
+                    {kind === "template" ? (
+                        <a href="/admin/designs/templates">Back to Templates</a>
+                    ) : (
+                        <a href="/admin/designs">Back to Designs</a>
+                    )}
                 </p>
             </div>
         </div>
