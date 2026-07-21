@@ -129,6 +129,22 @@ header nav {
 		display: none;
 	}
 }
+/* Below the breakpoint, nav-area sits on its own row, independent from the title/toggle row above it (see
+ * the grid comment above). Left as the default absolute-overlay behavior, opening search there centers the
+ * form on nav-area's own box — which is sized by the (still in-flow, merely hidden) nav-links, shorter than
+ * the form itself — so the form overflowed that box, crowding the title above and the header's bottom edge
+ * below. Switching the form to static/in-flow (and collapsing nav-links out of flow instead of just hiding
+ * them) lets nav-area size itself to the form's own height instead, so the existing row-gap/padding above
+ * and below are preserved rather than eaten into. */
+@media (max-width: 719.98px) {
+	header.search-open #header-search-form {
+		position: static;
+		transform: none;
+	}
+	header.search-open .nav-links {
+		display: none;
+	}
+}
 header .site-title {
 	grid-area: title;
 	font-family: var(--dtk-type-body-family, inherit);
