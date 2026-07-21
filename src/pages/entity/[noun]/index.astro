@@ -43,7 +43,7 @@ import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContribut
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
-import { ENTITY_NOUN_LABELS, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../../../lib/compositor/entity-fields"
 import "../../../styles/public-entities.css"
 
 export const prerender = true
@@ -80,7 +80,7 @@ export async function getStaticPaths() {
         name: typeof record.entry.name === "string" ? record.entry.name : `#${record.id}`
     })
 
-    const paths: { params: { noun: EntityNoun }; props: { noun: EntityNoun; results: EntityListItem[] } }[] = []
+    const paths: { params: { noun: string }; props: { noun: EntityNoun; results: EntityListItem[] } }[] = []
 
     for (const { noun, template } of resolutions) {
         if (!template) continue // mirrors [id].astro's gate; no warning here to avoid duplicate build log noise
@@ -88,7 +88,7 @@ export async function getStaticPaths() {
         const results = entityRecords(noun, composers, contributors, compositions, refs).map(toListItem)
         if (results.length === 0) continue
 
-        paths.push({ params: { noun }, props: { noun, results } })
+        paths.push({ params: { noun: ENTITY_NOUN_SLUGS[noun] }, props: { noun, results } })
     }
 
     return paths
@@ -130,7 +130,7 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
             </ol>
         </nav>
         <h1>{title}</h1>
-        <ListResults noun={noun} enviro="public" results={results} />
+        <ListResults noun={ENTITY_NOUN_SLUGS[noun]} enviro="public" results={results} />
         <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
     </div>
 </PublicPage>
@@ -140,7 +140,7 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         font-size: 0.875rem;
         margin-top: var(--dtk-space-section, 2.5rem);
-        padding-top: 2rem;
+        padding-top: var(--dtk-space-section, 2rem);
         padding-bottom: 0;
         border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
             var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
@@ -152,7 +152,7 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         flex-wrap: wrap;
         align-items: center;
         gap: 0;
-        margin: 0 0 1rem;
+        margin: 0 0 var(--dtk-space-md, 1rem);
         padding: 0;
         list-style: none;
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);

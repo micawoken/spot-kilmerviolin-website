@@ -1,0 +1,166 @@
+---
+/**
+ * components/entities/DatabaseRoot.astro
+ *
+ * Root landing page body for the D1-backed entity database (composer/composition/contributor) — a
+ * pre-generated (non-Puck) page, since its content is fixed and structural rather than design-authored.
+ * Gives a visitor arriving with no prior context a search box scoped to database entries (reuses
+ * pages/search.astro via ?scope=database, see that file and layouts/PublicPage.astro's pagefindFilter
+ * prop) and nav links to whichever of the three entity index pages actually exist this build (mirrors
+ * entity/[noun]/index.astro's dual-source-dependency gate, so this never links to a noun with no
+ * published pages).
+ *
+ * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
+ * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
+ * rewrite mechanism exists in this project (Astro, wrangler, and EmDash were all checked), and
+ * route-authority.ts's duplicate-slug build failure only governs the EmDash-authored [...slug].astro
+ * catch-all, not hardcoded Astro file routes like this one — so both page files import and render this
+ * same component instead of one redirecting to the other.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import NavTiles from "../NavTiles.astro"
+import PublicPage from "../../layouts/PublicPage.astro"
+import { fetchComposers, fetchCompositions, fetchContributors } from "../../lib/build/d1-api"
+import { fetchPublishedEntityTemplates } from "../../lib/build/design-api"
+import { resolveEntityTemplates } from "../../lib/build/entity-routes"
+import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../../lib/compositor/entity-fields"
+
+// Same dual-source-dependency gate as entity/[noun]/index.astro (resolved default template AND at least
+// one D1 record) — reused independently here (not a shared computation, matching that file's own
+// reasoning) so this page can never link to a noun with zero detail pages.
+const [composers, contributors, compositions, entityTemplates] = await Promise.all([
+    fetchComposers(),
+    fetchContributors(),
+    fetchCompositions(),
+    fetchPublishedEntityTemplates()
+])
+const recordCounts: Record<EntityNoun, number> = {
+    composer: composers?.length ?? 0,
+    composition: compositions?.length ?? 0,
+    contributor: contributors?.length ?? 0
+}
+const resolutions = resolveEntityTemplates(entityTemplates)
+const availableNouns = resolutions
+    .filter(({ noun, template }) => template !== null && recordCounts[noun] > 0)
+    .map(({ noun }) => noun)
+---
+
+<PublicPage title="Database" description="Find composers, works, and contributors" pagefindFilter="scope:database">
+    {/* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
+        font-relative expression) is computed once instead of once per differently-sized child — see the
+        matching comment in entity/[noun]/index.astro for the full reasoning. */}
+    <div class="entity-index-body">
+        {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+            not a Puck design, so the component can never be placed here. */}
+        <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li><a href="/">Home</a></li>
+                <li aria-current="page">Database</li>
+            </ol>
+        </nav>
+        <h1>Database</h1>
+        <p>What can we help you find?</p>
+
+        <form action="/search" method="get" class="entity-search-form">
+            <input type="hidden" name="scope" value="database" />
+            <input
+                type="search"
+                name="q"
+                placeholder="Search the database…"
+                aria-label="Search the database"
+                autocomplete="off"
+            />
+            <button type="submit">Search</button>
+        </form>
+
+        {
+            availableNouns.length > 0 && (
+                <NavTiles
+                    ariaLabel="Database sections"
+                    links={availableNouns.map((noun) => ({
+                        href: `/entity/${ENTITY_NOUN_SLUGS[noun]}/`,
+                        label: ENTITY_NOUN_LABELS[noun]
+                    }))}
+                />
+            )
+        }
+    </div>
+</PublicPage>
+
+<style>
+    .entity-breadcrumbs ol {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0;
+        margin: 0 0 var(--dtk-space-md, 1rem);
+        padding: 0;
+        list-style: none;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.85rem);
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+    }
+    .entity-breadcrumbs li:not(:first-child)::before {
+        content: "/";
+        margin-inline: 0.5em;
+        opacity: 0.6;
+    }
+    .entity-breadcrumbs a {
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+    }
+    .entity-breadcrumbs li[aria-current="page"] {
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+    }
+    .entity-search-form {
+        display: flex;
+        gap: var(--dtk-space-sm, 0.75rem);
+        margin-block: var(--dtk-space-md, 1.5rem);
+    }
+    .entity-search-form input[type="search"] {
+        flex: 1;
+        padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-sm, 0.75rem);
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+        font-size: 1rem;
+    }
+    .entity-search-form button {
+        padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-md, 1rem);
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: transparent;
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+        /* Matches the input's font-size — buttons default to a smaller UA font-size than inputs, which
+         * otherwise leaves this shorter than the bar despite identical padding/border. */
+        font-size: 1rem;
+        cursor: pointer;
+    }
+    .entity-search-form button:hover {
+        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+    }
+</style>

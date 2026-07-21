@@ -54,10 +54,10 @@ import PublicPage from "../../../layouts/PublicPage.astro"
 import EntityOgMeta from "../../../components/EntityOgMeta.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
-import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
+import { buildReferenceIndex, buildRelatedWorksIndex, entityRecords, type RelatedWork } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { loadBundledFileAlt } from "../../../lib/build/bundled-file-alt"
-import { ENTITY_NOUN_LABELS, entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../../../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/tokens"
@@ -81,14 +81,16 @@ export async function getStaticPaths() {
         resolutions.map(({ noun, template }) => [noun, template !== null])
     ) as Record<EntityNoun, boolean>
     const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
+    const relatedWorksIndex = buildRelatedWorksIndex(composers, compositions, nounHasPage)
 
     const routes: {
-        params: { noun: EntityNoun; id: string }
+        params: { noun: string; id: string }
         props: {
             template: BuildEntityTemplate
             entry: Record<string, unknown>
             theme: TokenCatalog | null
             bundledFileAlt: Record<string, string>
+            relatedEntries: RelatedWork[]
         }
     }[] = []
 
@@ -126,8 +128,14 @@ export async function getStaticPaths() {
 
         for (const record of records) {
             routes.push({
-                params: { noun, id: record.id },
-                props: { template, entry: record.entry, theme, bundledFileAlt }
+                params: { noun: ENTITY_NOUN_SLUGS[noun], id: record.id },
+                props: {
+                    template,
+                    entry: record.entry,
+                    theme,
+                    bundledFileAlt,
+                    relatedEntries: relatedWorksIndex.get(`${noun}:${record.id}`) ?? []
+                }
             })
         }
     }
@@ -135,8 +143,7 @@ export async function getStaticPaths() {
     return routes
 }
 
-const { template, entry, theme, bundledFileAlt } = Astro.props
-const { noun } = Astro.params
+const { template, entry, theme, bundledFileAlt, relatedEntries } = Astro.props
 const title = typeof entry.name === "string" ? entry.name : undefined
 ---
 
@@ -155,9 +162,12 @@ const title = typeof entry.name === "string" ? entry.name : undefined
             // Entity pages always link to their own noun's index, then Home (doc's special case) — never
             // the generic slug-prefix walk route-authority.ts's breadcrumbAncestors does, since an entity
             // page's URL (/entity/{noun}/{id}) has no relationship to the published CMS route tree.
-            breadcrumbs: [{ label: ENTITY_NOUN_LABELS[noun as EntityNoun], href: `/entity/${noun}/` }],
+            breadcrumbs: [
+                { label: ENTITY_NOUN_LABELS[template.collection], href: `/entity/${ENTITY_NOUN_SLUGS[template.collection]}/` }
+            ],
             pageTitle: title,
-            bundledFileAlt
+            bundledFileAlt,
+            relatedEntries
         })}
         data={template.doc.puck}
     />

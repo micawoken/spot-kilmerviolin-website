@@ -1,0 +1,226 @@
+---
+/**
+ * pages/admin/designs/templates.astro
+ *
+ * Lists every `design_template` item and offers a create form (impl §6.5). Split out of
+ * admin/designs/index.astro so each admin/designs page covers one topic — mirroring theme.astro's
+ * single-topic layout instead of stacking Designs and Templates under one page. The list is read
+ * client-side from EmDash's content API (same-origin, session cookie), same as the Designs page,
+ * because the design collections live in EmDash, not the app database (lib/build/emdash-api.ts).
+ * Middleware already gates the whole /admin/designs subtree on cms_editor (middleware/identity.ts),
+ * so no in-page guard is needed.
+ *
+ * Trash/restore and revision history are intentionally absent here — those live in the EmDash admin
+ * UI, which this page links to rather than duplicating (plan: "EmDash admin remains where content lives").
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+
+export const prerender = false
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Templates`} description="Manage design templates" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Templates</h2>
+            <p class="general-infohelp">
+                A template is a layout that content entries render through — it owns no URL of its own.
+                Bind content outlets to the collection's fields in the editor; a collection's default
+                template applies to every entry that names no template. The reserved
+                <code>none</code> template opts a single entry out of the default. Return to the{" "}
+                <a href="/admin/designs">Designs list</a>.
+            </p>
+
+            <section class="design-create" aria-labelledby="template-create-heading">
+                <h3 id="template-create-heading">Create a template</h3>
+                <form id="template-create-form">
+                    <label>
+                        Name
+                        <input type="text" id="template-name" name="name" required autocomplete="off" />
+                    </label>
+                    <label>
+                        Renders entries of
+                        <select id="template-collection" name="collection"></select>
+                    </label>
+                    <button type="submit" id="template-create-button">Create and open editor</button>
+                </form>
+                <p id="template-create-status" role="status" aria-live="polite"></p>
+            </section>
+
+            <section aria-labelledby="template-list-heading">
+                <h3 id="template-list-heading">Existing templates</h3>
+                <p id="template-list-status" role="status" aria-live="polite">Loading templates…</p>
+                <div id="template-list"></div>
+            </section>
+
+            <script>
+                // A real module import forces Astro to emit this as an external hashed module (never inlined),
+                // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
+                import { emptyDesignDoc } from "../../../lib/compositor/migrations"
+                import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../lib/compositor/types"
+                import { ENTITY_NOUNS } from "../../../lib/compositor/entity-fields"
+                import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../lib/compositor/design-list"
+
+                const TEMPLATE_ENDPOINT = "/_emdash/api/content/design_template"
+                const EDITOR_PATH = "/admin/designs/edit"
+
+                const templateListStatus = document.getElementById("template-list-status") as HTMLParagraphElement
+                const templateListContainer = document.getElementById("template-list") as HTMLDivElement
+                const templateForm = document.getElementById("template-create-form") as HTMLFormElement
+                const templateButton = document.getElementById("template-create-button") as HTMLButtonElement
+                const templateStatus = document.getElementById("template-create-status") as HTMLParagraphElement
+                const templateNameInput = document.getElementById("template-name") as HTMLInputElement
+                const templateCollectionSelect = document.getElementById(
+                    "template-collection"
+                ) as unknown as HTMLSelectElement
+
+                /** Populates the collection select from the two canonical lists (EmDash collections + D1 entity nouns). */
+                function populateTemplateCollectionOptions(): void {
+                    const groups: [string, readonly string[]][] = [
+                        ["EmDash collections", TEMPLATE_COLLECTIONS],
+                        ["Database entities", ENTITY_NOUNS]
+                    ]
+                    for (const [label, values] of groups) {
+                        const group = document.createElement("optgroup")
+                        group.label = label
+                        for (const value of values) {
+                            const option = document.createElement("option")
+                            option.value = value
+                            option.textContent = value
+                            group.appendChild(option)
+                        }
+                        templateCollectionSelect.appendChild(group)
+                    }
+                }
+                populateTemplateCollectionOptions()
+
+                /** Renders the fetched templates as a table, or an empty-state message. */
+                function renderTemplates(items: DesignItem[]): void {
+                    templateListContainer.replaceChildren()
+                    if (items.length === 0) {
+                        templateListStatus.textContent = "No templates yet. Create one above to get started."
+                        return
+                    }
+                    templateListStatus.textContent = ""
+
+                    const table = document.createElement("table")
+                    table.className = "design-table"
+                    const head = table.createTHead().insertRow()
+                    for (const heading of ["Name", "Slug", "Collection", "Default", "Status", "Updated", ""]) {
+                        const th = document.createElement("th")
+                        th.scope = "col"
+                        th.textContent = heading
+                        head.appendChild(th)
+                    }
+
+                    const body = table.createTBody()
+                    for (const item of items) {
+                        const row = body.insertRow()
+                        row.insertCell().textContent = titleOf(item)
+                        row.insertCell().textContent = item.slug ?? "—"
+                        const collection = item.data?.collection
+                        row.insertCell().textContent = typeof collection === "string" ? collection : "—"
+                        row.insertCell().textContent = cmsBoolean(item.data?.is_default) ? "Yes" : ""
+                        row.insertCell().textContent = statusLabel(item)
+                        const updated = row.insertCell()
+                        updated.textContent = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "—"
+                        const actions = row.insertCell()
+                        const link = document.createElement("a")
+                        link.href = `${EDITOR_PATH}?id=${encodeURIComponent(item.id)}&type=template`
+                        link.textContent = "Open editor"
+                        actions.appendChild(link)
+                    }
+                    templateListContainer.appendChild(table)
+                }
+
+                async function loadTemplates(): Promise<void> {
+                    templateListStatus.textContent = "Loading templates…"
+                    try {
+                        renderTemplates(await fetchItems(TEMPLATE_ENDPOINT))
+                    } catch (error) {
+                        templateListStatus.textContent = `Could not load templates: ${
+                            error instanceof Error ? error.message : String(error)
+                        }`
+                        console.error(error)
+                    }
+                }
+
+                /** Creates a draft design_template seeded with an empty design doc, then opens the editor. */
+                async function createTemplate(name: string, collection: string): Promise<void> {
+                    const response = await fetch(TEMPLATE_ENDPOINT, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-EmDash-Request": "1"
+                        },
+                        body: JSON.stringify({
+                            data: { title: name, collection, is_default: false, design: emptyDesignDoc() },
+                            status: "draft"
+                        })
+                    })
+                    if (!response.ok) throw new Error(await errorMessage(response))
+
+                    const body = (await response.json()) as { data?: { item?: { id?: string } } }
+                    const id = body.data?.item?.id
+                    if (!id) throw new Error("The template was created but no id was returned")
+                    window.location.href = `${EDITOR_PATH}?id=${encodeURIComponent(id)}&type=template`
+                }
+
+                templateForm.addEventListener("submit", async (event) => {
+                    event.preventDefault()
+                    const name = templateNameInput.value.trim()
+                    if (!name) {
+                        templateStatus.textContent = "Please enter a name."
+                        return
+                    }
+                    templateButton.disabled = true
+                    templateStatus.textContent = "Creating…"
+                    try {
+                        await createTemplate(name, templateCollectionSelect.value)
+                        // navigation happens on success; leave the button disabled while it unloads
+                    } catch (error) {
+                        templateStatus.textContent = `Could not create the template: ${
+                            error instanceof Error ? error.message : String(error)
+                        }`
+                        console.error(error)
+                        templateButton.disabled = false
+                    }
+                })
+
+                loadTemplates()
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
+</html>

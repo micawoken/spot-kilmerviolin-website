@@ -57,8 +57,9 @@ const theme: TokenCatalog = {
 }
 
 /** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
- * container (unified field-outlet rewrite) — and `PagefindSearch`/`Breadcrumbs`, the two components added
- * per docs/dev/miscellaneous.txt "puck components to add". A change here is a deliberate version bump. */
+ * container (unified field-outlet rewrite) — `PagefindSearch`/`Breadcrumbs`, the two components added per
+ * docs/dev/miscellaneous.txt "puck components to add", and `RelatedEntries` (docs/dev/miscellaneous.txt
+ * "related-entries tiles"). A change here is a deliberate version bump. */
 const CATALOG_V1 = [
     "Section",
     "Columns",
@@ -70,7 +71,8 @@ const CATALOG_V1 = [
     "Spacer",
     "Divider",
     "PagefindSearch",
-    "Breadcrumbs"
+    "Breadcrumbs",
+    "RelatedEntries"
 ]
 
 /** The content outlets (pivot §4), including the unified field-outlet rewrite's `ContentField` (any
@@ -322,6 +324,73 @@ describe("buildConfig — Breadcrumbs auto-derives its trail from route context"
         const html = render(config, "Breadcrumbs", {})
         expect(html).toContain('<a href="/">Home</a>')
         expect(html).not.toContain("aria-current")
+    })
+})
+
+describe("buildConfig — RelatedEntries reads related works from route context", () => {
+    it("shows an illustrative preview in the editor with no route context attached", () => {
+        const html = render(buildConfig(theme, "editor"), "RelatedEntries", { heading: "Related Works", limit: 6 })
+        expect(html).toContain("Example Work")
+        expect(html).toContain("Example Composer")
+    })
+
+    it("renders a tile per related work, with the work name and composer subtitle, at build", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [
+                { id: 1, name: "Sonata No. 1", href: "/entity/work/1", composer: "J.S. Bach" },
+                { id: 2, name: "Sonata No. 2", href: "/entity/work/2", composer: "J.S. Bach" }
+            ]
+        })
+        const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6 })
+        expect(html).toContain("<h2")
+        expect(html).toContain("Related Works")
+        expect(html).toContain('<a class="cmp-related__tile" href="/entity/work/1">')
+        expect(html).toContain("Sonata No. 1")
+        expect(html).toContain("J.S. Bach")
+        expect(html).toContain("Sonata No. 2")
+    })
+
+    it("caps the tiles rendered at the authored limit", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [
+                { id: 1, name: "Work A", href: "/entity/work/1", composer: "" },
+                { id: 2, name: "Work B", href: "/entity/work/2", composer: "" },
+                { id: 3, name: "Work C", href: "/entity/work/3", composer: "" }
+            ]
+        })
+        const html = render(config, "RelatedEntries", { heading: "", limit: 2 })
+        expect(html).toContain("Work A")
+        expect(html).toContain("Work B")
+        expect(html).not.toContain("Work C")
+    })
+
+    it("renders a work with no resolved page as plain text, not a link", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [{ id: 1, name: "Unlinked Work", href: null, composer: "" }]
+        })
+        const html = render(config, "RelatedEntries", { heading: "", limit: 6 })
+        expect(html).toContain('<span class="cmp-related__tile">')
+        expect(html).not.toContain('href="null"')
+    })
+
+    it("omits the heading element when heading is blank", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [{ id: 1, name: "A Work", href: "/entity/work/1", composer: "" }]
+        })
+        const html = render(config, "RelatedEntries", { heading: "", limit: 6 })
+        expect(html).not.toContain("<h2")
+    })
+
+    it("renders nothing when the routed record has no related works", () => {
+        const config = buildConfig(theme, "build", { relatedEntries: [] })
+        const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6 })
+        expect(html).toBe("")
+    })
+
+    it("renders nothing at build with no route context at all (e.g. a pages/posts template)", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6 })
+        expect(html).toBe("")
     })
 })
 

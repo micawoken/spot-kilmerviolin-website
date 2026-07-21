@@ -53,6 +53,17 @@ export interface ResolvedReference {
     href: string | null
 }
 
+/** One tile in the `RelatedEntries` Puck block (catalog.tsx) — always a work, regardless of which noun's
+ *  page it appears on (see `buildRelatedWorksIndex`'s header). */
+export interface RelatedWork {
+    id: number
+    name: string
+    /** null when compositions have no published default template this build — see {@link ResolvedReference}. */
+    href: string | null
+    /** the work's composer display name, for the tile's subtitle; "" when unresolved. */
+    composer: string
+}
+
 /** name + whether the target noun/record actually gets a public page this build. */
 interface ReferenceTarget {
     name: string
@@ -95,6 +106,81 @@ export function buildReferenceIndex(
     }
 
     return { composer, contributor }
+}
+
+/**
+ * Builds the id→related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles — the
+ * related entries are always works, regardless of which noun's detail page the block appears on
+ * (docs/dev/miscellaneous.txt "related-entries tiles"): a composer's tiles are their works, a
+ * contributor's tiles are the works they contributed to, and a work's tiles are other works by the same
+ * composer. Keyed `"{noun}:{id}"` so one map serves all three nouns; `[id].astro` looks up its own
+ * noun/id pair per record.
+ *
+ * Owner decision (v1 scope): a work's related list is same-composer-only — no editor-curated list yet.
+ *
+ * @param {ComposerRecord[] | null} composers - every composer, for the tile subtitle and composer→works lookup
+ * @param {CompositionRecord[] | null} compositions - every work
+ * @param {Record<EntityNoun, boolean>} nounHasPage - whether "composition" has a resolved default template
+ *   this build — every related tile links to a work, so only that one flag matters here
+ * @returns {Map<string, RelatedWork[]>} `"{noun}:{id}"` → that record's related works, in source order
+ *   (composer keys list primary credits before secondary-author credits)
+ */
+export function buildRelatedWorksIndex(
+    composers: ComposerRecord[] | null,
+    compositions: CompositionRecord[] | null,
+    nounHasPage: Record<EntityNoun, boolean>
+): Map<string, RelatedWork[]> {
+    const composerNames = new Map<number, string>()
+    for (const record of composers ?? []) composerNames.set(record.id, record.name)
+
+    const works = compositions ?? []
+    const toRelatedWork = (record: CompositionRecord): RelatedWork => ({
+        id: record.id,
+        name: record.name,
+        href: nounHasPage.composition ? entityHref("composition", record.id) : null,
+        composer: composerNames.get(record.composer_id) ?? ""
+    })
+
+    const index = new Map<string, RelatedWork[]>()
+    const push = (key: string, work: RelatedWork) => {
+        const list = index.get(key)
+        if (list) list.push(work)
+        else index.set(key, [work])
+    }
+
+    // composer -> works: a first pass pushes every primary credit, a second pushes secondary-author
+    // credits — two full passes (not one, interleaved) so every composer's list has its primary works
+    // before its secondary ones, regardless of which composition record each came from.
+    for (const record of works) {
+        push(`composer:${record.composer_id}`, toRelatedWork(record))
+    }
+    for (const record of works) {
+        for (const secondaryId of record.author_secondary) {
+            if (secondaryId === record.composer_id) continue // already listed as a primary credit above
+            push(`composer:${secondaryId}`, toRelatedWork(record))
+        }
+    }
+
+    // composition -> related works (v1: same composer only, excluding itself; see header).
+    for (const record of works) {
+        for (const sibling of works) {
+            if (sibling.id === record.id || sibling.composer_id !== record.composer_id) continue
+            push(`composition:${record.id}`, toRelatedWork(sibling))
+        }
+    }
+
+    // contributor -> works they contributed to, across all three contributor-credit columns. A Set
+    // dedupes the rare case of one contributor id appearing in more than one of those columns on the
+    // same work, so that work isn't listed twice for the same contributor.
+    for (const record of works) {
+        const contributorIds = new Set<number>([record.contrib_primary_1, ...record.contrib_addl])
+        if (record.contrib_primary_2 !== null) contributorIds.add(record.contrib_primary_2)
+        for (const contributorId of contributorIds) {
+            push(`contributor:${contributorId}`, toRelatedWork(record))
+        }
+    }
+
+    return index
 }
 
 /** Resolves a single nullable foreign key to a display reference, or null when the key itself is null. */

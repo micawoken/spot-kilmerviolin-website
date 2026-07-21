@@ -40,7 +40,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { EntityNoun } from "./entity-fields"
+import { ENTITY_NOUN_SLUGS, type EntityNoun } from "./entity-fields"
 
 /** Field labels shown beside a composition's values. Mirrors `CompositionInfo.astro`'s `<strong>` text. */
 export const COMPOSITION_LABELS = {
@@ -118,5 +118,5 @@ export function displayValue(value: unknown, placeholder: string): string {
  * @returns {string} the public entity URL
  */
 export function entityHref(noun: EntityNoun, id: number): string {
-    return `/entity/${noun}/${id}`
+    return `/entity/${ENTITY_NOUN_SLUGS[noun]}/${id}`
 }

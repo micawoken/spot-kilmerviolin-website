@@ -25,7 +25,12 @@
 import { describe, expect, it } from "vitest"
 
 import { formatCompFromD1, formatContribFromD1, formatWorkFromD1 } from "../../src/lib/api/common"
-import { buildReferenceIndex, entityRecords, type EntityReferenceIndex } from "../../src/lib/build/entity-records"
+import {
+    buildReferenceIndex,
+    buildRelatedWorksIndex,
+    entityRecords,
+    type EntityReferenceIndex
+} from "../../src/lib/build/entity-records"
 import type { EntityNoun } from "../../src/lib/compositor/entity-fields"
 
 // Built via the real D1 converters (same fixture shape tests/build/d1-api.test.ts uses), not hand-authored
@@ -219,5 +224,90 @@ describe("entityRecords — the reader-returned-null case (D1 unconfigured, or t
         expect(entityRecords("composer", null, null, null, emptyRefs)).toEqual([])
         expect(entityRecords("contributor", null, null, null, emptyRefs)).toEqual([])
         expect(entityRecords("composition", null, null, null, emptyRefs)).toEqual([])
+    })
+})
+
+describe("buildRelatedWorksIndex — RelatedEntries' data source (docs/dev/miscellaneous.txt \"related-entries tiles\")", () => {
+    const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
+    const mozart: D1Composer = { ...composer, composer_id: 4, name: "Mozart" }
+
+    // work1/work2: both primary-credited to Bach. work3: primary-credited to Mozart, with Bach as a
+    // secondary author — the case that exercises the composer index's two-pass (primary-before-secondary)
+    // ordering.
+    const work1: D1Composition = { ...composition, composition_id: 10, name: "Work One", composer_id: 1 }
+    const work2: D1Composition = {
+        ...composition,
+        composition_id: 11,
+        name: "Work Two",
+        composer_id: 1,
+        contrib_primary_2: null,
+        contrib_addl: ""
+    }
+    const work3: D1Composition = {
+        ...composition,
+        composition_id: 12,
+        name: "Work Three",
+        composer_id: 4,
+        contrib_primary_1: 5,
+        contrib_primary_2: null,
+        contrib_addl: "2",
+        author_secondary: "1"
+    }
+
+    const composers = [formatCompFromD1(bach), formatCompFromD1(mozart)]
+    const works = [formatWorkFromD1(work1), formatWorkFromD1(work2), formatWorkFromD1(work3)]
+    const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+
+    it("composer -> works: lists primary credits before secondary-author credits", () => {
+        expect(index.get("composer:1")).toEqual([
+            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
+            { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
+            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+        ])
+    })
+
+    it("composer -> works: a composer with only primary credits gets no secondary-pass duplicates", () => {
+        expect(index.get("composer:4")).toEqual([
+            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+        ])
+    })
+
+    it("composition -> related works: other works by the same composer, excluding itself", () => {
+        expect(index.get("composition:10")).toEqual([
+            { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" }
+        ])
+        expect(index.get("composition:11")).toEqual([
+            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" }
+        ])
+    })
+
+    it("composition -> related works: no entry (not even an empty array) when no sibling exists", () => {
+        expect(index.get("composition:12")).toBeUndefined()
+    })
+
+    it("contributor -> works: matches across contrib_primary_1, contrib_primary_2, and contrib_addl", () => {
+        // contributor 2: contrib_primary_1 on work1 and work2, contrib_addl on work3.
+        expect(index.get("contributor:2")).toEqual([
+            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
+            { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
+            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+        ])
+        // contributor 3: contrib_primary_2 AND contrib_addl on work1 alone — deduped to one entry.
+        expect(index.get("contributor:3")).toEqual([
+            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" }
+        ])
+        // contributor 5: contrib_primary_1 on work3 only.
+        expect(index.get("contributor:5")).toEqual([
+            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+        ])
+    })
+
+    it("hrefs are null when compositions have no published default template this build", () => {
+        const noCompositionPage = buildRelatedWorksIndex(composers, works, { ...ALL_PAGES, composition: false })
+        expect(noCompositionPage.get("composer:1")?.every((work) => work.href === null)).toBe(true)
+    })
+
+    it("an empty composers/compositions input yields an empty index", () => {
+        expect(buildRelatedWorksIndex(null, null, ALL_PAGES).size).toBe(0)
     })
 })
