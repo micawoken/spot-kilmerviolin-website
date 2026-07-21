@@ -210,8 +210,8 @@ export const RICH_TEXT_PROPS: Record<string, readonly string[]> = { RichText: ["
  */
 export const TOKEN_PROPS: TokenPropRegistry = {
     Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
-    Columns: { gap: "space" },
-    Row: { gap: "space" },
+    Columns: { columnGap: "space", rowGap: "space" },
+    Row: { columnGap: "space", rowGap: "space" },
     Heading: { typography: "typography" },
     ContentText: { typography: "typography" },
     ContentField: { typography: "typography" },
@@ -234,8 +234,9 @@ export const TOKEN_PROPS: TokenPropRegistry = {
  * a separate note.
  */
 export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
-    space: "Used directly by Section's vertical padding, Columns' and Row's gap, Spacer's size, and " +
-        "Divider's space around — plus indirectly by a button variant's own horizontal/vertical padding.",
+    space: "Used directly by Section's vertical padding, Columns' and Row's column gap (horizontal) and " +
+        "row gap (vertical), Spacer's size, and Divider's space around — plus indirectly by a button " +
+        "variant's own horizontal/vertical padding.",
     radius: "Used by a button variant's radius field, and directly by Section, Image, Content Image, and " +
         "Media + text's own optional Corner radius field (each defaults to None, the pre-existing look).",
     borders: "Used by a button variant's border field, and directly by Section, Image, Content Image, " +
@@ -482,14 +483,20 @@ interface SectionProps {
 }
 interface ColumnsProps {
     count: number
-    gap: string
+    /** a `space` token name; the horizontal gutter between columns. */
+    columnGap: string
+    /** a `space` token name; the gap between wrapped rows (only visible when columns stack). */
+    rowGap: string
     col1: SlotRender
     col2: SlotRender
     col3: SlotRender
     col4: SlotRender
 }
 interface RowProps {
-    gap: string
+    /** a `space` token name; the gap between items on the same line. */
+    columnGap: string
+    /** a `space` token name; the gap between wrapped lines (only visible when items wrap). */
+    rowGap: string
     content: SlotRender
 }
 interface HeadingProps {
@@ -1037,19 +1044,24 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "4", value: 4 }
                     ]
                 },
-                gap: tokenSelect(theme, "space", "Gap"),
+                columnGap: tokenSelect(theme, "space", "Column gap (horizontal)"),
+                rowGap: tokenSelect(theme, "space", "Row gap (vertical)"),
                 col1: { type: "slot" as const },
                 col2: { type: "slot" as const },
                 col3: { type: "slot" as const },
                 col4: { type: "slot" as const }
             },
-            defaultProps: { count: 2, gap: "md", col1: [], col2: [], col3: [], col4: [] },
-            render: ({ count, gap, col1: Col1, col2: Col2, col3: Col3, col4: Col4 }: ColumnsProps) => {
+            defaultProps: { count: 2, columnGap: "md", rowGap: "md", col1: [], col2: [], col3: [], col4: [] },
+            render: ({ count, columnGap, rowGap, col1: Col1, col2: Col2, col3: Col3, col4: Col4 }: ColumnsProps) => {
                 const cols = [Col1, Col2, Col3, Col4].slice(0, count)
                 return (
                     <div
                         className="cmp-columns"
-                        style={vars({ "--cmp-columns-count": String(count), "--cmp-columns-gap": tokenVar("space", gap) })}
+                        style={vars({
+                            "--cmp-columns-count": String(count),
+                            "--cmp-columns-column-gap": tokenVar("space", columnGap),
+                            "--cmp-columns-row-gap": tokenVar("space", rowGap)
+                        })}
                     >
                         {cols.map((Col, i) => (
                             <div className="cmp-columns__col" key={i}>
@@ -1063,18 +1075,25 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
         Row: {
             label: "Row",
             fields: {
-                gap: tokenSelect(theme, "space", "Gap"),
+                columnGap: tokenSelect(theme, "space", "Column gap (horizontal)"),
+                rowGap: tokenSelect(theme, "space", "Row gap (vertical)"),
                 content: { type: "slot" as const }
             },
-            defaultProps: { gap: "md", content: [] },
+            defaultProps: { columnGap: "md", rowGap: "md", content: [] },
             // The only explicit horizontal container (see module header's flow-invariant note): children
             // lay out left-to-right and wrap, regardless of each child's own intrinsic CSS display.
             // `cmp-row` styles the slot's own wrapper directly (rather than an outer div around it) —
             // Puck's slot items are direct children of that wrapper with no further nesting, so it must
-            // be the flex container for `gap` to land between the items instead of having only itself
-            // to apply to.
-            render: ({ gap, content: Content }: RowProps) => (
-                <Content className="cmp-row" style={vars({ "--cmp-row-gap": tokenVar("space", gap) })} />
+            // be the flex container for the gaps to land between the items instead of having only itself
+            // to apply to. `rowGap` only shows once the row wraps onto more than one line.
+            render: ({ columnGap, rowGap, content: Content }: RowProps) => (
+                <Content
+                    className="cmp-row"
+                    style={vars({
+                        "--cmp-row-column-gap": tokenVar("space", columnGap),
+                        "--cmp-row-row-gap": tokenVar("space", rowGap)
+                    })}
+                />
             )
         },
         Heading: {

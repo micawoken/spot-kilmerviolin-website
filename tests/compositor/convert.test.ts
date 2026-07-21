@@ -101,7 +101,7 @@ const PT_BODY = [
 /** Builds a fresh design doc with a RichText nested inside a Section slot, plus an unknown component. */
 function makeDoc(): DesignDoc {
     return {
-        schemaVersion: 1,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         puck: {
             root: { props: {} },
             content: [

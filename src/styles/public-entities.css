@@ -37,7 +37,7 @@
 .list-results-container {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: var(--dtk-space-sm, 1rem) var(--dtk-space-sm, 1.5rem);
+	gap: var(--dtk-space-sm, 1rem) var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1.5rem));
 	margin: var(--dtk-space-sm, 1.5rem) 0;
 }
 
@@ -67,7 +67,7 @@
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
 	border-radius: var(--dtk-radius-sm, 0);
-	padding: var(--dtk-space-xs, 0.75rem) var(--dtk-space-sm, 1rem);
+	padding: var(--dtk-space-xs, 0.75rem) var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1rem));
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 

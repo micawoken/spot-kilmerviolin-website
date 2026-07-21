@@ -129,6 +129,69 @@ describe("migrateDesign — backfills missing component ids", () => {
     })
 })
 
+describe("migrateDesign — v1 → v2: splits Columns/Row's gap into columnGap/rowGap", () => {
+    it("splits a top-level Columns' gap into columnGap and rowGap", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: {
+                root: {},
+                content: [
+                    { type: "Columns", props: { id: "c1", count: 2, gap: "md", col1: [], col2: [], col3: [], col4: [] } }
+                ]
+            }
+        })
+        const props = (result.puck.content[0] as { props: Record<string, unknown> }).props
+        expect(props.columnGap).toBe("md")
+        expect(props.rowGap).toBe("md")
+        expect(props.gap).toBeUndefined()
+    })
+
+    it("splits a Row's gap nested inside a slot", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: {
+                root: {},
+                content: [
+                    {
+                        type: "Section",
+                        props: { id: "s1", content: [{ type: "Row", props: { id: "r1", gap: "sm", content: [] } }] }
+                    }
+                ]
+            }
+        })
+        const section = result.puck.content[0] as { props: { content: Array<{ props: Record<string, unknown> }> } }
+        const rowProps = section.props.content[0].props
+        expect(rowProps.columnGap).toBe("sm")
+        expect(rowProps.rowGap).toBe("sm")
+        expect(rowProps.gap).toBeUndefined()
+    })
+
+    it("leaves a document already shaped with columnGap/rowGap untouched", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: {
+                root: {},
+                content: [
+                    { type: "Row", props: { id: "r1", columnGap: "lg", rowGap: "xs", content: [] } }
+                ]
+            }
+        })
+        const props = (result.puck.content[0] as { props: Record<string, unknown> }).props
+        expect(props.columnGap).toBe("lg")
+        expect(props.rowGap).toBe("xs")
+    })
+
+    it("does not touch an unrelated component's own gap-named prop", () => {
+        const result = migrateDesign({
+            schemaVersion: 1,
+            puck: { root: {}, content: [{ type: "Heading", props: { id: "h1", text: "Hi", gap: "md" } }] }
+        })
+        const props = (result.puck.content[0] as { props: Record<string, unknown> }).props
+        expect(props.gap).toBe("md")
+        expect(props.columnGap).toBeUndefined()
+    })
+})
+
 describe("emptyDesignDoc", () => {
     it("is a current-version envelope with an empty content array", () => {
         const doc = emptyDesignDoc()

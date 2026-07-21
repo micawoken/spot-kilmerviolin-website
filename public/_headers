@@ -1,0 +1,10 @@
+# Workers Static Assets applies "Cache-Control: public, max-age=0, must-revalidate" to everything by
+# default, which forces a revalidation round trip on every request. That's fine for HTML, but it breaks
+# self-hosted web fonts loaded via <link rel="preload"> + font-display: optional (theme-fonts.ts,
+# AdminTypeface.astro): optional's block period is only ~100ms, so a font that must round-trip a 304
+# before it can render randomly misses that window depending on network/connection-queue timing — "the
+# font doesn't consistently appear, even on refresh". These filenames never change in place (theme fonts
+# are content-hashed off the remote Google Fonts URL; the vendored Inter/Atkinson files only change via a
+# new deploy under the same path), so it's safe to let the browser skip revalidation entirely.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
