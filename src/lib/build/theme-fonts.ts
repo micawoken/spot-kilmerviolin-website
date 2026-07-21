@@ -14,12 +14,23 @@
  * at build time, so the page can `<link rel="preload">` it directly, the same trick
  * `AdminTypeface.astro` already relies on for the self-hosted admin Inter face.
  *
- * Downloaded files are written to BOTH `public/fonts/theme/` and `dist/client/fonts/theme/`: `astro
- * dev` serves `public/` live, so a file only written there is enough locally; but for `astro build`,
- * Vite's client-asset build (which copies `publicDir`) finishes before pages are prerendered, so a
- * file written to `public/` mid-render would never reach the shipped `dist/client` — hence writing
- * directly into that directory too. `dist/client` mirrors wrangler.jsonc's `assets.directory` and
- * package.json's `pagefind --site dist/client`; if either changes, update FONT_DIR_SEGMENTS's callers.
+ * MUST run from a real-Node context, never from page-render code: `@astrojs/cloudflare` prerenders
+ * pages by sending requests to an actual workerd instance ("prerendering happens in the same runtime
+ * that will serve the pages" — its own prerenderer.d.ts), and workerd has no writable local disk. A
+ * `node:fs` `mkdir`/`writeFile` called from a `.astro` page's frontmatter (which runs inside that
+ * sandbox during both `astro build`'s prerender step and `astro dev`) throws EPERM
+ * ("operation not permitted") for every single font block — confirmed against the live theme, where
+ * this used to be called straight from `theme-head.ts`/`PublicPage.astro` and silently produced ZERO
+ * font files every build, permanently falling back to the typography token's next stack entry. This is
+ * why `getThemeHead` no longer imports `localizeThemeFonts` — instead `integrations/theme-fonts.mjs`
+ * calls it from the `astro:build:start`/`astro:server:setup` hooks, which Astro always runs in the
+ * real orchestrating Node process, and writes the result to `theme-fonts-manifest.generated.json`
+ * (this directory) for `theme-head.ts` to pick up via a plain source import. That import is resolved
+ * by Vite while bundling the server code — before the prerenderer's workerd instance ever starts — so
+ * the page-render code never needs to touch the filesystem at all.
+ *
+ * Written to `public/fonts/theme/` only: the build-start hook fires before Vite's client-asset build
+ * copies `publicDir` into `dist/client`, so that one copy step now picks the files up on its own.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -70,13 +81,10 @@ export interface LocalizedFonts {
     preloadHrefs: string[]
 }
 
-/** Build-time cache backing {@link localizeThemeFonts}, the same rationale as design-api.ts's
- *  `themeCache`: every public page's render would otherwise re-fetch and re-download the same theme
- *  fonts once per page. */
-let cache: Promise<LocalizedFonts | null> | null = null
-
 /**
- * Self-hosts the theme's web fonts, memoized for the life of one build process.
+ * Self-hosts the theme's web fonts. Call once per build/dev-server start (see the file header for why
+ * this must run from a real-Node build hook, not page-render code) — this does its own network I/O and
+ * disk writes each time it is called, with no memoization of its own.
  *
  * Fails soft: a fetch/parse/download problem for any reason resolves to `null` (with a console
  * warning), never throwing — the theme font is simply skipped for this build rather than breaking
@@ -86,14 +94,7 @@ let cache: Promise<LocalizedFonts | null> | null = null
  * @returns {Promise<LocalizedFonts | null>} the local `@font-face` CSS and preload hrefs, or null when
  *   there is no valid font or self-hosting failed
  */
-export function localizeThemeFonts(fonts: WebFont[]): Promise<LocalizedFonts | null> {
-    if (!cache) {
-        cache = resolveLocalizedFonts(fonts)
-    }
-    return cache
-}
-
-async function resolveLocalizedFonts(fonts: WebFont[]): Promise<LocalizedFonts | null> {
+export async function localizeThemeFonts(fonts: WebFont[]): Promise<LocalizedFonts | null> {
     const href = webFontsHref(fonts)
     if (!href) return null
 
@@ -171,10 +172,10 @@ function parseFontFaceBlocks(css: string): ParsedFontFaceBlock[] {
 }
 
 /**
- * Downloads a single Google-hosted font file and writes it to both `public/fonts/theme/` and
- * `dist/client/fonts/theme/` (see the file-level comment for why both). The filename is a hash of the
- * remote URL, which Google itself versions per family/weight/subset, so repeated downloads of the same
- * font are naturally content-addressed and idempotent.
+ * Downloads a single Google-hosted font file and writes it to `public/fonts/theme/` (see the file-level
+ * comment for why only that one directory, and why this must run from a real-Node build hook). The
+ * filename is a hash of the remote URL, which Google itself versions per family/weight/subset, so
+ * repeated downloads of the same font are naturally content-addressed and idempotent.
  *
  * @param {string} url - the font file URL from a parsed Google `@font-face` block
  * @returns {Promise<string>} the local `/fonts/theme/<hash>.woff2` href
@@ -185,11 +186,8 @@ async function downloadFont(url: string): Promise<string> {
     const bytes = Buffer.from(await res.arrayBuffer())
     const hash = createHash("sha256").update(url).digest("hex").slice(0, 20)
     const filename = `${hash}.woff2`
-    const relDir = path.join(...FONT_DIR_SEGMENTS)
-    for (const root of [path.resolve(process.cwd(), "public"), path.resolve(process.cwd(), "dist", "client")]) {
-        const dir = path.join(root, relDir)
-        await mkdir(dir, { recursive: true })
-        await writeFile(path.join(dir, filename), bytes)
-    }
+    const dir = path.resolve(process.cwd(), "public", ...FONT_DIR_SEGMENTS)
+    await mkdir(dir, { recursive: true })
+    await writeFile(path.join(dir, filename), bytes)
     return `/${FONT_DIR_SEGMENTS.join("/")}/${filename}`
 }

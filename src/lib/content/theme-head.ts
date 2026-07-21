@@ -13,6 +13,13 @@
  * EmDash's HTTP API (see src/lib/build/design-api.ts, fetchPublishedTheme). Publishing a theme change
  * requires a site rebuild.
  *
+ * The font markup itself does NOT come from calling `theme-fonts.ts` here: this module's code runs as
+ * part of a page's own render, which `@astrojs/cloudflare` executes inside an actual workerd sandbox
+ * during prerendering — no writable disk there, so a `localizeThemeFonts` call from this file can never
+ * successfully download/self-host anything (see theme-fonts.ts's header for the full story). Instead
+ * `integrations/theme-fonts.mjs` resolves the fonts in a real-Node build hook and writes the result to
+ * `theme-fonts-manifest.generated.json`, imported below as a plain source module.
+ *
  * It fails soft: any read error, a missing theme, or an invalid catalog all resolve to "no links, no
  * tokens", so the theme system can never break a public page build — the chrome simply falls back to its
  * built-in styles/global.css look (every `--dtk-*` binding carries a `--color-*` fallback).
@@ -39,7 +46,7 @@
  */
 
 import { fetchPublishedTheme } from "../build/design-api"
-import { localizeThemeFonts } from "../build/theme-fonts"
+import themeFontManifest from "../build/theme-fonts-manifest.generated.json"
 import { columnsStackBreakpointCss, EMPTY_TOKEN_CATALOG, tokensToCss, viewTransitionCss } from "../compositor/tokens"
 
 /** The theme's contribution to a public page's <head>: web-font links plus the token custom properties. */
@@ -82,10 +89,9 @@ export async function getThemeHead(): Promise<ThemeHead> {
     try {
         const theme = await fetchPublishedTheme()
         if (!theme) return NO_THEME_HEAD
-        const localized = await localizeThemeFonts(theme.fonts ?? [])
         return {
-            preloadHrefs: localized?.preloadHrefs ?? [],
-            fontFaceCss: localized?.fontFaceCss ?? "",
+            preloadHrefs: themeFontManifest.preloadHrefs,
+            fontFaceCss: themeFontManifest.fontFaceCss,
             tokenCss: tokensToCss(theme),
             columnsBreakpointCss: columnsStackBreakpointCss(theme),
             viewTransitionCss: viewTransitionCss(theme)
