@@ -267,8 +267,13 @@ export interface MediaValue {
     height: number
 }
 
-/** A slot prop's value in render: a Puck-supplied component that renders the slot's contents. */
-type SlotRender = ComponentType
+/**
+ * A slot prop's value in render: a Puck-supplied component that renders the slot's contents.
+ * `className`/`style` land on the DOM element Puck wraps the slot's items in (a plain `<div>` by
+ * default) — the only hook available for styling that wrapper, since its children render as direct
+ * DOM children with no further nesting.
+ */
+type SlotRender = ComponentType<{ className?: string; style?: CSSProperties }>
 
 /** Casts a token-var map to CSSProperties (React types omit custom-property keys). */
 function vars(map: Record<string, string | number>): CSSProperties {
@@ -992,10 +997,12 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { gap: "md", content: [] },
             // The only explicit horizontal container (see module header's flow-invariant note): children
             // lay out left-to-right and wrap, regardless of each child's own intrinsic CSS display.
+            // `cmp-row` styles the slot's own wrapper directly (rather than an outer div around it) —
+            // Puck's slot items are direct children of that wrapper with no further nesting, so it must
+            // be the flex container for `gap` to land between the items instead of having only itself
+            // to apply to.
             render: ({ gap, content: Content }: RowProps) => (
-                <div className="cmp-row" style={vars({ "--cmp-row-gap": tokenVar("space", gap) })}>
-                    <Content />
-                </div>
+                <Content className="cmp-row" style={vars({ "--cmp-row-gap": tokenVar("space", gap) })} />
             )
         },
         Heading: {
