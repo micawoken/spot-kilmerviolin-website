@@ -56,14 +56,18 @@ const mediaText = (field, content) => ({
     type: "MediaText",
     props: { id: genId("MediaText"), field, aspect: "original", imagePosition: "start", content }
 })
-const row = (content, gap = "md") => ({ type: "Row", props: { id: genId("Row"), gap, content } })
+const row = (content, columnGap = "md", rowGap = "md") => ({
+    type: "Row",
+    props: { id: genId("Row"), columnGap, rowGap, content }
+})
 const divider = () => ({ type: "Divider", props: { id: genId("Divider"), spaceAround: "md", color: "" } })
-const columns = (cols, gap = "md") => ({
+const columns = (cols, columnGap = "md", rowGap = "md") => ({
     type: "Columns",
     props: {
         id: genId("Columns"),
         count: cols.length,
-        gap,
+        columnGap,
+        rowGap,
         col1: cols[0] ?? [],
         col2: cols[1] ?? [],
         col3: cols[2] ?? [],

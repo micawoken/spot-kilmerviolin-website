@@ -206,14 +206,15 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
 ]
 
 /** The Site Chrome roles, in the order they render, and which token kind each one selects from. */
-const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" }> = [
+const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
     { key: "bodyText", label: "Body text", kind: "colors" },
     { key: "linkColor", label: "Link color", kind: "colors" },
     { key: "linkHoverColor", label: "Link hover color", kind: "colors" },
     { key: "mutedText", label: "Muted text (nav / footer)", kind: "colors" },
     { key: "footerBackground", label: "Footer background", kind: "colors" },
-    { key: "hairlineBorder", label: "Hairline border", kind: "borders" }
+    { key: "hairlineBorder", label: "Hairline border", kind: "borders" },
+    { key: "horizontalSpace", label: "Horizontal spacing", kind: "space" }
 ]
 
 /**
@@ -230,7 +231,9 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     linkHoverColor: [],
     mutedText: ["slate"],
     footerBackground: ["surface"],
-    hairlineBorder: ["hairline"]
+    hairlineBorder: ["hairline"],
+    // No legacy magic name: this role is new, not a migration aid for a pre-existing convention.
+    horizontalSpace: []
 }
 
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
@@ -270,11 +273,13 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
     const chrome = catalog.siteChrome
     const colorNames = new Set(catalog.colors.map((token) => token.name))
     const borderNames = new Set(catalog.borders.map((token) => token.name))
+    const spaceNames = new Set(catalog.space.map((token) => token.name))
+    const namesByKind = { colors: colorNames, borders: borderNames, space: spaceNames }
     const siteChrome = Object.fromEntries(
         SITE_CHROME_ROLES.map(({ key, kind }) => {
             if (chrome?.[key]) return [key, chrome[key]]
             if (chrome !== undefined) return [key, ""]
-            const names = kind === "colors" ? colorNames : borderNames
+            const names = namesByKind[kind]
             const suggestion = LEGACY_CHROME_NAME_CANDIDATES[key].find((name) => names.has(name))
             return [key, suggestion ?? ""]
         })
@@ -1311,9 +1316,9 @@ export default function ThemeEditor() {
             <section className="theme-editor__section">
                 <h3>Site Chrome</h3>
                 <p className="theme-editor__hint">
-                    Which of your colors and borders paint the public site frame — page background, body text,
-                    links, and the header/footer — as opposed to a design page's own content. Leave a role
-                    unset to keep the theme's built-in fallback look.
+                    Which of your colors, borders, and spacing values paint the public site frame — page
+                    background, body text, links, and the header/footer — as opposed to a design page's own
+                    content. Leave a role unset to keep the theme's built-in fallback look.
                 </p>
                 <table className="theme-editor__table">
                     <thead>

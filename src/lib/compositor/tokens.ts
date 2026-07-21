@@ -129,14 +129,15 @@ export interface WebFont {
 }
 
 /**
- * The public site frame's fixed semantic color/border roles (page background, body text, links, …),
- * each naming a token the owner has authored elsewhere in the catalog. The roles themselves are a
- * closed, non-removable set — every role always exists as a concept in the editor — but which named
- * token fills each one is the owner's choice, resolved the same way `Section.background` or
- * `Divider.color` already resolve a stored name to `var(--dtk-…)`.
+ * The public site frame's fixed semantic color/border/spacing roles (page background, body text,
+ * links, horizontal spacing, …), each naming a token the owner has authored elsewhere in the catalog.
+ * The roles themselves are a closed, non-removable set — every role always exists as a concept in the
+ * editor — but which named token fills each one is the owner's choice, resolved the same way
+ * `Section.background` or `Divider.color` already resolve a stored name to `var(--dtk-…)`.
  *
  * Replaces the earlier convention of `public-chrome.css`/`search.astro` hardcoding specific color
- * names (`ink`, `paper`, `garnet`, `slate`, `surface`) and a `hairline` border name: those names were
+ * names (`ink`, `paper`, `garnet`, `slate`, `surface`), a `hairline` border name, and (until
+ * `horizontalSpace` existed) a hand-picked `--dtk-space-*` name per declaration: those names were
  * undiscoverable from the editor UI and silently fell back to generic defaults whenever a theme didn't
  * happen to define them. Every role here is OPTIONAL (trap A): unset roles fall back to the old
  * magic-name lookup in the consuming CSS, so an unmigrated theme renders unchanged until its owner
@@ -157,6 +158,12 @@ export interface SiteChromeRoles {
     footerBackground?: string
     /** names a `borders` token; header/footer hairline rule */
     hairlineBorder?: string
+    /**
+     * names a `space` token; every horizontal-axis gap/padding in the static site chrome (header nav,
+     * search bars, footer link lists, nav-tile and entity-list grids) — one dial in place of the
+     * per-property `--dtk-space-*` name each of those declarations otherwise has to hand-pick.
+     */
+    horizontalSpace?: string
 }
 
 export interface TokenCatalog {
@@ -448,6 +455,9 @@ export function tokensToCss(catalog: TokenCatalog): string {
             lines.push(`--dtk-chrome-hairline-style: ${tokenVar("borders", name, "style")};`)
             lines.push(`--dtk-chrome-hairline-color: ${tokenVar("borders", name, "color")};`)
         }
+        if (chrome.horizontalSpace) {
+            lines.push(`--dtk-chrome-horizontal-space: ${tokenVar("space", chrome.horizontalSpace)};`)
+        }
     }
 
     return `:root {\n${lines.map((line) => `    ${line}`).join("\n")}\n}`
@@ -589,7 +599,8 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.linkHoverColor === undefined || typeof value.linkHoverColor === "string") &&
         (value.mutedText === undefined || typeof value.mutedText === "string") &&
         (value.footerBackground === undefined || typeof value.footerBackground === "string") &&
-        (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string")
+        (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string") &&
+        (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string")
     )
 }
 

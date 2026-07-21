@@ -63,7 +63,7 @@ const { links, ariaLabel } = Astro.props
     .nav-tiles ul {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: var(--dtk-space-sm, 1rem) var(--dtk-space-sm, 1.5rem);
+        gap: var(--dtk-space-sm, 1rem) var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1.5rem));
         margin: var(--dtk-space-sm, 1.5rem) 0;
         padding: 0;
         list-style: none;
@@ -83,7 +83,8 @@ const { links, ariaLabel } = Astro.props
         align-items: center;
         justify-content: center;
         min-height: 6rem;
-        padding: var(--dtk-space-sm, 1.5rem);
+        padding-block: var(--dtk-space-sm, 1.5rem);
+        padding-inline: var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1.5rem));
         text-align: center;
         border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
             var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))

@@ -35,22 +35,50 @@ import type { DesignDoc, PuckData } from "./types"
 import { isPuckComponent, isRecord } from "./types"
 
 /** The design schema version this build understands. Bump when adding a transform below. */
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 /**
  * One ordered schema transform: rewrites a design at version `from` into version `from + 1`. Only
  * the Puck tree is transformed; `migrateDesign` manages the `schemaVersion` field itself.
  *
- * Phase 1 ships at version 1, so there are no transforms yet. When a breaking catalog/prop change
- * lands, append `{ from: N, migrate }` here and bump CURRENT_SCHEMA_VERSION to N + 1. The list must
- * stay contiguous and sorted by `from`.
+ * When a breaking catalog/prop change lands, append `{ from: N, migrate }` here and bump
+ * CURRENT_SCHEMA_VERSION to N + 1. The list must stay contiguous and sorted by `from`.
  */
 interface SchemaTransform {
     from: number
     migrate: (puck: PuckData) => PuckData
 }
 
-const TRANSFORMS: SchemaTransform[] = []
+/**
+ * v1 → v2: splits `Columns`/`Row`'s single `gap` prop into independent `columnGap`/`rowGap` selects (so
+ * an owner can scale a component's horizontal spacing without also moving its vertical spacing — the
+ * two axes shared one token under the old shape). A stored `gap: "<name>"` becomes `columnGap: "<name>",
+ * rowGap: "<name>"`, so an existing design's rendered spacing is unchanged until its owner deliberately
+ * splits the two apart in the editor. Recurses into every slot the same way `ensureComponentIds` does.
+ */
+function splitColumnsRowGap(components: unknown[]): void {
+    for (const component of components) {
+        if (!isPuckComponent(component)) continue
+        if ((component.type === "Columns" || component.type === "Row") && typeof component.props.gap === "string") {
+            component.props.columnGap = component.props.gap
+            component.props.rowGap = component.props.gap
+            delete component.props.gap
+        }
+        for (const value of Object.values(component.props)) {
+            if (Array.isArray(value)) splitColumnsRowGap(value)
+        }
+    }
+}
+
+const TRANSFORMS: SchemaTransform[] = [
+    {
+        from: 1,
+        migrate: (puck) => {
+            if (Array.isArray(puck.content)) splitColumnsRowGap(puck.content as unknown[])
+            return puck
+        }
+    }
+]
 
 /** A minimal empty design envelope, for the editor to seed a brand-new `design_page`. */
 export function emptyDesignDoc(): DesignDoc {

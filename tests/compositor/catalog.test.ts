@@ -167,8 +167,8 @@ describe("TOKEN_PROPS", () => {
         // silently (see the "dangling ContentField.typography" test below).
         expect(TOKEN_PROPS).toEqual({
             Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
-            Columns: { gap: "space" },
-            Row: { gap: "space" },
+            Columns: { columnGap: "space", rowGap: "space" },
+            Row: { columnGap: "space", rowGap: "space" },
             Heading: { typography: "typography" },
             ContentText: { typography: "typography" },
             ContentField: { typography: "typography" },
@@ -730,16 +730,17 @@ describe("buildConfig — MediaText (collapsing media+text primitive, concern #3
 })
 
 describe("buildConfig — Row (explicit horizontal container, flow invariant)", () => {
-    it("styles the slot's own wrapper as the flex row carrying the gap token", () => {
+    it("styles the slot's own wrapper as the flex row carrying independent column/row gap tokens", () => {
         // Mirrors Puck's real SlotRender contract: the slot component renders the className/style it's
         // given on the element it wraps its items in — there is no separate outer div for Row to style
         // instead, so this stub must apply the props the way Puck does for the assertion to mean anything.
         const Content = ({ className, style }: { className?: string; style?: CSSProperties }) =>
             createElement("div", { className, style })
         const config = buildConfig(theme, "build")
-        const html = render(config, "Row", { gap: "md", content: Content })
+        const html = render(config, "Row", { columnGap: "md", rowGap: "sm", content: Content })
         expect(html).toContain("cmp-row")
-        expect(html).toContain("--cmp-row-gap:var(--dtk-space-md)")
+        expect(html).toContain("--cmp-row-column-gap:var(--dtk-space-md)")
+        expect(html).toContain("--cmp-row-row-gap:var(--dtk-space-sm)")
     })
 })
 

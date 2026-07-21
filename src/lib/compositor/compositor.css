@@ -79,7 +79,8 @@
 .cmp-columns {
 	display: grid;
 	grid-template-columns: repeat(var(--cmp-columns-count, 1), 1fr);
-	gap: var(--cmp-columns-gap, 0);
+	column-gap: var(--cmp-columns-column-gap, 0);
+	row-gap: var(--cmp-columns-row-gap, 0);
 }
 .cmp-columns__col {
 	display: flex;
@@ -95,7 +96,8 @@
 	flex-direction: row;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var(--cmp-row-gap, 0);
+	column-gap: var(--cmp-row-column-gap, 0);
+	row-gap: var(--cmp-row-row-gap, 0);
 }
 
 /* Heading — one typography token spread across its sub-value properties; alignment is a fixed enum. */
