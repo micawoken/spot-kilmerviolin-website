@@ -494,12 +494,29 @@ export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
  * Falls back to enabled (the historical always-on behavior) when the catalog doesn't set
  * `viewTransitions` at all — only an explicit `false` turns it off.
  *
+ * Also overrides the UA default crossfade styling: the default's mix-blend-mode: plus-lighter additively
+ * blends the old/new snapshots to avoid a black flash, which instead washes toward white on a light theme.
+ * Giving the transition group a real backdrop (matching public-chrome.css's page-background fallback
+ * chain) removes the need for that trick, so a plain mix-blend-mode: normal crossfade doesn't wash toward
+ * white or dip toward black in either theme.
+ *
  * @param {TokenCatalog} catalog - the theme catalog
- * @returns {string} - the `@view-transition { … }` rule, or `""` when disabled
+ * @returns {string} - the `@view-transition { … }` rule (plus crossfade overrides), or `""` when disabled
  */
 export function viewTransitionCss(catalog: TokenCatalog): string {
     if (catalog.viewTransitions === false) return ""
-    return "@view-transition {\n    navigation: auto;\n}"
+    return (
+        "@view-transition {\n" +
+        "    navigation: auto;\n" +
+        "}\n" +
+        "::view-transition-group(root) {\n" +
+        "    background-color: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));\n" +
+        "}\n" +
+        "::view-transition-old(root),\n" +
+        "::view-transition-new(root) {\n" +
+        "    mix-blend-mode: normal;\n" +
+        "}"
+    )
 }
 
 /** Whether every element of an array passes a per-element guard. */

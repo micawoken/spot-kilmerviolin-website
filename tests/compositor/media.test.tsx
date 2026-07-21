@@ -31,13 +31,17 @@ import { buildConfig } from "../../src/lib/compositor/catalog"
 import {
     INTERNAL_MEDIA_PREFIX,
     isSafeStorageKey,
+    isUploadedFilePath,
     mediaSource,
+    proxyFileUrl,
     proxyMediaUrl,
+    publicFileUrl,
     publicMediaUrl
 } from "../../src/lib/compositor/media"
 import { EMPTY_TOKEN_CATALOG } from "../../src/lib/compositor/tokens"
 
 const MEDIA_ORIGIN = "https://store.example.test"
+const FILES_ORIGIN = "https://db-img.example.test"
 const KEY = "01KWYPRX1NYFRDWNGENG5KHYEC.jpg"
 
 /**
@@ -97,10 +101,34 @@ describe("mediaSource", () => {
             kind: "url",
             url: "https://images.example.test/abc.jpg"
         })
-        expect(mediaSource("/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ")).toEqual({
+        // A bundled asset (/files/<name>) is already public — no rewriting needed.
+        expect(mediaSource("/files/some-bundled-image.jpg")).toEqual({
             kind: "url",
-            url: "/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ"
+            url: "/files/some-bundled-image.jpg"
         })
+    })
+
+    it("resolves an /api/v1/files/{key} string to a 'file' source — our own R2_FILES upload proxy, not an already-public URL", () => {
+        // The exact defect r2-public-image-401-bug logged: this path 401s for anonymous visitors in
+        // production, so it must be resolved (and rewritten) the same way EmDash storage keys are.
+        expect(mediaSource("/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg")).toEqual({
+            kind: "file",
+            key: "01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg"
+        })
+    })
+})
+
+describe("isUploadedFilePath", () => {
+    it("extracts the key from an /api/v#/files/{key} path", () => {
+        expect(isUploadedFilePath("/api/v1/files/abc.jpg")).toBe("abc.jpg")
+        expect(isUploadedFilePath("/api/v2/files/abc.jpg")).toBe("abc.jpg")
+    })
+
+    it("returns null for a bundled asset path, an absolute URL, or a hostile key", () => {
+        expect(isUploadedFilePath("/files/abc.jpg")).toBeNull()
+        expect(isUploadedFilePath("https://images.example.test/abc.jpg")).toBeNull()
+        expect(isUploadedFilePath("/api/v1/files/../../etc/passwd")).toBeNull()
+        expect(isUploadedFilePath("/api/v1/files/a/b.jpg")).toBeNull()
     })
 })
 
@@ -123,6 +151,26 @@ describe("publicMediaUrl", () => {
 describe("proxyMediaUrl", () => {
     it("builds the same-origin file route (correct in the admin, where Access is satisfied)", () => {
         expect(proxyMediaUrl(KEY)).toBe(`${INTERNAL_MEDIA_PREFIX}${KEY}`)
+    })
+})
+
+describe("publicFileUrl", () => {
+    it("composes ${origin}/${key}", () => {
+        expect(publicFileUrl(KEY, FILES_ORIGIN)).toBe(`${FILES_ORIGIN}/${KEY}`)
+    })
+
+    it("tolerates a trailing slash on the configured origin", () => {
+        expect(publicFileUrl(KEY, `${FILES_ORIGIN}/`)).toBe(`${FILES_ORIGIN}/${KEY}`)
+    })
+
+    it("THROWS when FILES_PUBLIC_URL is unset rather than emitting an Access-gated URL", () => {
+        expect(() => publicFileUrl(KEY, undefined)).toThrow(/FILES_PUBLIC_URL/)
+    })
+})
+
+describe("proxyFileUrl", () => {
+    it("builds the same-origin /api/v1/files/{key} route (correct in the admin)", () => {
+        expect(proxyFileUrl(KEY)).toBe(`/api/v1/files/${KEY}`)
     })
 })
 
@@ -159,5 +207,26 @@ describe("ContentImage on the build target", () => {
         const config = buildConfig(EMPTY_TOKEN_CATALOG, "build", { entry: {}, mediaBaseUrl: MEDIA_ORIGIN })
         const html = renderToStaticMarkup(<Render config={config} data={doc} />)
         expect(html).not.toContain("<img")
+    })
+
+    // r2-public-image-401-bug: a D1 entity's `image` field pointing at our own R2_FILES upload
+    // (/api/v1/files/{key}) must resolve through FILES_PUBLIC_URL on the build target, exactly like
+    // EmDash media does through mediaBaseUrl — never the Access-gated proxy path itself.
+    it("emits the FILES_PUBLIC_URL origin (not the Access-gated /api/v1/files proxy) for an uploaded-file image", () => {
+        const config = buildConfig(EMPTY_TOKEN_CATALOG, "build", {
+            entry: { featured_image: "/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg" },
+            filesBaseUrl: FILES_ORIGIN
+        })
+        const html = renderToStaticMarkup(<Render config={config} data={doc} />)
+
+        expect(html).toContain(`src="${FILES_ORIGIN}/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg"`)
+        expect(html).not.toContain('src="/api/v1/files/')
+    })
+
+    it("fails the build when a design renders an uploaded-file image but FILES_PUBLIC_URL is unconfigured", () => {
+        const config = buildConfig(EMPTY_TOKEN_CATALOG, "build", {
+            entry: { featured_image: "/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg" }
+        })
+        expect(() => renderToStaticMarkup(<Render config={config} data={doc} />)).toThrow(/FILES_PUBLIC_URL/)
     })
 })

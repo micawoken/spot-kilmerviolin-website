@@ -33,6 +33,7 @@ import { authEnabled, detectEnvironment } from "../lib/api/environment"
 import authorize from "../lib/api/authorize"
 import { isFallbackEmail } from "../lib/api/fallback"
 import { type AdminAccess, satisfiesAccess, comment_401, comment_403 } from "../lib/api/page_auth"
+import { resolveApiTokenIdentity, verifyBuildToken, buildTokenRouteAllowed } from "../lib/api/tokens"
 
 /**
  * A node in the admin page structure. A node may carry an access requirement (gating itself and, by
@@ -66,7 +67,11 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             // the database terminal maps to POST /api/v1/command, which requires admin
             command: { access: { kind: "admin" } },
             // the self-enrollment flow must be reachable by a not-yet-enrolled (inactive) caller
-            selfenroll: { access: { kind: "any" } }
+            selfenroll: { access: { kind: "any" } },
+            // user-scoped API tokens (plan-prelaunch-features.md §2) are self-service: any active,
+            // enrolled contributor manages their own. Build tokens (§2 D9) are admin-only — they have no
+            // owning contributor to self-manage.
+            tokens: { access: { kind: "active" }, children: { build: { access: { kind: "admin" } } } }
         }
     },
     user: {
@@ -213,6 +218,50 @@ export const identity: MiddlewareHandler = async (context, next) => {
             context.locals.emdashServiceAuth = true
             return next()
         }
+    }
+    // Programmatic /api/ access (plan-prelaunch-features.md §2): a verified Access service-token JWT (no
+    // user email, so the identity flow below cannot represent it) plus an app-issued token header. Access
+    // remains the mandatory outer gate (D3) — a service token with neither header still gets nothing.
+    // Token headers arrive deliberately, never ambient like the CF_Authorization cookie, so this branch is
+    // correctly placed ahead of the cookie CSRF check below without needing that check itself.
+    if (path_components[0] === "api" && (await isServiceTokenJWT(credential_data[1], env.CF_ACCESS_AUD))) {
+        const apiToken = context.request.headers.get("X-Api-Token")
+        const buildToken = context.request.headers.get("X-Build-Token")
+
+        if (apiToken && buildToken) {
+            // ambiguous credential: refuse rather than guess which token type applies
+            return middlewareErrorResponder(context.request, 401, comment_401)
+        }
+
+        if (apiToken) {
+            const outcome = await resolveApiTokenIdentity(apiToken, Date.now())
+            if (outcome === null) {
+                return middlewareErrorResponder(context.request, 401, comment_401)
+            }
+            // reuses the entire existing authorization pipeline verbatim: downstream auth_check calls
+            // cannot tell this identity apart from a cookie-authenticated one
+            context.locals.identity = outcome
+            context.locals.tokenAuth = true
+            return next()
+        }
+
+        if (buildToken) {
+            if (!(await verifyBuildToken(buildToken, Date.now()))) {
+                return middlewareErrorResponder(context.request, 401, comment_401)
+            }
+            // Default-deny, enforced here rather than per-endpoint (D9): a build token resolves no
+            // Identity at all, so it grants ONLY the three whitelisted full-list GETs. Centralizing the
+            // whitelist in one fail-closed chokepoint (buildTokenRouteAllowed) means no individual
+            // endpoint's auth_check can forget it — everything else 403s before a route handler runs.
+            if (!buildTokenRouteAllowed(context.request.method, path_components)) {
+                return middlewareErrorResponder(context.request, 403, comment_403)
+            }
+            context.locals.buildTokenAuth = true
+            return next()
+        }
+
+        // a verified service token with no recognized app-token header identifies nothing
+        return middlewareErrorResponder(context.request, 401, comment_401)
     }
     // CSRF defense for the ambient cookie credential: the CF_Authorization cookie is attached by the
     // browser to any request to this origin, so a cookie-authenticated state-changing request must

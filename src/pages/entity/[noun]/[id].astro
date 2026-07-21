@@ -151,6 +151,7 @@ const title = typeof entry.name === "string" ? entry.name : undefined
             entry,
             fields: [...entityFields(template.collection)],
             mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
+            filesBaseUrl: import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
             // Entity pages always link to their own noun's index, then Home (doc's special case) — never
             // the generic slug-prefix walk route-authority.ts's breadcrumbAncestors does, since an entity
             // page's URL (/entity/{noun}/{id}) has no relationship to the published CMS route tree.

@@ -33,6 +33,22 @@ declare namespace App {
          * authorizes such credentials; middleware/emdash_access.ts then skips the cms_editor page gate.
          */
         emdashServiceAuth?: boolean
+        /**
+         * Set by middleware/identity.ts when a valid user-scoped API token (plan-prelaunch-features.md §2)
+         * authenticated an /api/ request. `locals.identity` is also populated (the token's owning
+         * contributor's live Identity) so downstream authorization is unchanged; this flag exists only so
+         * /api/v1/tokens can refuse token-authenticated requests (D2 — a leaked token cannot mint successors
+         * or revoke evidence).
+         */
+        tokenAuth?: boolean
+        /**
+         * Set by middleware/identity.ts when a valid build token (plan-prelaunch-features.md §2, D9)
+         * authenticated an /api/ request. Unlike tokenAuth, no Identity is set — a build token has no
+         * owning contributor. The middleware itself enforces the route whitelist (buildTokenRouteAllowed),
+         * so by the time a handler observes this flag it is already known to be one of the three permitted
+         * GET collection routes.
+         */
+        buildTokenAuth?: boolean
     }
 }
 
@@ -44,7 +60,11 @@ interface ImportMetaEnv {
     readonly CF_ACCESS_CLIENT_ID?: string
     readonly CF_ACCESS_CLIENT_SECRET?: string
     readonly EMDASH_API_TOKEN?: string
+    // Build token (plan-prelaunch-features.md §2 D9) for src/lib/build/d1-api.ts's entity-table reads.
+    readonly BUILD_API_TOKEN?: string
     readonly EMDASH_MEDIA_PUBLIC_URL?: string
+    // Public origin (R2 custom domain) for our own R2_FILES bucket — see .env.example and media.ts's publicFileUrl.
+    readonly FILES_PUBLIC_URL?: string
     // Cloudflare Web Analytics beacon token (public, non-secret — it ships verbatim in every page's HTML).
     // Build-time-only like the rest of this interface: public pages are prerendered (see PublicHead.astro),
     // so this must come from the build environment, not a wrangler runtime var. See .env.example.

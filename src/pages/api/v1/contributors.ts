@@ -75,6 +75,29 @@ import { resolveIdentityEmail } from "../../../lib/api/fallback"
 export const GET: APIRoute = async (context): Promise<Response> => {
     // returns JSON as an API response
     const { request, locals } = context
+    // build tokens (plan-prelaunch-features.md §2 D9) resolve no identity, so auth_check below would 401
+    // them; middleware/identity.ts has already confined a build-token request to exactly this route with
+    // GET, so here it only needs the "full" signal enforced before returning the SAME complete, unredacted,
+    // inactive-included set the identity.admin branch below returns (no new query, no new redaction rule)
+    if (locals.buildTokenAuth) {
+        const build_request = await parseAPIRequest(request, [])
+        if (build_request instanceof Error) {
+            return constructResponse(request, null, 400, build_request.message)
+        }
+        if (build_request.meta?.full !== true) {
+            return constructResponse(request, null, 400, "Build token requests require meta 'full': true")
+        }
+        try {
+            const data = await listContributors(context.locals.cfContext)
+            if (data === null) {
+                return constructResponse(request, null, 500, "Unknown state: list contributor operation returned null")
+            }
+            return constructResponse(request, data, 200, undefined, { ...lastModifiedHeader(data), ...createdAtHeader(data) })
+        } catch (error) {
+            console.error(error)
+            return constructResponseErrorHook(request, error, 500, "Unknown error")
+        }
+    }
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
     // admin status will be re-checked once meta is processed

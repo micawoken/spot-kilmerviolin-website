@@ -76,7 +76,15 @@ import { isEmptyFieldValue } from "./entity-fields"
 import { RichTextView, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
-import { isSafeStorageKey, mediaSource, proxyMediaUrl, publicMediaUrl, type MediaSource } from "./media"
+import {
+    isSafeStorageKey,
+    mediaSource,
+    proxyFileUrl,
+    proxyMediaUrl,
+    publicFileUrl,
+    publicMediaUrl,
+    type MediaSource
+} from "./media"
 // scripts/publication.ts is framework-agnostic (only imports ./escape) and returns markup-safe HTML
 // (every value escapeHtml-encoded); ContentField's "uri" kind reuses it for the composition publication
 // link, the one composite field this catalog still knows the shape of. Safe to import into both the
@@ -114,6 +122,13 @@ export interface BuildConfigContext {
      * proxy, which is correct for an authenticated admin.
      */
     mediaBaseUrl?: string
+    /**
+     * The public origin for our own R2_FILES uploads (`FILES_PUBLIC_URL`), required on the **build**
+     * target whenever a design renders a D1 entity's `image` field pointing at an `/api/v1/files/{key}`
+     * upload: that route requires an authenticated identity in production, same gap `mediaBaseUrl`
+     * closes for EmDash media (see `media.ts`'s `publicFileUrl`).
+     */
+    filesBaseUrl?: string
     /**
      * The current route's breadcrumb trail (docs/dev/miscellaneous.txt), split the same way as `entry`:
      * `breadcrumbs` is the *ancestor* crumbs only (Home is implicit — the `Breadcrumbs` component always
@@ -901,6 +916,13 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
     const resolveMediaUrl = (storageKey: string) =>
         isEditor ? proxyMediaUrl(storageKey) : publicMediaUrl(storageKey, context?.mediaBaseUrl)
 
+    // Same split as resolveMediaUrl, for D1 entity `image` fields pointing at our own R2_FILES uploads
+    // (`/api/v1/files/{key}`) rather than EmDash media.
+    const resolveFileUrl = (key: string) => (isEditor ? proxyFileUrl(key) : publicFileUrl(key, context?.filesBaseUrl))
+
+    const mediaUrl = (source: NonNullable<MediaSource>) =>
+        source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.kind === "file" ? resolveFileUrl(source.key) : source.url
+
     const components = {
         Section: {
             label: "Section",
@@ -1190,7 +1212,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 // string (a D1 entity's `image` column) is already a usable URL/path — see media.ts.
                 const source = mediaSource(image)
                 if (source) {
-                    const url = source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url
+                    const url = mediaUrl(source)
                     // D1 entities carry no alt field of their own. A bundled (/files/<key>) image resolves
                     // its alt from the build-time sidecar index; an R2-uploaded (/api/v1/files/<key>) or
                     // external image has no build-time alt source and still renders alt="" — a known
@@ -1318,7 +1340,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         {source && (
                             <div className="cmp-media-text__media" data-size={size}>
                                 {renderImageTag(
-                                    source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.url,
+                                    mediaUrl(source),
                                     (isRecord(image) && typeof image.alt === "string" ? image.alt : undefined) ??
                                         bundledAlt(source, context?.bundledFileAlt) ??
                                         "",

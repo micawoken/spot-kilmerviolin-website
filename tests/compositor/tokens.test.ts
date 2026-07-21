@@ -345,15 +345,27 @@ describe("columnsStackBreakpointCss", () => {
 })
 
 describe("viewTransitionCss", () => {
+    const ENABLED_CSS =
+        "@view-transition {\n" +
+        "    navigation: auto;\n" +
+        "}\n" +
+        "::view-transition-group(root) {\n" +
+        "    background-color: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));\n" +
+        "}\n" +
+        "::view-transition-old(root),\n" +
+        "::view-transition-new(root) {\n" +
+        "    mix-blend-mode: normal;\n" +
+        "}"
+
     it("is enabled by default when no theme is published (empty catalog)", () => {
-        expect(viewTransitionCss(EMPTY_TOKEN_CATALOG)).toBe("@view-transition {\n    navigation: auto;\n}")
+        expect(viewTransitionCss(EMPTY_TOKEN_CATALOG)).toBe(ENABLED_CSS)
     })
     it("is enabled when viewTransitions is unset on a real catalog", () => {
         expect("viewTransitions" in catalog).toBe(false)
-        expect(viewTransitionCss(catalog)).toBe("@view-transition {\n    navigation: auto;\n}")
+        expect(viewTransitionCss(catalog)).toBe(ENABLED_CSS)
     })
     it("is enabled when viewTransitions is explicitly true", () => {
-        expect(viewTransitionCss({ ...catalog, viewTransitions: true })).toBe("@view-transition {\n    navigation: auto;\n}")
+        expect(viewTransitionCss({ ...catalog, viewTransitions: true })).toBe(ENABLED_CSS)
     })
     it("emits nothing when viewTransitions is explicitly false", () => {
         expect(viewTransitionCss({ ...catalog, viewTransitions: false })).toBe("")

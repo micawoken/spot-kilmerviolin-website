@@ -27,7 +27,7 @@ import { defineCollection } from "astro:content"
 import { z } from "astro/zod"
 
 const docs = defineCollection({
-    loader: glob({ base: "./src/content/docs", pattern: "**/*.{md,mdx}" }),
+    loader: glob({ base: "./src/content/docs", pattern: "**/*.md" }),
     schema: z.object({
         title: z.string(),
         description: z.string(),

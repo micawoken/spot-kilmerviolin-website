@@ -70,10 +70,23 @@ const noindex = detectEnvironment(Astro.request) === "staging"
   navigation with no regression. Admin-only and not theme-controlled (unlike the public site's own copy
   of this rule, layouts/PublicPage.astro via tokens.ts's viewTransitionCss) — the admin has no design
   theme of its own to read a toggle from.
+
+  The UA default styles the crossfade with mix-blend-mode: plus-lighter, additively blending the old/new
+  snapshots over the transition's transparent canvas to avoid a black flash. On this light-themed admin
+  that instead washes the whole ~250ms crossfade toward white. Giving the group a real backdrop
+  (--color-bg, matching global.css's body background) removes the need for the additive-blend trick, so a
+  plain mix-blend-mode: normal crossfade doesn't wash toward white or dip toward black either.
 -->
 <style is:global>
     @view-transition {
         navigation: auto;
+    }
+    ::view-transition-group(root) {
+        background-color: var(--color-bg);
+    }
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        mix-blend-mode: normal;
     }
 </style>
 
