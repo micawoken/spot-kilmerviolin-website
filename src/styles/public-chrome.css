@@ -104,6 +104,24 @@ header nav {
 		grid-template-columns: auto 1fr auto;
 		grid-template-areas: "title nav toggle";
 	}
+	/* Nav links sit next to the search toggle (their natural reading order continues into it) rather than
+	 * hugging the title, leaving the middle of the row as breathing space instead of a second focal point. */
+	header .nav-links {
+		justify-content: flex-end;
+	}
+	/* With links now anchored next to the toggle, opening search should claim the whole row up to the
+	 * toggle — including the space the title itself sits in — rather than just the (now visually distant)
+	 * nav-links area, so the expanded input isn't left stranded to the right of a large gap. Dropping the
+	 * title from the grid template (not just hiding it) lets nav-area's own 1fr track grow to fill exactly
+	 * that reclaimed space, so the existing inset-inline:0 overlay sizes itself without any new positioning
+	 * math. */
+	header.search-open nav {
+		grid-template-columns: 1fr auto;
+		grid-template-areas: "nav toggle";
+	}
+	header.search-open .site-title {
+		display: none;
+	}
 }
 header .site-title {
 	grid-area: title;

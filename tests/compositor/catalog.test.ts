@@ -23,6 +23,7 @@
  */
 
 import { describe, it, expect } from "vitest"
+import { createElement, type CSSProperties } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import {
@@ -660,9 +661,14 @@ describe("buildConfig — MediaText (collapsing media+text primitive, concern #3
 })
 
 describe("buildConfig — Row (explicit horizontal container, flow invariant)", () => {
-    it("renders a flex row carrying the gap token, wrapping its slot content", () => {
+    it("styles the slot's own wrapper as the flex row carrying the gap token", () => {
+        // Mirrors Puck's real SlotRender contract: the slot component renders the className/style it's
+        // given on the element it wraps its items in — there is no separate outer div for Row to style
+        // instead, so this stub must apply the props the way Puck does for the assertion to mean anything.
+        const Content = ({ className, style }: { className?: string; style?: CSSProperties }) =>
+            createElement("div", { className, style })
         const config = buildConfig(theme, "build")
-        const html = render(config, "Row", { gap: "md", content: () => null })
+        const html = render(config, "Row", { gap: "md", content: Content })
         expect(html).toContain("cmp-row")
         expect(html).toContain("--cmp-row-gap:var(--dtk-space-md)")
     })
