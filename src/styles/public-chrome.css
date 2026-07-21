@@ -208,6 +208,11 @@ header #header-search-form button {
 	border-radius: var(--dtk-radius-sm, 0);
 	background: transparent;
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	/* Buttons don't inherit font-size from the page (UA stylesheet defaults them to ~13px), so without
+	 * this the button's text sits in a shorter line box than the input's and the two controls end up
+	 * different heights despite identical padding/border. Matching the input's font-size is what makes
+	 * the button exactly as tall as the bar. */
+	font-size: 1rem;
 	cursor: pointer;
 }
 header #header-search-form button:hover {

@@ -84,6 +84,9 @@ export const prerender = true
         border-radius: var(--dtk-radius-sm, 0);
         background: transparent;
         color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+        /* Matches #search-input's font-size — buttons default to a smaller UA font-size than inputs,
+         * which otherwise leaves this shorter than the bar despite identical padding/border. */
+        font-size: 1rem;
         cursor: pointer;
     }
     #search-form button:hover {

@@ -29,6 +29,7 @@ import sitemap from "@astrojs/sitemap"
 import cloudflare from "@astrojs/cloudflare"
 
 import optimizeFiles from "./integrations/optimize-files.mjs"
+import themeFonts from "./integrations/theme-fonts.mjs"
 
 import react from "@astrojs/react"
 import markdoc from "@astrojs/markdoc"
@@ -48,6 +49,9 @@ export default defineConfig({
             filter: (page) => !new URL(page).pathname.startsWith("/admin")
         }),
         optimizeFiles(),
+        // Resolves the published theme's self-hosted web fonts in a real-Node build hook, before the
+        // prerenderer's workerd instance starts — see integrations/theme-fonts.mjs for why.
+        themeFonts(),
         react(),
         markdoc(),
         // EmDash runs alongside the existing flat-file content readers during the staged migration; it does
