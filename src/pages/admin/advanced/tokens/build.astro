@@ -1,0 +1,216 @@
+---
+/**
+ * pages/admin/advanced/tokens/build.astro
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../../components/BaseHead.astro"
+import AdminHead from "../../../../components/AdminHead.astro"
+import AdminHeader from "../../../../components/AdminHeader.astro"
+import AdminFooter from "../../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../../consts"
+import { guardPage } from "../../../../lib/api/page_auth"
+import { EXPIRY_WINDOWS_DAYS, listBuildTokens as listBuildTokenRows, type BuildTokenRow } from "../../../../lib/api/tokens"
+
+export const prerender = false
+
+// build tokens have no owning contributor to self-manage; admin only
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "admin" })
+if (denied) {
+    return denied
+}
+
+interface TokenRowView extends BuildTokenRow {
+    status_label: "Revoked" | "Expired" | "Active"
+}
+
+// status is precomputed here (rather than inline in the template) because Astro's template parser
+// misreads a bare "<=" inside a JSX expression as the start of a tag
+function statusLabel(token: BuildTokenRow, now: number): TokenRowView["status_label"] {
+    if (token.revoked_date !== null) return "Revoked"
+    if (token.expires_date <= now) return "Expired"
+    return "Active"
+}
+
+let tokens: TokenRowView[] = []
+let error: string | null = null
+try {
+    const now = Date.now()
+    tokens = (await listBuildTokenRows()).map((token) => ({
+        ...token,
+        status_label: statusLabel(token, now)
+    }))
+} catch (e) {
+    error = e instanceof Error ? e.message : String(e)
+    console.error("Failed to fetch build token list:", e)
+}
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Build Tokens`} description="Manage build tokens" />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main class="admin-main" role="main">
+            <h2>Build Tokens</h2>
+            <p class="general-infohelp">
+                A build token authenticates the site build process, not a person. It grants no identity and
+                admits only the three read-only, full-list endpoints (composers, works, contributors) the
+                build needs — nothing else, and nothing it can write. Treat it like any other credential:
+                anyone holding it can read the complete, unredacted dataset until it expires or is revoked.
+            </p>
+
+            <h3>Issue a new token</h3>
+            <form id="token-issue-form">
+                <label for="token-label">Label</label>
+                <input type="text" id="token-label" name="label" required maxlength="100" placeholder="e.g. production build" />
+                <label for="token-expiry">Expires in</label>
+                <select id="token-expiry" name="expiry_days">
+                    {EXPIRY_WINDOWS_DAYS.map((days) => (
+                        <option value={days} selected={days === 30}>
+                            {days} days
+                        </option>
+                    ))}
+                </select>
+                <button type="submit">Issue token</button>
+            </form>
+
+            <div id="token-issued-panel" hidden>
+                <p class="general-warning">
+                    Copy this token now — it will not be shown again. It grants read access to the complete
+                    dataset to whoever holds it.
+                </p>
+                <input type="text" id="token-issued-secret" readonly />
+                <button type="button" id="token-issued-copy">Copy</button>
+            </div>
+
+            <p id="transaction-status">
+                {error ? `Error: ${error}` : `${tokens.length} token(s) listed.`}
+            </p>
+
+            <h3>All build tokens</h3>
+            <div id="token-list-results">
+                {
+                    error ? null : tokens.length === 0 ? (
+                        <p>No tokens issued.</p>
+                    ) : (
+                        <table class="iam-table" id="token-table">
+                            <thead>
+                                <tr>
+                                    <th>Label</th>
+                                    <th>Prefix</th>
+                                    <th>Issued</th>
+                                    <th>Expires</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tokens.map((token) => (
+                                    <tr data-token-id={token.id}>
+                                        <td>{token.label}</td>
+                                        <td>
+                                            <code>{token.token_prefix}…</code>
+                                        </td>
+                                        <td>{new Date(token.entry_date).toLocaleString("en-US")}</td>
+                                        <td>{new Date(token.expires_date).toLocaleString("en-US")}</td>
+                                        <td>{token.status_label}</td>
+                                        <td>
+                                            {!token.revoked_date && (
+                                                <button type="button" class="token-revoke-btn" data-token-id={token.id}>
+                                                    Revoke
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )
+                }
+            </div>
+        </main>
+        <AdminFooter />
+        <script>
+            import { issueBuildToken, revokeBuildToken } from "../../../../scripts/connector"
+            import { emitError, getTransactionElem } from "../../../../scripts/interface"
+
+            const status_elem = getTransactionElem()
+            const issue_form = document.getElementById("token-issue-form")
+            const issued_panel = document.getElementById("token-issued-panel")
+            const issued_secret_input = document.getElementById("token-issued-secret")
+            const copy_button = document.getElementById("token-issued-copy")
+
+            if (issue_form instanceof HTMLFormElement) {
+                issue_form.addEventListener("submit", async (evt: Event) => {
+                    evt.preventDefault()
+                    const label_input = document.getElementById("token-label")
+                    const expiry_select = document.getElementById("token-expiry")
+                    if (!(label_input instanceof HTMLInputElement) || !(expiry_select instanceof HTMLSelectElement)) {
+                        return
+                    }
+                    const label = label_input.value.trim()
+                    const expiry_days = Number(expiry_select.value) as 7 | 30 | 180 | 365
+                    try {
+                        const issued = await issueBuildToken(label, expiry_days)
+                        if (issued_panel && issued_secret_input instanceof HTMLInputElement) {
+                            issued_secret_input.value = issued.secret
+                            issued_panel.hidden = false
+                        }
+                        status_elem.textContent = `Token "${label}" issued. Reload the page to see it in the list below.`
+                        issue_form.reset()
+                    } catch (error) {
+                        if (error instanceof Error) emitError(error, "transaction-status")
+                    }
+                })
+            }
+
+            if (copy_button && issued_secret_input instanceof HTMLInputElement) {
+                copy_button.addEventListener("click", async () => {
+                    await navigator.clipboard.writeText(issued_secret_input.value)
+                    status_elem.textContent = "Token copied to clipboard."
+                })
+            }
+
+            document.querySelectorAll(".token-revoke-btn").forEach((button) => {
+                button.addEventListener("click", async () => {
+                    const id_attr = button.getAttribute("data-token-id")
+                    const id = id_attr ? Number(id_attr) : NaN
+                    if (isNaN(id) || !confirm("Revoke this token? The build will lose access immediately.")) {
+                        return
+                    }
+                    try {
+                        await revokeBuildToken(id)
+                        const row = document.querySelector(`tr[data-token-id="${id}"]`)
+                        row?.remove()
+                        status_elem.textContent = "Token revoked."
+                    } catch (error) {
+                        if (error instanceof Error) emitError(error, "transaction-status")
+                    }
+                })
+            })
+        </script>
+    </body>
+</html>

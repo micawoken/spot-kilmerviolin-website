@@ -73,6 +73,12 @@ export function generateApiTokenSecret(): GeneratedSecret {
     return generateSecret("skv_")
 }
 
+/** Distinct prefix from generateApiTokenSecret so a leak scan (or the two verification paths) can tell the
+ * two token classes apart unambiguously. */
+export function generateBuildTokenSecret(): GeneratedSecret {
+    return generateSecret("skv_build_")
+}
+
 /**
  * SHA-256 of the presented secret, hex-encoded. Bare digest — no salt, no KDF. This is deliberate: a
  * 256-bit random token has no dictionary to defend against and nothing to correlate across users, so a
@@ -189,4 +195,101 @@ export async function resolveApiTokenIdentity(secret: string, now: number): Prom
         return null
     }
     return authorizeContributorId(row.contributor_id)
+}
+
+/** A row as returned to an admin managing build tokens — metadata only, never token_hash or the plaintext.
+ * There is no owning contributor to attribute (the token can never write). */
+export interface BuildTokenRow {
+    id: number
+    label: string
+    token_prefix: string
+    entry_date: number
+    expires_date: number
+    revoked_date: number | null
+}
+
+interface BuildTokenLookupRow {
+    id: number
+    revoked_date: number | null
+    expires_date: number
+}
+
+export async function lookupBuildTokenByHash(token_hash: string): Promise<BuildTokenLookupRow | null> {
+    const result = await exec_string(
+        "SELECT id, revoked_date, expires_date FROM build_tokens WHERE token_hash = ?;",
+        [token_hash]
+    )
+    if (!result.success || result.results.length === 0) {
+        return null
+    }
+    return result.results[0] as unknown as BuildTokenLookupRow
+}
+
+/** Whether a build_tokens row with this id exists at all (regardless of revoked/expired state). Used only
+ * to return 404 vs 204 from the revoke endpoint — build tokens have no owner to authorize against. */
+export async function buildTokenExists(id: number): Promise<boolean> {
+    const result = await exec_string("SELECT id FROM build_tokens WHERE id = ?;", [id])
+    return result.success && result.results.length > 0
+}
+
+export async function listBuildTokens(): Promise<BuildTokenRow[]> {
+    const result = await exec_string(
+        "SELECT id, label, token_prefix, entry_date, expires_date, revoked_date " +
+            "FROM build_tokens ORDER BY entry_date DESC;"
+    )
+    return result.success ? (result.results as unknown as BuildTokenRow[]) : []
+}
+
+export async function insertBuildToken(params: {
+    label: string
+    token_hash: string
+    token_prefix: string
+    entry_date: number
+    expires_date: number
+}): Promise<number> {
+    const result = await exec_string(
+        "INSERT INTO build_tokens (label, token_hash, token_prefix, entry_date, expires_date) VALUES (?, ?, ?, ?, ?);",
+        [params.label, params.token_hash, params.token_prefix, params.entry_date, params.expires_date]
+    )
+    if (!result.success || result.meta.last_row_id === undefined) {
+        throw new Error("Failed to insert build_tokens row")
+    }
+    return result.meta.last_row_id
+}
+
+/** Idempotent: revoking an already-revoked (or nonexistent) id still reports success; state is untouched. */
+export async function revokeBuildToken(id: number, revoked_date: number): Promise<boolean> {
+    const result = await exec_string(
+        "UPDATE build_tokens SET revoked_date = ? WHERE id = ? AND revoked_date IS NULL;",
+        [revoked_date, id]
+    )
+    return result.success
+}
+
+/**
+ * Whether a build token exists, is not revoked, and is not expired. Unlike resolveApiTokenIdentity this
+ * resolves no Identity — a build token grants no identity, only (via buildTokenRouteAllowed) access to a
+ * small, fixed set of read-only routes.
+ */
+export async function verifyBuildToken(secret: string, now: number): Promise<boolean> {
+    const hash = await hashToken(secret)
+    const row = await lookupBuildTokenByHash(hash)
+    return row !== null && row.revoked_date === null && row.expires_date > now
+}
+
+/** The three full-list, read-only collection routes a build token may call. Nothing else — not even
+ * /api/v1/composers/[id] — is permitted (D9: capability-scoped, read/list-only, default-deny). */
+const BUILD_TOKEN_ALLOWED_PATHS: ReadonlySet<string> = new Set([
+    "api/v1/composers",
+    "api/v1/works",
+    "api/v1/contributors"
+])
+
+/**
+ * Pure predicate, the single source of truth for what a build token may call: true iff the request is a GET
+ * against exactly one of the three whitelisted collection routes. Enforced centrally in
+ * middleware/identity.ts so no individual endpoint can forget the check.
+ */
+export function buildTokenRouteAllowed(method: string, path_components: string[]): boolean {
+    return method === "GET" && BUILD_TOKEN_ALLOWED_PATHS.has(path_components.join("/"))
 }

@@ -33,7 +33,7 @@ import { authEnabled, detectEnvironment } from "../lib/api/environment"
 import authorize from "../lib/api/authorize"
 import { isFallbackEmail } from "../lib/api/fallback"
 import { type AdminAccess, satisfiesAccess, comment_401, comment_403 } from "../lib/api/page_auth"
-import { resolveApiTokenIdentity } from "../lib/api/tokens"
+import { resolveApiTokenIdentity, verifyBuildToken, buildTokenRouteAllowed } from "../lib/api/tokens"
 
 /**
  * A node in the admin page structure. A node may carry an access requirement (gating itself and, by
@@ -245,9 +245,20 @@ export const identity: MiddlewareHandler = async (context, next) => {
             return next()
         }
 
-        // build tokens (plan §2 D9) extend this branch with their own verification + a centralized route
-        // whitelist; until that lands, a bare X-Build-Token (like any other unrecognized credential) falls
-        // through to the 401 below rather than authenticating anything.
+        if (buildToken) {
+            if (!(await verifyBuildToken(buildToken, Date.now()))) {
+                return middlewareErrorResponder(context.request, 401, comment_401)
+            }
+            // Default-deny, enforced here rather than per-endpoint (D9): a build token resolves no
+            // Identity at all, so it grants ONLY the three whitelisted full-list GETs. Centralizing the
+            // whitelist in one fail-closed chokepoint (buildTokenRouteAllowed) means no individual
+            // endpoint's auth_check can forget it — everything else 403s before a route handler runs.
+            if (!buildTokenRouteAllowed(context.request.method, path_components)) {
+                return middlewareErrorResponder(context.request, 403, comment_403)
+            }
+            context.locals.buildTokenAuth = true
+            return next()
+        }
 
         // a verified service token with no recognized app-token header identifies nothing
         return middlewareErrorResponder(context.request, 401, comment_401)

@@ -60,6 +60,8 @@ interface ImportMetaEnv {
     readonly CF_ACCESS_CLIENT_ID?: string
     readonly CF_ACCESS_CLIENT_SECRET?: string
     readonly EMDASH_API_TOKEN?: string
+    // Build token (plan-prelaunch-features.md §2 D9) for src/lib/build/d1-api.ts's entity-table reads.
+    readonly BUILD_API_TOKEN?: string
     readonly EMDASH_MEDIA_PUBLIC_URL?: string
     // Public origin (R2 custom domain) for our own R2_FILES bucket — see .env.example and media.ts's publicFileUrl.
     readonly FILES_PUBLIC_URL?: string

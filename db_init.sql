@@ -10,6 +10,7 @@ To correct an error in the production database, perform a rollback on Cloudflare
 DROP TABLE IF EXISTS compositions;
 DROP TABLE IF EXISTS composers;
 DROP TABLE IF EXISTS api_tokens;
+DROP TABLE IF EXISTS build_tokens;
 DROP TABLE IF EXISTS contributors;
 DROP TABLE IF EXISTS repertoire;
 
@@ -96,6 +97,19 @@ FOREIGN KEY (contributor_id) REFERENCES contributors(contributor_id) ON UPDATE C
 CREATE INDEX idx_api_tokens_token_hash ON api_tokens (token_hash);
 CREATE INDEX idx_api_tokens_contributor_id ON api_tokens (contributor_id);
 
+-- capability-scoped build tokens (plan-prelaunch-features.md §2 D9); see db_add_build_tokens.sql
+CREATE TABLE build_tokens (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+label TEXT NOT NULL,
+token_hash TEXT NOT NULL UNIQUE,
+token_prefix TEXT NOT NULL,
+entry_date INTEGER NOT NULL,
+expires_date INTEGER NOT NULL,
+revoked_date INTEGER
+);
+
+CREATE INDEX idx_build_tokens_token_hash ON build_tokens (token_hash);
+
 -- a composer may not have two compositions with the same name AND part;
 -- COALESCE(part, '') makes a NULL part collide with an empty part so two part-less rows still conflict
 CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name_part ON compositions (composer_id, name, COALESCE(part, ''));
@@ -125,6 +139,13 @@ END;
 
 CREATE TRIGGER trg_api_tokens_entry_date_immutable
 BEFORE UPDATE OF entry_date ON api_tokens
+WHEN NEW.entry_date <> OLD.entry_date
+BEGIN
+    SELECT RAISE(ABORT, 'entry_date is immutable after creation');
+END;
+
+CREATE TRIGGER trg_build_tokens_entry_date_immutable
+BEFORE UPDATE OF entry_date ON build_tokens
 WHEN NEW.entry_date <> OLD.entry_date
 BEGIN
     SELECT RAISE(ABORT, 'entry_date is immutable after creation');

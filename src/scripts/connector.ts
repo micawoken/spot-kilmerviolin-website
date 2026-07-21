@@ -939,6 +939,52 @@ export async function revokeToken(id: number): Promise<void> {
     return requestVoid("revokeToken", composeUrl("tokens", id.toString()), jsonInit("DELETE"))
 }
 
+/** Build tokens have no owning contributor, so their summary carries no contributor_id. */
+export interface BuildTokenSummary {
+    id: number
+    label: string
+    token_prefix: string
+    entry_date: number
+    expires_date: number
+    revoked_date: number | null
+}
+
+/** The shape returned only once, at issue time: the summary plus the plaintext secret. */
+export interface IssuedBuildToken extends BuildTokenSummary {
+    secret: string
+}
+
+/**
+ * GET /api/v1/tokens/build (admin only)
+ *
+ * @returns every issued build token
+ */
+export async function listBuildTokens(): Promise<BuildTokenSummary[] | null> {
+    return requestPayload(composeUrl("tokens/build"), jsonInit("GET"))
+}
+
+/**
+ * POST /api/v1/tokens/build (admin only)
+ * Issues a new build token. The returned secret is shown to the caller exactly once.
+ *
+ * @param label a caller-supplied name for the token, for later identification in the list
+ * @param expiry_days the token's lifetime, one of the server's allowed windows
+ * @returns the issued token, including its plaintext secret
+ */
+export async function issueBuildToken(label: string, expiry_days: 7 | 30 | 180 | 365): Promise<IssuedBuildToken> {
+    const payload = await requestPayload(composeUrl("tokens/build"), jsonInit("POST", { label, expiry_days }))
+    return payload as IssuedBuildToken
+}
+
+/**
+ * DELETE /api/v1/tokens/build/{id} (admin only)
+ *
+ * @param id the token id to revoke
+ */
+export async function revokeBuildToken(id: number): Promise<void> {
+    return requestVoid("revokeBuildToken", composeUrl("tokens/build", id.toString()), jsonInit("DELETE"))
+}
+
 /**
  * GET /api/v1/site
  *
