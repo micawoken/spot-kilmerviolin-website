@@ -137,7 +137,7 @@ header .nav-row {
 header #header-search-form {
 	display: flex;
 	align-items: center;
-	gap: 0.6rem;
+	gap: 0.75rem;
 	position: absolute;
 	inset-inline: 0;
 	top: 0;
@@ -149,9 +149,11 @@ header #header-search-form {
 header #header-search-form[hidden] {
 	display: none;
 }
+/* Sizing/colors here match the other two public search bars (pages/search.astro's #search-form,
+ * pages/entity/index.astro's .entity-search-form) so all three read as one consistent control. */
 header #header-search-form input {
 	flex: 1;
-	padding: 0.4rem 0.6rem;
+	padding: 0.5rem 0.75rem;
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
@@ -161,7 +163,7 @@ header #header-search-form input {
 	font-size: 1rem;
 }
 header #header-search-form button {
-	padding: 0.4rem 0.9rem;
+	padding: 0.5rem 1rem;
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
@@ -169,6 +171,9 @@ header #header-search-form button {
 	background: transparent;
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 	cursor: pointer;
+}
+header #header-search-form button:hover {
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 header .nav-links {
 	display: flex;
