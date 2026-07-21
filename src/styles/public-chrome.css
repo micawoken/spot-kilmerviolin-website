@@ -93,7 +93,7 @@ header nav {
  * wraps unevenly), independent of the nav-links row below wrapping on narrow viewports. */
 header .header-top-row {
 	display: flex;
-	align-items: baseline;
+	align-items: center;
 	justify-content: space-between;
 	gap: 1.5rem;
 }
