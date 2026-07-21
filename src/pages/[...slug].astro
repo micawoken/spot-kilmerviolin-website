@@ -191,6 +191,7 @@ const headCss = props.kind === "design" ? compositorCss : ""
                 config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: props.entry,
                     mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
+                    filesBaseUrl: import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
                     breadcrumbs: props.breadcrumbs,
                     pageTitle: props.title
                 })}

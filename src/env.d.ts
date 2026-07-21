@@ -61,6 +61,8 @@ interface ImportMetaEnv {
     readonly CF_ACCESS_CLIENT_SECRET?: string
     readonly EMDASH_API_TOKEN?: string
     readonly EMDASH_MEDIA_PUBLIC_URL?: string
+    // Public origin (R2 custom domain) for our own R2_FILES bucket — see .env.example and media.ts's publicFileUrl.
+    readonly FILES_PUBLIC_URL?: string
     // Cloudflare Web Analytics beacon token (public, non-secret — it ships verbatim in every page's HTML).
     // Build-time-only like the rest of this interface: public pages are prerendered (see PublicHead.astro),
     // so this must come from the build environment, not a wrangler runtime var. See .env.example.

@@ -89,7 +89,10 @@ The file store is built in layers, mirroring the database stack:
 Files are R2-only: the object key is the file's identity and metadata (including alt text) lives in the
 object's customMetadata; there is no database table for files.
 
-R2-uploaded files referenced by an entity's image field (as opposed to a bundled `src/files` asset) are
-not currently visible to anonymous public visitors — `/api/v1/files/{id}` requires an authenticated
-identity, so a public entity page using such an image will show a broken image. Prefer bundled or
-external images for public-facing entity records until this is addressed.
+`/api/v1/files/{id}` requires an authenticated identity, so an entity's image field cannot reference it
+directly on a public page. When rendering an entity's `image` field, `src/lib/compositor/media.ts`
+resolves an `/api/v1/files/{key}` value to `FILES_PUBLIC_URL` (the R2_FILES bucket's public origin, set
+in the build environment — see `.env.example`) instead, mirroring how `EMDASH_MEDIA_PUBLIC_URL` solves
+the same problem for CMS media. If `FILES_PUBLIC_URL` is unset, the build fails rather than shipping a
+broken image. Note the whole R2_FILES bucket is public once this origin is attached — it stores whatever
+admins upload through the file library, not just entity images.
