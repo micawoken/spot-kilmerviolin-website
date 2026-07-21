@@ -24,7 +24,6 @@
 
 // @ts-check
 import { defineConfig } from "astro/config"
-import mdx from "@astrojs/mdx"
 import sitemap from "@astrojs/sitemap"
 
 import cloudflare from "@astrojs/cloudflare"
@@ -43,7 +42,6 @@ import { d1, r2, access, kvCache } from "@emdash-cms/cloudflare"
 export default defineConfig({
     site: "https://kilmer.nrnnet.xyz",
     integrations: [
-        mdx(),
         // Admin pages are prerendered too (Access-gated, not secret, but not public content either), so
         // the default crawl would otherwise list the entire admin route tree in the public sitemap.
         sitemap({

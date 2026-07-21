@@ -32,7 +32,7 @@ import { describe, it, expect } from "vitest"
  *
  * Vite resolves both globs at transform time, so this reads page source without a filesystem at runtime.
  */
-const sectionPages = import.meta.glob("../src/pages/admin/**/*.{astro,mdx}", {
+const sectionPages = import.meta.glob("../src/pages/admin/**/*.astro", {
     query: "?raw",
     import: "default",
     eager: true
@@ -59,7 +59,7 @@ const ALLOWLIST = new Set<string>([
 
 /** Turns a glob key like "../src/pages/admin/works/create.astro" into the route "/admin/works/create". */
 function deriveRoute(globKey: string): string {
-    const route = globKey.replace(/^.*\/pages/, "").replace(/\.(astro|mdx)$/, "")
+    const route = globKey.replace(/^.*\/pages/, "").replace(/\.astro$/, "")
     return route.replace(/\/index$/, "")
 }
 

@@ -55,12 +55,6 @@ When Astro builds the website, your Markdown files will be automatically convert
 
 Small bit of nuance: Astro will specifically compile [GitHub-flavored Markdown](https://github.github.com/gfm/), which is a specific and standardized version of Markdown. Reference the linked specification for more syntax information. 
 
-## What is Markdown with JSX Extensions (.mdx)?
-
-For almost everything you need to do, a normal `.md` file is fine. However, certain use cases require that code be able to run when the page is loaded.
-
-Markdown with JSX Extensions (`.mdx`) allows for the embedding of components (like those used in React) using some programming features borrowed from JavaScript. You would only use `.mdx` if you want to add interactivity into your body text, so it is unlikely you will ever need to write this file.
-
 ## How do I write a Markdown file?
 
 ### Page metadata you must include
@@ -137,7 +131,7 @@ site before it reaches production.
 
 Publishing a page means getting your file into the repository and then rebuilding the site. In short:
 
-1. Add your `.md`/`.mdx` file to the src/pages folder (and a subfolder, if you are putting it there)
+1. Add your `.md` file to the src/pages folder (and a subfolder, if you are putting it there)
 2. Commit your change:
 - At GitHub.com: commit your change immediately using the screen dialog
 - On your computer: run `git add .`, then `git commit -m "(your message goes here...)"`, then `git push origin development` in your operating system terminal
