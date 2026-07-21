@@ -57,7 +57,7 @@ import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTem
 import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { loadBundledFileAlt } from "../../../lib/build/bundled-file-alt"
-import { ENTITY_NOUN_LABELS, entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../../../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/tokens"
@@ -83,7 +83,7 @@ export async function getStaticPaths() {
     const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
 
     const routes: {
-        params: { noun: EntityNoun; id: string }
+        params: { noun: string; id: string }
         props: {
             template: BuildEntityTemplate
             entry: Record<string, unknown>
@@ -126,7 +126,7 @@ export async function getStaticPaths() {
 
         for (const record of records) {
             routes.push({
-                params: { noun, id: record.id },
+                params: { noun: ENTITY_NOUN_SLUGS[noun], id: record.id },
                 props: { template, entry: record.entry, theme, bundledFileAlt }
             })
         }
@@ -136,7 +136,6 @@ export async function getStaticPaths() {
 }
 
 const { template, entry, theme, bundledFileAlt } = Astro.props
-const { noun } = Astro.params
 const title = typeof entry.name === "string" ? entry.name : undefined
 ---
 
@@ -155,7 +154,9 @@ const title = typeof entry.name === "string" ? entry.name : undefined
             // Entity pages always link to their own noun's index, then Home (doc's special case) — never
             // the generic slug-prefix walk route-authority.ts's breadcrumbAncestors does, since an entity
             // page's URL (/entity/{noun}/{id}) has no relationship to the published CMS route tree.
-            breadcrumbs: [{ label: ENTITY_NOUN_LABELS[noun as EntityNoun], href: `/entity/${noun}/` }],
+            breadcrumbs: [
+                { label: ENTITY_NOUN_LABELS[template.collection], href: `/entity/${ENTITY_NOUN_SLUGS[template.collection]}/` }
+            ],
             pageTitle: title,
             bundledFileAlt
         })}

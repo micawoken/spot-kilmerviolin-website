@@ -65,6 +65,18 @@ export const ENTITY_NOUN_LABELS: Record<EntityNoun, string> = {
 }
 
 /**
+ * Public `/entity/{slug}/...` URL segment for each entity noun — the same internal/public split as
+ * {@link ENTITY_NOUN_LABELS}, applied to the route instead of the title: "composition" is the internal/
+ * database name and never appears in a public URL, so its slug is "work" while composer and contributor
+ * keep their internal names as their slugs.
+ */
+export const ENTITY_NOUN_SLUGS: Record<EntityNoun, string> = {
+    composer: "composer",
+    composition: "work",
+    contributor: "contributor"
+}
+
+/**
  * The closed vocabulary a bindable entity field can be. Deliberately kept to what the D1 columns
  * actually are (no speculative kinds): plain scalars ("string"/"text"/"number"), a formatted timestamp
  * ("date"), a resolved foreign key ("reference"/"referenceList"), a joined array ("list"), a media

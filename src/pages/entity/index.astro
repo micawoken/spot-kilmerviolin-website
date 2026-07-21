@@ -36,7 +36,7 @@ import PublicPage from "../../layouts/PublicPage.astro"
 import { fetchComposers, fetchCompositions, fetchContributors } from "../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../lib/build/design-api"
 import { resolveEntityTemplates } from "../../lib/build/entity-routes"
-import { ENTITY_NOUN_LABELS, type EntityNoun } from "../../lib/compositor/entity-fields"
+import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../../lib/compositor/entity-fields"
 
 export const prerender = true
 
@@ -93,7 +93,7 @@ const availableNouns = resolutions
                 <NavTiles
                     ariaLabel="Database sections"
                     links={availableNouns.map((noun) => ({
-                        href: `/entity/${noun}/`,
+                        href: `/entity/${ENTITY_NOUN_SLUGS[noun]}/`,
                         label: ENTITY_NOUN_LABELS[noun]
                     }))}
                 />

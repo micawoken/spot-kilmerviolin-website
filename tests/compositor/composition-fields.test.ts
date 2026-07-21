@@ -53,6 +53,9 @@ describe("entityHref", () => {
     it("builds the public /entity/{noun}/{id} route, not the admin info-page route", () => {
         expect(entityHref("composer", 12)).toBe("/entity/composer/12")
         expect(entityHref("contributor", 7)).toBe("/entity/contributor/7")
-        expect(entityHref("composition", 3)).toBe("/entity/composition/3")
+    })
+
+    it("uses the public 'work' slug for the composition noun, not the internal database name", () => {
+        expect(entityHref("composition", 3)).toBe("/entity/work/3")
     })
 })
