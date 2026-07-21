@@ -97,14 +97,15 @@ FOREIGN KEY (contributor_id) REFERENCES contributors(contributor_id) ON UPDATE C
 CREATE INDEX idx_api_tokens_token_hash ON api_tokens (token_hash);
 CREATE INDEX idx_api_tokens_contributor_id ON api_tokens (contributor_id);
 
--- capability-scoped build tokens (plan-prelaunch-features.md §2 D9); see db_add_build_tokens.sql
+-- capability-scoped build tokens (plan-prelaunch-features.md §2 D9); see db_add_build_tokens.sql.
+-- expires_date is nullable: NULL means the token never expires (issued with expiry "never").
 CREATE TABLE build_tokens (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 label TEXT NOT NULL,
 token_hash TEXT NOT NULL UNIQUE,
 token_prefix TEXT NOT NULL,
 entry_date INTEGER NOT NULL,
-expires_date INTEGER NOT NULL,
+expires_date INTEGER,
 revoked_date INTEGER
 );
 

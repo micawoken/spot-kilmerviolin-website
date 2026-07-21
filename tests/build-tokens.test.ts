@@ -50,7 +50,9 @@ import {
     revokeBuildToken,
     buildTokenExists,
     verifyBuildToken,
-    buildTokenRouteAllowed
+    buildTokenRouteAllowed,
+    isValidBuildTokenExpiry,
+    buildTokenExpiresDate
 } from "../src/lib/api/tokens.ts"
 import { exec_string } from "../src/lib/api/d1.ts"
 import { GET as buildTokensGET, POST as buildTokensPOST } from "../src/pages/api/v1/tokens/build.ts"
@@ -67,7 +69,7 @@ label TEXT NOT NULL,
 token_hash TEXT NOT NULL UNIQUE,
 token_prefix TEXT NOT NULL,
 entry_date INTEGER NOT NULL,
-expires_date INTEGER NOT NULL,
+expires_date INTEGER,
 revoked_date INTEGER
 );`
 
@@ -209,6 +211,43 @@ describe("build_tokens DB operations and verification", () => {
     it("buildTokenExists is false for a nonexistent id", async () => {
         expect(await buildTokenExists(999999)).toBe(false)
     })
+
+    it("issues and verifies a token with expiry 'never' (null expires_date, no future expiration)", async () => {
+        const { secret, prefix } = generateBuildTokenSecret()
+        const token_hash = await hashToken(secret)
+        const entry_date = Date.now()
+        const expires_date = buildTokenExpiresDate(entry_date, "never")
+        expect(expires_date).toBeNull()
+
+        const id = await insertBuildToken({ label: "never expires", token_hash, token_prefix: prefix, entry_date, expires_date })
+        expect(id).toBeGreaterThan(0)
+
+        const lookup = await lookupBuildTokenByHash(token_hash)
+        expect(lookup!.expires_date).toBeNull()
+        // still valid arbitrarily far in the future
+        expect(await verifyBuildToken(secret, Date.now() + expiryWindowMs(365) * 100)).toBe(true)
+    })
+})
+
+describe("isValidBuildTokenExpiry / buildTokenExpiresDate", () => {
+    it("accepts every allowed day window and 'never'", () => {
+        for (const days of [7, 30, 180, 365]) {
+            expect(isValidBuildTokenExpiry(days)).toBe(true)
+        }
+        expect(isValidBuildTokenExpiry("never")).toBe(true)
+    })
+
+    it("rejects an out-of-allowlist number and other strings", () => {
+        expect(isValidBuildTokenExpiry(999)).toBe(false)
+        expect(isValidBuildTokenExpiry("forever")).toBe(false)
+        expect(isValidBuildTokenExpiry(undefined)).toBe(false)
+    })
+
+    it("computes a concrete future date for a day window, null for 'never'", () => {
+        const entry_date = Date.now()
+        expect(buildTokenExpiresDate(entry_date, 30)).toBe(entry_date + expiryWindowMs(30))
+        expect(buildTokenExpiresDate(entry_date, "never")).toBeNull()
+    })
 })
 
 describe("GET/POST /api/v1/tokens/build refuse token-authenticated requests (D2)", () => {
@@ -261,6 +300,20 @@ describe("POST /api/v1/tokens/build validation", () => {
             locals: { identity: makeAdminIdentity() }
         } as any)
         expect(response.status).toBe(400)
+    })
+
+    it("accepts expiry_days 'never' and returns a null expires_date", async () => {
+        const response = await buildTokensPOST({
+            request: new Request("https://localhost/api/v1/tokens/build", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify([{ label: "indefinite", expiry_days: "never" }])
+            }),
+            locals: { identity: makeAdminIdentity() }
+        } as any)
+        expect(response.status).toBe(201)
+        const issued = (await response.json()) as { payload: { expires_date: number | null } }
+        expect(issued.payload.expires_date).toBeNull()
     })
 })
 

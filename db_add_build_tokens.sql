@@ -16,8 +16,9 @@ This is a new table, not an alteration of an existing one, so no create-new/copy
 needed (contrast db_add_citations.sql).
 
 entry_date/expires_date/revoked_date are epoch-ms integers, matching the project-wide timestamp convention.
-entry_date is immutable after creation, mirroring the trigger already applied to api_tokens and the other
-tables in db_init.sql.
+expires_date is nullable: NULL means the token never expires (issued with expiry "never"), unlike api_tokens
+whose expiry stays mandatory. entry_date is immutable after creation, mirroring the trigger already applied
+to api_tokens and the other tables in db_init.sql.
 
 See src/lib/api/tokens.ts (issuance/verification), src/middleware/identity.ts (the X-Build-Token auth
 branch + route whitelist), and src/lib/build/d1-api.ts (the build-time reader that uses these tokens).
@@ -29,7 +30,7 @@ CREATE TABLE build_tokens (
     token_hash TEXT NOT NULL UNIQUE,
     token_prefix TEXT NOT NULL,
     entry_date INTEGER NOT NULL,
-    expires_date INTEGER NOT NULL,
+    expires_date INTEGER,
     revoked_date INTEGER
 );
 

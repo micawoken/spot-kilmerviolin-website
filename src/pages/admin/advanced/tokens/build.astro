@@ -47,7 +47,7 @@ interface TokenRowView extends BuildTokenRow {
 // misreads a bare "<=" inside a JSX expression as the start of a tag
 function statusLabel(token: BuildTokenRow, now: number): TokenRowView["status_label"] {
     if (token.revoked_date !== null) return "Revoked"
-    if (token.expires_date <= now) return "Expired"
+    if (token.expires_date !== null && token.expires_date <= now) return "Expired"
     return "Active"
 }
 
@@ -83,7 +83,7 @@ try {
             </p>
 
             <h3>Issue a new token</h3>
-            <form id="token-issue-form">
+            <form id="token-issue-form" class="generic-form">
                 <label for="token-label">Label</label>
                 <input type="text" id="token-label" name="label" required maxlength="100" placeholder="e.g. production build" />
                 <label for="token-expiry">Expires in</label>
@@ -93,6 +93,7 @@ try {
                             {days} days
                         </option>
                     ))}
+                    <option value="never">Never</option>
                 </select>
                 <button type="submit">Issue token</button>
             </form>
@@ -135,7 +136,7 @@ try {
                                             <code>{token.token_prefix}…</code>
                                         </td>
                                         <td>{new Date(token.entry_date).toLocaleString("en-US")}</td>
-                                        <td>{new Date(token.expires_date).toLocaleString("en-US")}</td>
+                                        <td>{token.expires_date === null ? "Never" : new Date(token.expires_date).toLocaleString("en-US")}</td>
                                         <td>{token.status_label}</td>
                                         <td>
                                             {!token.revoked_date && (
@@ -172,7 +173,8 @@ try {
                         return
                     }
                     const label = label_input.value.trim()
-                    const expiry_days = Number(expiry_select.value) as 7 | 30 | 180 | 365
+                    const expiry_days =
+                        expiry_select.value === "never" ? "never" : (Number(expiry_select.value) as 7 | 30 | 180 | 365)
                     try {
                         const issued = await issueBuildToken(label, expiry_days)
                         if (issued_panel && issued_secret_input instanceof HTMLInputElement) {

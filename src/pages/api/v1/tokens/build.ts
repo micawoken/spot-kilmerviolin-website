@@ -34,8 +34,8 @@ import { constructResponse, constructResponseErrorHook } from "../../../../lib/a
 import { auth_check } from "../../../../lib/public/authservice"
 import {
     EXPIRY_WINDOWS_DAYS,
-    isValidExpiryWindow,
-    expiryWindowMs,
+    isValidBuildTokenExpiry,
+    buildTokenExpiresDate,
     generateBuildTokenSecret,
     hashToken,
     insertBuildToken,
@@ -80,9 +80,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Meta: none
  * Body: required, JSON array containing one object of the shape
- *  { label: string, expiry_days: 7 | 30 | 180 | 365 }
+ *  { label: string, expiry_days: 7 | 30 | 180 | 365 | "never" }
  * Response: 201 with { id, secret, label, token_prefix, entry_date, expires_date } — secret is the
- * plaintext token, shown exactly this once; it is never recoverable afterward
+ * plaintext token, shown exactly this once; it is never recoverable afterward. expires_date is null when
+ * expiry_days was "never".
  *
  * @param context - the Astro API context
  * @returns a Response object
@@ -111,19 +112,19 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (typeof label !== "string" || label.trim().length === 0) {
         return constructResponse(request, null, 400, "Bad request: label must be a non-empty string")
     }
-    if (!isValidExpiryWindow(expiry_days)) {
+    if (!isValidBuildTokenExpiry(expiry_days)) {
         return constructResponse(
             request,
             null,
             400,
-            `Bad request: expiry_days must be one of ${EXPIRY_WINDOWS_DAYS.join(", ")}`
+            `Bad request: expiry_days must be one of ${EXPIRY_WINDOWS_DAYS.join(", ")}, or "never"`
         )
     }
     try {
         const { secret, prefix } = generateBuildTokenSecret()
         const token_hash = await hashToken(secret)
         const entry_date = Date.now()
-        const expires_date = entry_date + expiryWindowMs(expiry_days)
+        const expires_date = buildTokenExpiresDate(entry_date, expiry_days)
         const id = await insertBuildToken({
             label,
             token_hash,
