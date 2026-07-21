@@ -7,10 +7,13 @@
  * toggle — unlike the rest of the nav, search is not CMS-authored: it is core site infrastructure (like the
  * site-title link) that should not depend on an editor remembering to add it to a menu.
  *
- * Layout is two fixed rows rather than one wrapping flex row: the title and search toggle are locked
- * together on the first row (balanced at any width — it's always exactly two items), and the nav links
- * render on their own row below, free to wrap independently. This also gives the search form, when opened,
- * a stable place to render (between the two rows) without reflowing the title/toggle row.
+ * Layout is a CSS grid with two area maps, switched by a media query in public-chrome.css: below the
+ * breakpoint, title+toggle share a fixed top row (always exactly two items, balanced at any width) with the
+ * nav links on their own row underneath, free to wrap independently; at/above the breakpoint, all three —
+ * title, nav links, toggle — share a single row. Title, nav-area, and toggle are the grid's three direct
+ * items (not nested in wrapper divs) so each can be assigned its own named area and reflow independently.
+ * The search form, when opened, renders inside nav-area (which is `position: relative`), overlaying the nav
+ * links in either layout without touching the title/toggle placement around it.
  *
  * The search form is a plain GET to /search (search.astro deep-links from ?q= with no JS required on this
  * end) — see catalog.tsx's renderPagefindSearchTag for the same convention. The only client script here is
@@ -46,20 +49,8 @@ const links = await getNav()
 
 <header>
     <nav>
-        <div class="header-top-row">
-            <a href="/" class="site-title">{title}</a>
-            <button
-                type="button"
-                id="search-toggle"
-                aria-expanded="false"
-                aria-controls="header-search-form"
-                aria-label="Search"
-            >
-                <Search aria-hidden="true" class="icon-search" />
-                <X aria-hidden="true" class="icon-close" />
-            </button>
-        </div>
-        <div class="nav-row">
+        <a href="/" class="site-title">{title}</a>
+        <div class="nav-area">
             <form id="header-search-form" action="/search" method="get" hidden>
                 <input
                     type="search"
@@ -78,6 +69,16 @@ const links = await getNav()
                 ))}
             </ul>
         </div>
+        <button
+            type="button"
+            id="search-toggle"
+            aria-expanded="false"
+            aria-controls="header-search-form"
+            aria-label="Search"
+        >
+            <Search aria-hidden="true" class="icon-search" />
+            <X aria-hidden="true" class="icon-close" />
+        </button>
     </nav>
 </header>
 
