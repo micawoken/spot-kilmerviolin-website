@@ -93,6 +93,17 @@
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 
+/* "Stretched link" pattern: the visible <a> stays sized to its text, but this pseudo-element expands
+   to the nearest positioned ancestor (.list-result-container), making the whole card clickable instead
+   of just the name. No markup change needed — .list-result-container is admin/public shared markup, but
+   this rule lives in the public-only stylesheet, so admin's list (with its separate Edit link) is
+   unaffected. */
+.list-result-link::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+}
+
 /* leave room for the corner ID badge when a name is present */
 .list-result-id + .list-result-link {
 	padding-right: 3.5rem;

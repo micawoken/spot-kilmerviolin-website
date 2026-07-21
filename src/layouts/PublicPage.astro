@@ -65,14 +65,16 @@ const themeHead = await getThemeHead()
 <html lang="en">
     <head>
         <PublicHead title={title} description={description} image={image} />
-        {/* Site-wide web fonts (design theme → fonts). Preconnect before the render-blocking stylesheet
-            so the font arrives sooner; both are omitted entirely when no font is authored. */}
-        {themeHead.stylesheet && (
+        {/* Site-wide web fonts (design theme → fonts), self-hosted at build time (theme-fonts.ts) so the
+            font file can be preloaded directly instead of routing through fonts.googleapis.com — see
+            theme-fonts.ts for why that round trip made the theme font unreliable on a cold cache. Omitted
+            entirely when no font is authored or self-hosting it failed for this build. */}
+        {themeHead.fontFaceCss && (
             <>
-                {themeHead.preconnect.map((origin) => (
-                    <link rel="preconnect" href={origin} crossorigin />
+                {themeHead.preloadHrefs.map((href) => (
+                    <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
                 ))}
-                <link rel="stylesheet" href={themeHead.stylesheet} />
+                <style set:html={themeHead.fontFaceCss} />
             </>
         )}
         {/* The theme's --dtk-* custom properties, emitted site-wide so both the chrome (public-chrome.css)

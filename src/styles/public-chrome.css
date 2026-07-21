@@ -166,13 +166,19 @@ header .nav-area {
 	position: relative;
 	min-width: 0;
 }
+/* `top: 50%` + `translateY(-50%)` (rather than `top: 0`) because the form is taller than `.nav-area`'s own
+ * box: `.nav-area` shrinks to the (now-hidden) nav-links' height and is itself centered by the header's
+ * `align-items: center` within the row, so anchoring the form's top edge to `.nav-area`'s top edge left it
+ * hanging further below than above. Centering on `.nav-area`'s midpoint instead lines the form up with that
+ * same row-center, matching the toggle button regardless of the form's own height. */
 header #header-search-form {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
 	position: absolute;
 	inset-inline: 0;
-	top: 0;
+	top: 50%;
+	transform: translateY(-50%);
 	z-index: 1;
 	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
 }

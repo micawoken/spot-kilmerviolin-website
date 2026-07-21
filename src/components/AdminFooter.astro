@@ -74,14 +74,14 @@ const tz_label: string = tz || "UTC"
             identity?.email ? (
                 <>
                     {" "}
-                    under email <a href={`mailto:${identity.email}`}>{identity.email}</a>.
+                    under email <a href={`mailto:${identity.email}`}>{identity.email}</a>.{" "}
                 </>
             ) : (
-                <> as an unauthenticated user.</>
+                <> as an unauthenticated user.{" "}</>
             )
         }
         The time is {time_display} ({tz_label}). Report security concerns to{" "}
-        <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>. 
+        <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>.
     </p>
     <p>
         Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()}{" "}
