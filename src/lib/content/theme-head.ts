@@ -1,12 +1,13 @@
 /**
  * lib/content/theme-head.ts
  *
- * Build-time accessor for the design theme's whole-page head contribution: the site-wide web-font links
- * (`design_theme.tokens.fonts`) and the `--dtk-*` custom-property block (`tokensToCss`). Both are site-wide
- * concerns — the fonts because a family is loaded once for the document, and the tokens because the public
- * chrome (layouts/PublicPage → styles/public-chrome.css) now binds `body`, the header, and the footer to
- * them, not only the compositor's design pages. So this is consumed by layouts/PublicPage.astro (every
- * public page) from a single `fetchPublishedTheme()` read.
+ * Build-time accessor for the design theme's whole-page head contribution: the site-wide, self-hosted
+ * web-font `@font-face`/preload markup (`design_theme.tokens.fonts`, localized by `theme-fonts.ts`) and
+ * the `--dtk-*` custom-property block (`tokensToCss`). Both are site-wide concerns — the fonts because a
+ * family is loaded once for the document, and the tokens because the public chrome (layouts/PublicPage →
+ * styles/public-chrome.css) now binds `body`, the header, and the footer to them, not only the
+ * compositor's design pages. So this is consumed by layouts/PublicPage.astro (every public page) from a
+ * single `fetchPublishedTheme()` read.
  *
  * The public site is prerendered, so this runs during `astro build` and reads the published theme over
  * EmDash's HTTP API (see src/lib/build/design-api.ts, fetchPublishedTheme). Publishing a theme change
@@ -38,21 +39,16 @@
  */
 
 import { fetchPublishedTheme } from "../build/design-api"
-import {
-    columnsStackBreakpointCss,
-    EMPTY_TOKEN_CATALOG,
-    tokensToCss,
-    viewTransitionCss,
-    WEB_FONT_PRECONNECT_ORIGINS,
-    webFontsHref
-} from "../compositor/tokens"
+import { localizeThemeFonts } from "../build/theme-fonts"
+import { columnsStackBreakpointCss, EMPTY_TOKEN_CATALOG, tokensToCss, viewTransitionCss } from "../compositor/tokens"
 
 /** The theme's contribution to a public page's <head>: web-font links plus the token custom properties. */
 export interface ThemeHead {
-    /** origins to preconnect before the font stylesheet; empty when there is no stylesheet to load */
-    preconnect: readonly string[]
-    /** the Google Fonts stylesheet URL, or null when no font is authored */
-    stylesheet: string | null
+    /** local `/fonts/theme/<hash>.woff2` hrefs to `<link rel="preload">`; empty when there is no font
+     *  authored or self-hosting it failed for this build (see theme-fonts.ts). */
+    preloadHrefs: readonly string[]
+    /** inline `@font-face` rules for the theme's self-hosted web fonts, or "" when none apply */
+    fontFaceCss: string
     /** the `:root { --dtk-* }` block for the published theme, or "" when no valid theme is published */
     tokenCss: string
     /** the `Columns` stacking `@media` rule (`columnsStackBreakpointCss`); always present, theme or not,
@@ -67,8 +63,8 @@ export interface ThemeHead {
 // transitions default to enabled — both used to be unconditionally present in the static stylesheets,
 // theme or not.
 const NO_THEME_HEAD: ThemeHead = {
-    preconnect: [],
-    stylesheet: null,
+    preloadHrefs: [],
+    fontFaceCss: "",
     tokenCss: "",
     columnsBreakpointCss: columnsStackBreakpointCss(EMPTY_TOKEN_CATALOG),
     viewTransitionCss: viewTransitionCss(EMPTY_TOKEN_CATALOG)
@@ -86,10 +82,10 @@ export async function getThemeHead(): Promise<ThemeHead> {
     try {
         const theme = await fetchPublishedTheme()
         if (!theme) return NO_THEME_HEAD
-        const stylesheet = webFontsHref(theme.fonts ?? [])
+        const localized = await localizeThemeFonts(theme.fonts ?? [])
         return {
-            preconnect: stylesheet ? WEB_FONT_PRECONNECT_ORIGINS : [],
-            stylesheet,
+            preloadHrefs: localized?.preloadHrefs ?? [],
+            fontFaceCss: localized?.fontFaceCss ?? "",
             tokenCss: tokensToCss(theme),
             columnsBreakpointCss: columnsStackBreakpointCss(theme),
             viewTransitionCss: viewTransitionCss(theme)

@@ -287,14 +287,12 @@ describe("isTokenCatalog — viewTransitions is optional (trap A)", () => {
 })
 
 describe("webFontsHref", () => {
-    it("builds a css2 URL with each family's weights, sorted, deduped, and display=optional", () => {
+    it("builds a css2 URL with each family's weights, sorted and deduped", () => {
         const href = webFontsHref([
             { family: "Playfair Display", weights: [700, 400, 400] },
             { family: "Inter" }
         ])
-        expect(href).toBe(
-            "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400&display=optional"
-        )
+        expect(href).toBe("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400")
     })
     it("returns null when there is no valid font", () => {
         expect(webFontsHref([])).toBeNull()
@@ -303,7 +301,7 @@ describe("webFontsHref", () => {
     })
     it("drops non-integer and out-of-range weights, defaulting to 400", () => {
         expect(webFontsHref([{ family: "Inter", weights: [0, 1500, 350.5] }])).toBe(
-            "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=optional"
+            "https://fonts.googleapis.com/css2?family=Inter:wght@400"
         )
     })
 })

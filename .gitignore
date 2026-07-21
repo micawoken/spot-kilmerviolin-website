@@ -201,6 +201,9 @@ dist
 ### Astro ###
 .astro/
 
+# Self-hosted theme web fonts, downloaded from Google Fonts at build/dev time (src/lib/build/theme-fonts.ts)
+public/fonts/theme/
+
 #  agent configs
 .claude/
 
