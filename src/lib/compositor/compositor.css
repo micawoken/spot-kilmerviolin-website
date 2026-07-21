@@ -266,6 +266,58 @@
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 
+/* RelatedEntries — same tile language as components/NavTiles.astro (hairline border, --dtk-radius-sm,
+ * --dtk-chrome-footer-bg surface) so a related-works grid reads as the same affordance used elsewhere on
+ * the site, not a one-off. */
+.cmp-related__heading {
+	margin: 0 0 var(--dtk-space-sm, 0.75rem);
+}
+.cmp-related__grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--dtk-space-sm, 0.75rem) var(--dtk-space-md, 1.5rem);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+@media (max-width: 900px) {
+	.cmp-related__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+@media (max-width: 560px) {
+	.cmp-related__grid {
+		grid-template-columns: 1fr;
+	}
+}
+.cmp-related__tile {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	height: 100%;
+	padding: 1rem 1.25rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	text-decoration: none;
+}
+a.cmp-related__tile:hover {
+	border-color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--shade-7)));
+}
+.cmp-related__name {
+	font-weight: 600;
+}
+a.cmp-related__tile:hover .cmp-related__name {
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+}
+.cmp-related__sub {
+	font-size: 0.875rem;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+
 /* PagefindSearch — a GET form to /search, same look as entity/index.astro's own database-scoped search
  * box (its inline styles are the source for these rules) so the two read as one search affordance. */
 .cmp-search {

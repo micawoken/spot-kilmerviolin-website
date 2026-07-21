@@ -100,6 +100,9 @@ import { renderCitationsList } from "../../scripts/citations"
 import { countryCodeName, formatDeathYear, titleCaseRole } from "../../scripts/format"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
+// Same type-only split as CollectionField above — RelatedEntries reads this from context, never imports
+// entity-records.ts's build-side functions.
+import type { RelatedWork } from "../build/entity-records"
 
 /** Which config a `buildConfig` call produces: the editor island's or the static build renderer's. */
 export type CatalogTarget = "editor" | "build"
@@ -148,6 +151,14 @@ export interface BuildConfigContext {
      * not a Map — see loadBundledFileAlt's header for why.
      */
     bundledFileAlt?: Record<string, string>
+    /**
+     * This record's related works (docs/dev/miscellaneous.txt "related-entries tiles"), computed once per
+     * route by `entity-records.ts`'s `buildRelatedWorksIndex` and passed in by `[id].astro` — the same
+     * split as `breadcrumbs`/`pageTitle` above: catalog.tsx has no access to the full D1 read needed to
+     * derive this itself. Absent in the editor (a template has no single fixed record) and the
+     * `RelatedEntries` render falls back to an illustrative preview.
+     */
+    relatedEntries?: RelatedWork[]
 }
 
 /**
@@ -581,6 +592,10 @@ interface PagefindSearchProps {
      *  and layouts/PublicPage.astro's `pagefindFilter` prop) — the three entity nouns' index/detail pages. */
     scope: "site" | "database"
 }
+interface RelatedEntriesProps {
+    heading: string
+    limit: number
+}
 interface MediaTextProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
@@ -744,6 +759,63 @@ function renderBreadcrumbsTag(
                 {pageTitle && <li aria-current="page">{pageTitle}</li>}
             </ol>
         </nav>
+    )
+}
+
+/** `RelatedEntries`' default `limit`, and the fallback used when an authored `limit` isn't a positive
+ *  finite number (e.g. cleared in the editor). */
+const DEFAULT_RELATED_LIMIT = 6
+
+/** Illustrative canvas-only tiles, shown when there is no route context at all (mirrors
+ *  `renderBreadcrumbsTag`'s fallback trail) — `href: null` so they render as plain, non-navigating tiles. */
+const ILLUSTRATIVE_RELATED_WORKS: RelatedWork[] = [
+    { id: -1, name: "Example Work", href: null, composer: "Example Composer" },
+    { id: -2, name: "Another Example Work", href: null, composer: "Example Composer" }
+]
+
+function RelatedWorkTileBody({ work }: { work: RelatedWork }) {
+    return (
+        <>
+            <span className="cmp-related__name">{work.name}</span>
+            {work.composer && <span className="cmp-related__sub">{work.composer}</span>}
+        </>
+    )
+}
+
+/**
+ * The `RelatedEntries` tile grid: works related to the routed record (see `entity-records.ts`'s
+ * `buildRelatedWorksIndex`), sliced to `limit`. With no route context at all (the editor, previewing a
+ * template rather than a fixed record), illustrative tiles stand in so the canvas shows what the block
+ * looks like. On the build target, `entries` is always defined (every entity record gets one, possibly
+ * empty) — an empty list renders nothing, the same auto-omit behavior as the content outlets.
+ */
+function renderRelatedEntriesTag(entries: RelatedWork[] | undefined, heading: string, limit: number, isEditorPreview: boolean) {
+    const isIllustrative = entries === undefined && isEditorPreview
+    const source = isIllustrative ? ILLUSTRATIVE_RELATED_WORKS : entries
+    if (!source || source.length === 0) return null // pages/posts template, or a record with no related works
+
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_RELATED_LIMIT
+    const tiles = source.slice(0, safeLimit)
+
+    return (
+        <div className="cmp-related">
+            {heading && <h2 className="cmp-related__heading">{heading}</h2>}
+            <ul className="cmp-related__grid">
+                {tiles.map((work) => (
+                    <li key={work.id}>
+                        {work.href ? (
+                            <a className="cmp-related__tile" href={work.href}>
+                                <RelatedWorkTileBody work={work} />
+                            </a>
+                        ) : (
+                            <span className="cmp-related__tile">
+                                <RelatedWorkTileBody work={work} />
+                            </span>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </div>
     )
 }
 
@@ -1121,6 +1193,16 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             fields: {},
             defaultProps: {},
             render: () => renderBreadcrumbsTag(context?.breadcrumbs, context?.pageTitle, isEditor)
+        },
+        RelatedEntries: {
+            label: "Related entries",
+            fields: {
+                heading: { type: "text" as const, label: "Heading" },
+                limit: { type: "number" as const, label: "Max tiles to show" }
+            },
+            defaultProps: { heading: "Related Works", limit: DEFAULT_RELATED_LIMIT },
+            render: ({ heading, limit }: RelatedEntriesProps) =>
+                renderRelatedEntriesTag(context?.relatedEntries, heading, limit, isEditor)
         },
         PagefindSearch: {
             label: "Search box",
