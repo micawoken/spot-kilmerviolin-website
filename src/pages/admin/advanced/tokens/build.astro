@@ -84,17 +84,25 @@ try {
 
             <h3>Issue a new token</h3>
             <form id="token-issue-form" class="generic-form">
-                <label for="token-label">Label</label>
-                <input type="text" id="token-label" name="label" required maxlength="100" placeholder="e.g. production build" />
-                <label for="token-expiry">Expires in</label>
-                <select id="token-expiry" name="expiry_days">
-                    {EXPIRY_WINDOWS_DAYS.map((days) => (
-                        <option value={days} selected={days === 30}>
-                            {days} days
-                        </option>
-                    ))}
-                    <option value="never">Never</option>
-                </select>
+                <fieldset>
+                    <legend>Label</legend>
+                    <div class="field-row">
+                        <input type="text" id="token-label" name="label" required maxlength="100" placeholder="e.g. production build" />
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <legend>Expires in</legend>
+                    <div class="field-row">
+                        <select id="token-expiry" name="expiry_days">
+                            {EXPIRY_WINDOWS_DAYS.map((days) => (
+                                <option value={days} selected={days === 30}>
+                                    {days} days
+                                </option>
+                            ))}
+                            <option value="never">Never</option>
+                        </select>
+                    </div>
+                </fieldset>
                 <button type="submit">Issue token</button>
             </form>
 
