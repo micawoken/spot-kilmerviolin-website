@@ -31,6 +31,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import NavTiles from "../../components/NavTiles.astro"
 import PublicPage from "../../layouts/PublicPage.astro"
 import { fetchComposers, fetchCompositions, fetchContributors } from "../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../lib/build/design-api"
@@ -89,15 +90,13 @@ const availableNouns = resolutions
 
         {
             availableNouns.length > 0 && (
-                <nav aria-label="Database sections">
-                    <ul class="entity-noun-links">
-                        {availableNouns.map((noun) => (
-                            <li>
-                                <a href={`/entity/${noun}/`}>{ENTITY_NOUN_LABELS[noun]}</a>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
+                <NavTiles
+                    ariaLabel="Database sections"
+                    links={availableNouns.map((noun) => ({
+                        href: `/entity/${noun}/`,
+                        label: ENTITY_NOUN_LABELS[noun]
+                    }))}
+                />
             )
         }
     </div>
@@ -155,17 +154,5 @@ const availableNouns = resolutions
     }
     .entity-search-form button:hover {
         background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
-    }
-    .entity-noun-links {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
-        margin: 1.5rem 0;
-        padding: 0;
-        list-style: none;
-    }
-    .entity-noun-links a {
-        font-weight: 600;
-        font-size: 1.1rem;
     }
 </style>

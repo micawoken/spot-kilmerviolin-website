@@ -1,0 +1,102 @@
+---
+/**
+ * components/NavTiles.astro
+ *
+ * A row of rounded-rectangle link tiles (as opposed to plain inline text links) for a short list of
+ * top-level navigation destinations — e.g. the "Composers / Compositions / Contributors" links below the
+ * search box on pages/entity/index.astro. Generic over its link list so it isn't tied to that one caller.
+ *
+ * Styled the same way as the rest of the public chrome (styles/public-chrome.css, styles/
+ * public-entities.css): every visual property binds to the published design theme's `--dtk-*` tokens with
+ * a fallback chain down to the built-in `--color-*`/`--shade-*` palette, so an unthemed site still renders
+ * a sane look. The card treatment (hairline border, `--dtk-radius-sm`, `--dtk-chrome-footer-bg` surface)
+ * matches components/entities/ListResult.astro's `.list-result-container`, and the 3/2/1-column grid
+ * breakpoints match styles/public-entities.css's `.list-results-container`, so this reads as the same tile
+ * language used elsewhere on the site rather than a one-off.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+export interface Props {
+    /** the tiles to render, in order */
+    links: { href: string; label: string }[]
+    /** the wrapping <nav>'s accessible name */
+    ariaLabel: string
+}
+
+const { links, ariaLabel } = Astro.props
+---
+
+<nav aria-label={ariaLabel} class="nav-tiles">
+    <ul>
+        {
+            links.map(({ href, label }) => (
+                <li>
+                    <a href={href} class="nav-tile">
+                        {label}
+                    </a>
+                </li>
+            ))
+        }
+    </ul>
+</nav>
+
+<style>
+    .nav-tiles ul {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem 1.5rem;
+        margin: 1.5rem 0;
+        padding: 0;
+        list-style: none;
+    }
+    @media (max-width: 900px) {
+        .nav-tiles ul {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 560px) {
+        .nav-tiles ul {
+            grid-template-columns: 1fr;
+        }
+    }
+    .nav-tile {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 6rem;
+        padding: 1.5rem;
+        text-align: center;
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+        font-weight: 600;
+        font-size: 1.1rem;
+        text-decoration: none;
+    }
+    .nav-tile:hover {
+        border-color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--shade-7)));
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+    }
+</style>
