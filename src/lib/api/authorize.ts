@@ -28,7 +28,7 @@
  */
 
 import { env } from "cloudflare:workers"
-import { getRecordSpecificProp, CONTRIBUTOR, recordTypeAssertComplete } from "./d1.ts"
+import { getRecord, getRecordSpecificProp, CONTRIBUTOR, recordTypeAssertComplete } from "./d1.ts"
 
 /**
  * The available roles and their permissions defined in lib/api/authorize.ts
@@ -296,6 +296,40 @@ export default async function authorize(identity: BaseIdentity): Promise<Identit
     // buildIdentity handles the no-record case, deriving enrollable from env.API_USER_SELFENROLL;
     // it must be used for both branches so that disabling self-enrollment is actually honored
     return buildIdentity(identity, record)
+}
+
+/**
+ * Constructs an Identity for a contributor known by id rather than by an Access JWT email — the resolution
+ * path for a user-scoped API token (plan-prelaunch-features.md §2), which carries a `contributor_id` on its
+ * DB row instead of a credential to verify. Synthesizes a permanent BaseIdentity (nbf/exp are irrelevant
+ * here; the token's own expiry is checked by the caller) and reuses buildIdentity so a token-authenticated
+ * request is indistinguishable from a cookie-authenticated one downstream: same roles, permissions, and
+ * active/allowed/admin flags.
+ *
+ * @param contributor_id - the contributor id recorded on the presented token's row
+ * @returns the constructed Identity, or null if the id no longer resolves to a contributor record
+ */
+export async function authorizeContributorId(contributor_id: number): Promise<Identity | null> {
+    let response
+    try {
+        response = await getRecord(CONTRIBUTOR, contributor_id)
+    } catch {
+        return null
+    }
+    if (!response.success || response.results.length === 0) {
+        return null
+    }
+    const record = recordTypeAssertComplete(
+        CONTRIBUTOR,
+        response.results[0] as Record<string, string | number | null>
+    ) as D1Contributor
+    const base: BaseIdentity = {
+        sub: `token-${contributor_id}`,
+        email: record.identity_email,
+        nbf: 0,
+        exp: Number.POSITIVE_INFINITY
+    }
+    return buildIdentity(base, record)
 }
 
 /**

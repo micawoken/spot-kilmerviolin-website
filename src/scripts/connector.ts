@@ -889,6 +889,56 @@ export async function deleteIdentity(email: string, autodeactivation?: boolean):
     )
 }
 
+// API TOKENS (docs/dev/plan-prelaunch-features.md §2)
+
+/** Token metadata as returned by the tokens API — never the hash or the plaintext secret. */
+export interface ApiTokenSummary {
+    id: number
+    contributor_id: number
+    label: string
+    token_prefix: string
+    entry_date: number
+    expires_date: number
+    revoked_date: number | null
+}
+
+/** The shape returned only once, at issue time: the summary plus the plaintext secret. */
+export interface IssuedApiToken extends ApiTokenSummary {
+    secret: string
+}
+
+/**
+ * GET /api/v1/tokens
+ *
+ * @param all if true, lists every issued token instead of only the caller's own (admin only)
+ * @returns the matching token summaries
+ */
+export async function listTokens(all?: boolean): Promise<ApiTokenSummary[] | null> {
+    return requestPayload(composeUrl("tokens"), jsonInit("GET", undefined, { all: all }))
+}
+
+/**
+ * POST /api/v1/tokens
+ * Issues a new API token to the caller. The returned secret is shown to the caller exactly once.
+ *
+ * @param label a caller-supplied name for the token, for later identification in the list
+ * @param expiry_days the token's lifetime, one of the server's allowed windows
+ * @returns the issued token, including its plaintext secret
+ */
+export async function issueToken(label: string, expiry_days: 7 | 30 | 180 | 365): Promise<IssuedApiToken> {
+    const payload = await requestPayload(composeUrl("tokens"), jsonInit("POST", { label, expiry_days }))
+    return payload as IssuedApiToken
+}
+
+/**
+ * DELETE /api/v1/tokens/{id}
+ *
+ * @param id the token id to revoke
+ */
+export async function revokeToken(id: number): Promise<void> {
+    return requestVoid("revokeToken", composeUrl("tokens", id.toString()), jsonInit("DELETE"))
+}
+
 /**
  * GET /api/v1/site
  *

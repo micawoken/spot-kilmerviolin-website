@@ -33,6 +33,22 @@ declare namespace App {
          * authorizes such credentials; middleware/emdash_access.ts then skips the cms_editor page gate.
          */
         emdashServiceAuth?: boolean
+        /**
+         * Set by middleware/identity.ts when a valid user-scoped API token (plan-prelaunch-features.md §2)
+         * authenticated an /api/ request. `locals.identity` is also populated (the token's owning
+         * contributor's live Identity) so downstream authorization is unchanged; this flag exists only so
+         * /api/v1/tokens can refuse token-authenticated requests (D2 — a leaked token cannot mint successors
+         * or revoke evidence).
+         */
+        tokenAuth?: boolean
+        /**
+         * Set by middleware/identity.ts when a valid build token (plan-prelaunch-features.md §2, D9)
+         * authenticated an /api/ request. Unlike tokenAuth, no Identity is set — a build token has no
+         * owning contributor. The middleware itself enforces the route whitelist (buildTokenRouteAllowed),
+         * so by the time a handler observes this flag it is already known to be one of the three permitted
+         * GET collection routes.
+         */
+        buildTokenAuth?: boolean
     }
 }
 
