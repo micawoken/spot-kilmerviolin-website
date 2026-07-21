@@ -171,6 +171,11 @@ header .nav-area {
  * `align-items: center` within the row, so anchoring the form's top edge to `.nav-area`'s top edge left it
  * hanging further below than above. Centering on `.nav-area`'s midpoint instead lines the form up with that
  * same row-center, matching the toggle button regardless of the form's own height. */
+/* Closed state is opacity+visibility (not `display`/`hidden`) so open/close can fade: `display: none` can't
+ * be transitioned, and `visibility`'s own transition is what delays the property from flipping to `hidden`
+ * until the opacity fade-out finishes, while flipping to `visible` immediately on open (0s delay each side).
+ * `visibility: hidden` also keeps the (still-`display: flex`) form out of the tab order and accessibility
+ * tree while closed, matching what the `hidden` attribute did before. */
 header #header-search-form {
 	display: flex;
 	align-items: center;
@@ -181,11 +186,19 @@ header #header-search-form {
 	transform: translateY(-50%);
 	z-index: 1;
 	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
-/* `hidden` alone would lose to the ID selector above without this: the attribute selector's extra
- * specificity is what makes the closed state actually take effect. */
-header #header-search-form[hidden] {
-	display: none;
+header #header-search-form.is-open {
+	opacity: 1;
+	visibility: visible;
+	transition: opacity 0.15s ease, visibility 0s linear 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+	header #header-search-form {
+		transition: none;
+	}
 }
 /* Sizing/colors here match the other two public search bars (pages/search.astro's #search-form,
  * pages/entity/index.astro's .entity-search-form) so all three read as one consistent control. */

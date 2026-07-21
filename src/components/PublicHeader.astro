@@ -51,7 +51,7 @@ const links = await getNav()
     <nav>
         <a href="/" class="site-title">{title}</a>
         <div class="nav-area">
-            <form id="header-search-form" action="/search" method="get" hidden>
+            <form id="header-search-form" action="/search" method="get">
                 <input
                     type="search"
                     name="q"
@@ -98,8 +98,10 @@ const links = await getNav()
             const isOpen = toggle.getAttribute("aria-expanded") === "true"
             const willOpen = !isOpen
             toggle.setAttribute("aria-expanded", String(willOpen))
-            form.hidden = !willOpen
             toggle.classList.toggle("is-open", willOpen)
+            // The form's own "is-open" class drives its fade in/out (public-chrome.css); no `hidden`
+            // attribute involved, since `display: none` can't be transitioned.
+            form.classList.toggle("is-open", willOpen)
             // Overlay covers the nav-links row; hide the links themselves too so they're not focusable
             // (and don't show through) underneath the opened search bar.
             header.classList.toggle("search-open", willOpen)
