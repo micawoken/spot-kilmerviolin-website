@@ -939,13 +939,14 @@ export async function revokeToken(id: number): Promise<void> {
     return requestVoid("revokeToken", composeUrl("tokens", id.toString()), jsonInit("DELETE"))
 }
 
-/** Build tokens have no owning contributor, so their summary carries no contributor_id. */
+/** Build tokens have no owning contributor, so their summary carries no contributor_id. expires_date is
+ * null for a token issued with expiry "never". */
 export interface BuildTokenSummary {
     id: number
     label: string
     token_prefix: string
     entry_date: number
-    expires_date: number
+    expires_date: number | null
     revoked_date: number | null
 }
 
@@ -968,10 +969,13 @@ export async function listBuildTokens(): Promise<BuildTokenSummary[] | null> {
  * Issues a new build token. The returned secret is shown to the caller exactly once.
  *
  * @param label a caller-supplied name for the token, for later identification in the list
- * @param expiry_days the token's lifetime, one of the server's allowed windows
+ * @param expiry_days the token's lifetime, one of the server's allowed windows, or "never"
  * @returns the issued token, including its plaintext secret
  */
-export async function issueBuildToken(label: string, expiry_days: 7 | 30 | 180 | 365): Promise<IssuedBuildToken> {
+export async function issueBuildToken(
+    label: string,
+    expiry_days: 7 | 30 | 180 | 365 | "never"
+): Promise<IssuedBuildToken> {
     const payload = await requestPayload(composeUrl("tokens/build"), jsonInit("POST", { label, expiry_days }))
     return payload as IssuedBuildToken
 }

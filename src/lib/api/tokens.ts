@@ -44,6 +44,21 @@ export function expiryWindowMs(days: ExpiryWindowDays): number {
     return days * MS_PER_DAY
 }
 
+/** A build token's lifetime: one of the day-count windows, or "never" for a token that does not expire.
+ * Build tokens hold no identity and no write access (see buildTokenRouteAllowed), so an indefinite lifetime
+ * only ever grants the same three read-only, full-list routes any other build token grants — it removes
+ * rotation, not risk ceiling. User-scoped API tokens deliberately keep a mandatory expiry. */
+export type BuildTokenExpiry = ExpiryWindowDays | "never"
+
+export function isValidBuildTokenExpiry(value: unknown): value is BuildTokenExpiry {
+    return value === "never" || isValidExpiryWindow(value)
+}
+
+/** null means the token never expires (stored as a NULL expires_date). */
+export function buildTokenExpiresDate(entry_date: number, expiry: BuildTokenExpiry): number | null {
+    return expiry === "never" ? null : entry_date + expiryWindowMs(expiry)
+}
+
 interface GeneratedSecret {
     /** The plaintext secret. Shown to the caller exactly once, at issue time; never stored. */
     secret: string
@@ -198,20 +213,21 @@ export async function resolveApiTokenIdentity(secret: string, now: number): Prom
 }
 
 /** A row as returned to an admin managing build tokens — metadata only, never token_hash or the plaintext.
- * There is no owning contributor to attribute (the token can never write). */
+ * There is no owning contributor to attribute (the token can never write). expires_date is null for a token
+ * issued with "never" as its expiry. */
 export interface BuildTokenRow {
     id: number
     label: string
     token_prefix: string
     entry_date: number
-    expires_date: number
+    expires_date: number | null
     revoked_date: number | null
 }
 
 interface BuildTokenLookupRow {
     id: number
     revoked_date: number | null
-    expires_date: number
+    expires_date: number | null
 }
 
 export async function lookupBuildTokenByHash(token_hash: string): Promise<BuildTokenLookupRow | null> {
@@ -245,7 +261,7 @@ export async function insertBuildToken(params: {
     token_hash: string
     token_prefix: string
     entry_date: number
-    expires_date: number
+    expires_date: number | null
 }): Promise<number> {
     const result = await exec_string(
         "INSERT INTO build_tokens (label, token_hash, token_prefix, entry_date, expires_date) VALUES (?, ?, ?, ?, ?);",
@@ -267,14 +283,14 @@ export async function revokeBuildToken(id: number, revoked_date: number): Promis
 }
 
 /**
- * Whether a build token exists, is not revoked, and is not expired. Unlike resolveApiTokenIdentity this
- * resolves no Identity — a build token grants no identity, only (via buildTokenRouteAllowed) access to a
- * small, fixed set of read-only routes.
+ * Whether a build token exists, is not revoked, and is not expired (a null expires_date never expires).
+ * Unlike resolveApiTokenIdentity this resolves no Identity — a build token grants no identity, only (via
+ * buildTokenRouteAllowed) access to a small, fixed set of read-only routes.
  */
 export async function verifyBuildToken(secret: string, now: number): Promise<boolean> {
     const hash = await hashToken(secret)
     const row = await lookupBuildTokenByHash(hash)
-    return row !== null && row.revoked_date === null && row.expires_date > now
+    return row !== null && row.revoked_date === null && (row.expires_date === null || row.expires_date > now)
 }
 
 /** The three full-list, read-only collection routes a build token may call. Nothing else — not even
