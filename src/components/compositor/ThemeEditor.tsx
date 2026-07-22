@@ -138,8 +138,11 @@ interface FontRow {
     weights: string
 }
 
-/** Site Chrome roles as edited: every role is a plain string row field, `""` meaning unset. */
-type SiteChromeRow = Record<keyof SiteChromeRoles, string>
+/**
+ * Site Chrome roles as edited: every role is a plain string row field, `""` meaning unset. Excludes the
+ * deprecated `horizontalSpace` — it is a read-only migration source (§ toEditable), never a form field.
+ */
+type SiteChromeRow = Record<Exclude<keyof SiteChromeRoles, "horizontalSpace">, string>
 
 /** The catalog as edited: rows per kind, the web-font rows, and the preserved catalog schema version. */
 type EditableCatalog = {
@@ -205,7 +208,11 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
     }
 ]
 
-/** The Site Chrome roles, in the order they render, and which token kind each one selects from. */
+/**
+ * The Site Chrome roles, in the order they render, and which token kind each one selects from. Rendered
+ * as two tables (§ the "Site Chrome" section below): every `"space"`-kind role renders in its own
+ * "Horizontal spacing" table, separate from the colors/borders roles above it.
+ */
 const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
     { key: "bodyText", label: "Body text", kind: "colors" },
@@ -214,8 +221,25 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     { key: "mutedText", label: "Muted text (nav / footer)", kind: "colors" },
     { key: "footerBackground", label: "Footer background", kind: "colors" },
     { key: "hairlineBorder", label: "Hairline border", kind: "borders" },
-    { key: "horizontalSpace", label: "Horizontal spacing", kind: "space" }
+    { key: "horizontalSpaceInset", label: "Page edge inset (header, main content, footer)", kind: "space" },
+    {
+        key: "horizontalSpaceItemGap",
+        label: "List & grid item gap (nav links, footer links, tile / card grids)",
+        kind: "space"
+    },
+    {
+        key: "horizontalSpaceControl",
+        label: "Control padding & gap (search boxes, tiles, list-result cards)",
+        kind: "space"
+    }
 ]
+
+/** The three split horizontal-spacing roles, for the one-time `horizontalSpace` migration in `toEditable`. */
+const HORIZONTAL_SPACE_ROLE_KEYS = new Set<keyof SiteChromeRow>([
+    "horizontalSpaceInset",
+    "horizontalSpaceItemGap",
+    "horizontalSpaceControl"
+])
 
 /**
  * Candidate token names to auto-suggest for a Site Chrome role when the catalog has never had `siteChrome`
@@ -232,8 +256,11 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     mutedText: ["slate"],
     footerBackground: ["surface"],
     hairlineBorder: ["hairline"],
-    // No legacy magic name: this role is new, not a migration aid for a pre-existing convention.
-    horizontalSpace: []
+    // No legacy magic name for any of these: a catalog that already set the old singular `horizontalSpace`
+    // role is handled separately in toEditable (seeding all three from it), not via this candidate list.
+    horizontalSpaceInset: [],
+    horizontalSpaceItemGap: [],
+    horizontalSpaceControl: []
 }
 
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
@@ -278,6 +305,12 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
     const siteChrome = Object.fromEntries(
         SITE_CHROME_ROLES.map(({ key, kind }) => {
             if (chrome?.[key]) return [key, chrome[key]]
+            // One-time migration aid: a catalog saved before horizontalSpace split into three roles has
+            // only the singular value; seed all three from it here so an already-configured theme doesn't
+            // silently revert to the built-in literal fallback the moment this ships. Only fires while the
+            // split roles are still unset — Save always rewrites siteChrome from the row alone (§ toCatalog),
+            // so the legacy value is never read again once the owner saves.
+            if (HORIZONTAL_SPACE_ROLE_KEYS.has(key) && chrome?.horizontalSpace) return [key, chrome.horizontalSpace]
             if (chrome !== undefined) return [key, ""]
             const names = namesByKind[kind]
             const suggestion = LEGACY_CHROME_NAME_CANDIDATES[key].find((name) => names.has(name))
@@ -1219,6 +1252,37 @@ export default function ThemeEditor() {
         }
     }
 
+    /** One Site Chrome table: a row per role, each a RefSelect over that role's token kind. */
+    const renderChromeRoleTable = (roles: typeof SITE_CHROME_ROLES) => (
+        <table className="theme-editor__table">
+            <thead>
+                <tr>
+                    <th scope="col">Role</th>
+                    <th scope="col">Token</th>
+                </tr>
+            </thead>
+            <tbody>
+                {roles.map(({ key, label, kind }) => (
+                    <tr key={key}>
+                        <td>{label}</td>
+                        <td>
+                            <RefSelect
+                                names={editable[kind].map((row) => row.name)}
+                                value={editable.siteChrome[key]}
+                                optional
+                                onChange={(value) =>
+                                    setEditable((current) =>
+                                        current ? { ...current, siteChrome: { ...current.siteChrome, [key]: value } } : current
+                                    )
+                                }
+                            />
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    )
+
     return (
         <div className="theme-editor">
             {/* Scoped by class (`.cmp-*`) and custom-property namespace (`--dtk-*`); nothing here collides
@@ -1320,33 +1384,15 @@ export default function ThemeEditor() {
                     background, body text, links, and the header/footer — as opposed to a design page's own
                     content. Leave a role unset to keep the theme's built-in fallback look.
                 </p>
-                <table className="theme-editor__table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Role</th>
-                            <th scope="col">Token</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {SITE_CHROME_ROLES.map(({ key, label, kind }) => (
-                            <tr key={key}>
-                                <td>{label}</td>
-                                <td>
-                                    <RefSelect
-                                        names={editable[kind].map((row) => row.name)}
-                                        value={editable.siteChrome[key]}
-                                        optional
-                                        onChange={(value) =>
-                                            setEditable((current) =>
-                                                current ? { ...current, siteChrome: { ...current.siteChrome, [key]: value } } : current
-                                            )
-                                        }
-                                    />
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space"))}
+
+                <h4>Horizontal spacing</h4>
+                <p className="theme-editor__hint">
+                    Splits horizontal spacing into three roles instead of one dial, so each kind of element can
+                    scale independently: how far page content sits from the edge, the gap between repeated
+                    list/grid items, and the padding/gap inside interactive controls like search boxes.
+                </p>
+                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind === "space"))}
             </section>
 
             {renderTokenSection(sectionByKind.typography)}

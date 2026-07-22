@@ -24,15 +24,18 @@
  * footer, and untemplated article content to the same reading column the design pages use.
  *
  * Every horizontal-axis declaration (column-gap, padding-inline, and the horizontal half of a padding/gap
- * shorthand) is a FOUR-deep chain: `var(--dtk-chrome-horizontal-space, var(--dtk-space-<name>, <literal>))`.
- * `--dtk-chrome-horizontal-space` is the Site Chrome "Horizontal spacing" role (tokens.ts SiteChromeRoles) —
- * one dial the owner can set to scale every horizontal gap/padding in this file at once, instead of having
- * to hand-pick which named space token each individual declaration binds to. Every other margin/padding/gap
- * (the vertical axis) still names a `--dtk-space-*` token directly (`xs`/`sm`/`md`/`section`, the same
- * conventional names the compositor's own components fall back to), with the pre-existing literal as the
- * `var(…)` fallback — so an untouched theme renders unchanged, but a theme that authors one of those names,
- * or sets the horizontal-spacing role, now controls this chrome's rhythm too, not just the design pages'
- * (docs/dev/miscellaneous.txt "design tokens on static pages").
+ * shorthand) is a FOUR-deep chain: `var(--dtk-chrome-horizontal-space-<role>, var(--dtk-space-<name>,
+ * <literal>))`. The three `--dtk-chrome-horizontal-space-*` roles (tokens.ts SiteChromeRoles, the theme
+ * editor's "Site Chrome" → "Horizontal spacing" table) let the owner scale this chrome's horizontal rhythm
+ * by category instead of one dial for everything or hand-picking a named space token per declaration:
+ *   - `-inset`      page edge padding (header nav, main/article, footer)
+ *   - `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
+ *   - `-control`    padding inside, and gaps between, interactive controls (the search box)
+ * Every other margin/padding/gap (the vertical axis) still names a `--dtk-space-*` token directly
+ * (`xs`/`sm`/`md`/`section`, the same conventional names the compositor's own components fall back to),
+ * with the pre-existing literal as the `var(…)` fallback — so an untouched theme renders unchanged, but a
+ * theme that authors one of those names, or sets a horizontal-spacing role, now controls this chrome's
+ * rhythm too, not just the design pages' (docs/dev/miscellaneous.txt "design tokens on static pages").
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -101,14 +104,14 @@ header {
 header nav {
 	display: grid;
 	align-items: center;
-	column-gap: var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1.5rem));
+	column-gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.5rem));
 	row-gap: var(--dtk-space-xs, 0.9rem);
 	grid-template-columns: 1fr auto;
 	grid-template-areas:
 		"title toggle"
 		"nav nav";
 	padding-block: var(--dtk-space-sm, 1.3rem);
-	padding-inline: var(--dtk-chrome-horizontal-space, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
 }
 @media (min-width: 720px) {
 	header nav {
@@ -206,7 +209,7 @@ header .nav-area {
 header #header-search-form {
 	display: flex;
 	align-items: center;
-	gap: var(--dtk-chrome-horizontal-space, var(--dtk-space-xs, 0.75rem));
+	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
 	position: absolute;
 	inset-inline: 0;
 	top: 50%;
@@ -231,7 +234,7 @@ header #header-search-form.is-open {
  * pages/entity/index.astro's .entity-search-form) so all three read as one consistent control. */
 header #header-search-form input {
 	flex: 1;
-	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space, var(--dtk-space-xs, 0.75rem));
+	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
@@ -241,7 +244,7 @@ header #header-search-form input {
 	font-size: 1rem;
 }
 header #header-search-form button {
-	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1rem));
+	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 1rem));
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
@@ -261,7 +264,7 @@ header #header-search-form button:hover {
 header .nav-links {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1.4rem));
+	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.4rem));
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -290,7 +293,7 @@ header .nav-links a:hover {
  * and those own their inset, so scoping to `main > article` gives plain pages the same gutter and reading
  * column without double-insetting design pages. */
 main > article {
-	padding-inline: var(--dtk-chrome-horizontal-space, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
 	padding-block: var(--dtk-space-section, 2.5rem);
 }
 
@@ -302,7 +305,7 @@ main > article {
  * per element (safe to repeat, matches `main > article`); padding-block is restricted to :first-child/
  * :last-child so consecutive unwrapped elements only get outer-edge spacing, not doubled gaps between them. */
 main > :not(.cmp-section, article) {
-	padding-inline: var(--dtk-chrome-horizontal-space, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
 }
 main > :not(.cmp-section, article):first-child {
 	padding-top: var(--dtk-space-section, 2.5rem);
@@ -318,7 +321,7 @@ footer {
 	gap: var(--dtk-space-sm, 1rem);
 	margin-top: var(--dtk-space-section, 3rem);
 	padding-block: var(--dtk-space-md, 2rem) var(--dtk-space-md, 2.5rem);
-	padding-inline: var(--dtk-chrome-horizontal-space, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 	border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
@@ -327,7 +330,7 @@ footer {
 footer .footer-links {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--dtk-chrome-horizontal-space, var(--dtk-space-sm, 1.3rem));
+	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.3rem));
 	margin: 0;
 	padding: 0;
 	list-style: none;

@@ -229,6 +229,70 @@ describe("tokensToCss — button variants", () => {
     })
 })
 
+describe("tokensToCss — site chrome horizontal spacing", () => {
+    const withSplitRoles: TokenCatalog = {
+        ...catalog,
+        space: [...catalog.space, { name: "xs", value: "0.5rem" }, { name: "sm", value: "1rem" }],
+        siteChrome: {
+            horizontalSpaceInset: "md",
+            horizontalSpaceItemGap: "sm",
+            horizontalSpaceControl: "xs"
+        }
+    }
+
+    it("emits each split role as its own --dtk-chrome-horizontal-space-* var", () => {
+        const css = tokensToCss(withSplitRoles)
+        expect(css).toContain("--dtk-chrome-horizontal-space-inset: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-chrome-horizontal-space-item-gap: var(--dtk-space-sm);")
+        expect(css).toContain("--dtk-chrome-horizontal-space-control: var(--dtk-space-xs);")
+    })
+
+    it("falls back the deprecated singular horizontalSpace to all three roles when the split is unset", () => {
+        // A catalog saved before the split has only the old field; every consumer must keep resolving to
+        // it so an already-configured theme doesn't silently revert to its built-in literal fallback.
+        const legacyOnly: TokenCatalog = { ...catalog, siteChrome: { horizontalSpace: "md" } }
+        const css = tokensToCss(legacyOnly)
+        expect(css).toContain("--dtk-chrome-horizontal-space-inset: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-chrome-horizontal-space-item-gap: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-chrome-horizontal-space-control: var(--dtk-space-md);")
+    })
+
+    it("lets an explicit split role override the legacy fallback for just that role", () => {
+        const mixed: TokenCatalog = {
+            ...catalog,
+            space: [...catalog.space, { name: "xs", value: "0.5rem" }],
+            siteChrome: { horizontalSpace: "md", horizontalSpaceControl: "xs" }
+        }
+        const css = tokensToCss(mixed)
+        expect(css).toContain("--dtk-chrome-horizontal-space-inset: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-chrome-horizontal-space-item-gap: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-chrome-horizontal-space-control: var(--dtk-space-xs);")
+    })
+
+    it("emits nothing when siteChrome is absent entirely", () => {
+        expect(tokensToCss(catalog)).not.toContain("--dtk-chrome-horizontal-space")
+    })
+})
+
+describe("isTokenCatalog — site chrome horizontal spacing roles", () => {
+    it("accepts the three split roles alongside the deprecated singular field", () => {
+        expect(
+            isTokenCatalog({
+                ...catalog,
+                siteChrome: {
+                    horizontalSpace: "md",
+                    horizontalSpaceInset: "md",
+                    horizontalSpaceItemGap: "sm",
+                    horizontalSpaceControl: "xs"
+                }
+            })
+        ).toBe(true)
+    })
+    it("rejects a present-but-malformed split role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { horizontalSpaceInset: 1 } })).toBe(false)
+    })
+})
+
 describe("lintTokenCatalog", () => {
     it("returns no findings when every variant ref resolves", () => {
         expect(lintTokenCatalog(withVariants)).toEqual([])
