@@ -306,6 +306,18 @@
     color: var(--shade-6);
 }
 
+/* A boolean field (italic/bold/…) is one inline control, not a caption stacked over a cell — the
+ * checkbox would otherwise inherit the width: 100% below and paint its check mark centered in the
+ * middle of the field, adrift from the left-aligned caption above it. */
+.theme-editor__row label.theme-editor__checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--shade-6);
+}
+
 .theme-editor__row input,
 .theme-editor__row select {
     width: 100%;
@@ -316,6 +328,13 @@
     background: var(--color-bg);
     border: 1px solid var(--shade-4);
     border-radius: 0.25rem;
+}
+
+.theme-editor__row .theme-editor__checkbox input {
+    width: auto;
+    padding: 0;
+    border: none;
+    background: none;
 }
 
 .theme-editor__cell {

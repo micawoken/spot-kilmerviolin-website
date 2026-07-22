@@ -1123,19 +1123,12 @@ export default function ThemeEditor() {
                     const nameUses = usageLabels(section.kind, row.name ?? "")
                     return (
                         <div className="theme-editor__row" key={index}>
-                            {section.fields.map((field) => (
-                                <div className="theme-editor__field" key={field.key}>
-                                    <span className="theme-editor__field-label">{field.label}</span>
-                                    <span className="theme-editor__cell">
-                                        {/* The friendly color control shows its own picker swatches, so the row
-                                            swatch is only the raw view's preview. */}
-                                        {field.color && (rawMode || field.control !== "color") && (
-                                            <span
-                                                className="theme-editor__swatch"
-                                                style={{ background: row[field.key] || "transparent" }}
-                                                aria-hidden="true"
-                                            />
-                                        )}
+                            {section.fields.map((field) =>
+                                field.valueType === "boolean" ? (
+                                    // A boolean field's checkbox and its caption are one control, not a
+                                    // caption-over-cell pair — matches .design-editor__checkbox's inline
+                                    // label + input elsewhere in the compositor.
+                                    <label className="theme-editor__field theme-editor__checkbox" key={field.key}>
                                         <CellControl
                                             field={field}
                                             value={row[field.key] ?? ""}
@@ -1145,14 +1138,39 @@ export default function ThemeEditor() {
                                             fontFamilies={editable.fonts.map((font) => font.family)}
                                             onChange={(value) => setCell(section.kind, index, field.key, value)}
                                         />
-                                        {field.key === "name" && nameUses.length > 0 && (
-                                            <small className="theme-editor__usage" title={nameUses.join(", ")}>
-                                                used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
-                                            </small>
-                                        )}
-                                    </span>
-                                </div>
-                            ))}
+                                        {field.label}
+                                    </label>
+                                ) : (
+                                    <div className="theme-editor__field" key={field.key}>
+                                        <span className="theme-editor__field-label">{field.label}</span>
+                                        <span className="theme-editor__cell">
+                                            {/* The friendly color control shows its own picker swatches, so the row
+                                                swatch is only the raw view's preview. */}
+                                            {field.color && (rawMode || field.control !== "color") && (
+                                                <span
+                                                    className="theme-editor__swatch"
+                                                    style={{ background: row[field.key] || "transparent" }}
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                            <CellControl
+                                                field={field}
+                                                value={row[field.key] ?? ""}
+                                                rawMode={rawMode}
+                                                colorScheme={editable.colorScheme}
+                                                refNames={field.refKind ? editable[field.refKind].map((r) => r.name) : []}
+                                                fontFamilies={editable.fonts.map((font) => font.family)}
+                                                onChange={(value) => setCell(section.kind, index, field.key, value)}
+                                            />
+                                            {field.key === "name" && nameUses.length > 0 && (
+                                                <small className="theme-editor__usage" title={nameUses.join(", ")}>
+                                                    used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
+                                                </small>
+                                            )}
+                                        </span>
+                                    </div>
+                                )
+                            )}
                             <div className="theme-editor__field theme-editor__field--remove">
                                 <button type="button" onClick={() => removeRow(section.kind, index)}>
                                     Remove
