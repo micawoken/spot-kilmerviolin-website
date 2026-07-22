@@ -32,8 +32,9 @@
  *   - horizontal `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
  *   - horizontal `-control`    padding inside, and gaps between, interactive controls (the search box)
  *   - horizontal `-static`     extra inset ADDED on top of `-inset`, scoped only to the pre-generated
- *                              "static" pages below (never the header/footer/design pages, which don't
- *                              read it)
+ *                              "static" pages below via their own `.static-page-body` marker class (never
+ *                              the header/footer/design pages, which don't carry that class — see the note
+ *                              below on why this can't be inferred from `.cmp-section`'s absence instead)
  *   - vertical `-section`      rhythm separating major page blocks (article/unwrapped-content padding, grid/form margins)
  *   - vertical `-header`       header nav's own top/bottom padding, independent of the footer's
  *   - vertical `-footer`       footer's own top/bottom padding and the margin above it, independent of the header's
@@ -53,6 +54,13 @@
  * reading it from a design/entity template: nothing keeps them automatically in step with wherever an
  * EmDash-authored page's own inset/rhythm ends up, so unlike every other role here (a straight rename of
  * an already-shared value) these two are an owner-operated correction, additive and unset (0) by default.
+ *
+ * These pages are marked with their own `.static-page-body` class rather than matched by excluding
+ * `.cmp-section`/`article`: Puck's `Render` wraps EVERY template's output — entity detail pages
+ * (pages/entity/[noun]/[id].astro) and EmDash design pages ([...slug].astro) alike — in a plain
+ * `.cmp-root` div (catalog.tsx's `root.render`), which is itself neither `.cmp-section` nor `article`. A
+ * selector that only excludes those two would match `.cmp-root` too, silently applying the static-only
+ * nudge to every templated page in the site the moment an owner sets it to a nonzero value.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -322,31 +330,40 @@ main > article {
 
 /* Baseline inset for design/template content placed directly under <main> with no Section wrapping it
  * (a template's outlets, or a design page authored without a Section — the compositor has no content
- * container of its own, so unwrapped output otherwise sits flush against the viewport). `.cmp-section` is
- * excluded: it supplies its own inset and its background is meant to bleed edge-to-edge, so padding `main`
- * itself would shrink that bleed. `article` is excluded — already handled above. Padding-inline applies
- * per element (safe to repeat, matches `main > article`); padding-block is restricted to :first-child/
- * :last-child so consecutive unwrapped elements only get outer-edge spacing, not doubled gaps between them.
- *
- * This selector is also where the pre-generated "static" pages (entity/index.astro + DatabaseRoot,
- * entity/[noun]/index.astro, search.astro — none of them wrap their content in .cmp-section or <article>)
- * get their inset/rhythm from, so the `-static` nudge below is scoped here too: it's ADDED on top of the
- * base value with `calc()` rather than replacing it, since the (rare) unwrapped-template case above should
- * still track `-inset`/`-section` exactly like a Section does, with only the static pages' own extra
- * nudge layered on top of that shared baseline. */
+ * container of its own, so unwrapped output otherwise sits flush against the viewport; this also covers
+ * every Puck-rendered page's `.cmp-root` wrapper itself, per catalog.tsx's `root.render`). `.cmp-section`
+ * is excluded: it supplies its own inset and its background is meant to bleed edge-to-edge, so padding
+ * `main` itself would shrink that bleed. `article` is excluded — already handled above. Padding-inline
+ * applies per element (safe to repeat, matches `main > article`); padding-block is restricted to
+ * :first-child/:last-child so consecutive unwrapped elements only get outer-edge spacing, not doubled gaps
+ * between them. */
 main > :not(.cmp-section, article) {
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
+}
+main > :not(.cmp-section, article):first-child {
+	padding-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+}
+main > :not(.cmp-section, article):last-child {
+	padding-bottom: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+}
+
+/* The pre-generated "static" pages (entity/index.astro + DatabaseRoot, entity/[noun]/index.astro,
+ * search.astro) each render exactly one marked `.static-page-body` wrapper as `main`'s only child, so the
+ * `-static` nudge is scoped to that positive marker rather than folded into the exclusion rule above: a
+ * Puck-rendered template page's `.cmp-root` wrapper also matches `:not(.cmp-section, article)` (it is
+ * neither), so relying on that exclusion alone would apply this nudge to every templated page too,
+ * including entity detail pages, the moment an owner sets it to a nonzero value. Equal specificity to the
+ * rule above (one class vs. one `:not()` argument), so source order is what makes this win for the
+ * properties both set. */
+main > .static-page-body {
 	padding-inline: calc(
 		var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)) +
 		var(--dtk-chrome-horizontal-space-static, 0px)
 	);
-}
-main > :not(.cmp-section, article):first-child {
 	padding-top: calc(
 		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
 		var(--dtk-chrome-vertical-space-static, 0px)
 	);
-}
-main > :not(.cmp-section, article):last-child {
 	padding-bottom: calc(
 		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
 		var(--dtk-chrome-vertical-space-static, 0px)

@@ -37,7 +37,10 @@ export const prerender = true
 ---
 
 <PublicPage title="Search" description="Search the site">
-    <div class="search-page">
+    {/* `static-page-body` is the marker public-chrome.css's horizontal/vertical `-static` nudge targets
+        (see that file), since this page hardcodes its own structure rather than reading it from a
+        design/entity template. */}
+    <div class="search-page static-page-body">
         <h1>Search</h1>
         <p id="search-scope-note" class="search-scope-note" hidden>Searching database entries only.</p>
         <form id="search-form" role="search">

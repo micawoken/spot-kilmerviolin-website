@@ -12,6 +12,11 @@
  * opts out of the Pagefind index via PublicPage's pagefindIgnore prop — it would otherwise appear twice
  * in results (once for /entity, once for /database) pointing at duplicate content.
  *
+ * The nav tiles point at `/database/{noun}/` (EntityIndex.astro's mirror), not `/entity/{noun}/`, even
+ * though this component is itself rendered at both /entity and /database — /database is the canonical
+ * database root (docs/dev/miscellaneous.txt "/database alias"), so both aliases send a visitor into the
+ * canonical namespace rather than /entity's. Individual entries still only exist under /entity/{noun}/{id}.
+ *
  * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
  * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
  * rewrite mechanism exists in this project (Astro, wrangler, and EmDash were all checked), and
@@ -75,8 +80,10 @@ const availableNouns = resolutions
 >
     {/* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
         font-relative expression) is computed once instead of once per differently-sized child — see the
-        matching comment in entity/[noun]/index.astro for the full reasoning. */}
-    <div class="entity-index-body">
+        matching comment in entity/[noun]/index.astro for the full reasoning. `static-page-body` is the
+        marker public-chrome.css's horizontal/vertical `-static` nudge targets (see that file), since this
+        page hardcodes its own structure rather than reading it from a design/entity template. */}
+    <div class="entity-index-body static-page-body">
         {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
             not a Puck design, so the component can never be placed here. */}
         <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
@@ -105,7 +112,7 @@ const availableNouns = resolutions
                 <NavTiles
                     ariaLabel="Database sections"
                     links={availableNouns.map((noun) => ({
-                        href: `/entity/${ENTITY_NOUN_SLUGS[noun]}/`,
+                        href: `/database/${ENTITY_NOUN_SLUGS[noun]}/`,
                         label: ENTITY_NOUN_LABELS[noun]
                     }))}
                 />
