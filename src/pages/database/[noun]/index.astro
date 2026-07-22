@@ -1,30 +1,22 @@
 ---
 /**
- * pages/entity/[noun]/index.astro
+ * pages/database/[noun]/index.astro
  *
- * Reachability index for the D1-backed entity detail pages (impl plan Step 6, "Listing"): before this
- * file existed, a published entity detail page had a URL but nothing on the site linked to it. Reuses
- * `ListResults.astro`/`ListResult.astro` — the same components the admin's `/admin/{noun}s/list` pages
- * use — with a non-"admin" `enviro`, which already makes `ListResult` point at the public
- * `/entity/{noun}/{id}` route instead of the admin edit route.
+ * Mirror of pages/entity/[noun]/index.astro under /database (docs/dev/miscellaneous.txt "/database
+ * alias", extended beyond the root to the noun indexes): renders the exact same markup via the shared
+ * `EntityIndex.astro` component, so /database/{noun} serves identical content to /entity/{noun} without
+ * an HTTP redirect. Individual entries are NOT mirrored — /entity/{noun}/{id} stays the only route for a
+ * detail page (ListResult.astro always links there); only this reachability index is duplicated.
  *
- * Gated by the SAME dual-source rule as `[id].astro` (resolved default template AND at least one D1
- * record): an index for a noun with no detail pages would only be a list of links to 404s. The two
- * files independently re-fetch the D1 tables and the entity templates — Astro's build has no shared
- * cache between page files (matching the rest of this build; see `[...slug].astro`), so a noun with
- * both `[id].astro` and this file published pays for two reads. Accepted for now: this is the same cost
- * class as [...slug].astro's own per-collection reads, and adding a build-time cache is out of scope
- * for Step 6 (see docs/dev/handoff-entity-page-generation.md).
- *
- * Rendering is delegated to `EntityIndex.astro`, shared with this file's mirror at
- * pages/database/[noun]/index.astro (docs/dev/miscellaneous.txt "/database alias", extended to the noun
- * indexes) — see that component for why the breadcrumb's "Database" crumb is canonical there.
+ * This file independently re-runs `getStaticPaths`' D1/template fetch rather than importing the other
+ * file's — Astro's build has no shared cache between page files (the same reasoning entity/[noun]/[id].astro
+ * and entity/[noun]/index.astro already document for their own duplicated reads).
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -70,13 +62,8 @@ export async function getStaticPaths() {
     ) as Record<EntityNoun, boolean>
     const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
 
-    // ListResults' ResultObject wants a numeric id, matching ListResult.astro's admin-list usage
-    // (list.astro:51-55) — entityRecords stringifies id for Astro's route params, so it is parsed back here.
-    // A record with no string `name` falls back to its id so the link is never unlabeled.
-    // Declared inside getStaticPaths (not at module scope): Astro extracts getStaticPaths into its own
-    // build-time chunk, and a module-scope helper referenced only from here was not carried into that
-    // chunk (`ReferenceError: toListItem is not defined` at build time) — keeping it local guarantees it
-    // is in scope regardless of how that extraction works.
+    // See entity/[noun]/index.astro's matching comment: declared inside getStaticPaths, not at module
+    // scope, because Astro extracts getStaticPaths into its own build-time chunk.
     const toListItem = (record: { id: string; entry: Record<string, unknown> }): EntityListItem => ({
         id: Number(record.id),
         name: typeof record.entry.name === "string" ? record.entry.name : `#${record.id}`

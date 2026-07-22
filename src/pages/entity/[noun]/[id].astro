@@ -159,11 +159,16 @@ const title = typeof entry.name === "string" ? entry.name : undefined
             fields: [...entityFields(template.collection)],
             mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
             filesBaseUrl: import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
-            // Entity pages always link to their own noun's index, then Home (doc's special case) — never
-            // the generic slug-prefix walk route-authority.ts's breadcrumbAncestors does, since an entity
-            // page's URL (/entity/{noun}/{id}) has no relationship to the published CMS route tree.
+            // Entity pages always link Home / Database / {noun} / {item} — never the generic slug-prefix
+            // walk route-authority.ts's breadcrumbAncestors does, since an entity page's URL
+            // (/entity/{noun}/{id}) has no relationship to the published CMS route tree. /database is the
+            // canonical database root (docs/dev/miscellaneous.txt "/database alias"), and the noun crumb
+            // points at its /database/{noun}/ mirror (EntityIndex.astro) rather than /entity/{noun}/, so
+            // the whole ancestor trail stays inside the canonical /database namespace — only this entry
+            // itself (the current, unlinked crumb) is /entity-only, since entries are not mirrored.
             breadcrumbs: [
-                { label: ENTITY_NOUN_LABELS[template.collection], href: `/entity/${ENTITY_NOUN_SLUGS[template.collection]}/` }
+                { label: "Database", href: "/database" },
+                { label: ENTITY_NOUN_LABELS[template.collection], href: `/database/${ENTITY_NOUN_SLUGS[template.collection]}/` }
             ],
             pageTitle: title,
             bundledFileAlt,

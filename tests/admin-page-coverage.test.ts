@@ -44,6 +44,16 @@ const dashboardPage = import.meta.glob("../src/pages/admin.astro", {
     eager: true
 }) as Record<string, string>
 
+// AdminFooter is rendered on nearly every admin page (via layouts/AdminDocument.astro) and carries the
+// literal hrefs for the help/legal pages (docs, terms-of-use, privacy-policy, security-policy). Those
+// pages are genuinely reachable from any admin page's footer, not just from admin.astro or a section
+// page, so the footer's source has to be part of the haystack too.
+const sharedChrome = import.meta.glob("../src/components/AdminFooter.astro", {
+    query: "?raw",
+    import: "default",
+    eager: true
+}) as Record<string, string>
+
 /**
  * Deliberate exceptions: pages reached only through a dynamic, content-driven list rather than a static
  * `href="...">` string, so no literal link to them exists anywhere in source for this test to find.
@@ -64,7 +74,10 @@ function deriveRoute(globKey: string): string {
 }
 
 describe("every admin page is reachable from the dashboard or a section page", () => {
-    const haystack = Object.values(sectionPages).join("\n") + Object.values(dashboardPage).join("\n")
+    const haystack =
+        Object.values(sectionPages).join("\n") +
+        Object.values(dashboardPage).join("\n") +
+        Object.values(sharedChrome).join("\n")
     const routes = Object.keys(sectionPages).map(deriveRoute)
 
     it("finds the admin pages to check", () => {

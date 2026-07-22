@@ -184,13 +184,14 @@ export interface SiteChromeRoles {
     horizontalSpaceControl?: string
     /**
      * names a `space` token; an extra horizontal nudge ADDED on top of `horizontalSpaceInset`, scoped only
-     * to the pre-generated, non-Puck "static" pages (`main > :not(.cmp-section, article)` — the entity
-     * index/list pages, the `/entity`+`/database` root, and `/search`; excludes both Puck-authored design
-     * Sections and EmDash Portable-Text `<article>` content). Those static pages hardcode their own
-     * structure rather than reading it from a design/entity template, so there is no way to keep them
-     * automatically in step with whatever inset a given EmDash-authored page ends up using — this is a
-     * manual dial the owner can use to re-align them when they drift apart. Unset means no nudge (0),
-     * matching the behavior before this role existed.
+     * to the pre-generated, non-Puck "static" pages via their own `main > .static-page-body` marker (the
+     * entity index/list pages, the `/entity`+`/database` root, and `/search`) — NOT to `main > :not(
+     * .cmp-section, article)`, which would also match every Puck-rendered template's `.cmp-root` wrapper
+     * (entity detail pages, EmDash design pages) and silently apply this static-only nudge to them too.
+     * Those static pages hardcode their own structure rather than reading it from a design/entity
+     * template, so there is no way to keep them automatically in step with whatever inset a given
+     * EmDash-authored page ends up using — this is a manual dial the owner can use to re-align them when
+     * they drift apart. Unset means no nudge (0), matching the behavior before this role existed.
      */
     horizontalSpaceStatic?: string
     /**
