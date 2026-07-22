@@ -159,11 +159,48 @@ export interface SiteChromeRoles {
     /** names a `borders` token; header/footer hairline rule */
     hairlineBorder?: string
     /**
-     * names a `space` token; every horizontal-axis gap/padding in the static site chrome (header nav,
-     * search bars, footer link lists, nav-tile and entity-list grids) — one dial in place of the
-     * per-property `--dtk-space-*` name each of those declarations otherwise has to hand-pick.
+     * names a `space` token; DEPRECATED, superseded by the three split roles below. Kept only so a
+     * catalog written before the split still has a value to migrate from: `toEditable` (ThemeEditor.tsx)
+     * seeds `horizontalSpaceInset`/`horizontalSpaceItemGap`/`horizontalSpaceControl` from this field
+     * one time when they're unset, and `tokensToCss` falls back to it per-role the same way, so an
+     * already-configured theme doesn't silently revert to the built-in literal fallbacks the moment the
+     * split ships. Never written by a save going forward — the editor no longer exposes it.
      */
     horizontalSpace?: string
+    /**
+     * names a `space` token; how far static site-chrome content sits from the viewport edge — header
+     * nav, `main > article`, unwrapped `main` content, the footer, and NavTiles' outer padding-inline.
+     */
+    horizontalSpaceInset?: string
+    /**
+     * names a `space` token; the horizontal gap between repeated items in a row — nav links, footer
+     * links, header nav's title/toggle grid columns, and the NavTiles/entity-list grids.
+     */
+    horizontalSpaceItemGap?: string
+    /**
+     * names a `space` token; horizontal padding inside, and the gap between, interactive controls — the
+     * header and search-page search boxes, and entity list-result cards.
+     */
+    horizontalSpaceControl?: string
+    /**
+     * names a `space` token; the vertical rhythm that separates major page blocks from each other — the
+     * header nav's own top/bottom padding, `main > article`'s and unwrapped `main` content's top/bottom
+     * padding, the footer's own top/bottom padding and the margin above it, and the margin around the
+     * NavTiles/entity-list grids and the search-page form.
+     */
+    verticalSpaceSection?: string
+    /**
+     * names a `space` token; the vertical gap between repeated/stacked items — header nav's title/toggle
+     * row vs. its nav row (below the header breakpoint), the footer's own link-row/copy stack, the
+     * NavTiles/entity-list grids' row gap, and the search-results list gap.
+     */
+    verticalSpaceItemGap?: string
+    /**
+     * names a `space` token; vertical padding inside interactive controls, and small margins tied to a
+     * control's own content — the header/search-page search boxes, NavTiles tiles, entity list-result
+     * cards (and their corner ID badge), and the search page's scope note / result excerpts.
+     */
+    verticalSpaceControl?: string
 }
 
 export interface TokenCatalog {
@@ -455,8 +492,27 @@ export function tokensToCss(catalog: TokenCatalog): string {
             lines.push(`--dtk-chrome-hairline-style: ${tokenVar("borders", name, "style")};`)
             lines.push(`--dtk-chrome-hairline-color: ${tokenVar("borders", name, "color")};`)
         }
-        if (chrome.horizontalSpace) {
-            lines.push(`--dtk-chrome-horizontal-space: ${tokenVar("space", chrome.horizontalSpace)};`)
+        // Each split role falls back to the deprecated singular `horizontalSpace` when unset, so a
+        // catalog saved before the split (§ SiteChromeRoles.horizontalSpace) keeps rendering identically
+        // until its owner opens the editor and adjusts the roles independently.
+        const horizontalSpaceRoles: Array<[string, string | undefined]> = [
+            ["horizontal-space-inset", chrome.horizontalSpaceInset ?? chrome.horizontalSpace],
+            ["horizontal-space-item-gap", chrome.horizontalSpaceItemGap ?? chrome.horizontalSpace],
+            ["horizontal-space-control", chrome.horizontalSpaceControl ?? chrome.horizontalSpace]
+        ]
+        for (const [segment, name] of horizontalSpaceRoles) {
+            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
+        }
+        // The vertical counterpart: three independently settable roles, no legacy singular field to fall
+        // back to (there was no shared vertical dial before this — unlike horizontalSpace, this ships
+        // split from the start).
+        const verticalSpaceRoles: Array<[string, string | undefined]> = [
+            ["vertical-space-section", chrome.verticalSpaceSection],
+            ["vertical-space-item-gap", chrome.verticalSpaceItemGap],
+            ["vertical-space-control", chrome.verticalSpaceControl]
+        ]
+        for (const [segment, name] of verticalSpaceRoles) {
+            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
         }
     }
 
@@ -600,7 +656,13 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.mutedText === undefined || typeof value.mutedText === "string") &&
         (value.footerBackground === undefined || typeof value.footerBackground === "string") &&
         (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string") &&
-        (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string")
+        (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string") &&
+        (value.horizontalSpaceInset === undefined || typeof value.horizontalSpaceInset === "string") &&
+        (value.horizontalSpaceItemGap === undefined || typeof value.horizontalSpaceItemGap === "string") &&
+        (value.horizontalSpaceControl === undefined || typeof value.horizontalSpaceControl === "string") &&
+        (value.verticalSpaceSection === undefined || typeof value.verticalSpaceSection === "string") &&
+        (value.verticalSpaceItemGap === undefined || typeof value.verticalSpaceItemGap === "string") &&
+        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string")
     )
 }
 

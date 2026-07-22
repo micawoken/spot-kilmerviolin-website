@@ -675,6 +675,108 @@
     color: var(--color-bg);
 }
 
+/* Site Chrome's contrast check: a list of foreground/background pairings, each a swatch plus its ratio
+ * and AA/AAA badges. Reuses `.theme-preview__toggle*` above for its own Light/Dark switch. */
+.theme-preview__contrast {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.theme-preview__contrast-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.theme-preview__contrast-row {
+    display: grid;
+    grid-template-columns: 8rem 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--shade-3);
+    border-radius: 0.35rem;
+}
+
+.theme-preview__contrast-swatch {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 3rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--shade-4);
+    border-radius: 0.3rem;
+    overflow: hidden;
+}
+
+/* No swatch to render (both roles must resolve to a real color first) — a quiet placeholder rather than
+ * an empty box, so the row's grid doesn't jump when a role gets assigned. */
+.theme-preview__contrast-swatch[data-empty="true"] {
+    align-items: center;
+    background: var(--shade-1);
+    color: var(--shade-6);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.theme-preview__contrast-swatch-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.theme-preview__contrast-swatch-body {
+    margin: 0;
+    font-size: 0.7rem;
+    line-height: 1.3;
+}
+
+.theme-preview__contrast-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.theme-preview__contrast-ratio {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+}
+
+.theme-preview__contrast-unknown {
+    font-size: 0.8rem;
+    color: var(--shade-6);
+}
+
+.theme-preview__contrast-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+/* Pass/fail is the only thing these badges communicate, so it's the only thing colored — a tinted surface
+ * behind text in that surface's own color, the same convention `.design-editor__findings` uses. */
+.theme-preview__contrast-badge {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: var(--shade-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.theme-preview__contrast-badge[data-pass="true"] {
+    color: var(--color-success);
+}
+
+.theme-preview__contrast-badge[data-pass="false"] {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+}
+
 /* Typography's custom preview-text field, styled like the other free-text controls in this editor. */
 .theme-preview__text-input {
     display: flex;
