@@ -82,6 +82,7 @@ import {
     RadiusSwatches,
     ResponsivePreviewFrame,
     ShadowSwatches,
+    SiteChromeContrastCheck,
     SpacingScale,
     TypographySpecimen
 } from "./ThemePreview"
@@ -1406,6 +1407,26 @@ export default function ThemeEditor() {
                     content. Leave a role unset to keep the theme's built-in fallback look.
                 </p>
                 {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space"))}
+
+                <div className="theme-preview">
+                    <h4 className="theme-preview__heading">Contrast check</h4>
+                    <p className="theme-editor__hint">
+                        WCAG AA/AAA contrast for each pairing the roles above actually render together on the
+                        public site. A role left unset above can’t be checked until it’s assigned.
+                    </p>
+                    <SiteChromeContrastCheck
+                        colors={editable.colors}
+                        colorScheme={editable.colorScheme}
+                        roles={{
+                            pageBackground: editable.siteChrome.pageBackground,
+                            bodyText: editable.siteChrome.bodyText,
+                            linkColor: editable.siteChrome.linkColor,
+                            linkHoverColor: editable.siteChrome.linkHoverColor,
+                            mutedText: editable.siteChrome.mutedText,
+                            footerBackground: editable.siteChrome.footerBackground
+                        }}
+                    />
+                </div>
 
                 <h4>Horizontal spacing</h4>
                 <p className="theme-editor__hint">

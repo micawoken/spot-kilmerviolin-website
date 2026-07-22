@@ -392,3 +392,28 @@ export function bestTextColorFor(background: string): "#000000" | "#ffffff" | nu
     const contrastWithWhite = 1.05 / (luminance + 0.05)
     return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff"
 }
+
+/**
+ * WCAG 2.1 minimum contrast ratios for normal-size text (§1.4.3 "AA", §1.4.6 "AAA"). The theme editor's
+ * contrast check (`ThemePreview.tsx`'s `SiteChromeContrastCheck`) judges every pairing against these —
+ * site-chrome text (body copy, nav/footer links) is normal-size, so the large-text thresholds (3:1 / 4.5:1)
+ * do not apply here.
+ */
+export const WCAG_AA_MIN_CONTRAST = 4.5
+export const WCAG_AAA_MIN_CONTRAST = 7
+
+/**
+ * WCAG contrast ratio between two colors (2.1 §1.4.3): the lighter relative luminance over the darker,
+ * each padded by 0.05. Argument order does not matter. Ranges from 1 (identical) to 21 (black on white).
+ *
+ * @param {RgbColor} a - the first color
+ * @param {RgbColor} b - the second color
+ * @returns {number} - the contrast ratio, in [1, 21]
+ */
+export function contrastRatio(a: RgbColor, b: RgbColor): number {
+    const luminanceA = relativeLuminance(a)
+    const luminanceB = relativeLuminance(b)
+    const lighter = Math.max(luminanceA, luminanceB)
+    const darker = Math.min(luminanceA, luminanceB)
+    return (lighter + 0.05) / (darker + 0.05)
+}
