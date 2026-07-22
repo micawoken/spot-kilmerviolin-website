@@ -236,8 +236,23 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
         kind: "space"
     },
     {
+        key: "horizontalSpaceStatic",
+        label: "Static-page nudge (extra inset for /entity, /database, /search — on top of the page edge inset above)",
+        kind: "space"
+    },
+    {
         key: "verticalSpaceSection",
-        label: "Section rhythm (header, main content, footer, grid/form margins)",
+        label: "Section rhythm (main content, grid/form margins)",
+        kind: "space"
+    },
+    {
+        key: "verticalSpaceHeader",
+        label: "Header rhythm (site header nav padding)",
+        kind: "space"
+    },
+    {
+        key: "verticalSpaceFooter",
+        label: "Footer rhythm (site footer padding & top margin)",
         kind: "space"
     },
     {
@@ -248,6 +263,11 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     {
         key: "verticalSpaceControl",
         label: "Control padding & gap (search boxes, tiles, list-result cards, small captions)",
+        kind: "space"
+    },
+    {
+        key: "verticalSpaceStatic",
+        label: "Static-page nudge (extra top/bottom padding for /entity, /database, /search — on top of the section rhythm above)",
         kind: "space"
     }
 ]
@@ -279,11 +299,16 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     horizontalSpaceInset: [],
     horizontalSpaceItemGap: [],
     horizontalSpaceControl: [],
+    // The static-page nudge is brand new (no prior dial of any kind to migrate from).
+    horizontalSpaceStatic: [],
     // No legacy magic name or prior singular dial for the vertical roles either — they ship split from
     // the start (§ SiteChromeRoles.verticalSpaceSection).
     verticalSpaceSection: [],
+    verticalSpaceHeader: [],
+    verticalSpaceFooter: [],
     verticalSpaceItemGap: [],
-    verticalSpaceControl: []
+    verticalSpaceControl: [],
+    verticalSpaceStatic: []
 }
 
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
@@ -1175,17 +1200,20 @@ export default function ThemeEditor() {
                 <div className="theme-editor__scheme">
                     <h4>Horizontal spacing</h4>
                     <p className="theme-editor__hint">
-                        Splits horizontal spacing into three roles instead of one dial, so each kind of element can
-                        scale independently: how far page content sits from the edge, the gap between repeated
-                        list/grid items, and the padding/gap inside interactive controls like search boxes.
+                        Splits horizontal spacing into roles instead of one dial, so each kind of element can scale
+                        independently: how far page content sits from the edge, the gap between repeated list/grid
+                        items, the padding/gap inside interactive controls like search boxes, and a nudge that adds
+                        extra inset to the pre-generated static pages (/entity, /database, /search) if they ever
+                        drift out of alignment with the EmDash-authored pages next to them.
                     </p>
                     {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("horizontalSpace")))}
 
                     <h4>Vertical spacing</h4>
                     <p className="theme-editor__hint">
-                        The vertical counterpart: the rhythm separating major page sections (header, main content,
-                        footer), the gap between repeated stacked items, and the padding/gap inside interactive
-                        controls — independent of the horizontal roles above.
+                        The vertical counterpart: the rhythm separating major page sections (main content), the
+                        header and footer's own independent rhythms, the gap between repeated stacked items, the
+                        padding/gap inside interactive controls, and the same static-page nudge as above, applied
+                        to top/bottom padding instead of the edge inset — independent of the horizontal roles above.
                     </p>
                     {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("verticalSpace")))}
                 </div>

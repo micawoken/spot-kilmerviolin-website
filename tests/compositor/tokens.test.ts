@@ -272,6 +272,21 @@ describe("tokensToCss — site chrome horizontal spacing", () => {
     it("emits nothing when siteChrome is absent entirely", () => {
         expect(tokensToCss(catalog)).not.toContain("--dtk-chrome-horizontal-space")
     })
+
+    it("emits the static nudge with no legacy fallback, independent of the other three", () => {
+        const withStatic: TokenCatalog = {
+            ...catalog,
+            space: [...catalog.space, { name: "xs", value: "0.5rem" }],
+            siteChrome: { horizontalSpace: "md", horizontalSpaceStatic: "xs" }
+        }
+        const css = tokensToCss(withStatic)
+        expect(css).toContain("--dtk-chrome-horizontal-space-static: var(--dtk-space-xs);")
+        // The legacy singular only seeds inset/item-gap/control — the static nudge has no prior dial to
+        // fall back to, so it stays unset here rather than also picking up "md".
+        expect(tokensToCss({ ...catalog, siteChrome: { horizontalSpace: "md" } })).not.toContain(
+            "--dtk-chrome-horizontal-space-static"
+        )
+    })
 })
 
 describe("isTokenCatalog — site chrome horizontal spacing roles", () => {
@@ -290,6 +305,12 @@ describe("isTokenCatalog — site chrome horizontal spacing roles", () => {
     })
     it("rejects a present-but-malformed split role", () => {
         expect(isTokenCatalog({ ...catalog, siteChrome: { horizontalSpaceInset: 1 } })).toBe(false)
+    })
+    it("accepts the static nudge role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { horizontalSpaceStatic: "xs" } })).toBe(true)
+    })
+    it("rejects a present-but-malformed static nudge role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { horizontalSpaceStatic: 1 } })).toBe(false)
     })
 })
 
@@ -322,6 +343,13 @@ describe("tokensToCss — site chrome vertical spacing", () => {
     it("emits nothing when siteChrome is absent entirely", () => {
         expect(tokensToCss(catalog)).not.toContain("--dtk-chrome-vertical-space")
     })
+
+    it("emits the static nudge independent of the other roles", () => {
+        const partial: TokenCatalog = { ...catalog, siteChrome: { verticalSpaceStatic: "xs" } }
+        const css = tokensToCss(partial)
+        expect(css).not.toContain("--dtk-chrome-vertical-space-section")
+        expect(css).toContain("--dtk-chrome-vertical-space-static: var(--dtk-space-xs);")
+    })
 })
 
 describe("isTokenCatalog — site chrome vertical spacing roles", () => {
@@ -339,6 +367,12 @@ describe("isTokenCatalog — site chrome vertical spacing roles", () => {
     })
     it("rejects a present-but-malformed vertical role", () => {
         expect(isTokenCatalog({ ...catalog, siteChrome: { verticalSpaceSection: 1 } })).toBe(false)
+    })
+    it("accepts the static nudge role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { verticalSpaceStatic: "xs" } })).toBe(true)
+    })
+    it("rejects a present-but-malformed static nudge role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { verticalSpaceStatic: 1 } })).toBe(false)
     })
 })
 
