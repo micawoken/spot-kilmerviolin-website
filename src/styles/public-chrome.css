@@ -147,6 +147,14 @@ header nav {
 	 * hugging the title, leaving the middle of the row as breathing space instead of a second focal point. */
 	header .nav-links {
 		justify-content: flex-end;
+		/* Offsets the flex-end alignment left by the search button's own inset (border + horizontal padding,
+		 * matching #header-search-form button below) so the last nav link's text ends on the same vertical
+		 * line as the "Search" button's text, instead of the button's inset text sitting further left than
+		 * the box edge nav-links aligns to. */
+		padding-inline-end: calc(
+			var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px)) +
+			var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem))
+		);
 	}
 }
 /* Below the breakpoint, nav-area sits on its own row, independent from the title/toggle row above it (see
@@ -333,17 +341,21 @@ main > article {
  * container of its own, so unwrapped output otherwise sits flush against the viewport; this also covers
  * every Puck-rendered page's `.cmp-root` wrapper itself, per catalog.tsx's `root.render`). `.cmp-section`
  * is excluded: it supplies its own inset and its background is meant to bleed edge-to-edge, so padding
- * `main` itself would shrink that bleed. `article` is excluded — already handled above. Padding-inline
- * applies per element (safe to repeat, matches `main > article`); padding-block is restricted to
- * :first-child/:last-child so consecutive unwrapped elements only get outer-edge spacing, not doubled gaps
- * between them. */
-main > :not(.cmp-section, article) {
+ * `main` itself would shrink that bleed. `article` is excluded — already handled above. `.static-page-body`
+ * is excluded too: it gets its own dedicated rule below, and it must not also match here — the
+ * `:first-child`/`:last-child` qualifiers below give this rule higher specificity than the `.static-page-body`
+ * rule's single class, so without this exclusion this baseline would always win on every static page (every
+ * one of them renders `.static-page-body` as `main`'s only child, matching both pseudo-classes), permanently
+ * overriding the `-static` nudge regardless of its value. Padding-inline applies per element (safe to
+ * repeat, matches `main > article`); padding-block is restricted to :first-child/:last-child so consecutive
+ * unwrapped elements only get outer-edge spacing, not doubled gaps between them. */
+main > :not(.cmp-section, article, .static-page-body) {
 	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 }
-main > :not(.cmp-section, article):first-child {
+main > :not(.cmp-section, article, .static-page-body):first-child {
 	padding-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
-main > :not(.cmp-section, article):last-child {
+main > :not(.cmp-section, article, .static-page-body):last-child {
 	padding-bottom: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
@@ -351,10 +363,10 @@ main > :not(.cmp-section, article):last-child {
  * search.astro) each render exactly one marked `.static-page-body` wrapper as `main`'s only child, so the
  * `-static` nudge is scoped to that positive marker rather than folded into the exclusion rule above: a
  * Puck-rendered template page's `.cmp-root` wrapper also matches `:not(.cmp-section, article)` (it is
- * neither), so relying on that exclusion alone would apply this nudge to every templated page too,
- * including entity detail pages, the moment an owner sets it to a nonzero value. Equal specificity to the
- * rule above (one class vs. one `:not()` argument), so source order is what makes this win for the
- * properties both set. */
+ * neither), so relying on that exclusion alone (without also naming `.static-page-body` there) would apply
+ * this nudge to every templated page too, including entity detail pages, the moment an owner sets it to a
+ * nonzero value. The rule above now excludes `.static-page-body` explicitly, so this is simply the only
+ * rule left that matches it — no specificity or source-order tie-break needed for either axis. */
 main > .static-page-body {
 	padding-inline: calc(
 		var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)) +
