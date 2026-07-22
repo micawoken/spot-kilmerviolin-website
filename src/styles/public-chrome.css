@@ -383,6 +383,9 @@ footer {
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
+/* Font size lives on the list, not just the `a`s: an inline element smaller than its block ancestor's
+ * inherited font still reserves a line box at the ancestor's (larger) line-height, so without this the
+ * nav row renders visibly taller than the copyright line below it despite neither having padding. */
 footer .footer-links {
 	display: flex;
 	flex-wrap: wrap;
@@ -390,13 +393,13 @@ footer .footer-links {
 	margin: 0;
 	padding: 0;
 	list-style: none;
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.7rem);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.06em);
 }
 /* Footer links and copy share the mono `label` treatment, muted to `slate`. */
 footer .footer-links a,
 footer p {
-	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
-	font-size: var(--dtk-type-label-size, 0.7rem);
-	letter-spacing: var(--dtk-type-label-letter-spacing, 0.06em);
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
 footer .footer-links a {
@@ -408,4 +411,7 @@ footer .footer-links a:hover {
 }
 footer p {
 	margin: 0;
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.7rem);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.06em);
 }
