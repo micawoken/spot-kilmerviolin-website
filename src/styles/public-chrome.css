@@ -23,19 +23,25 @@
  * Section's inset to that token (compositor.css .cmp-section), so matching it here aligns the header,
  * footer, and untemplated article content to the same reading column the design pages use.
  *
- * Every horizontal-axis declaration (column-gap, padding-inline, and the horizontal half of a padding/gap
- * shorthand) is a FOUR-deep chain: `var(--dtk-chrome-horizontal-space-<role>, var(--dtk-space-<name>,
- * <literal>))`. The three `--dtk-chrome-horizontal-space-*` roles (tokens.ts SiteChromeRoles, the theme
- * editor's "Site Chrome" → "Horizontal spacing" table) let the owner scale this chrome's horizontal rhythm
- * by category instead of one dial for everything or hand-picking a named space token per declaration:
- *   - `-inset`      page edge padding (header nav, main/article, footer)
- *   - `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
- *   - `-control`    padding inside, and gaps between, interactive controls (the search box)
- * Every other margin/padding/gap (the vertical axis) still names a `--dtk-space-*` token directly
- * (`xs`/`sm`/`md`/`section`, the same conventional names the compositor's own components fall back to),
- * with the pre-existing literal as the `var(…)` fallback — so an untouched theme renders unchanged, but a
- * theme that authors one of those names, or sets a horizontal-spacing role, now controls this chrome's
- * rhythm too, not just the design pages' (docs/dev/miscellaneous.txt "design tokens on static pages").
+ * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain: `var(--dtk-chrome-<axis>-space-
+ * <role>, var(--dtk-space-<name>, <literal>))`. Six `--dtk-chrome-*-space-*` roles total (tokens.ts
+ * SiteChromeRoles, the theme editor's "Site Chrome" → "Horizontal spacing"/"Vertical spacing" tables) let
+ * the owner scale this chrome's rhythm by category, per axis, instead of one dial for everything or
+ * hand-picking a named space token per declaration:
+ *   - horizontal `-inset`      page edge padding (header nav, main/article, footer)
+ *   - horizontal `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
+ *   - horizontal `-control`    padding inside, and gaps between, interactive controls (the search box)
+ *   - vertical `-section`      rhythm separating major page blocks (header/footer's own padding, footer's
+ *                              margin-top, article/unwrapped-content padding, grid/form margins)
+ *   - vertical `-item-gap`     gaps between repeated stacked items (header nav's stacked rows, footer's
+ *                              link-row/copy stack, grid row-gaps, search-results gap)
+ *   - vertical `-control`      vertical padding inside controls, and small margins tied to a control's own
+ *                              content (search box padding, list-result cards, search page captions)
+ * Each role's own middle-link name and literal are chosen per role (not per declaration), so an unthemed
+ * site renders one consistent value per role rather than the ad hoc per-declaration values this replaced —
+ * see tokens.ts SiteChromeRoles for the exact declarations each role covers. A theme that authors one of
+ * those `--dtk-space-*` names directly, or sets a spacing role, controls this chrome's rhythm too, not
+ * just the design pages' (docs/dev/miscellaneous.txt "design tokens on static pages").
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -105,12 +111,12 @@ header nav {
 	display: grid;
 	align-items: center;
 	column-gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.25rem));
-	row-gap: var(--dtk-space-xs, 0.9rem);
+	row-gap: var(--dtk-chrome-vertical-space-item-gap, var(--dtk-space-sm, 1rem));
 	grid-template-columns: 1fr auto;
 	grid-template-areas:
 		"title toggle"
 		"nav nav";
-	padding-block: var(--dtk-space-sm, 1.3rem);
+	padding-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 }
 @media (min-width: 720px) {
@@ -300,7 +306,7 @@ header .nav-links a:hover {
  * column without double-insetting design pages. */
 main > article {
 	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
-	padding-block: var(--dtk-space-section, 2.5rem);
+	padding-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
 /* Baseline inset for design/template content placed directly under <main> with no Section wrapping it
@@ -314,19 +320,19 @@ main > :not(.cmp-section, article) {
 	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 }
 main > :not(.cmp-section, article):first-child {
-	padding-top: var(--dtk-space-section, 2.5rem);
+	padding-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 main > :not(.cmp-section, article):last-child {
-	padding-bottom: var(--dtk-space-section, 2.5rem);
+	padding-bottom: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
 /* ---- Footer ---- */
 footer {
 	display: flex;
 	flex-direction: column;
-	gap: var(--dtk-space-sm, 1rem);
-	margin-top: var(--dtk-space-section, 3rem);
-	padding-block: var(--dtk-space-md, 2rem) var(--dtk-space-md, 2.5rem);
+	gap: var(--dtk-chrome-vertical-space-item-gap, var(--dtk-space-sm, 1rem));
+	margin-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+	padding-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 	border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))

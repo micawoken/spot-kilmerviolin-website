@@ -210,8 +210,9 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
 
 /**
  * The Site Chrome roles, in the order they render, and which token kind each one selects from. Rendered
- * as two tables (§ the "Site Chrome" section below): every `"space"`-kind role renders in its own
- * "Horizontal spacing" table, separate from the colors/borders roles above it.
+ * as three tables (§ the "Site Chrome" section below): every `"space"`-kind role renders in a
+ * "Horizontal spacing" or "Vertical spacing" table (split by the `horizontalSpace`/`verticalSpace` key
+ * prefix — see `renderChromeRoleTable`'s call sites), separate from the colors/borders roles above them.
  */
 const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
@@ -230,6 +231,21 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     {
         key: "horizontalSpaceControl",
         label: "Control padding & gap (search boxes, tiles, list-result cards)",
+        kind: "space"
+    },
+    {
+        key: "verticalSpaceSection",
+        label: "Section rhythm (header, main content, footer, grid/form margins)",
+        kind: "space"
+    },
+    {
+        key: "verticalSpaceItemGap",
+        label: "List & grid item gap (stacked nav rows, tile / card grid rows, search results)",
+        kind: "space"
+    },
+    {
+        key: "verticalSpaceControl",
+        label: "Control padding & gap (search boxes, tiles, list-result cards, small captions)",
         kind: "space"
     }
 ]
@@ -260,7 +276,12 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     // role is handled separately in toEditable (seeding all three from it), not via this candidate list.
     horizontalSpaceInset: [],
     horizontalSpaceItemGap: [],
-    horizontalSpaceControl: []
+    horizontalSpaceControl: [],
+    // No legacy magic name or prior singular dial for the vertical roles either — they ship split from
+    // the start (§ SiteChromeRoles.verticalSpaceSection).
+    verticalSpaceSection: [],
+    verticalSpaceItemGap: [],
+    verticalSpaceControl: []
 }
 
 /** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
@@ -1392,7 +1413,15 @@ export default function ThemeEditor() {
                     scale independently: how far page content sits from the edge, the gap between repeated
                     list/grid items, and the padding/gap inside interactive controls like search boxes.
                 </p>
-                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind === "space"))}
+                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("horizontalSpace")))}
+
+                <h4>Vertical spacing</h4>
+                <p className="theme-editor__hint">
+                    The vertical counterpart: the rhythm separating major page sections (header, main content,
+                    footer), the gap between repeated stacked items, and the padding/gap inside interactive
+                    controls — independent of the horizontal roles above.
+                </p>
+                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("verticalSpace")))}
             </section>
 
             {renderTokenSection(sectionByKind.typography)}

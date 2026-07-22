@@ -293,6 +293,55 @@ describe("isTokenCatalog — site chrome horizontal spacing roles", () => {
     })
 })
 
+describe("tokensToCss — site chrome vertical spacing", () => {
+    const withVerticalRoles: TokenCatalog = {
+        ...catalog,
+        space: [...catalog.space, { name: "xs", value: "0.5rem" }, { name: "sm", value: "1rem" }],
+        siteChrome: {
+            verticalSpaceSection: "md",
+            verticalSpaceItemGap: "sm",
+            verticalSpaceControl: "xs"
+        }
+    }
+
+    it("emits each vertical role as its own --dtk-chrome-vertical-space-* var", () => {
+        const css = tokensToCss(withVerticalRoles)
+        expect(css).toContain("--dtk-chrome-vertical-space-section: var(--dtk-space-md);")
+        expect(css).toContain("--dtk-chrome-vertical-space-item-gap: var(--dtk-space-sm);")
+        expect(css).toContain("--dtk-chrome-vertical-space-control: var(--dtk-space-xs);")
+    })
+
+    it("emits an unset role's var not at all, independent of the other two", () => {
+        const partial: TokenCatalog = { ...catalog, siteChrome: { verticalSpaceControl: "xs" } }
+        const css = tokensToCss(partial)
+        expect(css).not.toContain("--dtk-chrome-vertical-space-section")
+        expect(css).not.toContain("--dtk-chrome-vertical-space-item-gap")
+        expect(css).toContain("--dtk-chrome-vertical-space-control: var(--dtk-space-xs);")
+    })
+
+    it("emits nothing when siteChrome is absent entirely", () => {
+        expect(tokensToCss(catalog)).not.toContain("--dtk-chrome-vertical-space")
+    })
+})
+
+describe("isTokenCatalog — site chrome vertical spacing roles", () => {
+    it("accepts the three vertical roles", () => {
+        expect(
+            isTokenCatalog({
+                ...catalog,
+                siteChrome: {
+                    verticalSpaceSection: "md",
+                    verticalSpaceItemGap: "sm",
+                    verticalSpaceControl: "xs"
+                }
+            })
+        ).toBe(true)
+    })
+    it("rejects a present-but-malformed vertical role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { verticalSpaceSection: 1 } })).toBe(false)
+    })
+})
+
 describe("lintTokenCatalog", () => {
     it("returns no findings when every variant ref resolves", () => {
         expect(lintTokenCatalog(withVariants)).toEqual([])

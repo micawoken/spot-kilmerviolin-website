@@ -182,6 +182,25 @@ export interface SiteChromeRoles {
      * header and search-page search boxes, and entity list-result cards.
      */
     horizontalSpaceControl?: string
+    /**
+     * names a `space` token; the vertical rhythm that separates major page blocks from each other — the
+     * header nav's own top/bottom padding, `main > article`'s and unwrapped `main` content's top/bottom
+     * padding, the footer's own top/bottom padding and the margin above it, and the margin around the
+     * NavTiles/entity-list grids and the search-page form.
+     */
+    verticalSpaceSection?: string
+    /**
+     * names a `space` token; the vertical gap between repeated/stacked items — header nav's title/toggle
+     * row vs. its nav row (below the header breakpoint), the footer's own link-row/copy stack, the
+     * NavTiles/entity-list grids' row gap, and the search-results list gap.
+     */
+    verticalSpaceItemGap?: string
+    /**
+     * names a `space` token; vertical padding inside interactive controls, and small margins tied to a
+     * control's own content — the header/search-page search boxes, NavTiles tiles, entity list-result
+     * cards (and their corner ID badge), and the search page's scope note / result excerpts.
+     */
+    verticalSpaceControl?: string
 }
 
 export interface TokenCatalog {
@@ -484,6 +503,17 @@ export function tokensToCss(catalog: TokenCatalog): string {
         for (const [segment, name] of horizontalSpaceRoles) {
             if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
         }
+        // The vertical counterpart: three independently settable roles, no legacy singular field to fall
+        // back to (there was no shared vertical dial before this — unlike horizontalSpace, this ships
+        // split from the start).
+        const verticalSpaceRoles: Array<[string, string | undefined]> = [
+            ["vertical-space-section", chrome.verticalSpaceSection],
+            ["vertical-space-item-gap", chrome.verticalSpaceItemGap],
+            ["vertical-space-control", chrome.verticalSpaceControl]
+        ]
+        for (const [segment, name] of verticalSpaceRoles) {
+            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
+        }
     }
 
     return `:root {\n${lines.map((line) => `    ${line}`).join("\n")}\n}`
@@ -629,7 +659,10 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string") &&
         (value.horizontalSpaceInset === undefined || typeof value.horizontalSpaceInset === "string") &&
         (value.horizontalSpaceItemGap === undefined || typeof value.horizontalSpaceItemGap === "string") &&
-        (value.horizontalSpaceControl === undefined || typeof value.horizontalSpaceControl === "string")
+        (value.horizontalSpaceControl === undefined || typeof value.horizontalSpaceControl === "string") &&
+        (value.verticalSpaceSection === undefined || typeof value.verticalSpaceSection === "string") &&
+        (value.verticalSpaceItemGap === undefined || typeof value.verticalSpaceItemGap === "string") &&
+        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string")
     )
 }
 
