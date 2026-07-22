@@ -26,6 +26,7 @@ import { describe, it, expect } from "vitest"
 
 import {
     bestTextColorFor,
+    contrastRatio,
     formatClamp,
     formatLength,
     formatLightDark,
@@ -38,6 +39,8 @@ import {
     parseShadow,
     relativeLuminance,
     splitTopLevel,
+    WCAG_AA_MIN_CONTRAST,
+    WCAG_AAA_MIN_CONTRAST,
     type ShadowLayer
 } from "../../src/lib/compositor/theme-controls"
 
@@ -223,5 +226,25 @@ describe("bestTextColorFor", () => {
     it("returns null for a background it cannot parse, rather than guessing", () => {
         expect(bestTextColorFor("var(--dtk-color-ink)")).toBeNull()
         expect(bestTextColorFor("papayawhip")).toBeNull()
+    })
+})
+
+describe("contrastRatio", () => {
+    it("is 21:1 for black on white, and 1:1 for identical colors", () => {
+        expect(contrastRatio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 })).toBeCloseTo(21, 5)
+        expect(contrastRatio({ r: 120, g: 40, b: 200 }, { r: 120, g: 40, b: 200 })).toBeCloseTo(1, 5)
+    })
+
+    it("is symmetric regardless of argument order", () => {
+        const a = { r: 0, g: 0, b: 0 }
+        const b = { r: 255, g: 255, b: 255 }
+        expect(contrastRatio(a, b)).toBe(contrastRatio(b, a))
+    })
+
+    it("matches the known WCAG examples for the AA/AAA thresholds", () => {
+        // #767676 on white is the textbook "just passes AA, fails AAA" gray (~4.54:1).
+        const ratio = contrastRatio(parseCssColorToRgb("#767676")!, parseCssColorToRgb("#ffffff")!)
+        expect(ratio).toBeGreaterThanOrEqual(WCAG_AA_MIN_CONTRAST)
+        expect(ratio).toBeLessThan(WCAG_AAA_MIN_CONTRAST)
     })
 })

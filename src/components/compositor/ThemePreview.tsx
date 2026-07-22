@@ -44,7 +44,15 @@ import { useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
 import { renderButtonTag } from "../../lib/compositor/catalog"
-import { bestTextColorFor, parseLightDark } from "../../lib/compositor/theme-controls"
+import {
+    bestTextColorFor,
+    contrastRatio,
+    parseCssColorToRgb,
+    parseLightDark,
+    WCAG_AA_MIN_CONTRAST,
+    WCAG_AAA_MIN_CONTRAST,
+    type RgbColor
+} from "../../lib/compositor/theme-controls"
 import { tokenVar } from "../../lib/compositor/tokens"
 
 /**
@@ -121,6 +129,165 @@ export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorSc
                                 <p className="theme-preview__swatch-body">{SAMPLE_LINE}</p>
                             </div>
                             <span className="theme-preview__caption">{color.name}</span>
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+/**
+ * The Site Chrome color roles this check measures, by name (each is a `colors` token name, or `""` when
+ * the role is unset) — a narrow slice of `ThemeEditor.tsx`'s `SiteChromeRow`, kept local here so this
+ * module doesn't import that editor-only type.
+ */
+export interface ChromeColorRoles {
+    pageBackground: string
+    bodyText: string
+    linkColor: string
+    linkHoverColor: string
+    mutedText: string
+    footerBackground: string
+}
+
+/**
+ * A foreground/background role pairing the public site frame actually renders together
+ * (`styles/public-chrome.css`), checked by `SiteChromeContrastCheck`: body text, link, and link-hover
+ * colors against the page background (`html body`, `main a`, `main a:hover`), and the muted nav/footer
+ * text against each of its own two backgrounds. Deliberately the real pairings the CSS renders, not every
+ * combinatorial one — e.g. not muted-text-on-page-background's hover state, which repaints as body text
+ * (already covered by the first row) rather than a new color.
+ */
+const CONTRAST_TARGETS: ReadonlyArray<{ id: string; label: string; fg: keyof ChromeColorRoles; bg: keyof ChromeColorRoles }> = [
+    { id: "body", label: "Body text on page background", fg: "bodyText", bg: "pageBackground" },
+    { id: "link", label: "Link color on page background", fg: "linkColor", bg: "pageBackground" },
+    { id: "link-hover", label: "Link hover color on page background", fg: "linkHoverColor", bg: "pageBackground" },
+    { id: "nav", label: "Muted text (nav links) on page background", fg: "mutedText", bg: "pageBackground" },
+    { id: "footer", label: "Muted text (footer links/copy) on footer background", fg: "mutedText", bg: "footerBackground" }
+]
+
+/** One color role resolved to what it actually renders: the raw CSS string (post light/dark split, for
+ *  the preview swatch's inline style) and its parsed RGB (for the contrast math) — either may be `null`
+ *  independently, since a browser can render a color (a named color, `var()`, `oklch()`, …) this module's
+ *  parser still can't measure. */
+interface ResolvedChromeColor {
+    value: string | null
+    rgb: RgbColor | null
+}
+
+/** The unresolved/unset color, so a pairing with an empty role name still renders (as "not assigned")
+ *  instead of the row silently vanishing. */
+const UNRESOLVED_CHROME_COLOR: ResolvedChromeColor = { value: null, rgb: null }
+
+/**
+ * Resolves a Site Chrome role's token name to what it renders, split to the given light/dark mode exactly
+ * as `ColorReference`'s own swatches do (same "resolve to the side being previewed" rationale) — so the
+ * contrast check always measures the mode currently shown, not the other side of an adaptive pair.
+ */
+function resolveChromeColor(name: string, colors: Row[], colorScheme: "adaptive" | "fixed", mode: "light" | "dark"): ResolvedChromeColor {
+    if (!name) return UNRESOLVED_CHROME_COLOR
+    const token = colors.find((color) => color.name === name)
+    if (!token) return UNRESOLVED_CHROME_COLOR
+    const raw = token.value ?? ""
+    const pair = colorScheme === "adaptive" ? parseLightDark(raw) : null
+    const value = pair ? (mode === "light" ? pair.light : pair.dark) : raw
+    return { value, rgb: parseCssColorToRgb(value) }
+}
+
+/** Why a pairing has no ratio to show: distinguishes an unset/dangling role from a color format this
+ *  module's parser can't measure, since only the former is fixable from the Site Chrome table above. */
+function unresolvedReason(fgName: string, bgName: string, fg: ResolvedChromeColor, bg: ResolvedChromeColor): string {
+    if (!fgName || !bgName) return "Assign both roles above to check this pairing."
+    if (fg.value === null || bg.value === null) return "One of the assigned tokens no longer exists."
+    return "This color's format (e.g. a named color or var()) can't be measured here."
+}
+
+/**
+ * WCAG AA/AAA contrast for every foreground/background pairing the Site Chrome roles above actually
+ * render together on the public site (`CONTRAST_TARGETS`), each with a live swatch of sample text on its
+ * real background. Reuses `ColorReference`'s Light/Dark toggle pattern for an adaptive color scheme —
+ * an adaptive pairing can pass in one mode and fail in the other, so both are checkable, one at a time.
+ * A pairing with an unset role, a dangling token reference, or a color format `theme-controls.ts` can't
+ * parse (a named color, `var()`, `oklch()`, …) shows why instead of a ratio — never a guessed pass/fail.
+ */
+export function SiteChromeContrastCheck({
+    colors,
+    colorScheme,
+    roles
+}: {
+    colors: Row[]
+    colorScheme?: "adaptive" | "fixed"
+    roles: ChromeColorRoles
+}) {
+    const [mode, setMode] = useState<"light" | "dark">("light")
+    const showToggle = colorScheme === "adaptive"
+    return (
+        <div className="theme-preview__contrast">
+            {showToggle && (
+                <div className="theme-preview__toggle" role="group" aria-label="Contrast check color scheme">
+                    <button
+                        type="button"
+                        aria-pressed={mode === "light"}
+                        className="theme-preview__toggle-btn"
+                        onClick={() => setMode("light")}
+                    >
+                        Light
+                    </button>
+                    <button
+                        type="button"
+                        aria-pressed={mode === "dark"}
+                        className="theme-preview__toggle-btn"
+                        onClick={() => setMode("dark")}
+                    >
+                        Dark
+                    </button>
+                </div>
+            )}
+            <div className="theme-preview__contrast-list">
+                {CONTRAST_TARGETS.map((target) => {
+                    const fgName = roles[target.fg]
+                    const bgName = roles[target.bg]
+                    const fg = resolveChromeColor(fgName, colors, colorScheme ?? "adaptive", mode)
+                    const bg = resolveChromeColor(bgName, colors, colorScheme ?? "adaptive", mode)
+                    const ratio = fg.rgb && bg.rgb ? contrastRatio(fg.rgb, bg.rgb) : null
+                    const passesAA = ratio !== null && ratio >= WCAG_AA_MIN_CONTRAST
+                    const passesAAA = ratio !== null && ratio >= WCAG_AAA_MIN_CONTRAST
+                    return (
+                        <div key={target.id} className="theme-preview__contrast-row">
+                            {fg.value !== null && bg.value !== null ? (
+                                <div
+                                    className="theme-preview__contrast-swatch"
+                                    style={{ background: bg.value, color: fg.value }}
+                                >
+                                    <span className="theme-preview__contrast-swatch-heading">Aa</span>
+                                    <p className="theme-preview__contrast-swatch-body">Sample rendered text</p>
+                                </div>
+                            ) : (
+                                <div className="theme-preview__contrast-swatch" data-empty="true">
+                                    No preview
+                                </div>
+                            )}
+                            <div className="theme-preview__contrast-info">
+                                <span className="theme-preview__caption">{target.label}</span>
+                                {ratio === null ? (
+                                    <span className="theme-preview__contrast-unknown">
+                                        {unresolvedReason(fgName, bgName, fg, bg)}
+                                    </span>
+                                ) : (
+                                    <span className="theme-preview__contrast-ratio">{ratio.toFixed(2)}:1</span>
+                                )}
+                            </div>
+                            {ratio !== null && (
+                                <div className="theme-preview__contrast-badges">
+                                    <span className="theme-preview__contrast-badge" data-pass={passesAA}>
+                                        AA {passesAA ? "Pass" : "Fail"}
+                                    </span>
+                                    <span className="theme-preview__contrast-badge" data-pass={passesAAA}>
+                                        AAA {passesAAA ? "Pass" : "Fail"}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )
                 })}
