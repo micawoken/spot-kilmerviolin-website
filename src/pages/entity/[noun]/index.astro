@@ -120,22 +120,46 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         body's own font size, keeps this page's whole content column aligned with the header at every
         width. */}
     <div class="entity-index-body">
-        {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
-            not a Puck design, so the component can never be placed here. Entity indexes always point straight
-            to Home (docs/dev/miscellaneous.txt), skipping the /entity root as an intermediate crumb. */}
-        <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
-            <ol>
-                <li><a href="/">Home</a></li>
-                <li aria-current="page">{title}</li>
-            </ol>
-        </nav>
-        <h1>{title}</h1>
-        <ListResults noun={ENTITY_NOUN_SLUGS[noun]} enviro="public" results={results} />
+        <div class="entity-index-listing">
+            {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+                not a Puck design, so the component can never be placed here. Entity indexes always point straight
+                to Home (docs/dev/miscellaneous.txt), skipping the /entity root as an intermediate crumb. */}
+            <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
+                <ol>
+                    <li><a href="/">Home</a></li>
+                    <li aria-current="page">{title}</li>
+                </ol>
+            </nav>
+            <h1>{title}</h1>
+            <ListResults noun={ENTITY_NOUN_SLUGS[noun]} enviro="public" results={results} />
+        </div>
         <p class="entity-index-generated-note">This page is auto-generated. Last generated {generatedAt}.</p>
     </div>
 </PublicPage>
 
 <style>
+    /* Mirrors public-chrome.css's own sticky-footer setup (html body { display: flex; flex-direction:
+       column }, main { flex: 1 0 auto }) one level down, so the generated-note behaves like the page
+       footer itself: flush above it on a short list, directly beneath the list (still above the footer)
+       once the list is tall enough to fill the viewport on its own.
+       A percentage height on .entity-index-body can't be used to reach that — main's flex-grown height is
+       only a *used* size, not a specified one, so a block child's `height: 100%` does not resolve against
+       it (verified: it collapses to content height instead). Making `main` itself a flex column instead
+       gives its child a real flex-basis to grow from, the same mechanism public-chrome.css already uses
+       one level up. `:global()` is required to reach `main` (owned by PublicPage.astro, not this
+       component) but stays page-scoped: Astro only loads this stylesheet on this route. */
+    :global(main) {
+        display: flex;
+        flex-direction: column;
+    }
+    .entity-index-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1 0 auto;
+    }
+    .entity-index-listing {
+        flex: 1 0 auto;
+    }
     .entity-index-generated-note {
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         font-size: 0.875rem;
