@@ -264,20 +264,50 @@
     color: var(--shade-6);
 }
 
-.theme-editor__table {
-    border-collapse: collapse;
-    width: 100%;
+/* Rows of fields (typography, spacing, button variants, …) used to be a `<table>`: one column per
+ * field, one row per token. A table's columns cannot reflow — with a dozen fields (typography) or
+ * seven (button variants) that forced both a squeezed input in every cell and a horizontal scroll on
+ * any viewport narrower than the sum of those columns. A row is now a wrapping card of labeled fields
+ * instead: each field gets its own caption and however much width the row has to give it, and a field
+ * that doesn't fit drops to the next line rather than compressing everyone else or overflowing. */
+.theme-editor__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
     margin-block: 0.5rem;
 }
 
-.theme-editor__table th,
-.theme-editor__table td {
+.theme-editor__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.6rem 1rem;
+    padding: 0.6rem;
     border: 1px solid var(--shade-3);
-    padding: 0.25rem 0.4rem;
-    text-align: left;
+    border-radius: 0.35rem;
 }
 
-.theme-editor__table input {
+.theme-editor__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 10rem;
+    min-width: 8rem;
+}
+
+.theme-editor__field--remove {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+.theme-editor__field-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--shade-6);
+}
+
+.theme-editor__row input,
+.theme-editor__row select {
     width: 100%;
     box-sizing: border-box;
     padding: 0.3rem;
@@ -290,21 +320,25 @@
 
 .theme-editor__cell {
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    width: 100%;
 }
 
-/* Number + unit: the number field stretches, the unit select stays its own width. The table's
- * `input { width: 100% }` still applies to the number field, so only the select needs sizing. */
+/* Number + unit: stacked so the number field always gets the field's full width — a fixed-width unit
+ * select beside it is exactly the "item next to the input" pattern that used to squeeze the number
+ * field down to a couple of characters. The shadow-layer builder below overrides back to a compact
+ * row, since those fields are intentionally small and side-by-side already. */
 .theme-editor__length {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.3rem;
     width: 100%;
 }
 
 .theme-editor__length select {
-    flex: 0 0 auto;
+    width: 100%;
     font: inherit;
 }
 
@@ -350,9 +384,11 @@
     width: 100%;
 }
 
+/* Fixed-size mode is a single LengthControl plus a "Make responsive" button; the button goes under the
+ * control rather than beside it, same as the number+unit stacking above. */
 .theme-editor__clamp--fixed {
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 .theme-editor__sub-label {
@@ -395,14 +431,21 @@
     border-radius: 0.25rem;
 }
 
-/* Inside a shadow layer the length controls should size to content, not stretch to the row. */
+/* Inside a shadow layer each length control is compact and stays a number + unit side by side (these
+ * fields are already small and laid out in a wrapping row of their own, unlike a table-column cell). */
 .theme-editor__shadow-layer .theme-editor__length,
 .theme-editor__shadow-layer .theme-editor__channel {
     width: auto;
+    flex-direction: row;
+    align-items: center;
 }
 
 .theme-editor__shadow-layer .theme-editor__length input[type="number"] {
     width: 4rem;
+}
+
+.theme-editor__shadow-layer .theme-editor__length select {
+    width: auto;
 }
 
 .theme-editor__shadow-layer .theme-editor__channel input[type="text"] {
@@ -431,6 +474,39 @@
 
 .theme-editor__scheme select {
     font: inherit;
+}
+
+/* Site Chrome role rows (colors/borders, and the horizontal/vertical spacing groups): one row per role
+ * — a label (sometimes a long description) and a token select. Wraps to label-above-select on narrow
+ * viewports instead of the old two-column table squeezing the select next to a long label. */
+.theme-editor__role-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.75rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--shade-3);
+}
+
+.theme-editor__role-row:last-child {
+    border-bottom: none;
+}
+
+.theme-editor__role-label {
+    flex: 1 1 16rem;
+    font-size: 0.9rem;
+}
+
+.theme-editor__role-row select {
+    flex: 1 1 12rem;
+    min-width: 0;
+    box-sizing: border-box;
+    font: inherit;
+    padding: 0.3rem;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--shade-4);
+    border-radius: 0.25rem;
 }
 
 /* Horizontal/vertical spacing roles: two top-to-bottom groups (heading, hint, table) side by side,

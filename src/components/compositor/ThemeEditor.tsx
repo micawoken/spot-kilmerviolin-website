@@ -1118,61 +1118,50 @@ export default function ThemeEditor() {
                     </span>
                 </div>
             )}
-            <table className="theme-editor__table">
-                <thead>
-                    <tr>
-                        {section.fields.map((field) => (
-                            <th key={field.key} scope="col">
-                                {field.label}
-                            </th>
-                        ))}
-                        <th scope="col" aria-label="Remove" />
-                    </tr>
-                </thead>
-                <tbody>
-                    {editable[section.kind].map((row, index) => {
-                        const nameUses = usageLabels(section.kind, row.name ?? "")
-                        return (
-                            <tr key={index}>
-                                {section.fields.map((field) => (
-                                    <td key={field.key}>
-                                        <span className="theme-editor__cell">
-                                            {/* The friendly color control shows its own picker swatches, so the row
-                                                swatch is only the raw view's preview. */}
-                                            {field.color && (rawMode || field.control !== "color") && (
-                                                <span
-                                                    className="theme-editor__swatch"
-                                                    style={{ background: row[field.key] || "transparent" }}
-                                                    aria-hidden="true"
-                                                />
-                                            )}
-                                            <CellControl
-                                                field={field}
-                                                value={row[field.key] ?? ""}
-                                                rawMode={rawMode}
-                                                colorScheme={editable.colorScheme}
-                                                refNames={field.refKind ? editable[field.refKind].map((r) => r.name) : []}
-                                                fontFamilies={editable.fonts.map((font) => font.family)}
-                                                onChange={(value) => setCell(section.kind, index, field.key, value)}
+            <div className="theme-editor__rows">
+                {editable[section.kind].map((row, index) => {
+                    const nameUses = usageLabels(section.kind, row.name ?? "")
+                    return (
+                        <div className="theme-editor__row" key={index}>
+                            {section.fields.map((field) => (
+                                <div className="theme-editor__field" key={field.key}>
+                                    <span className="theme-editor__field-label">{field.label}</span>
+                                    <span className="theme-editor__cell">
+                                        {/* The friendly color control shows its own picker swatches, so the row
+                                            swatch is only the raw view's preview. */}
+                                        {field.color && (rawMode || field.control !== "color") && (
+                                            <span
+                                                className="theme-editor__swatch"
+                                                style={{ background: row[field.key] || "transparent" }}
+                                                aria-hidden="true"
                                             />
-                                            {field.key === "name" && nameUses.length > 0 && (
-                                                <small className="theme-editor__usage" title={nameUses.join(", ")}>
-                                                    used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
-                                                </small>
-                                            )}
-                                        </span>
-                                    </td>
-                                ))}
-                                <td>
-                                    <button type="button" onClick={() => removeRow(section.kind, index)}>
-                                        Remove
-                                    </button>
-                                </td>
-                            </tr>
-                        )
-                    })}
-                </tbody>
-            </table>
+                                        )}
+                                        <CellControl
+                                            field={field}
+                                            value={row[field.key] ?? ""}
+                                            rawMode={rawMode}
+                                            colorScheme={editable.colorScheme}
+                                            refNames={field.refKind ? editable[field.refKind].map((r) => r.name) : []}
+                                            fontFamilies={editable.fonts.map((font) => font.family)}
+                                            onChange={(value) => setCell(section.kind, index, field.key, value)}
+                                        />
+                                        {field.key === "name" && nameUses.length > 0 && (
+                                            <small className="theme-editor__usage" title={nameUses.join(", ")}>
+                                                used by {nameUses.length} design{nameUses.length === 1 ? "" : "s"}
+                                            </small>
+                                        )}
+                                    </span>
+                                </div>
+                            ))}
+                            <div className="theme-editor__field theme-editor__field--remove">
+                                <button type="button" onClick={() => removeRow(section.kind, index)}>
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
             <button type="button" onClick={() => addRow(section.kind)}>
                 Add {section.label.toLowerCase().replace(/s$/, "")}
             </button>
@@ -1326,35 +1315,25 @@ export default function ThemeEditor() {
         }
     }
 
-    /** One Site Chrome table: a row per role, each a RefSelect over that role's token kind. */
+    /** One Site Chrome role list: a row per role, each a label plus a RefSelect over its token kind. */
     const renderChromeRoleTable = (roles: typeof SITE_CHROME_ROLES) => (
-        <table className="theme-editor__table">
-            <thead>
-                <tr>
-                    <th scope="col">Role</th>
-                    <th scope="col">Token</th>
-                </tr>
-            </thead>
-            <tbody>
-                {roles.map(({ key, label, kind }) => (
-                    <tr key={key}>
-                        <td>{label}</td>
-                        <td>
-                            <RefSelect
-                                names={editable[kind].map((row) => row.name)}
-                                value={editable.siteChrome[key]}
-                                optional
-                                onChange={(value) =>
-                                    setEditable((current) =>
-                                        current ? { ...current, siteChrome: { ...current.siteChrome, [key]: value } } : current
-                                    )
-                                }
-                            />
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
+        <div className="theme-editor__roles">
+            {roles.map(({ key, label, kind }) => (
+                <div className="theme-editor__role-row" key={key}>
+                    <span className="theme-editor__role-label">{label}</span>
+                    <RefSelect
+                        names={editable[kind].map((row) => row.name)}
+                        value={editable.siteChrome[key]}
+                        optional
+                        onChange={(value) =>
+                            setEditable((current) =>
+                                current ? { ...current, siteChrome: { ...current.siteChrome, [key]: value } } : current
+                            )
+                        }
+                    />
+                </div>
+            ))}
+        </div>
     )
 
     return (
@@ -1491,46 +1470,35 @@ export default function ThemeEditor() {
                     (e.g. “Playfair Display”) and the weights to load, comma-separated (e.g. 400, 700). Then reference the
                     family from a Typography token’s font family. Publish and rebuild to apply.
                 </p>
-                <table className="theme-editor__table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Font family</th>
-                            <th scope="col">Weights</th>
-                            <th scope="col" aria-label="Remove" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {editable.fonts.map((font, index) => (
-                            <tr key={index}>
-                                <td>
-                                    <span className="theme-editor__cell">
-                                        <input
-                                            type="text"
-                                            value={font.family}
-                                            placeholder="Inter"
-                                            onChange={(event) => setFont(index, "family", event.target.value)}
-                                        />
-                                    </span>
-                                </td>
-                                <td>
-                                    <span className="theme-editor__cell">
-                                        <input
-                                            type="text"
-                                            value={font.weights}
-                                            placeholder="400, 700"
-                                            onChange={(event) => setFont(index, "weights", event.target.value)}
-                                        />
-                                    </span>
-                                </td>
-                                <td>
-                                    <button type="button" onClick={() => removeFont(index)}>
-                                        Remove
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="theme-editor__rows">
+                    {editable.fonts.map((font, index) => (
+                        <div className="theme-editor__row" key={index}>
+                            <div className="theme-editor__field">
+                                <span className="theme-editor__field-label">Font family</span>
+                                <input
+                                    type="text"
+                                    value={font.family}
+                                    placeholder="Inter"
+                                    onChange={(event) => setFont(index, "family", event.target.value)}
+                                />
+                            </div>
+                            <div className="theme-editor__field">
+                                <span className="theme-editor__field-label">Weights</span>
+                                <input
+                                    type="text"
+                                    value={font.weights}
+                                    placeholder="400, 700"
+                                    onChange={(event) => setFont(index, "weights", event.target.value)}
+                                />
+                            </div>
+                            <div className="theme-editor__field theme-editor__field--remove">
+                                <button type="button" onClick={() => removeFont(index)}>
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
                 <button type="button" onClick={addFont}>
                     Add font
                 </button>
