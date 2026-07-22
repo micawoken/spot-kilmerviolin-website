@@ -104,14 +104,14 @@ header {
 header nav {
 	display: grid;
 	align-items: center;
-	column-gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.5rem));
+	column-gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.25rem));
 	row-gap: var(--dtk-space-xs, 0.9rem);
 	grid-template-columns: 1fr auto;
 	grid-template-areas:
 		"title toggle"
 		"nav nav";
 	padding-block: var(--dtk-space-sm, 1.3rem);
-	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 }
 @media (min-width: 720px) {
 	header nav {
@@ -244,7 +244,7 @@ header #header-search-form input {
 	font-size: 1rem;
 }
 header #header-search-form button {
-	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 1rem));
+	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
@@ -264,7 +264,7 @@ header #header-search-form button:hover {
 header .nav-links {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.4rem));
+	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.25rem));
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -293,7 +293,7 @@ header .nav-links a:hover {
  * and those own their inset, so scoping to `main > article` gives plain pages the same gutter and reading
  * column without double-insetting design pages. */
 main > article {
-	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 	padding-block: var(--dtk-space-section, 2.5rem);
 }
 
@@ -305,7 +305,7 @@ main > article {
  * per element (safe to repeat, matches `main > article`); padding-block is restricted to :first-child/
  * :last-child so consecutive unwrapped elements only get outer-edge spacing, not doubled gaps between them. */
 main > :not(.cmp-section, article) {
-	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 }
 main > :not(.cmp-section, article):first-child {
 	padding-top: var(--dtk-space-section, 2.5rem);
@@ -321,7 +321,7 @@ footer {
 	gap: var(--dtk-space-sm, 1rem);
 	margin-top: var(--dtk-space-section, 3rem);
 	padding-block: var(--dtk-space-md, 2rem) var(--dtk-space-md, 2.5rem);
-	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 	border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
@@ -330,7 +330,7 @@ footer {
 footer .footer-links {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.3rem));
+	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.25rem));
 	margin: 0;
 	padding: 0;
 	list-style: none;
