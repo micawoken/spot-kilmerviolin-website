@@ -917,6 +917,63 @@ function CellControl({
 /** localStorage key for the raw/friendly view preference, so a developer's choice sticks across visits. */
 const RAW_MODE_KEY = "theme-editor:raw-mode"
 
+/**
+ * Every collapsible section's stable id, in render order. A token-kind section reuses its `TokenKind` as
+ * the id (see `SECTIONS`); the rest are hand-picked ids for the sections rendered inline in the JSX below
+ * (Backup & restore, Page transitions, Site Chrome, Web fonts) rather than via `renderTokenSection`.
+ */
+const SECTION_IDS = [
+    "backup",
+    "page-transitions",
+    "colors",
+    "site-chrome",
+    "typography",
+    "web-fonts",
+    "space",
+    "radius",
+    "borders",
+    "shadows",
+    "breakpoints",
+    "buttonVariants"
+] as const
+
+/** localStorage key for which sections are collapsed, so a developer's layout sticks across visits. */
+const COLLAPSED_SECTIONS_KEY = "theme-editor:collapsed-sections"
+
+/** Reads the persisted collapsed-section ids, guarded the same way `rawMode` is (private mode / bad JSON). */
+function loadCollapsedSections(): Set<string> {
+    try {
+        const stored = localStorage.getItem(COLLAPSED_SECTIONS_KEY)
+        if (!stored) return new Set()
+        const parsed = JSON.parse(stored) as unknown
+        return Array.isArray(parsed) ? new Set(parsed.filter((id): id is string => typeof id === "string")) : new Set()
+    } catch {
+        return new Set()
+    }
+}
+
+/**
+ * A section's clickable heading: a chevron plus its `<h3>`, toggling that section's collapsed state. The
+ * button spans the header instead of a small icon-only hit target, so a long section title anywhere in
+ * this long page is a fast way to collapse it — the whole point of the collapse feature (a page this long
+ * needs coarse, quick-to-hit navigation, not fiddly controls).
+ */
+function SectionHeader({ id, title, open, onToggle }: { id: string; title: string; open: boolean; onToggle: (id: string) => void }) {
+    return (
+        <button
+            type="button"
+            className="theme-editor__section-toggle"
+            aria-expanded={open}
+            onClick={() => onToggle(id)}
+        >
+            <span className="theme-editor__section-icon" aria-hidden="true">
+                {open ? "▾" : "▸"}
+            </span>
+            <h3>{title}</h3>
+        </button>
+    )
+}
+
 /** The theme editor. */
 export default function ThemeEditor() {
     const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading")
@@ -944,6 +1001,10 @@ export default function ThemeEditor() {
             return false
         }
     })
+    // Which sections are collapsed, keyed by SECTION_IDS entry; persisted so a developer's layout sticks
+    // across visits, same rationale as rawMode above. Absent (not in the set) means expanded — the
+    // page's original always-expanded look is the default for a first-time visitor.
+    const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsedSections)
 
     // The live preview's CSS: the in-progress (unsaved) edit converted to a catalog and emitted as
     // `--dtk-*` custom properties, plus the same stylesheet real design pages use — recomputed on every
@@ -999,6 +1060,14 @@ export default function ThemeEditor() {
         }
     }, [rawMode])
 
+    useEffect(() => {
+        try {
+            localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify([...collapsed]))
+        } catch {
+            // private mode / storage disabled: collapsing still works for this session, just not persisted.
+        }
+    }, [collapsed])
+
     if (phase === "loading") return <p>Loading theme…</p>
     if (phase === "error" || !editable) return <p className="design-editor__blocked">{loadError}</p>
 
@@ -1014,6 +1083,17 @@ export default function ThemeEditor() {
     const addRow = (kind: TokenKind) => {
         setEditable((current) => (current ? { ...current, [kind]: [...current[kind], blankRow(kind)] } : current))
     }
+
+    const toggleSection = (id: string) => {
+        setCollapsed((current) => {
+            const next = new Set(current)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+    const collapseAllSections = () => setCollapsed(new Set(SECTION_IDS))
+    const expandAllSections = () => setCollapsed(new Set())
 
     /** The distinct design labels referencing the token (kind, name), or [] when unknown/unused. */
     const usageLabels = (kind: TokenKind, name: string): string[] => (name ? (usage?.get(`${kind}:${name}`) ?? []) : [])
@@ -1096,9 +1176,12 @@ export default function ThemeEditor() {
     >
 
     /** One token-kind section: its table of rows plus any kind-specific controls and live preview. */
-    const renderTokenSection = (section: (typeof SECTIONS)[number]) => (
+    const renderTokenSection = (section: (typeof SECTIONS)[number]) => {
+        const open = !collapsed.has(section.kind)
+        return (
         <section key={section.kind} className="theme-editor__section">
-            <h3>{section.label}</h3>
+            <SectionHeader id={section.kind} title={section.label} open={open} onToggle={toggleSection} />
+            {open && <>
             {section.kind === "colors" && (
                 <div className="theme-editor__scheme">
                     <label className="theme-editor__switch">
@@ -1260,8 +1343,10 @@ export default function ThemeEditor() {
                     {section.kind === "buttonVariants" && <ButtonVariantSamples variants={editable.buttonVariants} />}
                 </div>
             )}
+            </>}
         </section>
-    )
+        )
+    }
 
     // Downloads the current editor state (the normalized catalog, not necessarily the published one) as a
     // JSON file — a manual snapshot to roll back to, since the theme is a singleton with no version history.
@@ -1369,6 +1454,13 @@ export default function ThemeEditor() {
                         ? "Editing the raw CSS token strings directly."
                         : "Friendly controls. Turn this on to edit the underlying CSS values by hand."}
                 </span>
+                <span className="theme-editor__viewbar-spacer" />
+                <button type="button" onClick={expandAllSections}>
+                    Expand all
+                </button>
+                <button type="button" onClick={collapseAllSections}>
+                    Collapse all
+                </button>
             </div>
 
             {count > 1 && (
@@ -1385,7 +1477,8 @@ export default function ThemeEditor() {
             )}
 
             <section className="theme-editor__section">
-                <h3>Backup &amp; restore</h3>
+                <SectionHeader id="backup" title="Backup & restore" open={!collapsed.has("backup")} onToggle={toggleSection} />
+                {!collapsed.has("backup") && <>
                 <p className="theme-editor__hint">
                     Export the current editor state to a JSON file to snapshot the theme before a redesign, or import a
                     file you exported earlier to replace it. Importing only loads the tokens into the editor — nothing is
@@ -1425,10 +1518,17 @@ export default function ThemeEditor() {
                         </span>
                     )}
                 </div>
+                </>}
             </section>
 
             <section className="theme-editor__section">
-                <h3>Page transitions</h3>
+                <SectionHeader
+                    id="page-transitions"
+                    title="Page transitions"
+                    open={!collapsed.has("page-transitions")}
+                    onToggle={toggleSection}
+                />
+                {!collapsed.has("page-transitions") && <>
                 <p className="theme-editor__hint">
                     Crossfades between page navigations instead of the browser's default blank flash. Native CSS, no
                     JS; unsupported browsers (Firefox, Safari) just fall back to a normal navigation with no
@@ -1444,12 +1544,19 @@ export default function ThemeEditor() {
                     />
                     Enable page transitions
                 </label>
+                </>}
             </section>
 
             {renderTokenSection(sectionByKind.colors)}
 
             <section className="theme-editor__section">
-                <h3>Site Chrome</h3>
+                <SectionHeader
+                    id="site-chrome"
+                    title="Site Chrome"
+                    open={!collapsed.has("site-chrome")}
+                    onToggle={toggleSection}
+                />
+                {!collapsed.has("site-chrome") && <>
                 <p className="theme-editor__hint">
                     Which of your colors, borders, and spacing values paint the public site frame — page
                     background, body text, links, and the header/footer — as opposed to a design page's own
@@ -1477,12 +1584,14 @@ export default function ThemeEditor() {
                         }}
                     />
                 </div>
+                </>}
             </section>
 
             {renderTokenSection(sectionByKind.typography)}
 
             <section className="theme-editor__section">
-                <h3>Web fonts</h3>
+                <SectionHeader id="web-fonts" title="Web fonts" open={!collapsed.has("web-fonts")} onToggle={toggleSection} />
+                {!collapsed.has("web-fonts") && <>
                 <p className="theme-editor__hint">
                     Loads a font from Google Fonts for the whole site. Enter the family name exactly as Google lists it
                     (e.g. “Playfair Display”) and the weights to load, comma-separated (e.g. 400, 700). Then reference the
@@ -1520,6 +1629,7 @@ export default function ThemeEditor() {
                 <button type="button" onClick={addFont}>
                     Add font
                 </button>
+                </>}
             </section>
 
             {renderTokenSection(sectionByKind.space)}

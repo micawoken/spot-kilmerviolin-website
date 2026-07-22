@@ -253,8 +253,44 @@
     width: auto;
 }
 
+/* Pushes the expand/collapse-all buttons to the right of the raw-mode switch without a separate flex row. */
+.theme-editor__viewbar-spacer {
+    flex: 1 1 auto;
+}
+
 .theme-editor__section {
     margin-block: 1.5rem;
+}
+
+/* A section's whole heading is the collapse toggle (not just a small icon) — the fastest way to collapse
+ * a section on a page this long is clicking anywhere on its title. */
+.theme-editor__section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    /* Carries the h3's usual bottom margin (global.css) since the h3 itself is zeroed out below. */
+    margin-block: 0 0.5rem;
+    padding: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.theme-editor__section-toggle h3 {
+    margin: 0;
+}
+
+.theme-editor__section-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    justify-content: center;
+    width: 1em;
+    color: var(--shade-6);
+    font-size: 0.85em;
 }
 
 .theme-editor__hint {
