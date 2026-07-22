@@ -1,6 +1,6 @@
 /* styles/public-chrome.css
  *
- * Binds the shared public chrome — the document root/body, PublicHeader, and PublicFooter — to the published
+ * Binds the shared public chrome — the document body, PublicHeader, and PublicFooter — to the published
  * design theme's `--dtk-*` custom properties (emitted site-wide by layouts/PublicPage via getThemeHead).
  * This is the seam that makes a loaded theme actually paint the site frame, not only the compositor's
  * in-`<main>` design components: `styles/global.css` styles the body against its own built-in `--color-*`
@@ -82,13 +82,6 @@
  * pushes the footer to the viewport bottom on short pages, while a tall page still pushes it below the
  * fold as normal — main's `flex: 1 0 auto` only grows into the flex column's leftover space and never
  * shrinks below its own content. */
-/* Also match `html` itself (not just `body`): `scrollbar-gutter: stable` (global.css) reserves gutter
- * space that's painted from `html`'s own background, not `body`'s, once `html` has one — which it always
- * does here via BaseHead/PublicHead's flash-prevention inline <style>. Without this, the gutter stays
- * stuck at that pre-theme fallback color instead of the theme's page background. */
-html {
-	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
-}
 html body {
 	min-height: 100dvh;
 	display: flex;
