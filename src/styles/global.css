@@ -47,6 +47,11 @@ html {
 	/* Reserve the scrollbar's width whether or not the current page needs one, so navigating between a
 	 * page that scrolls and one that doesn't never shifts the header/content horizontally. */
 	scrollbar-gutter: stable;
+	/* That reserved gutter is painted from `html`'s own background, not `body`'s — BaseHead/PublicHead's
+	 * flash-prevention inline <style> already gives `html` an explicit background (to avoid a flash before
+	 * this file loads), which blocks the UA's canvas-propagation-from-body fallback. Match `body` here so
+	 * the gutter isn't stuck showing that pre-load color forever. */
+	background: var(--color-bg);
 }
 
 body {

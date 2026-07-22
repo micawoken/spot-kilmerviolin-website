@@ -1353,3 +1353,14 @@ main.admin-main {
 #transaction-status {
 	white-space: pre-wrap;
 }
+
+/* ----------------------------------------------------------------------------
+ * Site rebuild page (admin/site/rebuild)
+ * ------------------------------------------------------------------------- */
+
+/* the button sits directly above the admin-only .form-section (no intervening element to own the gap,
+ * unlike the entity Forms where each .form-section's own margin-bottom spaces it from the next); give
+ * it the same margin-bottom as .form-section so it does not collide with "Administrative Options" */
+#site-rebuild-button {
+	margin-bottom: 1.75rem;
+}

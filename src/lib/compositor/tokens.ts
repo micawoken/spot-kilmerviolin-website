@@ -183,12 +183,27 @@ export interface SiteChromeRoles {
      */
     horizontalSpaceControl?: string
     /**
-     * names a `space` token; the vertical rhythm that separates major page blocks from each other — the
-     * header nav's own top/bottom padding, `main > article`'s and unwrapped `main` content's top/bottom
-     * padding, the footer's own top/bottom padding and the margin above it, and the margin around the
-     * NavTiles/entity-list grids and the search-page form.
+     * names a `space` token; an extra horizontal nudge ADDED on top of `horizontalSpaceInset`, scoped only
+     * to the pre-generated, non-Puck "static" pages (`main > :not(.cmp-section, article)` — the entity
+     * index/list pages, the `/entity`+`/database` root, and `/search`; excludes both Puck-authored design
+     * Sections and EmDash Portable-Text `<article>` content). Those static pages hardcode their own
+     * structure rather than reading it from a design/entity template, so there is no way to keep them
+     * automatically in step with whatever inset a given EmDash-authored page ends up using — this is a
+     * manual dial the owner can use to re-align them when they drift apart. Unset means no nudge (0),
+     * matching the behavior before this role existed.
+     */
+    horizontalSpaceStatic?: string
+    /**
+     * names a `space` token; the vertical rhythm that separates major page blocks from each other —
+     * `main > article`'s and unwrapped `main` content's top/bottom padding, and the margin around the
+     * NavTiles/entity-list grids and the search-page form. Header and footer have their own split-out
+     * roles below (`verticalSpaceHeader`/`verticalSpaceFooter`) rather than sharing this one.
      */
     verticalSpaceSection?: string
+    /** names a `space` token; the header nav's own top/bottom padding, independent of the footer's. */
+    verticalSpaceHeader?: string
+    /** names a `space` token; the footer's own top/bottom padding and the margin above it, independent of the header's. */
+    verticalSpaceFooter?: string
     /**
      * names a `space` token; the vertical gap between repeated/stacked items — header nav's title/toggle
      * row vs. its nav row (below the header breakpoint), the footer's own link-row/copy stack, the
@@ -201,6 +216,12 @@ export interface SiteChromeRoles {
      * cards (and their corner ID badge), and the search page's scope note / result excerpts.
      */
     verticalSpaceControl?: string
+    /**
+     * names a `space` token; an extra vertical nudge ADDED on top of `verticalSpaceSection`, scoped to the
+     * same static-page top/bottom padding `horizontalSpaceStatic` nudges horizontally (§ that field for
+     * why this exists as a manual dial rather than an automatic sync). Unset means no nudge (0).
+     */
+    verticalSpaceStatic?: string
 }
 
 export interface TokenCatalog {
@@ -498,18 +519,24 @@ export function tokensToCss(catalog: TokenCatalog): string {
         const horizontalSpaceRoles: Array<[string, string | undefined]> = [
             ["horizontal-space-inset", chrome.horizontalSpaceInset ?? chrome.horizontalSpace],
             ["horizontal-space-item-gap", chrome.horizontalSpaceItemGap ?? chrome.horizontalSpace],
-            ["horizontal-space-control", chrome.horizontalSpaceControl ?? chrome.horizontalSpace]
+            ["horizontal-space-control", chrome.horizontalSpaceControl ?? chrome.horizontalSpace],
+            // No legacy singular fallback: this nudge role didn't exist before the split either.
+            ["horizontal-space-static", chrome.horizontalSpaceStatic]
         ]
         for (const [segment, name] of horizontalSpaceRoles) {
             if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
         }
-        // The vertical counterpart: three independently settable roles, no legacy singular field to fall
-        // back to (there was no shared vertical dial before this — unlike horizontalSpace, this ships
-        // split from the start).
+        // The vertical counterpart: independently settable roles, no legacy singular field to fall back to
+        // (there was no shared vertical dial before this — unlike horizontalSpace, this ships split from
+        // the start). Header and footer split out of the original verticalSpaceSection so their rhythms
+        // can be tuned independently of each other and of main-content/grid rhythm.
         const verticalSpaceRoles: Array<[string, string | undefined]> = [
             ["vertical-space-section", chrome.verticalSpaceSection],
+            ["vertical-space-header", chrome.verticalSpaceHeader],
+            ["vertical-space-footer", chrome.verticalSpaceFooter],
             ["vertical-space-item-gap", chrome.verticalSpaceItemGap],
-            ["vertical-space-control", chrome.verticalSpaceControl]
+            ["vertical-space-control", chrome.verticalSpaceControl],
+            ["vertical-space-static", chrome.verticalSpaceStatic]
         ]
         for (const [segment, name] of verticalSpaceRoles) {
             if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
@@ -660,9 +687,13 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.horizontalSpaceInset === undefined || typeof value.horizontalSpaceInset === "string") &&
         (value.horizontalSpaceItemGap === undefined || typeof value.horizontalSpaceItemGap === "string") &&
         (value.horizontalSpaceControl === undefined || typeof value.horizontalSpaceControl === "string") &&
+        (value.horizontalSpaceStatic === undefined || typeof value.horizontalSpaceStatic === "string") &&
         (value.verticalSpaceSection === undefined || typeof value.verticalSpaceSection === "string") &&
+        (value.verticalSpaceHeader === undefined || typeof value.verticalSpaceHeader === "string") &&
+        (value.verticalSpaceFooter === undefined || typeof value.verticalSpaceFooter === "string") &&
         (value.verticalSpaceItemGap === undefined || typeof value.verticalSpaceItemGap === "string") &&
-        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string")
+        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string") &&
+        (value.verticalSpaceStatic === undefined || typeof value.verticalSpaceStatic === "string")
     )
 }
 

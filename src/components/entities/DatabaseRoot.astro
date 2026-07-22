@@ -8,7 +8,9 @@
  * pages/search.astro via ?scope=database, see that file and layouts/PublicPage.astro's pagefindFilter
  * prop) and nav links to whichever of the three entity index pages actually exist this build (mirrors
  * entity/[noun]/index.astro's dual-source-dependency gate, so this never links to a noun with no
- * published pages).
+ * published pages). The page itself carries no unique content (just the search box and nav tiles), so it
+ * opts out of the Pagefind index via PublicPage's pagefindIgnore prop — it would otherwise appear twice
+ * in results (once for /entity, once for /database) pointing at duplicate content.
  *
  * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
  * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
@@ -65,7 +67,12 @@ const availableNouns = resolutions
     .map(({ noun }) => noun)
 ---
 
-<PublicPage title="Database" description="Find composers, works, and contributors" pagefindFilter="scope:database">
+<PublicPage
+    title="Database"
+    description="Find composers, works, and contributors"
+    pagefindFilter="scope:database"
+    pagefindIgnore
+>
     {/* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
         font-relative expression) is computed once instead of once per differently-sized child — see the
         matching comment in entity/[noun]/index.astro for the full reasoning. */}
