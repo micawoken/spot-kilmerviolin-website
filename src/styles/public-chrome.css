@@ -123,34 +123,28 @@ header nav {
 	header .nav-links {
 		justify-content: flex-end;
 	}
-	/* With links now anchored next to the toggle, opening search should claim the whole row up to the
-	 * toggle — including the space the title itself sits in — rather than just the (now visually distant)
-	 * nav-links area, so the expanded input isn't left stranded to the right of a large gap. Dropping the
-	 * title from the grid template (not just hiding it) lets nav-area's own 1fr track grow to fill exactly
-	 * that reclaimed space, so the existing inset-inline:0 overlay sizes itself without any new positioning
-	 * math. */
-	header.search-open nav {
-		grid-template-columns: 1fr auto;
-		grid-template-areas: "nav toggle";
-	}
-	header.search-open .site-title {
-		display: none;
-	}
 }
 /* Below the breakpoint, nav-area sits on its own row, independent from the title/toggle row above it (see
- * the grid comment above). Left as the default absolute-overlay behavior, opening search there centers the
- * form on nav-area's own box — which is sized by the (still in-flow, merely hidden) nav-links, shorter than
- * the form itself — so the form overflowed that box, crowding the title above and the header's bottom edge
- * below. Switching the form to static/in-flow (and collapsing nav-links out of flow instead of just hiding
- * them) lets nav-area size itself to the form's own height instead, so the existing row-gap/padding above
- * and below are preserved rather than eaten into. */
+ * the grid comment above). The search form is taller than a single line of nav-links (its input/button
+ * padding vs. the links' plain text), so stacking both permanently in the same grid cell — rather than only
+ * switching the form to static/in-flow once search opens — makes nav-area's row size itself to the taller
+ * of the two at all times. That keeps the header's height constant across open/close (no content shift
+ * below it) at the cost of a small fixed gutter under the nav links even while search is closed.
+ * `align-items: center` keeps the shorter nav-links centered within that reserved height instead of pinned
+ * to the row's top edge. Neither child uses `display: none` (only opacity/visibility) so both keep
+ * contributing to the row's size regardless of which is currently shown. */
 @media (max-width: 719.98px) {
-	header.search-open #header-search-form {
+	header .nav-area {
+		display: grid;
+		align-items: center;
+	}
+	header #header-search-form {
 		position: static;
+		grid-area: 1 / 1;
 		transform: none;
 	}
-	header.search-open .nav-links {
-		display: none;
+	header .nav-links {
+		grid-area: 1 / 1;
 	}
 }
 header .site-title {
@@ -183,14 +177,15 @@ header #search-toggle.is-open .icon-search {
 header #search-toggle.is-open .icon-close {
 	display: inline;
 }
-/* nav-area doubles as the search overlay's anchor: opening search covers only this area (never the title or
- * toggle around it, which must stay visible so the toggle can close it again) with an opaque bar pinned to
- * the area's top edge. The overlay's height is intrinsic (from its own input/button padding), not stretched
- * to the area's full height, so if the nav-links have wrapped onto extra lines (narrow layout, many links),
- * it only covers the space a single unwrapped line would occupy — the wrapped links are hidden rather than
- * shown through, but the bar doesn't grow to chase them. `min-width: 0` overrides the grid item's default
- * auto min-width (content-based), which would otherwise force the nav column wider than the space actually
- * available and push the toggle out of the row. */
+/* nav-area doubles as the search overlay's anchor at/above 720px (below it, the media query further up
+ * switches to a grid-stacking approach instead — see its comment): opening search covers only this area
+ * (never the title or toggle around it, which must stay visible so the toggle can close it again) with an
+ * opaque bar pinned to the area's top edge. The overlay's height is intrinsic (from its own input/button
+ * padding), not stretched to the area's full height, so if the nav-links have wrapped onto extra lines
+ * (many links at a middling width), it only covers the space a single unwrapped line would occupy — the
+ * wrapped links are hidden rather than shown through, but the bar doesn't grow to chase them. `min-width: 0`
+ * overrides the grid item's default auto min-width (content-based), which would otherwise force the nav
+ * column wider than the space actually available and push the toggle out of the row. */
 header .nav-area {
 	grid-area: nav;
 	position: relative;
@@ -268,11 +263,22 @@ header .nav-links {
 	margin: 0;
 	padding: 0;
 	list-style: none;
+	/* Delayed the same way as the search form's own visibility (below), but in the opposite direction:
+	 * these stay visible (and get progressively covered by the form's opaque background as it fades in)
+	 * until the open transition finishes, then flip to hidden — rather than vanishing instantly before the
+	 * form is even visible, which read as the whole header blinking out. */
+	transition: visibility 0s linear 0s;
 }
-/* Hidden (not just visually covered) while the search overlay is open, so the wrapped-line tail isn't
- * left showing beneath the bar and its links aren't reachable by keyboard while covered. */
+/* Hidden (not just visually covered) once the search overlay has fully faded in, so the wrapped-line tail
+ * isn't left showing beneath the bar and its links aren't reachable by keyboard while covered. */
 header.search-open .nav-links {
 	visibility: hidden;
+	transition: visibility 0s linear 0.15s;
+}
+@media (prefers-reduced-motion: reduce) {
+	header .nav-links {
+		transition: none;
+	}
 }
 /* The mono, uppercase, tracked nav treatment — the theme's `label` typography (IBM Plex Mono). */
 header .nav-links a {
