@@ -1197,25 +1197,29 @@ export default function ThemeEditor() {
                 </div>
             )}
             {section.kind === "space" && (
-                <div className="theme-editor__scheme">
-                    <h4>Horizontal spacing</h4>
-                    <p className="theme-editor__hint">
-                        Splits horizontal spacing into roles instead of one dial, so each kind of element can scale
-                        independently: how far page content sits from the edge, the gap between repeated list/grid
-                        items, the padding/gap inside interactive controls like search boxes, and a nudge that adds
-                        extra inset to the pre-generated static pages (/entity, /database, /search) if they ever
-                        drift out of alignment with the EmDash-authored pages next to them.
-                    </p>
-                    {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("horizontalSpace")))}
+                <div className="theme-editor__spacing-groups">
+                    <div className="theme-editor__spacing-group">
+                        <h4>Horizontal spacing</h4>
+                        <p className="theme-editor__hint">
+                            Splits horizontal spacing into roles instead of one dial, so each kind of element can scale
+                            independently: how far page content sits from the edge, the gap between repeated list/grid
+                            items, the padding/gap inside interactive controls like search boxes, and a nudge that adds
+                            extra inset to the pre-generated static pages (/entity, /database, /search) if they ever
+                            drift out of alignment with the EmDash-authored pages next to them.
+                        </p>
+                        {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("horizontalSpace")))}
+                    </div>
 
-                    <h4>Vertical spacing</h4>
-                    <p className="theme-editor__hint">
-                        The vertical counterpart: the rhythm separating major page sections (main content), the
-                        header and footer's own independent rhythms, the gap between repeated stacked items, the
-                        padding/gap inside interactive controls, and the same static-page nudge as above, applied
-                        to top/bottom padding instead of the edge inset — independent of the horizontal roles above.
-                    </p>
-                    {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("verticalSpace")))}
+                    <div className="theme-editor__spacing-group">
+                        <h4>Vertical spacing</h4>
+                        <p className="theme-editor__hint">
+                            The vertical counterpart: the rhythm separating major page sections (main content), the
+                            header and footer's own independent rhythms, the gap between repeated stacked items, the
+                            padding/gap inside interactive controls, and the same static-page nudge as above, applied
+                            to top/bottom padding instead of the edge inset — independent of the horizontal roles above.
+                        </p>
+                        {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("verticalSpace")))}
+                    </div>
                 </div>
             )}
             {editable[section.kind].some((row) => (row.name ?? "").trim() !== "") && (
