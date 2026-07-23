@@ -2,18 +2,16 @@
  * lib/build/entity-routes.ts
  *
  * Resolves the published default template for each D1-backed entity noun (composer, composition,
- * contributor) — the entity analog of `route-authority.ts`'s `resolveTemplate`, but simpler: a D1 entity
- * record has no per-record template pointer (there is no `design` reference field on a D1 schema —
- * `entity-fields.ts`'s catalog is fixed, not authorable in EmDash), so every record of one noun renders
- * through exactly one layout, that noun's published `is_default` design_template. There is no D3
- * "render bare" fallback for entities the way there is for pages/posts: a noun with no resolved default
- * simply gets no public pages this build (impl plan Step 6: "skip entity pages predictably").
+ * contributor) — entity analog of `route-authority.ts`'s `resolveTemplate`, simpler: no per-record
+ * template pointer (no `design` reference field on a D1 schema — `entity-fields.ts`'s catalog is
+ * fixed, not authorable in EmDash), so every record of one noun renders through exactly one layout,
+ * that noun's published `is_default` design_template. No D3 "render bare" fallback like pages/posts —
+ * a noun with no resolved default just gets no public pages this build (impl plan Step 6).
  *
- * Deliberately kept OUT of `route-authority.ts` (impl plan Step 5): that module owns the EmDash
- * `pages`/`posts`/`design_page` slug space and its duplicate-slug collision rules, which entity records
- * never participate in — an entity's route is `/entity/{noun}/{id}`, never authored, never collidable
- * with a CMS-authored slug. This module is pure (no network calls), the same way `route-authority.ts`
- * stays pure, so it can be unit-tested without a console and without a CMS.
+ * Deliberately OUT of `route-authority.ts` (impl plan Step 5): that module owns the EmDash
+ * `pages`/`posts`/`design_page` slug space and duplicate-slug rules, which entity records never enter
+ * — an entity's route is `/entity/{noun}/{id}`, never authored, never collidable with a CMS slug.
+ * Pure module (no network calls), like `route-authority.ts` — unit-testable without a console or CMS.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -47,11 +45,9 @@ export interface EntityTemplateResolution {
 }
 
 /**
- * Indexes the published entity templates by the (at most one) `is_default` per noun, rejecting an
- * ambiguous default the same way `route-authority.ts`'s `indexTemplates` does for pages/posts: if two
- * published templates both claim `is_default` for one noun, no rule can choose between them.
- *
- * @throws {Error} when a noun has two or more published default templates
+ * Indexes published entity templates by the (at most one) `is_default` per noun — same ambiguous-default
+ * rejection as `route-authority.ts`'s `indexTemplates` for pages/posts. Throws when a noun has two or
+ * more published default templates.
  */
 function indexDefaults(templates: BuildEntityTemplate[]): Map<EntityNoun, BuildEntityTemplate> {
     const defaults = new Map<EntityNoun, BuildEntityTemplate>()
@@ -81,15 +77,9 @@ function indexDefaults(templates: BuildEntityTemplate[]): Map<EntityNoun, BuildE
 }
 
 /**
- * Resolves every entity noun's default template. A noun resolves to a null template when it has no
- * published default (not yet authored — Step 6 skips SSG for it) or when its default is the "None"
- * sentinel (the same reserved slug pages/posts use to opt an entry out of its collection default;
- * authoring it here is an explicit "no public pages for this noun").
- *
- * @param {BuildEntityTemplate[]} templates - the published entity templates
- *   (`design-api.ts`'s `fetchPublishedEntityTemplates`), already migrated
- * @returns {EntityTemplateResolution[]} one resolution per entity noun, in `ENTITY_NOUNS` order
- * @throws {Error} when one noun has two or more published default templates
+ * Resolves every entity noun's default template. Null when a noun has no published default (not yet
+ * authored — Step 6 skips SSG for it) or its default is the "None" sentinel (same reserved slug
+ * pages/posts use — an explicit "no public pages for this noun").
  */
 export function resolveEntityTemplates(templates: BuildEntityTemplate[]): EntityTemplateResolution[] {
     const defaults = indexDefaults(templates)
