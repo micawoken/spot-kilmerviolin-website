@@ -1,13 +1,11 @@
 /**
  * lib/build/emdash-api.ts
  *
- * Build-time HTTP reader for CMS content served over EmDash's authenticated API. Runs in plain Node
- * during `astro build` (no D1 binding, no request context), so it can't use EmDash's request-scoped
- * readers (`getEmDashCollection`/`getSiteSettings`/`getMenu`, which need an AsyncLocalStorage + bound D1)
- * — instead it fetches published content, settings, and menus from the already-deployed worker's own
- * EmDash API. Auth is a Cloudflare Access service token (mapped by EmDash to the EDITOR role) plus an
- * optional EmDash PAT fallback. See {@link READ_TIMEOUT_MS} for the timeout rationale and
- * {@link CmsReadError} for the fail-loud policy once a CMS is configured.
+ * Build-time HTTP reader for EmDash CMS content. Plain Node during `astro build` — no D1 binding, no
+ * request context — so EmDash's request-scoped readers (`getEmDashCollection`/`getSiteSettings`/
+ * `getMenu`, need AsyncLocalStorage + bound D1) don't work here; fetches over HTTP from the deployed
+ * worker's own EmDash API instead. Auth: Cloudflare Access service token (EDITOR role) + optional PAT
+ * fallback. Timeout rationale: {@link READ_TIMEOUT_MS}. Fail-loud policy: {@link CmsReadError}.
  *
  * Build-time env only (never wrangler runtime secrets/vars): CONTENT_API_BASE, CF_ACCESS_CLIENT_ID,
  * CF_ACCESS_CLIENT_SECRET, EMDASH_API_TOKEN (optional PAT fallback).
@@ -85,7 +83,7 @@ interface ApiConfig {
     headers: Record<string, string>
 }
 
-/** Reads a build-time config value: `import.meta.env` (Astro/Vite) falling back to `process.env` (Node/CI). */
+/** Build-time config value: `import.meta.env` (Astro/Vite), fallback `process.env` (Node/CI). */
 function env(name: string): string | undefined {
     return import.meta.env[name] ?? process.env[name]
 }
