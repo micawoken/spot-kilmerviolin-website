@@ -1,33 +1,29 @@
 /**
  * components/compositor/DesignEditor.tsx
  *
- * The visual compositor's editor (impl §6.5). Mounted client-side by `pages/admin/designs/edit.astro`,
- * from a module script rather than an Astro island — the admin CSP blocks Astro's inline island
- * bootstrap (see that file). It never runs on the build/RSC path (that path uses
- * `buildConfig(theme, "build")` + `<Render>` instead — see catalog.tsx).
+ * The visual compositor's editor. Mounted client-side by `pages/admin/designs/edit.astro`, from a
+ * module script rather than an Astro island — the admin CSP blocks Astro's inline island bootstrap.
+ * Never runs on the build/RSC path (that uses `buildConfig(theme, "build")` + `<Render>`).
  *
- * Lifecycle: load the design item (draft-overlaid `data`, per EmDash's editor-role GET) and the
- * published theme → `migrateDesign` → `designToEditorForm` (Portable Text → ProseMirror) → mount
- * `<Puck>` with `buildConfig(theme, "editor")`. Autosave debounces a `PUT { status: "draft", _rev }`
- * ~2s after the last change, chaining the fresh `_rev` from each response; a stale `_rev` returns 409
- * and raises the conflict banner. Publish runs the shared lint pass (§6.7) in a dialog — a11y errors
- * block publishing (they would fail the build anyway) — then `POST …/publish`, offering a rebuild
- * through the same connector the manual rebuild page uses.
+ * Lifecycle: load the design item (draft-overlaid) and published theme → `migrateDesign` →
+ * `designToEditorForm` (PT → ProseMirror) → mount `<Puck>` with `buildConfig(theme, "editor")`.
+ * Autosave debounces a `PUT {status:"draft", _rev}` ~2s after the last change, chaining the fresh
+ * `_rev` from each response; a stale `_rev` returns 409 and raises the conflict banner. Publish runs
+ * the shared lint pass in a dialog — a11y errors block (they'd fail the build anyway) — then
+ * `POST …/publish`, offering a rebuild through the same connector the manual rebuild page uses.
  *
- * Document kinds (pivot §6 Phase B): `kind` parametrizes the same machinery over `design_page` (a
- * URL-owning layout) and `design_template` (a layout entries of one collection render through).
- * Template mode adds the preview-entry picker — the outlets resolve against a chosen entry of
- * `template.collection`, fetched draft-overlaid — and rebuilds the config with `{ entry, fields }`
- * (Puck select options are static per config, so a preview change remounts Puck from the current
- * working tree). Its publish dialog blocks on the STRUCTURAL lint only (entry: null); the pairing
- * rows against the preview entry are shown as advisory, because the preview is one sample — the
+ * Document kinds: `kind` parametrizes the same machinery over `design_page` (URL-owning layout) and
+ * `design_template` (a layout entries of one collection render through). Template mode adds the
+ * preview-entry picker — outlets resolve against a chosen entry, fetched draft-overlaid — and rebuilds
+ * the config with `{entry, fields}` (Puck select options are static per config, so a preview change
+ * remounts Puck from the current working tree). Its publish dialog blocks on the STRUCTURAL lint only
+ * (entry: null); pairing rows against the preview entry are advisory — the preview is one sample, the
  * build is the real per-(template × entry) gate.
  *
- * Canvas styling: Puck 0.22 renders the canvas in an iframe with `syncHostStyles: false`, so the
- * theme's `--dtk-*` custom properties and `compositor.css` are injected *inside* the iframe via the
- * config's `root.render` (the mechanism confirmed in the Phase 0 spike; no iframe/head override key
- * exists). The editor previews against the *published* theme — the same tokens the build emits — so a
- * theme edit only changes the canvas after it is published (a deliberate, build-faithful choice).
+ * Canvas styling: Puck renders the canvas in an iframe with `syncHostStyles: false`, so theme
+ * `--dtk-*` properties and `compositor.css` are injected *inside* the iframe via the config's
+ * `root.render` — no iframe/head override key exists. The editor previews against the *published*
+ * theme, same tokens the build emits, so a theme edit only changes the canvas after publishing.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -113,12 +109,9 @@ interface PageMeta {
     isDefault: boolean
 }
 
-/**
- * The `PUT design_page/:id` / `PUT design_template/:id` body. Typed rather than a loose record so the
- * stored `design` value is held to the `DesignDoc` envelope every reader (this editor, the build)
- * validates with `migrateDesign` — writing the bare Puck tree here is what made a saved design
- * unreadable on the next load.
- */
+/** The `PUT design_page/:id` / `PUT design_template/:id` body. Typed, not a loose record, so the
+ * stored `design` value is held to the `DesignDoc` envelope every reader validates with
+ * `migrateDesign` — writing the bare Puck tree here is what made a saved design unreadable on load. */
 interface SavePayload {
     data: Record<string, unknown> & { title: string; design: DesignDoc }
     status: "draft"
@@ -258,12 +251,11 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     const [previewEntryId, setPreviewEntryId] = useState("")
     const [previewEntry, setPreviewEntry] = useState<Record<string, unknown> | null>(null)
     const [previewError, setPreviewError] = useState("")
-    // Distinct from previewError: without the schema there are no field options, so NO outlet can be
-    // bound and the template cannot pass its own publish lint. That is a blocking condition, not a
-    // degraded preview, and it must never be left to read as "this collection has no bindable fields".
+    // Distinct from previewError: without the schema, no outlet can bind and the template can't pass
+    // its own publish lint — a blocking condition, must never read as "this collection has no bindable fields".
     const [schemaError, setSchemaError] = useState("")
 
-    // Refs are the source of truth for saving, so the debounced timer never reads stale closures.
+    // Refs are the source of truth for saving — the debounced timer never reads stale closures.
     const workingRef = useRef<Data | null>(null)
     const revRef = useRef<string | undefined>(undefined)
     const metaRef = useRef<PageMeta>({ title: "", description: "", slug: "", isDefault: false })
@@ -279,20 +271,17 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
             .then(async ([loadedTheme, loaded]) => {
                 if (cancelled) return
 
-                // Template mode: load the collection schema and entry list BEFORE mounting Puck, so
-                // the outlet field pickers are populated in the config the editor first renders with.
-                // Settled independently: a schema failure must not also cost the entry list (they are
-                // unrelated reads), and each reports its own consequence — an empty field picker is
-                // indistinguishable from "this collection has nothing bindable" unless we say so.
+                // Template mode: load the collection schema and entry list BEFORE mounting Puck, so the
+                // outlet field pickers are populated in the config the editor first renders with. Settled
+                // independently — a schema failure mustn't also cost the entry list (unrelated reads) —
+                // each reports its own consequence, an empty field picker must say why it's empty.
                 let fields: CollectionField[] | null = null
                 let entryList: EntryListItem[] = []
                 if (kind === "template" && loaded.collection) {
                     if (isEntityNoun(loaded.collection)) {
-                        // Entity collections (composer/composition/contributor) are D1-backed, not an
-                        // EmDash collection — there is no live schema-fields or entry-list endpoint to
-                        // call for them. The field catalog is static (entity-fields.ts); a preview-entry
-                        // source is not built yet, so the picker is left empty rather than attempting an
-                        // EmDash call that would 404.
+                        // Entity collections (composer/composition/contributor) are D1-backed, not
+                        // EmDash — no live schema-fields/entry-list endpoint to call. Field catalog is
+                        // static (entity-fields.ts); preview-entry picker left empty rather than a 404.
                         fields = [...entityFields(loaded.collection)]
                     } else {
                         const [schemaResult, entriesResult] = await Promise.allSettled([
@@ -481,8 +470,8 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
 
     // --- Preview entry (template mode) -------------------------------------------------------------
     // Puck select options are static per config, so a context change must rebuild the config AND
-    // remount Puck — from the CURRENT working tree (not the loaded initialData), or unsaved canvas
-    // edits would be silently dropped by the remount.
+    // remount Puck — from the CURRENT working tree (not loaded initialData), or unsaved canvas edits
+    // get silently dropped by the remount.
     const pickPreviewEntry = useCallback(
         async (entryId: string) => {
             setPreviewEntryId(entryId)
@@ -509,11 +498,11 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
 
     // --- Publish ---------------------------------------------------------------------------------
     // Template mode blocks on the STRUCTURAL pass only (entry: null); the pass against the preview
-    // entry is displayed as advisory — the preview is one sample, and the build gates every real
-    // (template × entry) pairing. Page mode blocks on everything, as before.
+    // entry is advisory — the preview is one sample, the build gates every real (template × entry)
+    // pairing. Page mode blocks on everything.
     //
-    // `published` is left at its default (false), so `unknown-token` stays a WARNING here (DD2): an author
-    // mid-rename must not be blocked on a token they are about to fix. The build re-lints with
+    // `published` stays at its default (false), so `unknown-token` stays a WARNING here (DD2): an
+    // author mid-rename must not be blocked on a token they're about to fix. The build re-lints with
     // published: true and fails there if a dangling token actually reaches a published document.
     const lint = useMemo<{ findings: LintFinding[]; blocked: boolean }>(() => {
         if (!publishOpen || !workingRef.current) return { findings: [], blocked: false }
@@ -671,12 +660,9 @@ function SaveIndicator({ state, error }: { state: SaveState; error: string }) {
     )
 }
 
-/**
- * Settings drawer, saved through the design's autosave. Page mode: title, description, slug (a route).
- * Template mode: title, slug (an identifier, never a route — no URL hint), the collection (read-only;
- * changing it would silently invalidate every outlet binding — recreate the template instead), and the
- * collection-default flag (D4).
- */
+/** Settings drawer, saved through the design's autosave. Page mode: title, description, slug (a
+ * route). Template mode: title, slug (an identifier, never a route), collection (read-only — changing
+ * it would silently invalidate every outlet binding, recreate the template instead), default flag. */
 function PageSettingsDrawer({
     kind,
     collection,
@@ -743,12 +729,9 @@ function PageSettingsDrawer({
     )
 }
 
-/**
- * Publish dialog: shows the lint findings, blocks publish per `blocked` (computed by the caller — page
- * mode blocks on every error; template mode on structural errors only, with the preview-entry pairing
- * rows advisory), then publishes and offers a rebuild. A last save is flushed before publishing so the
- * published revision is current.
- */
+/** Publish dialog: shows lint findings, blocks publish per `blocked` (caller-computed — page mode
+ * blocks every error; template mode structural errors only, preview-entry pairing rows advisory), then
+ * publishes and offers a rebuild. Flushes a last save first so the published revision is current. */
 function PublishDialog({
     findings,
     blocked,
