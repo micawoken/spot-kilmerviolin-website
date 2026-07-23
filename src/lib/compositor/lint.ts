@@ -2,23 +2,19 @@
  * lib/compositor/lint.ts
  *
  * Design lint, rules v1 (impl §6.7). One pure pass over a stored design document, shared by the
- * editor (publish dialog + side panel) and the static build. Findings carry a `severity`, the
- * component `path` they anchor to, and a human message; `errors` block publish and fail the build
- * (they would produce broken or inaccessible output), `warnings` are advisory.
+ * editor (publish dialog + side panel) and the static build. Findings carry a `severity`, a `path`
+ * they anchor to, and a human message; `errors` block publish and fail the build, `warnings` advisory.
  *
- * Runs on the *stored* (Portable Text) form of a design — the same shape the build reads and the
- * editor produces via `editorFormToDesign` before a publish — so rich-text bodies are PT arrays here,
- * never the editor's ProseMirror working form. The catalog-specific knowledge this pass needs (which
- * props are token selects, and which components are content outlets accepting which field types)
- * arrives as `TokenPropRegistry`/`OutletPropRegistry` arguments so this module stays free of
- * `catalog.tsx`'s React/Puck imports and unit-testable on its own; the a11y rules below are inherently
- * tied to catalog v1's component and prop names and track it directly (contributor rule: extend these
- * when the frozen catalog changes).
+ * Runs on the *stored* (Portable Text) form — the shape the build reads and the editor produces via
+ * `editorFormToDesign` before a publish — so rich-text bodies are PT arrays, never ProseMirror. Catalog
+ * knowledge (which props are token selects, which components are outlets accepting which field types)
+ * arrives as `TokenPropRegistry`/`OutletPropRegistry` args, keeping this module free of `catalog.tsx`'s
+ * React/Puck imports and unit-testable alone; the a11y rules are tied to catalog v1's component/prop
+ * names directly (contributor rule: extend these when the frozen catalog changes).
  *
- * Pairing rules (pivot §5.5): passing a `LintPairingContext` switches the pass into template mode —
- * outlets are legal, their field bindings are checked against the collection schema, and the
- * entry-dependent rows run when a (preview or routed) entry is present. WITHOUT a context the doc is
- * a `design_page`, where any outlet is an error: no pairing context will ever exist for it.
+ * Pairing rules (pivot §5.5): a `LintPairingContext` switches the pass into template mode — outlets
+ * legal, field bindings checked against the collection schema, entry-dependent rows run when an entry
+ * is present. WITHOUT a context the doc is a `design_page`, where any outlet is an error.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -79,6 +75,11 @@ export interface LintFinding {
 
 /** Portable Text block `_type`s the RichText renderer supports (§6.4); any other warns. */
 const SUPPORTED_PT_TYPES = new Set(["block", "code"])
+
+/** Whether a value is a non-empty string href that fails the safe-scheme allowlist. */
+function isUnsafeHref(value: unknown): value is string {
+    return typeof value === "string" && value !== "" && !SAFE_URL_SCHEME_RE.test(value)
+}
 
 /** Maps a Heading `level` prop ("h1".."h4") to its numeric depth, or null when unrecognized. */
 function headingDepth(level: unknown): number | null {
@@ -171,7 +172,7 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
         }
         case "Button": {
             const href = props.href
-            if (typeof href === "string" && href !== "" && !SAFE_URL_SCHEME_RE.test(href)) {
+            if (isUnsafeHref(href)) {
                 findings.push({
                     severity: "error",
                     rule: "unsafe-href",
@@ -230,9 +231,9 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     // Field binding vs the collection schema (error: the outlet can never render). Skipped when the
     // schema could not be read (schemaFields null) — the caller has already warned about that.
     let dangling = false
+    const schemaField = context.schemaFields?.find((candidate) => candidate.slug === field)
     if (context.schemaFields !== null) {
         const accepted = state.outletProps[type]
-        const schemaField = context.schemaFields.find((candidate) => candidate.slug === field)
         if (field === "") {
             dangling = true
             findings.push({
@@ -273,10 +274,9 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     const value = entry[field]
 
     const emptyValue = (): void => {
-        // ContentField never omits its row on an empty value — its `onEmpty` prop instead controls what
-        // shows in it (a placeholder, a blank value with the label hidden, or a blank value as-is; see
-        // catalog.tsx's ContentField render). Every other outlet renders nothing. The warning wording
-        // reflects whichever applies, kept in step with that render by hand.
+        // ContentField never omits its row on empty — `onEmpty` controls what shows instead (placeholder,
+        // blank+hidden-label, or blank as-is; see catalog.tsx's ContentField render). Every other outlet
+        // renders nothing. Keep this wording in step with that render by hand.
         const onEmpty = typeof props.onEmpty === "string" ? props.onEmpty : "doNothing"
         const outcome =
             type !== "ContentField"
@@ -331,7 +331,6 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
             break
         }
         case "ContentField": {
-            const schemaField = context.schemaFields?.find((candidate) => candidate.slug === field)
             if (isEmptyFieldValue(value, schemaField?.type)) emptyValue()
             break
         }
@@ -367,7 +366,7 @@ function lintRichText(body: unknown, path: string, findings: LintFinding[]): voi
         }
         if (Array.isArray(block.markDefs)) {
             for (const def of block.markDefs) {
-                if (isRecord(def) && def._type === "link" && typeof def.href === "string" && def.href !== "" && !SAFE_URL_SCHEME_RE.test(def.href)) {
+                if (isRecord(def) && def._type === "link" && isUnsafeHref(def.href)) {
                     findings.push({
                         severity: "error",
                         rule: "unsafe-href",
@@ -425,21 +424,10 @@ function lintHeadings(headings: HeadingRef[], findings: LintFinding[]): void {
     }
 }
 
-/**
- * Lints a stored design document against the theme, and — in template mode — against its pairing
- * context (pivot §5.5). Returns every finding (errors and warnings) in a stable order: per-component
- * findings in document order, then the whole-page heading and template-shape findings.
- *
- * @param doc - the design in stored form (rich text as Portable Text)
- * @param theme - the live theme; when null, token-reference checks are skipped
- * @param tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
- * @param outletProps - outlet type → accepted field types (catalog `OUTLET_PROPS`)
- * @param [context] - present for a `design_template` doc; absent for a `design_page`
- * @param [published=false] - true for a document being published (build gate), which promotes
- *   the `unknown-token` finding to an error (DD2); false (the default, and the editor's intent) keeps it
- *   a warning so an author mid-rename is not blocked
- * @returns all findings; callers gate on `severity === "error"`
- */
+/** Lints a stored design document against the theme and, in template mode, its pairing context.
+ * Returns every finding in stable order: per-component findings in document order, then the
+ * whole-page heading and template-shape findings. `published` promotes `unknown-token` to an error
+ * (DD2); false (editor default) keeps it a warning so an author mid-rename isn't blocked. */
 export function lintDesign(
     doc: DesignDoc,
     theme: TokenCatalog | null,
@@ -488,16 +476,9 @@ export function hasBlockingError(findings: LintFinding[]): boolean {
     return findings.some((finding) => finding.severity === "error")
 }
 
-/**
- * Every token a set of designs references, as `"<kind>:<name>"` → the design labels that use it. Powers
- * the theme editor's rename/remove guard (§3.1): before a token is renamed or removed, the editor can
- * name exactly which designs would lose that style. Pure and catalog-agnostic (takes `TokenPropRegistry`
- * as an argument, same decoupling as `lintDesign`); walks the stored Puck tree exactly like `walk`.
- *
- * @param {{ label: string; doc: DesignDoc }[]} docs - the designs to scan, each with a display label
- * @param {TokenPropRegistry} tokenProps - component type → token-select props (catalog `TOKEN_PROPS`)
- * @returns {Map<string, string[]>} - `"<kind>:<name>"` → the distinct design labels referencing it
- */
+/** Every token a set of designs references, as `"<kind>:<name>"` → the design labels using it. Powers
+ * the theme editor's rename/remove guard: before a token is renamed or removed, name exactly which
+ * designs would lose that style. Pure and catalog-agnostic, walks the stored Puck tree like `walk`. */
 export function collectTokenUsage(
     docs: { label: string; doc: DesignDoc }[],
     tokenProps: TokenPropRegistry
