@@ -1,23 +1,21 @@
 /**
  * components/compositor/ThemePreview.tsx
  *
- * Live, per-section previews for the theme editor (`ThemeEditor.tsx`): small, focused specimens — not
- * one master canvas — answering the two questions a flat token table can't: what does this spacing value
- * actually look like, and what happens when this color sits behind this text? Every specimen resolves
- * through `tokenVar`/`tokenVarName` (`lib/compositor/tokens.ts`) exactly as the real components do
- * (`catalog.tsx`), so it renders from the SAME `--dtk-*` custom properties `tokensToCss` emits — never a
- * hand-rolled approximation that could drift from what the published site actually renders. The caller
- * (`ThemeEditor.tsx`) injects that `:root { --dtk-*: … }` block plus `compositor.css` once, live, from the
- * editor's in-progress (unsaved) state — so a preview reflects the current edit, not just the last save.
+ * Live, per-section previews for the theme editor (`ThemeEditor.tsx`): small focused specimens, not one
+ * master canvas — answers what a spacing value actually looks like, what a color/text pairing looks like,
+ * neither obvious from a flat token table. Every specimen resolves through `tokenVar`/`tokenVarName`
+ * (`lib/compositor/tokens.ts`) exactly as real components do (`catalog.tsx`) — same `--dtk-*` custom
+ * properties `tokensToCss` emits, never a hand-rolled approximation that could drift from the published
+ * site. The caller (`ThemeEditor.tsx`) injects that `:root { --dtk-*: … }` block plus `compositor.css`
+ * once, live, from its in-progress unsaved state — a preview reflects the current edit, not the last save.
  *
- * Button variants reuse `renderButtonTag` and typography-adjacent headings could reuse `renderHeadingTag`
- * (both exported from `catalog.tsx` for this purpose) rather than duplicating their JSX, for the same
- * no-drift reason.
+ * Button variants reuse `renderButtonTag`, typography-adjacent headings could reuse `renderHeadingTag`
+ * (both exported from `catalog.tsx`) instead of duplicating their JSX — same no-drift reason.
  *
- * One deliberately honest limit, not a bug:
- *  - Breakpoint tokens are NOT wired into any component's responsive behavior (`compositor.css`'s
- *    `.cmp-columns` hardcodes 768px, since custom properties cannot appear in `@media` conditions).
- *    `BreakpointScale` is a labeled magnitude comparison, not a working responsive preview, and says so.
+ * Honest limit, not a bug: breakpoint tokens aren't wired into any component's responsive behavior
+ * (`compositor.css`'s `.cmp-columns` hardcodes 768px — custom properties can't appear in `@media`
+ * conditions). `BreakpointScale` is a labeled magnitude comparison, not a working responsive preview, and
+ * says so.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -56,9 +54,9 @@ import {
 import { tokenVar } from "../../lib/compositor/tokens"
 
 /**
- * One editable token row, in the same generic (kind → bag of string fields) shape `ThemeEditor.tsx`
- * edits every token kind in — every field is read defensively (`row.x ?? ""`), same convention as that
- * file's own `toEditable`/`toCatalog`, rather than a per-kind interface the caller would have to satisfy.
+ * One editable token row — same generic (kind → bag of string fields) shape `ThemeEditor.tsx` edits
+ * every kind in. Every field read defensively (`row.x ?? ""`), matching that file's `toEditable`/
+ * `toCatalog`, instead of a per-kind interface.
  */
 type Row = Record<string, string>
 
@@ -67,19 +65,18 @@ const SAMPLE_LINE = "Handcrafted violins, violas, and cellos — sales, restorat
 
 /**
  * Colors, in context: each swatch is the color as a background with sample text laid over it. Typography
- * tokens carry no color (`tokens.ts` — `TypographyToken` has no color field), so there is no real
- * background→text binding to reproduce here; instead the swatch text is set to whichever of black/white
- * gives the better WCAG contrast against the swatch's OWN resolved value (`bestTextColorFor`,
- * `theme-controls.ts`) — locked to the currently selected light/dark side, flipping away from that
- * side's usual convention only when the author's actual color demands it (e.g. an unusually light color
- * on the "dark" channel). A color this module can't parse (a named color, `var()`, `oklch()`, …) falls
- * back to the ambient inherited page text color rather than guessing.
+ * tokens carry no color (`tokens.ts`'s `TypographyToken` has no color field) — no real background→text
+ * binding to reproduce, so swatch text is set to whichever of black/white gives better WCAG contrast
+ * against the swatch's own resolved value (`bestTextColorFor`, `theme-controls.ts`) — locked to the
+ * selected light/dark side, flipping away from that side's usual convention only when the author's color
+ * demands it (e.g. an unusually light color on the dark channel). A color this module can't parse (named
+ * color, `var()`, `oklch()`, …) falls back to the ambient inherited page text color rather than guessing.
  *
  * A color stored as `light-dark(L, D)` (adaptive scheme) resolves against the `color-scheme` CSS
- * property of the element or its ancestor, not the OS/browser preference directly once an element
- * declares its own — so the Light/Dark toggle is pure CSS: flip local state and set
- * `style={{ colorScheme: mode }}` on the wrapping div. Only shown for `colorScheme === "adaptive"`;
- * in `"fixed"` mode there is no dark variant to reveal, and the stored value is used as-is.
+ * property of the element or ancestor, not the OS/browser preference once an element declares its own —
+ * so the Light/Dark toggle is pure CSS: flip local state, set `style={{ colorScheme: mode }}` on the
+ * wrapping div. Only shown for `colorScheme === "adaptive"`; in `"fixed"` mode there's no dark variant to
+ * reveal, stored value used as-is.
  */
 export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorScheme?: "adaptive" | "fixed" }) {
     const rows = colors.filter((color) => (color.name ?? "").trim() !== "" && (color.value ?? "").trim() !== "")
@@ -110,9 +107,8 @@ export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorSc
             )}
             <div className="theme-preview__grid">
                 {rows.map((color) => {
-                    // Resolve to the side currently being previewed (light-dark() pair split by mode, or
-                    // the value as-is in fixed mode / for a plain color), so contrast is judged against
-                    // exactly what this swatch is showing, not the other side of an adaptive pair.
+                    // Resolve to the side being previewed (light-dark() pair split by mode, else value
+                    // as-is) — contrast judged against what this swatch shows, not the pair's other side.
                     const pair = showToggle ? parseLightDark(color.value) : null
                     const resolved = pair ? (mode === "light" ? pair.light : pair.dark) : color.value
                     const textColor = bestTextColorFor(resolved)
@@ -138,9 +134,9 @@ export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorSc
 }
 
 /**
- * The Site Chrome color roles this check measures, by name (each is a `colors` token name, or `""` when
- * the role is unset) — a narrow slice of `ThemeEditor.tsx`'s `SiteChromeRow`, kept local here so this
- * module doesn't import that editor-only type.
+ * Site Chrome color roles this check measures, by name (each a `colors` token name, or `""` if unset) —
+ * narrow slice of `ThemeEditor.tsx`'s `SiteChromeRow`, kept local so this module doesn't import that
+ * editor-only type.
  */
 export interface ChromeColorRoles {
     pageBackground: string
@@ -152,12 +148,11 @@ export interface ChromeColorRoles {
 }
 
 /**
- * A foreground/background role pairing the public site frame actually renders together
- * (`styles/public-chrome.css`), checked by `SiteChromeContrastCheck`: body text, link, and link-hover
- * colors against the page background (`html body`, `main a`, `main a:hover`), and the muted nav/footer
- * text against each of its own two backgrounds. Deliberately the real pairings the CSS renders, not every
- * combinatorial one — e.g. not muted-text-on-page-background's hover state, which repaints as body text
- * (already covered by the first row) rather than a new color.
+ * Foreground/background role pairings the public site frame actually renders together
+ * (`styles/public-chrome.css`), checked by `SiteChromeContrastCheck`: body/link/link-hover text against
+ * page background (`html body`, `main a`, `main a:hover`), muted nav/footer text against each of its two
+ * backgrounds. Real rendered pairings only, not every combination — e.g. not muted-text-on-page-
+ * background's hover state, which repaints as body text (already covered above), not a new color.
  */
 const CONTRAST_TARGETS: ReadonlyArray<{ id: string; label: string; fg: keyof ChromeColorRoles; bg: keyof ChromeColorRoles }> = [
     { id: "body", label: "Body text on page background", fg: "bodyText", bg: "pageBackground" },
@@ -167,23 +162,22 @@ const CONTRAST_TARGETS: ReadonlyArray<{ id: string; label: string; fg: keyof Chr
     { id: "footer", label: "Muted text (footer links/copy) on footer background", fg: "mutedText", bg: "footerBackground" }
 ]
 
-/** One color role resolved to what it actually renders: the raw CSS string (post light/dark split, for
- *  the preview swatch's inline style) and its parsed RGB (for the contrast math) — either may be `null`
- *  independently, since a browser can render a color (a named color, `var()`, `oklch()`, …) this module's
- *  parser still can't measure. */
+/** One color role resolved to what it renders: raw CSS string (post light/dark split, for the swatch's
+ *  inline style) plus parsed RGB (for contrast math) — either may be null independently, since a browser
+ *  can render a color (named color, `var()`, `oklch()`, …) this module's parser can't measure. */
 interface ResolvedChromeColor {
     value: string | null
     rgb: RgbColor | null
 }
 
-/** The unresolved/unset color, so a pairing with an empty role name still renders (as "not assigned")
- *  instead of the row silently vanishing. */
+/** Unresolved/unset color — a pairing with an empty role name still renders ("not assigned") instead of
+ *  silently vanishing. */
 const UNRESOLVED_CHROME_COLOR: ResolvedChromeColor = { value: null, rgb: null }
 
 /**
- * Resolves a Site Chrome role's token name to what it renders, split to the given light/dark mode exactly
- * as `ColorReference`'s own swatches do (same "resolve to the side being previewed" rationale) — so the
- * contrast check always measures the mode currently shown, not the other side of an adaptive pair.
+ * Resolves a Site Chrome role's token name to what it renders, split to the given light/dark mode — same
+ * as `ColorReference`'s swatches ("resolve to the side being previewed"). Contrast check always measures
+ * the shown mode, not the pair's other side.
  */
 function resolveChromeColor(name: string, colors: Row[], colorScheme: "adaptive" | "fixed", mode: "light" | "dark"): ResolvedChromeColor {
     if (!name) return UNRESOLVED_CHROME_COLOR
@@ -195,8 +189,8 @@ function resolveChromeColor(name: string, colors: Row[], colorScheme: "adaptive"
     return { value, rgb: parseCssColorToRgb(value) }
 }
 
-/** Why a pairing has no ratio to show: distinguishes an unset/dangling role from a color format this
- *  module's parser can't measure, since only the former is fixable from the Site Chrome table above. */
+/** Why a pairing has no ratio: distinguishes an unset/dangling role (fixable from the Site Chrome table
+ *  above) from an unparseable color format (not fixable here). */
 function unresolvedReason(fgName: string, bgName: string, fg: ResolvedChromeColor, bg: ResolvedChromeColor): string {
     if (!fgName || !bgName) return "Assign both roles above to check this pairing."
     if (fg.value === null || bg.value === null) return "One of the assigned tokens no longer exists."
@@ -204,12 +198,11 @@ function unresolvedReason(fgName: string, bgName: string, fg: ResolvedChromeColo
 }
 
 /**
- * WCAG AA/AAA contrast for every foreground/background pairing the Site Chrome roles above actually
- * render together on the public site (`CONTRAST_TARGETS`), each with a live swatch of sample text on its
- * real background. Reuses `ColorReference`'s Light/Dark toggle pattern for an adaptive color scheme —
- * an adaptive pairing can pass in one mode and fail in the other, so both are checkable, one at a time.
- * A pairing with an unset role, a dangling token reference, or a color format `theme-controls.ts` can't
- * parse (a named color, `var()`, `oklch()`, …) shows why instead of a ratio — never a guessed pass/fail.
+ * WCAG AA/AAA contrast for every fg/bg pairing the Site Chrome roles actually render together on the
+ * public site (`CONTRAST_TARGETS`), each with a live swatch on its real background. Reuses
+ * `ColorReference`'s Light/Dark toggle — an adaptive pairing can pass one mode and fail the other, both
+ * checkable one at a time. Unset role, dangling token, or unparseable color format shows why instead of
+ * a ratio — never a guessed pass/fail.
  */
 export function SiteChromeContrastCheck({
     colors,
@@ -298,15 +291,13 @@ export function SiteChromeContrastCheck({
 
 /**
  * One live specimen per typography token, set at its real family/size/weight/line-height/letter-spacing.
- * Google-hosted web fonts are not loadable inside the admin editor (its CSP has no `style-src` allowance
- * for `fonts.googleapis.com`), so a family naming one renders its CSS fallback here — the hint below says
- * so rather than silently showing the wrong typeface as if it were right.
+ * Google-hosted web fonts don't load inside the admin editor (CSP has no `style-src` for
+ * `fonts.googleapis.com`) — a family naming one renders its CSS fallback here, hint below says so rather
+ * than silently showing the wrong typeface.
  *
- * `usedBy` (Puck "Component.field" strings, derived from `TOKEN_PROPS` — see `catalog.tsx`'s
- * `tokenKindUsers`) answers "which Puck components use this": every row below is a text style any of
- * those fields' dropdowns can select, which is otherwise not obvious from a flat token table. A custom
- * preview-text input lets an author see their own copy at each size/weight instead of only the fixed
- * sample line; leaving it blank keeps the sample.
+ * `usedBy` (Puck "Component.field" strings, from `TOKEN_PROPS` — see `catalog.tsx`'s `tokenKindUsers`)
+ * answers "which Puck components use this" — not obvious from a flat token table. Custom preview-text
+ * input lets an author see their own copy at each size/weight; blank keeps the sample line.
  */
 export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; usedBy?: string[] }) {
     const rows = typography.filter((token) => (token.name ?? "").trim() !== "")
@@ -359,11 +350,10 @@ export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; 
 }
 
 /**
- * A comparative bar per space token, all sharing one scale, so relative magnitude is visible at a glance
- * (a flat text value like "1.5rem" alone conveys no size). Each bar's width is `var(--dtk-space-<name>)`
- * itself — not a re-derived number — so it is exactly the length the token resolves to, in whatever unit
- * it is authored in (rem/px/%/vw/…). The track scrolls rather than clips, so an unusually large value
- * (e.g. a `%`/`vw` token) stays honest instead of being silently capped.
+ * Comparative bar per space token, one shared scale — relative magnitude visible at a glance (a flat
+ * "1.5rem" alone conveys no size). Bar width is `var(--dtk-space-<name>)` itself, not re-derived —
+ * exactly what the token resolves to, in its authored unit (rem/px/%/vw/…). Track scrolls rather than
+ * clips, so an unusually large value (`%`/`vw` token) stays honest instead of silently capped.
  */
 export function SpacingScale({ space }: { space: Row[] }) {
     const rows = space.filter((token) => (token.name ?? "").trim() !== "" && (token.value ?? "").trim() !== "")
@@ -383,7 +373,7 @@ export function SpacingScale({ space }: { space: Row[] }) {
     )
 }
 
-/** A small grid of boxes, each rounded by its radius token, against a visible fill so the curve reads. */
+/** Grid of boxes, each rounded by its radius token, against a visible fill so the curve reads. */
 export function RadiusSwatches({ radius }: { radius: Row[] }) {
     const rows = radius.filter((token) => (token.name ?? "").trim() !== "" && (token.value ?? "").trim() !== "")
     if (rows.length === 0) return null
@@ -399,7 +389,7 @@ export function RadiusSwatches({ radius }: { radius: Row[] }) {
     )
 }
 
-/** A small grid of boxes, each cast with its shadow token, on a surface with enough contrast to show it. */
+/** Grid of boxes, each cast with its shadow token, on a surface with enough contrast to show it. */
 export function ShadowSwatches({ shadows }: { shadows: Row[] }) {
     const rows = shadows.filter((token) => (token.name ?? "").trim() !== "" && (token.value ?? "").trim() !== "")
     if (rows.length === 0) return null
@@ -416,9 +406,9 @@ export function ShadowSwatches({ shadows }: { shadows: Row[] }) {
 }
 
 /**
- * A small grid of boxes bordered by each border token, resolved through the same
- * `--dtk-border-<name>-{width,style,color}` properties `tokensToCss` emits (the `colorRef` indirection
- * included), so a dangling `colorRef` shows here exactly as it would on the site: an unset border color.
+ * Grid of boxes bordered by each border token, resolved through the same
+ * `--dtk-border-<name>-{width,style,color}` properties `tokensToCss` emits (`colorRef` indirection
+ * included) — a dangling `colorRef` shows here exactly as on the site: an unset border color.
  */
 export function BorderSwatches({ borders }: { borders: Row[] }) {
     const rows = borders.filter((token) => (token.name ?? "").trim() !== "")
@@ -445,12 +435,11 @@ export function BorderSwatches({ borders }: { borders: Row[] }) {
 }
 
 /**
- * A comparative bar per breakpoint, same idea as `SpacingScale` but using the raw stored `minWidth`
- * directly — breakpoints are never emitted as `--dtk-*` custom properties (`tokens.ts`: custom properties
- * can't appear in `@media` conditions), so there is no token var to resolve here; the one real consumer
- * (`Columns`' stack point, via `columnsStackBreakpointCss`) reads the designated breakpoint's value
- * directly at CSS-generation time instead. `activeName` (the editor's "Columns stacks below" selection,
- * `ThemeEditor.tsx`) is highlighted; the rest remain documentary.
+ * Comparative bar per breakpoint, same idea as `SpacingScale` but using the raw stored `minWidth`
+ * directly — breakpoints are never emitted as `--dtk-*` custom properties (can't appear in `@media`
+ * conditions), so no token var to resolve; the one real consumer (`Columns`' stack point, via
+ * `columnsStackBreakpointCss`) reads the value directly at CSS-generation time. `activeName` (editor's
+ * "Columns stacks below" selection) is highlighted, rest stay documentary.
  */
 export function BreakpointScale({ breakpoints, activeName }: { breakpoints: Row[]; activeName?: string }) {
     const rows = breakpoints.filter((token) => (token.name ?? "").trim() !== "" && (token.minWidth ?? "").trim() !== "")
@@ -486,14 +475,13 @@ const PREVIEW_WIDTHS: ReadonlyArray<{ label: string; width: number | null }> = [
 ]
 
 /**
- * Wraps a preview specimen in a width-constrained container with preset-width buttons, so an author can
- * see a spacing/typography specimen at a few common widths without resizing the actual browser window.
+ * Wraps a preview specimen in a width-constrained container with preset-width buttons — an author sees a
+ * specimen at common widths without resizing the browser window.
  *
- * Deliberately honest about a real limit, not a bug: this resizes an inner `<div>`, not the browser's
- * viewport. `compositor.css`'s Columns breakpoint is a real `@media (max-width: 767.98px)` query, and any
- * `vw`-based token value is viewport-relative — neither responds to this container shrinking. Only a
- * `%`-based value would respond correctly here. The caption says so; resizing the real window is still the
- * only way to see the site's actual responsive behavior.
+ * Honest limit, not a bug: resizes an inner `<div>`, not the viewport. `compositor.css`'s Columns
+ * breakpoint is a real `@media (max-width: 767.98px)` query, and any `vw`-based token is viewport-
+ * relative — neither responds to this container shrinking. Only a `%`-based value responds correctly.
+ * Caption says so; resizing the real window is the only way to see actual responsive behavior.
  */
 export function ResponsivePreviewFrame({ children }: { children: ReactNode }) {
     const [width, setWidth] = useState<number | null>(null)
@@ -525,9 +513,9 @@ export function ResponsivePreviewFrame({ children }: { children: ReactNode }) {
 }
 
 /**
- * The real `Button` component rendered once per variant, labeled with the variant's own name — pixel-
- * identical to how a page's Button renders that variant, via the same exported `renderButtonTag`.
- * `href="#"` never actually navigates: the wrapper swallows the click.
+ * Real `Button` component rendered once per variant, labeled with the variant's name — pixel-identical
+ * to a page's Button via the same exported `renderButtonTag`. `href="#"` never navigates: wrapper
+ * swallows the click.
  */
 export function ButtonVariantSamples({ variants }: { variants: Row[] }) {
     const rows = variants.filter((token) => (token.name ?? "").trim() !== "")
