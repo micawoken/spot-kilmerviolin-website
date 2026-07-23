@@ -2,14 +2,13 @@
  * lib/build/entity-records.ts
  *
  * Normalizes the three D1 readers' (d1-api.ts) return shapes into one uniform, FLAT record per entity
- * noun, for `src/pages/entity/[noun]/[id].astro` and `.../index.astro`. This is the reference-fold
- * seam (unified field-outlet rewrite): a composition's foreign keys (`composer_id`,
- * `contrib_primary_1`/`_2`, `contrib_addl`, `author_secondary`) are resolved to `{id, name, href}`
- * objects HERE, once, so every outlet downstream reads a plain `entry[field]` — no parallel
- * `entryNames`/`CompositionNames` structure, no dedicated per-noun render block needed to reach a
- * reference. `formatWorkFromD1` (api/common.ts) nests D1's already-flat columns into
- * `rating.*`/`publication_info.*` for the runtime API's `Composition` shape; this module flattens them
- * back so every entity field — composer or composition — is a plain top-level key.
+ * noun, for `src/pages/entity/[noun]/[id].astro` and `.../index.astro`. Reference-fold seam (unified
+ * field-outlet rewrite): a composition's foreign keys (`composer_id`, `contrib_primary_1`/`_2`,
+ * `contrib_addl`, `author_secondary`) resolved to `{id, name, href}` objects HERE, once — every outlet
+ * downstream reads a plain `entry[field]`, no parallel `entryNames`/`CompositionNames` structure, no
+ * per-noun render block to reach a reference. `formatWorkFromD1` (api/common.ts) nests D1's flat
+ * columns into `rating.*`/`publication_info.*` for the runtime API's `Composition` shape; this module
+ * flattens them back — every entity field, composer or composition, a plain top-level key.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -77,18 +76,13 @@ export interface EntityReferenceIndex {
 }
 
 /**
- * Builds the reference index a composition's foreign keys resolve against. `allContributors` MUST be the
- * unredacted, all-contributors list (`fetchAllContributors`/`fetchAllContributorsForBuild` in d1-api.ts),
- * NOT the active-only public list — a composition may legitimately reference an inactive contributor, and
- * deriving the map from the active-only list would silently render every such reference as a blank name
- * (see d1-api.ts's `fetchContributors` header). Only `id`/`name`/`active` are read off it; nothing else
- * from an inactive contributor's record reaches a public page through this index.
- *
- * @param {ComposerRecord[] | null} composers - every composer (composers have no active/inactive concept)
- * @param {ContributorRecord[] | null} allContributors - every contributor, unredacted, active or not
- * @param {Record<EntityNoun, boolean>} nounHasPage - whether each noun has a resolved default template
- *   this build (`resolveEntityTemplates`) — a reference to a noun with no template has nowhere to link
- * @returns {EntityReferenceIndex} the id→target maps `entityRecords` resolves composition FKs against
+ * Builds the reference index a composition's foreign keys resolve against. `allContributors` MUST be
+ * the unredacted, all-contributors list (`fetchAllContributors` in d1-api.ts), NOT the active-only
+ * public list — a composition may legitimately reference an inactive contributor; deriving the map
+ * from the active-only list would silently blank every such reference (see d1-api.ts's
+ * `fetchContributors` header). Only `id`/`name`/`active` read off it — nothing else from an inactive
+ * contributor's record reaches a public page through this index. `nounHasPage`: whether each noun has
+ * a resolved default template this build — a reference to a noun with no template has nowhere to link.
  */
 export function buildReferenceIndex(
     composers: ComposerRecord[] | null,
@@ -109,21 +103,16 @@ export function buildReferenceIndex(
 }
 
 /**
- * Builds the id→related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles — the
- * related entries are always works, regardless of which noun's detail page the block appears on
+ * Builds the id→related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles —
+ * related entries are always works, regardless of which noun's detail page shows them
  * (docs/dev/miscellaneous.txt "related-entries tiles"): a composer's tiles are their works, a
- * contributor's tiles are the works they contributed to, and a work's tiles are other works by the same
- * composer. Keyed `"{noun}:{id}"` so one map serves all three nouns; `[id].astro` looks up its own
- * noun/id pair per record.
+ * contributor's tiles are works they contributed to, a work's tiles are other works by the same
+ * composer. Keyed `"{noun}:{id}"` so one map serves all three nouns.
  *
- * Owner decision (v1 scope): a work's related list is same-composer-only — no editor-curated list yet.
+ * Owner decision (v1 scope): a work's related list is same-composer-only, no editor-curated list yet.
  *
- * @param {ComposerRecord[] | null} composers - every composer, for the tile subtitle and composer→works lookup
- * @param {CompositionRecord[] | null} compositions - every work
- * @param {Record<EntityNoun, boolean>} nounHasPage - whether "composition" has a resolved default template
- *   this build — every related tile links to a work, so only that one flag matters here
- * @returns {Map<string, RelatedWork[]>} `"{noun}:{id}"` → that record's related works, in source order
- *   (composer keys list primary credits before secondary-author credits)
+ * `nounHasPage` only checks "composition" — every related tile links to a work, so only that flag
+ * matters. Result order: composer keys list primary credits before secondary-author credits.
  */
 export function buildRelatedWorksIndex(
     composers: ComposerRecord[] | null,
@@ -148,9 +137,7 @@ export function buildRelatedWorksIndex(
         else index.set(key, [work])
     }
 
-    // composer -> works: a first pass pushes every primary credit, a second pushes secondary-author
-    // credits — two full passes (not one, interleaved) so every composer's list has its primary works
-    // before its secondary ones, regardless of which composition record each came from.
+    // composer -> works: two full passes (not interleaved) so primary credits list before secondary.
     for (const record of works) {
         push(`composer:${record.composer_id}`, toRelatedWork(record))
     }
@@ -161,7 +148,7 @@ export function buildRelatedWorksIndex(
         }
     }
 
-    // composition -> related works (v1: same composer only, excluding itself; see header).
+    // composition -> related works (v1: same composer only, excludes itself; see header).
     for (const record of works) {
         for (const sibling of works) {
             if (sibling.id === record.id || sibling.composer_id !== record.composer_id) continue
@@ -169,9 +156,8 @@ export function buildRelatedWorksIndex(
         }
     }
 
-    // contributor -> works they contributed to, across all three contributor-credit columns. A Set
-    // dedupes the rare case of one contributor id appearing in more than one of those columns on the
-    // same work, so that work isn't listed twice for the same contributor.
+    // contributor -> works, across all three credit columns. Set dedupes a contributor id appearing
+    // in more than one column on the same work.
     for (const record of works) {
         const contributorIds = new Set<number>([record.contrib_primary_1, ...record.contrib_addl])
         if (record.contrib_primary_2 !== null) contributorIds.add(record.contrib_primary_2)
@@ -212,8 +198,8 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
         contrib_primary_1,
         contrib_primary_2,
         contrib_addl,
-        // Derived, not a D1 column: primary/additional-primary/additional is an internal-only distinction
-        // (owner decision) — public pages bind this single combined list instead, in one line.
+        // Derived, not a D1 column: primary/additional-primary/additional distinction is internal-only
+        // (owner decision) — public pages bind this one combined list instead.
         contributors: [contrib_primary_1, contrib_primary_2, ...contrib_addl].filter(
             (ref): ref is ResolvedReference => ref !== null
         ),
@@ -238,20 +224,12 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
 }
 
 /**
- * Normalizes one noun's fetched D1 rows into {@link EntityRecord}s. A `null` reader result (D1
- * unconfigured, or that specific table read skipped) contributes no records — the caller's
- * dual-source-dependency gate treats that the same as "no records" either way. Contributor records are
- * already flat (`ContributorRecord`) and pass through as `entry` unchanged; composer records are already
- * flat too but gain one derived field (`life_span`, see entity-fields.ts); composition records are
- * flattened and reference-resolved via {@link flattenComposition}.
- *
- * @param {EntityNoun} noun - which reader's rows to read (the other two are ignored)
- * @param {ComposerRecord[] | null} composers - `fetchComposers()`'s result
- * @param {ContributorRecord[] | null} contributors - `fetchContributors()`'s result (already active-only, redacted)
- * @param {CompositionRecord[] | null} compositions - `fetchCompositions()`'s result
- * @param {EntityReferenceIndex} refs - the reference index (see {@link buildReferenceIndex}); only
- *   consulted for the "composition" noun
- * @returns {EntityRecord[]} that noun's records, in reader order
+ * Normalizes one noun's fetched D1 rows into {@link EntityRecord}s. `null` reader result (D1
+ * unconfigured, or that table read skipped) contributes no records — same as "no records" either way.
+ * Contributor records already flat, pass through as `entry` unchanged; composer records flat too but
+ * gain one derived field (`life_span`, entity-fields.ts); composition records flattened and
+ * reference-resolved via {@link flattenComposition}. `refs` (see {@link buildReferenceIndex}) only
+ * consulted for the "composition" noun.
  */
 export function entityRecords(
     noun: EntityNoun,
