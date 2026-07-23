@@ -86,7 +86,12 @@ const noindex = detectEnvironment(Astro.request) === "staging"
     }
     ::view-transition-old(root),
     ::view-transition-new(root) {
-        mix-blend-mode: normal;
+        /* !important: the UA stylesheet drives this property via an actual CSS Animation
+         * (-ua-mix-blend-mode-plus-lighter), not a static rule. Per the cascade, animation-origin
+         * declarations beat normal-priority author declarations regardless of specificity — only
+         * !important author rules can win against it. Confirmed via a DevTools performance trace
+         * showing that animation still active with a plain (non-important) override in place. */
+        mix-blend-mode: normal !important;
     }
 </style>
 

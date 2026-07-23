@@ -499,7 +499,7 @@ describe("viewTransitionCss", () => {
         "}\n" +
         "::view-transition-old(root),\n" +
         "::view-transition-new(root) {\n" +
-        "    mix-blend-mode: normal;\n" +
+        "    mix-blend-mode: normal !important;\n" +
         "}"
 
     it("is enabled by default when no theme is published (empty catalog)", () => {
