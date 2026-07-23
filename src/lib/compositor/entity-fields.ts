@@ -2,22 +2,19 @@
  * lib/compositor/entity-fields.ts
  *
  * Static outlet field catalog for the three D1-backed entity types (composers, compositions,
- * contributors) — the entity analog of `design-api.ts`'s `fetchCollectionFields`, but synchronous and
- * hand-authored rather than read live from EmDash: entities are not an EmDash collection, so there is
- * no schema endpoint to ask.
+ * contributors) — synchronous, hand-authored, unlike `design-api.ts`'s `fetchCollectionFields`:
+ * entities aren't an EmDash collection, no schema endpoint to ask.
  *
- * Unified field-outlet rewrite: every meaningful D1 column for each noun is bindable — there is no
- * separate "dedicated block" noun. A foreign-key column (composer_id, contrib_primary_1, contrib_addl,
- * …) is never exposed as its raw id; it is declared here as "reference"/"referenceList" and resolved to
- * a display name + link by `entity-records.ts`'s normalizer before it ever reaches a render. Internal
- * audit-only columns are omitted (raw `*_id` primary keys, the `active` flag — every rendered contributor
- * is active by definition). `entry_date`/`change_date` ARE exposed, as "date" kind fields, for building
- * created/last-modified headers (owner decision).
+ * Unified field-outlet rewrite: every meaningful D1 column per noun is bindable, no separate
+ * "dedicated block" noun. A foreign key (composer_id, contrib_primary_1, contrib_addl, …) is never
+ * exposed as its raw id — declared here as "reference"/"referenceList", resolved to name+link by
+ * `entity-records.ts`'s normalizer before render. Audit-only columns omitted (raw `*_id` PKs, `active`
+ * — every rendered contributor is active by definition). `entry_date`/`change_date` exposed as "date"
+ * for created/last-modified headers (owner decision).
  *
  * Public-page labels here are NOT shared with the admin's `composition-fields.ts` — that module keeps
- * its own ID-oriented labels ("Composer ID", "Secondary Author IDs") for `CompositionInfo.astro`'s admin
- * card, which intentionally differs from this catalog's public labels (public fields resolve FKs to
- * names, never raw ids).
+ * its own ID-oriented labels ("Composer ID", "Secondary Author IDs") for `CompositionInfo.astro`;
+ * public fields resolve FKs to names, never raw ids.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -77,19 +74,14 @@ export const ENTITY_NOUN_SLUGS: Record<EntityNoun, string> = {
 }
 
 /**
- * The closed vocabulary a bindable entity field can be. Deliberately kept to what the D1 columns
- * actually are (no speculative kinds): plain scalars ("string"/"text"/"number"), a formatted timestamp
- * ("date"), a resolved foreign key ("reference"/"referenceList"), a joined array ("list"), a media
- * reference ("image"), the composition-only publication link composite ("uri"), a composer's death_year
- * (`"yearOrLiving"` — the -1 "still living" sentinel formats as "Present", mirroring the admin's
- * `ComposerInfo.astro`/`format.ts` treatment), a composer's ISO 3166-1 country code (`"countryCode"`
- * — formats to its English display name), a contributor's public email (`"email"` — renders as a
- * `mailto:` link), a composer's role (`"titleCase"` — title-cased for display regardless of how it
- * was entered), and a composer/composition's optional citations map (`"citations"` — a key-value object
- * rendered as a list of hyperlinks, the key as display text; see scripts/citations.ts).
- * "string"/"text"/"image" intentionally reuse the same
- * vocabulary `OUTLET_PROPS` (catalog.tsx) already accepts for `ContentText`/`ContentImage`, so those two
- * components work unmodified against entity fields; the rest are new kinds only `ContentField` accepts.
+ * Closed vocabulary a bindable entity field can be — kept to what the D1 columns actually are, no
+ * speculative kinds. Notable ones: `"yearOrLiving"` — composer death_year, -1 sentinel formats as
+ * "Present" (mirrors `ComposerInfo.astro`/`format.ts`); `"countryCode"` — ISO 3166-1, formats to
+ * English display name; `"email"` — renders `mailto:`; `"titleCase"` — composer role, title-cased
+ * regardless of entry; `"citations"` — key-value map rendered as hyperlink list (scripts/citations.ts).
+ * "string"/"text"/"image" deliberately reuse `OUTLET_PROPS`'s (catalog.tsx) vocabulary for
+ * `ContentText`/`ContentImage`, so those two work unmodified against entity fields; the rest are new
+ * kinds only `ContentField` accepts.
  */
 export type EntityFieldKind =
     | "string"
@@ -122,8 +114,8 @@ const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "birth_year", label: "Birth Year", type: "number" },
     { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
     { slug: "country", label: "Country", type: "countryCode" },
-    // Derived, not a D1 column: entity-records.ts's normalizer pre-builds this from birth_year/death_year
-    // (see formatLifespan in scripts/format.ts) so a template can bind the range as one field.
+    // Derived, not a D1 column — entity-records.ts pre-builds from birth_year/death_year (formatLifespan,
+    // scripts/format.ts) so a template can bind the range as one field.
     { slug: "life_span", label: "Birth–Death Years", type: "string" },
     { slug: "bio", label: "Bio", type: "text" },
     { slug: "image", label: "Image", type: "image" },
@@ -156,11 +148,9 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "contrib_primary_1", label: "Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_primary_2", label: "Additional Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList", refNoun: "contributor" },
-    // Combines contrib_primary_1/_2/contrib_addl into one line, since the primary/additional-primary/
-    // additional distinction is internal-only (owner decision) and shouldn't have to appear on a public
-    // page — kept alongside the individual fields above (not a replacement) so an already-authored
-    // template binding those separately keeps working; a template can opt into this single-line field
-    // instead when convenient.
+    // Combines contrib_primary_1/_2/contrib_addl into one line — that distinction is internal-only
+    // (owner decision), shouldn't appear on a public page. Additive, not a replacement: an existing
+    // template binding those separately keeps working; new ones can opt into this instead.
     { slug: "contributors", label: "Contributors (single line)", type: "referenceList", refNoun: "contributor" },
     { slug: "phases", label: "Phases", type: "list" },
     { slug: "key", label: "Key", type: "string" },
@@ -187,30 +177,15 @@ const ENTITY_FIELDS: Record<EntityNoun, readonly EntityField[]> = {
     composition: COMPOSITION_FIELDS
 }
 
-/**
- * The outlet-eligible fields for one entity noun. Always returns synchronously (no fetch) — entity
- * fields are fixed by the D1 schema, not a live EmDash read.
- *
- * @param {EntityNoun} noun - the entity type
- * @returns {readonly EntityField[]} that noun's outlet-eligible fields
- */
+/** Outlet-eligible fields for one entity noun. Synchronous — fixed by the D1 schema, not a live read. */
 export function entityFields(noun: EntityNoun): readonly EntityField[] {
     return ENTITY_FIELDS[noun]
 }
 
-/**
- * Whether a resolved entity-field value counts as "empty" for a given field kind. The single source of
- * truth for that judgment — shared by `lint.ts`'s advisory empty-outlet-value warning and `catalog.tsx`'s
- * `ContentField` outlet, whose on-empty display control (show a placeholder, hide the label, or leave it
- * as-is) must agree with what the lint pass warns about. `kind` is untyped `string | undefined` rather
- * than `EntityFieldKind` because callers also pass it a `CollectionField.type` (pages/posts schemas,
- * which never produce a reference/date/list/uri/yearOrLiving/countryCode-shaped value in practice, so the
- * default branch is what those exercise).
- *
- * @param {unknown} value - the raw (already reference-resolved, per entity-records.ts) field value
- * @param {string | undefined} kind - the bound field's declared kind, when known
- * @returns {boolean} true if the value carries nothing worth displaying
- */
+/** Whether a resolved entity-field value counts as "empty" for a field kind — single source of truth
+ * shared by `lint.ts`'s empty-outlet warning and `catalog.tsx`'s `ContentField` on-empty display
+ * control; the two must agree. `kind` is `string | undefined`, not `EntityFieldKind`, because callers
+ * also pass a `CollectionField.type` (pages/posts schemas) — those exercise the default branch. */
 export function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
     if (value === null || value === undefined) return true
     switch (kind) {
