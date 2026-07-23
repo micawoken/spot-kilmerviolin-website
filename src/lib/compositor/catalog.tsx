@@ -1,50 +1,41 @@
 /**
  * lib/compositor/catalog.tsx
  *
- * The single, frozen component catalog (impl §4.5 / §6.3). `buildConfig(theme, target, context?)` is a
+ * The single, frozen component catalog (impl §4.5/§6.3). `buildConfig(theme, target, context?)` is a
  * factory — select options depend on the live theme, outlet renders on the routed entry (pivot D7) —
- * producing the Puck `Config` that drives BOTH the editor island and the static build renderer. Component render functions are pure (catalog purity rule,
- * §4.5): no hooks, no state, no browser APIs, no data fetching; every visual control stores a token
- * *name* resolved to `var(--dtk-…)` at render (decision 4), and all real styling lives in the
- * co-located `compositor.css` (class-per-component, consuming only `--dtk-*` and local `--cmp-*` vars).
- * Inline styles carry token-var lookups only — they map a chosen token into a local custom property
- * that `compositor.css` then applies. No freeform CSS is generated at render.
+ * producing the Puck `Config` driving BOTH the editor island and the static build renderer. Render
+ * functions are pure (catalog purity rule): no hooks, no state, no browser APIs, no data fetching;
+ * every visual control stores a token *name* resolved to `var(--dtk-…)` at render, all real styling
+ * lives in `compositor.css`. Inline styles carry token-var lookups only, mapping a chosen token to a
+ * local custom property `compositor.css` applies — no freeform CSS generated at render.
  *
  * Editor vs build target (deliberate deviation from "one config feeds both"): Puck's `useRichtextProps`
- * intercepts every `richtext`-typed field in the RSC render path as well as the editor, and its
- * renderer normalizes a stored Portable Text array to an *empty* ProseMirror doc — so a `richtext`
- * field would silently blank every design page at build. The build target therefore exposes RichText's
- * `body` as a plain passthrough field: the render receives the raw Portable Text array and routes it
- * through `richtext.tsx` for `pages`-parity output (§6.4). The editor target uses the real `richtext`
- * field (value is the ProseMirror working form produced by `convert.ts`) and Puck renders it natively.
- * `RichText.render` distinguishes the two by `Array.isArray(body)` (§6.3). The media picker is likewise
- * editor-only and attached only in the editor target, keeping its browser code off the build path.
+ * intercepts every `richtext`-typed field in the RSC render path too, normalizing a stored PT array to
+ * an *empty* ProseMirror doc — a `richtext` field would silently blank every design page at build. So
+ * the build target exposes RichText's `body` as a plain passthrough field, routed through `richtext.tsx`
+ * for `pages`-parity output; the editor target uses the real `richtext` field (ProseMirror form from
+ * `convert.ts`), Puck renders it natively. `RichText.render` distinguishes the two by
+ * `Array.isArray(body)`. Media picker is likewise editor-only, keeping its browser code off the build path.
  *
- * Button `variant` (Phase D): `variant` is a token select over the theme's `buttonVariants` (§4.3), each
- * a bundle of color/radius/space/border references (impl §6.3/§7.4's deferred item, delivered). The
- * render maps the chosen variant name into `--cmp-button-*` locals that `compositor.css` applies; no
- * variant styling is hardcoded. The theme is authored with its variants BEFORE this code deploys, so a
- * `Button.variant` never dangles at build (see plan-compositor-phase-d.md §2.1 trap B).
+ * Button `variant` (Phase D): a token select over the theme's `buttonVariants`, each a bundle of
+ * color/radius/space/border references. Render maps the chosen variant into `--cmp-button-*` locals
+ * `compositor.css` applies — no variant styling hardcoded. Theme is authored with its variants BEFORE
+ * this code deploys, so `Button.variant` never dangles at build (plan-compositor-phase-d.md §2.1 trap B).
  *
  * Flow invariant (unified field-outlet rewrite): every content-bearing container (`Section`, a `Columns`
- * column, `Row`, the document root) lays its children out as a `flex-direction: column` stack by
- * default (`compositor.css`) — a component's own intrinsic display (e.g. `Button`'s `inline-block`)
- * never causes it to silently sit beside its sibling. The ONLY way to place components side by side is
- * the explicit `Row` container (or `Columns`, for a fixed grid). This closes the flow ambiguity the
- * editor canvas doesn't otherwise show: two components that look "stacked" in the component tree could
- * previously still render on the same line depending on their own CSS `display`.
+ * column, `Row`, document root) stacks children `flex-direction: column` by default — a component's own
+ * intrinsic display (e.g. `Button`'s `inline-block`) never causes it to sit beside its sibling. The ONLY
+ * way to place components side by side is the explicit `Row` (or `Columns` for a fixed grid) — closes
+ * the flow ambiguity the editor canvas doesn't otherwise show.
  *
  * Unified field-outlet rewrite (entity prerendering redesign): the old per-noun split — composer/
- * contributor rendering through loose `ContentText`/`ContentImage` outlets, composition rendering
- * through one dedicated `CompositionDetail` block — is gone. Every entity field (see entity-fields.ts)
- * is now bindable through `ContentField` (an optionally-labeled value row, kind-aware: text, number,
- * date, a resolved reference/referenceList, a joined list, or the composition publication-uri
- * composite) or `ContentImage`/`MediaText` for images. Foreign-key fields are pre-resolved to
- * `{id, name, href}` by `entity-records.ts`'s normalizer before they ever reach a render — no
- * composition-specific code lives in this catalog anymore.
+ * contributor through loose `ContentText`/`ContentImage` outlets, composition through one dedicated
+ * `CompositionDetail` block — is gone. Every entity field is bindable through `ContentField` (kind-aware
+ * value row) or `ContentImage`/`MediaText` for images. Foreign keys are pre-resolved to `{id, name,
+ * href}` by `entity-records.ts`'s normalizer before render — no composition-specific code lives here.
  *
- * Known canvas-vs-build diffs (accepted, §8): canvas shows unoptimized R2 originals (identical URL in
- * Phase 1); site chrome (header/footer) is absent in the canvas; fonts may load differently.
+ * Known canvas-vs-build diffs (accepted): canvas shows unoptimized R2 originals; site chrome is absent
+ * in the canvas; fonts may load differently.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -85,18 +76,15 @@ import {
     publicMediaUrl,
     type MediaSource
 } from "./media"
-// scripts/publication.ts is framework-agnostic (only imports ./escape) and returns markup-safe HTML
-// (every value escapeHtml-encoded); ContentField's "uri" kind reuses it for the composition publication
-// link, the one composite field this catalog still knows the shape of. Safe to import into both the
-// editor (browser) and build (Node) targets.
+// Framework-agnostic (only ./escape), returns markup-safe (escapeHtml-encoded) HTML — safe for both
+// editor (browser) and build (Node) targets. ContentField's "uri" kind reuses it for the composition
+// publication link, the one composite field this catalog still knows the shape of.
 import { renderPublicationUri } from "../../scripts/publication"
-// scripts/citations.ts is likewise framework-agnostic (only imports ./escape and lib/api/validation, which
-// itself carries no server-only bindings) — ContentField's "citations" kind reuses it so the public render
-// matches the admin Info cards' rendering exactly.
+// Likewise framework-agnostic — ContentField's "citations" kind reuses it so the public render matches
+// the admin Info cards' rendering exactly.
 import { renderCitationsList } from "../../scripts/citations"
-// scripts/format.ts is likewise framework-agnostic (only Intl + a consts import) — reused here so the
-// composer death_year/country special cases render identically to the admin's ComposerInfo.astro/
-// format.ts treatment, rather than a second hand-written copy of the same "-1 => Present" / code=>name logic.
+// Likewise framework-agnostic — reused so composer death_year/country render identically to the admin's
+// ComposerInfo.astro/format.ts treatment, not a second hand-written "-1 => Present"/code=>name copy.
 import { countryCodeName, formatDeathYear, titleCaseRole } from "../../scripts/format"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
@@ -108,68 +96,49 @@ import type { RelatedWork } from "../build/entity-records"
 export type CatalogTarget = "editor" | "build"
 
 /**
- * The per-entry context a config is built against (pivot D7). `entry` is the routed content entry's
- * raw field record — outlet renders read `entry[field]` from this closure; null/absent means there is
- * no entry (a `design_page`, or the template editor before a preview entry is picked). `fields` is the
- * template's collection schema — populated for the editor's outlet field pickers, and (for entity
- * templates) also at BUILD time, since `ContentField` uses each field's declared kind (date formatting,
- * the default label) when rendering, not just when building picker options.
+ * Per-entry context a config is built against (pivot D7). `entry` is the routed content entry's raw
+ * field record — outlet renders read `entry[field]` from this closure; null/absent means no entry
+ * (a `design_page`, or template editor before a preview entry is picked). `fields` is the template's
+ * collection schema — populated for the editor's field pickers, and (entity templates) also at BUILD
+ * time, since `ContentField` uses each field's declared kind when rendering, not just for picker options.
  */
 export interface BuildConfigContext {
     entry?: Record<string, unknown> | null
     fields?: CollectionField[]
-    /**
-     * The public media origin (`EMDASH_MEDIA_PUBLIC_URL`), required on the **build** target whenever a
-     * design renders media: a prerendered page is served to anonymous visitors, and the `/_emdash` media
-     * proxy sits behind Cloudflare Access (see `media.ts`). The editor target ignores it and uses the
-     * proxy, which is correct for an authenticated admin.
-     */
+    /** Public media origin (`EMDASH_MEDIA_PUBLIC_URL`), required on **build** whenever a design renders
+     * media — a prerendered page is anonymous, and the `/_emdash` media proxy sits behind Access. Editor
+     * target ignores it and uses the proxy, correct for an authenticated admin. */
     mediaBaseUrl?: string
-    /**
-     * The public origin for our own R2_FILES uploads (`FILES_PUBLIC_URL`), required on the **build**
-     * target whenever a design renders a D1 entity's `image` field pointing at an `/api/v1/files/{key}`
-     * upload: that route requires an authenticated identity in production, same gap `mediaBaseUrl`
-     * closes for EmDash media (see `media.ts`'s `publicFileUrl`).
-     */
+    /** Public origin for our own R2_FILES uploads (`FILES_PUBLIC_URL`), required on **build** whenever a
+     * design renders a D1 entity `image` pointing at `/api/v1/files/{key}` — that route requires an
+     * authenticated identity in production, same gap `mediaBaseUrl` closes for EmDash media. */
     filesBaseUrl?: string
-    /**
-     * The current route's breadcrumb trail (docs/dev/miscellaneous.txt), split the same way as `entry`:
-     * `breadcrumbs` is the *ancestor* crumbs only (Home is implicit — the `Breadcrumbs` component always
-     * prepends it), and `pageTitle` is the current page's own display title — the trail's final, unlinked
-     * crumb. Both are computed once per route at the page level (`route-authority.ts`'s
-     * `breadcrumbAncestors`, or the noun's own index link for an entity page) — catalog.tsx has no access
-     * to the full published route set needed to derive this itself. Absent in the editor (a template has
-     * no single fixed route) and the `Breadcrumbs` render falls back to an illustrative preview.
-     */
+    /** Current route's breadcrumb trail: `breadcrumbs` is *ancestor* crumbs only (Home implicit,
+     * `Breadcrumbs` always prepends it), `pageTitle` is the trail's final unlinked crumb. Both computed
+     * once per route at the page level — catalog.tsx has no access to the route set to derive this
+     * itself. Absent in the editor; `Breadcrumbs` falls back to an illustrative preview. */
     breadcrumbs?: { label: string; href: string | null }[]
     pageTitle?: string
-    /**
-     * Bundled (src/files) image alt text, keyed by the /files/<key> suffix (lib/build/bundled-file-alt.ts's
-     * loadBundledFileAlt) — resolves real alt text for a plain-string entity `image` field that points
-     * at a bundled asset. R2-uploaded (/api/v1/files/<key>) and external images have no build-time alt
-     * source (see catalog.tsx's ContentImage/MediaText renders) and still render alt="". A plain object,
-     * not a Map — see loadBundledFileAlt's header for why.
-     */
+    /** Bundled (src/files) image alt text, keyed by the /files/<key> suffix — resolves real alt text
+     * for a plain-string entity `image` field pointing at a bundled asset. R2-uploaded and external
+     * images have no build-time alt source, still render alt="". Plain object, not a Map — see
+     * `loadBundledFileAlt`'s header for why. */
     bundledFileAlt?: Record<string, string>
-    /**
-     * This record's related works (docs/dev/miscellaneous.txt "related-entries tiles"), computed once per
-     * route by `entity-records.ts`'s `buildRelatedWorksIndex` and passed in by `[id].astro` — the same
-     * split as `breadcrumbs`/`pageTitle` above: catalog.tsx has no access to the full D1 read needed to
-     * derive this itself. Absent in the editor (a template has no single fixed record) and the
-     * `RelatedEntries` render falls back to an illustrative preview.
-     */
+    /** This record's related works, computed once per route by `entity-records.ts`'s
+     * `buildRelatedWorksIndex`, passed in by `[id].astro` — same split as `breadcrumbs`/`pageTitle`
+     * above. Absent in the editor; `RelatedEntries` falls back to an illustrative preview. */
     relatedEntries?: RelatedWork[]
 }
 
 /**
- * Outlet component type → the schema field types it accepts (pivot §4). Drives the editor's field
- * pickers and the pairing lint's dangling-outlet-field rule (which receives this as an argument, same
- * pattern as TOKEN_PROPS). Contributor rule: a new outlet MUST register here.
+ * Outlet component type → the schema field types it accepts. Drives the editor's field pickers and the
+ * pairing lint's dangling-outlet-field rule (receives this as an argument, same pattern as TOKEN_PROPS).
+ * Contributor rule: a new outlet MUST register here.
  *
- * `ContentField` accepts every non-image entity field kind (entity-fields.ts's `EntityFieldKind` minus
- * "image") plus EmDash's own "string"/"text" — it is collection-agnostic, so it works unmodified on
- * pages/posts fields too, just without the reference/date/list-aware formatting those collections never
- * produce. `MediaText` accepts only "image" — its non-image side is a slot, not a bound field.
+ * `ContentField` accepts every non-image entity field kind plus EmDash's "string"/"text" —
+ * collection-agnostic, works unmodified on pages/posts fields too, just without the reference/date/
+ * list-aware formatting those never produce. `MediaText` accepts only "image" — its non-image side is
+ * a slot, not a bound field.
  */
 export const OUTLET_PROPS: Record<string, readonly string[]> = {
     ContentText: ["string", "text"],
@@ -193,20 +162,17 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
     MediaText: ["image"]
 }
 
-/**
- * Component type → the names of its rich-text props (§4.4). Drives `convert.ts`'s PT ↔ ProseMirror
- * walks; a component absent here has no rich-text props. Phase 1 has exactly `RichText.body`.
- * Contributor rule 5: a new rich-text prop MUST be registered here.
- */
+/** Component type → the names of its rich-text props. Drives `convert.ts`'s PT ↔ ProseMirror walks; a
+ * component absent here has no rich-text props. Phase 1 has exactly `RichText.body`. Contributor rule:
+ * a new rich-text prop MUST be registered here. */
 export const RICH_TEXT_PROPS: Record<string, readonly string[]> = { RichText: ["body"] }
 
 /**
- * Component type → its token-select props and the kind each draws from (§4.5), kept beside the field
- * definitions below so the two cannot drift. The lint pass (§6.7) consumes this to flag a stored
- * token name absent from the theme; passing it in (rather than importing lint here) keeps lint free
- * of this module's React/Puck code and unit-testable. Optional token props (Section `background`,
- * Divider `color`) may hold "" (None), which lint skips. Contributor rule: a new token-select field
- * MUST be registered here.
+ * Component type → its token-select props and the kind each draws from, kept beside the field
+ * definitions below so the two can't drift. Lint consumes this to flag a stored token name absent from
+ * the theme; passing it in (rather than importing lint here) keeps lint free of this module's React/
+ * Puck code and unit-testable. Optional token props (Section `background`, Divider `color`) may hold
+ * "" (None), which lint skips. Contributor rule: a new token-select field MUST be registered here.
  */
 export const TOKEN_PROPS: TokenPropRegistry = {
     Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
@@ -225,13 +191,11 @@ export const TOKEN_PROPS: TokenPropRegistry = {
 
 /**
  * Human-readable "where does this actually get used" prose for the theme editor's per-kind preview
- * captions. Hand-written, not derived from `TOKEN_PROPS`: the interesting facts here — a button
- * variant's indirect reference to `radius`/`borders`/`space`, and `shadows` currently being consumed
- * by nothing at all — can't be expressed by formatting `TOKEN_PROPS` as a string, so a short honest
- * sentence per kind beats generated text that would immediately need exceptions bolted on. Keep this
- * in step with real consumers; a wrong note is worse than no note. `colors`/`typography`/`buttonVariants`
- * are omitted — `TOKEN_PROPS` already answers "which component" clearly enough for those to not need
- * a separate note.
+ * captions. Hand-written, not derived from `TOKEN_PROPS`: facts like a button variant's indirect
+ * reference to `radius`/`borders`/`space`, or `shadows` being consumed by nothing at all, can't be
+ * expressed by formatting `TOKEN_PROPS` as a string. Keep in step with real consumers — a wrong note
+ * is worse than none. `colors`/`typography`/`buttonVariants` omitted — `TOKEN_PROPS` already answers
+ * "which component" clearly enough for those.
  */
 export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
     space: "Used directly by Section's vertical padding, Columns' and Row's column gap (horizontal) and " +
@@ -250,12 +214,9 @@ export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
         "fixed 768px."
 }
 
-/**
- * Puck components (and field) that draw from a token kind, formatted `"Component.field"`, in
- * `TOKEN_PROPS`'s own key order. Unlike `TOKEN_USAGE_NOTES`, typography's binding has no indirection
- * and no "consumed by nothing" case to explain — every `typography`-kind field is a direct, first-class
- * consumer — so a derived list is both correct and simpler than hand-written prose here.
- */
+/** Puck components (and field) that draw from a token kind, formatted `"Component.field"`, in
+ * `TOKEN_PROPS`'s key order. Unlike `TOKEN_USAGE_NOTES`, every `typography`-kind field is a direct,
+ * first-class consumer — no indirection to explain — so a derived list beats hand-written prose here. */
 export function tokenKindUsers(kind: TokenKind): string[] {
     const users: string[] = []
     for (const [component, fields] of Object.entries(TOKEN_PROPS)) {
@@ -266,11 +227,9 @@ export function tokenKindUsers(kind: TokenKind): string[] {
     return users
 }
 
-/**
- * The media object an Image stores (§4.5). It holds the **storage key**, never a baked URL: the URL a
- * key resolves to differs by render target (public origin at build, Access-gated proxy in the editor),
- * so baking one in would hard-code the wrong answer for the other. See `media.ts`.
- */
+/** The media object an Image stores. Holds the **storage key**, never a baked URL — the URL a key
+ * resolves to differs by render target (public origin at build, Access-gated proxy in the editor), so
+ * baking one in would hard-code the wrong answer for the other. See `media.ts`. */
 export interface MediaValue {
     mediaId: string
     storageKey: string
@@ -279,12 +238,9 @@ export interface MediaValue {
     height: number
 }
 
-/**
- * A slot prop's value in render: a Puck-supplied component that renders the slot's contents.
- * `className`/`style` land on the DOM element Puck wraps the slot's items in (a plain `<div>` by
- * default) — the only hook available for styling that wrapper, since its children render as direct
- * DOM children with no further nesting.
- */
+/** A slot prop's value in render: a Puck-supplied component rendering the slot's contents.
+ * `className`/`style` land on the DOM element Puck wraps the slot's items in — the only styling hook,
+ * since children render as direct DOM children with no further nesting. */
 type SlotRender = ComponentType<{ className?: string; style?: CSSProperties }>
 
 /** Casts a token-var map to CSSProperties (React types omit custom-property keys). */
@@ -292,10 +248,8 @@ function vars(map: Record<string, string | number>): CSSProperties {
     return map as CSSProperties
 }
 
-/**
- * A token select field. Optional selects prepend a "None" option (value ""), letting the render skip
- * the local var so `compositor.css`'s fallback applies. Options come from the live theme.
- */
+/** A token select field. Optional selects prepend a "None" option (value ""), letting the render skip
+ * the local var so `compositor.css`'s fallback applies. */
 function tokenSelect(theme: TokenCatalog, kind: TokenKind, label: string, optional = false) {
     const options = tokenSelectOptions(theme, kind)
     return {
@@ -305,11 +259,9 @@ function tokenSelect(theme: TokenCatalog, kind: TokenKind, label: string, option
     }
 }
 
-/**
- * The optional radius/border/shadow local `--cmp-<prefix>-*` vars for a frame-styled container (Section,
- * Image/ContentImage, MediaText's media side). Each is skipped when its token name is "" (the "None"
- * option), so `compositor.css`'s own fallback (no rounding/border/shadow — the pre-existing look) applies.
- */
+/** Optional radius/border/shadow local `--cmp-<prefix>-*` vars for a frame-styled container (Section,
+ * Image/ContentImage, MediaText's media side). Skipped when its token name is "" (None), so
+ * `compositor.css`'s own fallback (no rounding/border/shadow) applies. */
 function frameStyleVars(prefix: string, radius: string, border: string, shadow: string): Record<string, string> {
     const result: Record<string, string> = {}
     if (radius) result[`--cmp-${prefix}-radius`] = tokenVar("radius", radius)
@@ -509,14 +461,10 @@ interface RichTextProps {
     /** PT block array on the build path (stored form); a Puck-rendered ReactNode in the editor canvas. */
     body: PortableTextBlock[] | ReactNode
 }
-/**
- * A fixed rendered-size preset for `Image`/`ContentImage`/`MediaText` (D9): NOT a theme token — image
- * size is a per-placement layout choice, not a design-system value worth authoring in the theme editor,
- * so this reuses the same fixed-enum-select pattern `aspect` already uses rather than adding a new
- * `TokenKind`. "full" is the pre-existing (unstyled) behavior for `Image`/`ContentImage`, and "medium" is
- * the pre-existing fixed flex-basis for `MediaText`'s media column — each component's `defaultProps`
- * preserves its own old behavior so a design authored before this control existed renders unchanged.
- */
+/** Fixed rendered-size preset for `Image`/`ContentImage`/`MediaText`: NOT a theme token — a
+ * per-placement layout choice, reuses the fixed-enum-select pattern `aspect` already uses rather than
+ * a new `TokenKind`. "full" is `Image`/`ContentImage`'s pre-existing unstyled default, "medium" is
+ * `MediaText`'s pre-existing fixed flex-basis — each `defaultProps` preserves its own old behavior. */
 type ImageSizePreset = "small" | "medium" | "large" | "full"
 
 /** The `size` select shared by `Image`, `ContentImage`, and `MediaText` — same options, different default. */
@@ -622,9 +570,9 @@ interface MediaTextProps {
 // The outlets are thin content-fed twins of existing components (pivot §4): same markup, same classes,
 // same token wiring — only where the value comes from differs. One render body each keeps them twins.
 
-/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). Also
- * reused by the theme editor's live preview (`ThemePreview.tsx`) so a typography specimen renders with
- * the exact same class/var wiring as the real component, never a hand-rolled approximation. */
+/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). Exported,
+ * though not currently imported elsewhere — `renderButtonTag` below is the one actually reused by the
+ * theme editor's live preview (`ThemePreview.tsx`). */
 export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
     const Tag = level
     return (
@@ -689,7 +637,7 @@ function renderImageTag(
     )
 }
 
-/** The Button markup. Exported (like `renderHeadingTag`) so the theme editor's live preview renders a
+/** The Button markup. Exported so the theme editor's live preview (`ThemePreview.tsx`) renders a
  * button variant with the exact same class/var wiring as the real component, never a hand-rolled copy. */
 export function renderButtonTag(label: string, href: string, variant: string, shadow = "") {
     return (
@@ -727,13 +675,10 @@ function renderPagefindSearchTag(scope: "site" | "database") {
     )
 }
 
-/**
- * The breadcrumb-trail markup: Home, then each ancestor crumb (linked, or plain text when `href` is
- * null — the "Posts" case, see route-authority.ts), then the current page's own title as the final,
- * unlinked crumb. With no route context at all (the editor, previewing a template rather than a fixed
- * route — see BuildConfigContext), an illustrative fallback trail stands in so the canvas still shows
- * what the component looks like.
- */
+/** The breadcrumb-trail markup: Home, then each ancestor crumb (linked, or plain text when `href` is
+ * null — the "Posts" case), then the current page's title as the final unlinked crumb. With no route
+ * context (the editor previewing a template rather than a fixed route), an illustrative fallback trail
+ * stands in. */
 function renderBreadcrumbsTag(
     ancestors: { label: string; href: string | null }[] | undefined,
     pageTitle: string | undefined,
@@ -789,13 +734,9 @@ function RelatedWorkTileBody({ work }: { work: RelatedWork }) {
     )
 }
 
-/**
- * The `RelatedEntries` tile grid: works related to the routed record (see `entity-records.ts`'s
- * `buildRelatedWorksIndex`), sliced to `limit`. With no route context at all (the editor, previewing a
- * template rather than a fixed record), illustrative tiles stand in so the canvas shows what the block
- * looks like. On the build target, `entries` is always defined (every entity record gets one, possibly
- * empty) — an empty list renders nothing, the same auto-omit behavior as the content outlets.
- */
+/** The `RelatedEntries` tile grid: works related to the routed record, sliced to `limit`. With no
+ * route context (editor previewing a template, not a fixed record), illustrative tiles stand in. On
+ * build, `entries` is always defined — an empty list renders nothing, same auto-omit as the outlets. */
 function renderRelatedEntriesTag(entries: RelatedWork[] | undefined, heading: string, limit: number, isEditorPreview: boolean) {
     const isIllustrative = entries === undefined && isEditorPreview
     const source = isIllustrative ? ILLUSTRATIVE_RELATED_WORKS : entries
@@ -904,22 +845,15 @@ function CitationsValue({ value }: { value: Record<string, unknown> }) {
 }
 
 /** Long-form date formatting for `entry_date`/`change_date` (fixed locale/options — build output must
- * be deterministic, so this never reads the reader's locale). `timeZone: "UTC"` is load-bearing: D1
- * stores these as epoch-millisecond instants; formatting in the build machine's local timezone would
- * shift the displayed date/time depending on where the build runs, so it is always rendered in UTC. */
+ * be deterministic, never reads the reader's locale). `timeZone: "UTC"` is load-bearing: D1 stores
+ * these as epoch-millisecond instants — formatting in the build machine's local timezone would shift
+ * the displayed date/time depending on where the build runs. */
 const ENTITY_DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" })
 
-/**
- * Formats a resolved entity-field value for display, kind-aware when `kind` (the bound field's
- * `EntityField.type`, from entity-fields.ts) is known, and falling back to shape-based inference when
- * it isn't (pages/posts fields, or an editor render before a schema is loaded — pages/posts schemas
- * never produce a reference/date/list/uri-shaped value, so the inference path is exercised by entity
- * templates alone in practice).
- *
- * Owner decision: null/empty/unresolvable ALWAYS formats to an empty value here — never a placeholder
- * string — so `ContentField` can keep rendering its row (auto-omitting the row/label when empty is a
- * deferred, harder feature; see the plan).
- */
+/** Formats a resolved entity-field value for display, kind-aware when `kind` (`EntityField.type`) is
+ * known, falling back to shape-based inference otherwise (pages/posts fields, or a pre-schema editor
+ * render). Owner decision: null/empty/unresolvable ALWAYS formats to an empty value, never a
+ * placeholder string, so `ContentField` keeps rendering its row. */
 function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
     if (value === null || value === undefined) return ""
 
@@ -975,28 +909,19 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
     }
 }
 
-/**
- * Builds the Puck config for the given theme, target, and per-entry context (§6.3, pivot D7). The
- * component set and props are the frozen §4.5 catalog v1 plus the content outlets (pivot §4, and the
- * unified field-outlet rewrite's `ContentField`/`MediaText`); select options are drawn from `theme`.
- * `target` governs only the two editor-only fields (RichText `body`, Image `media`) per this module's
- * header. Outlet renders read the routed entry from the `context` closure — no clone-and-fill, no React
- * context — so the zero-JS build path is untouched; with no context (a `design_page`) outlets render
- * nothing (build) or a placeholder (editor).
- *
- * @param {TokenCatalog} theme - the live theme whose tokens populate the select fields
- * @param {CatalogTarget} target - "editor" (rich editing fields) or "build" (passthrough fields)
- * @param {BuildConfigContext} [context] - the entry the outlets resolve against, and (editor only)
- *   the collection schema that populates the outlet field pickers
- * @returns {Config} - the Puck config feeding the editor island or the static renderer
- */
+/** Builds the Puck config for the given theme, target, and per-entry context (pivot D7). Component
+ * set/props are the frozen catalog v1 plus the content outlets; select options draw from `theme`.
+ * `target` governs only the two editor-only fields (RichText `body`, Image `media`). Outlet renders
+ * read the routed entry from the `context` closure — no clone-and-fill, no React context — so the
+ * zero-JS build path is untouched; with no context (a `design_page`) outlets render nothing (build) or
+ * a placeholder (editor). */
 export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?: BuildConfigContext): Config {
     const isEditor = target === "editor"
 
-    // One storage key resolves to a different URL per target: the public media origin at build (a
-    // prerendered page is served to anonymous visitors and the /_emdash proxy is Access-gated), the
-    // same-origin proxy in the editor (the admin is authenticated through Access, and the public origin
-    // is not in the client bundle). See media.ts — getting this backwards ships a broken <img>.
+    // One storage key resolves to a different URL per target: public media origin at build (page is
+    // anonymous, /_emdash proxy is Access-gated), same-origin proxy in the editor (admin is
+    // Access-authenticated, public origin isn't in the client bundle). Getting this backwards ships a
+    // broken <img>.
     const resolveMediaUrl = (storageKey: string) =>
         isEditor ? proxyMediaUrl(storageKey) : publicMediaUrl(storageKey, context?.mediaBaseUrl)
 
@@ -1082,10 +1007,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { columnGap: "md", rowGap: "md", content: [] },
             // The only explicit horizontal container (see module header's flow-invariant note): children
             // lay out left-to-right and wrap, regardless of each child's own intrinsic CSS display.
-            // `cmp-row` styles the slot's own wrapper directly (rather than an outer div around it) —
-            // Puck's slot items are direct children of that wrapper with no further nesting, so it must
-            // be the flex container for the gaps to land between the items instead of having only itself
-            // to apply to. `rowGap` only shows once the row wraps onto more than one line.
+            // `cmp-row` styles the slot's own wrapper directly, not an outer div — Puck's slot items are
+            // direct children of that wrapper with no further nesting, so it must be the flex container
+            // for the gaps to land between items. `rowGap` only shows once the row wraps.
             render: ({ columnGap, rowGap, content: Content }: RowProps) => (
                 <Content
                     className="cmp-row"
