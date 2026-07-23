@@ -661,51 +661,12 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
     )
 }
 
-/** The breadcrumb-trail markup: Home, then each ancestor crumb (linked, or plain text when `href` is
- * null — the "Posts" case), then the current page's title as the final unlinked crumb. With no route
- * context (the editor previewing a template rather than a fixed route), an illustrative fallback trail
- * stands in. */
-function renderBreadcrumbsTag(
-    ancestors: { label: string; href: string | null }[] | undefined,
-    pageTitle: string | undefined,
-    isEditorPreview: boolean
-) {
-    if (ancestors === undefined && pageTitle === undefined && isEditorPreview) {
-        return (
-            <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
-                <ol>
-                    <li>
-                        <a href="/">Home</a>
-                    </li>
-                    <li>
-                        <span>Example section</span>
-                    </li>
-                    <li aria-current="page">Example page</li>
-                </ol>
-            </nav>
-        )
-    }
-    return (
-        <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
-            <ol>
-                <li>
-                    <a href="/">Home</a>
-                </li>
-                {(ancestors ?? []).map((crumb, index) => (
-                    <li key={index}>{crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}</li>
-                ))}
-                {pageTitle && <li aria-current="page">{pageTitle}</li>}
-            </ol>
-        </nav>
-    )
-}
-
 /** `RelatedEntries`' default `limit`, and the fallback used when an authored `limit` isn't a positive
  *  finite number (e.g. cleared in the editor). */
 const DEFAULT_RELATED_LIMIT = 6
 
 /** Illustrative canvas-only tiles, shown when there is no route context at all (mirrors
- *  `renderBreadcrumbsTag`'s fallback trail) — `href: null` so they render as plain, non-navigating tiles. */
+ *  `Breadcrumbs`' fallback trail) — `href: null` so they render as plain, non-navigating tiles. */
 const ILLUSTRATIVE_RELATED_WORKS: RelatedWork[] = [
     { id: -1, name: "Example Work", href: null, composer: "Example Composer" },
     { id: -2, name: "Another Example Work", href: null, composer: "Example Composer" }
@@ -1121,7 +1082,41 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             label: "Breadcrumbs",
             fields: {},
             defaultProps: {},
-            render: () => renderBreadcrumbsTag(context?.breadcrumbs, context?.pageTitle, isEditor)
+            // Home, then each ancestor crumb (linked, or plain text when href is null — the "Posts"
+            // case), then the page title as the final unlinked crumb. No route context (editor
+            // previewing a template) → illustrative fallback trail.
+            render: () => {
+                const ancestors = context?.breadcrumbs
+                const pageTitle = context?.pageTitle
+                if (ancestors === undefined && pageTitle === undefined && isEditor) {
+                    return (
+                        <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
+                            <ol>
+                                <li>
+                                    <a href="/">Home</a>
+                                </li>
+                                <li>
+                                    <span>Example section</span>
+                                </li>
+                                <li aria-current="page">Example page</li>
+                            </ol>
+                        </nav>
+                    )
+                }
+                return (
+                    <nav className="cmp-breadcrumbs" aria-label="Breadcrumb">
+                        <ol>
+                            <li>
+                                <a href="/">Home</a>
+                            </li>
+                            {(ancestors ?? []).map((crumb, index) => (
+                                <li key={index}>{crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}</li>
+                            ))}
+                            {pageTitle && <li aria-current="page">{pageTitle}</li>}
+                        </ol>
+                    </nav>
+                )
+            }
         },
         RelatedEntries: {
             label: "Related entries",
