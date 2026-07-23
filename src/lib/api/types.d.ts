@@ -375,9 +375,13 @@ interface D1BaseSchema {
 }
 
 /**
- * A schema to access a specific D1 table
+ * A D1 table's shape, independent of any database binding — column names, indexes, type hints, and
+ * redaction rules. Kept separate from {@link D1Schema} so a build-time reader with no D1Database
+ * available (e.g. src/lib/build/d1-schema.ts, running plain-Node `astro build`) can consume the same
+ * table shapes as the Worker runtime (src/lib/api/tables.ts, src/lib/api/d1.ts) without importing
+ * `cloudflare:workers`.
  *
- * @namespace D1Schema
+ * @namespace D1SchemaPrimitive
  * @property {string} name - the name of the table
  * @property {string[]} columns - the column names in the table
  * @property {string[]} repr_exclude - columns omitted from the object representation but included in the database representation
@@ -388,7 +392,7 @@ interface D1BaseSchema {
  * @property {string[]} [locked] - if set, these properties are used for a security-relevant operation and require administrator permission to edit
  *
  */
-interface D1Schema extends D1BaseSchema {
+interface D1SchemaPrimitive {
     readonly name: string // the table name
     readonly columns: string[] // the  column names in the table
     readonly repr_exclude: string[] // colums omitted from the object representation but included in the database representation
@@ -398,6 +402,14 @@ interface D1Schema extends D1BaseSchema {
     readonly protected?: string[] // if set, these properties are subject to row-level security
     readonly locked?: string[] // if set, these properties are protected by columns and require administrator permission to modify
 }
+
+/**
+ * A schema to access a specific D1 table: {@link D1SchemaPrimitive}'s table shape, plus the database
+ * binding ({@link D1BaseSchema}) needed to actually query it.
+ *
+ * @namespace D1Schema
+ */
+interface D1Schema extends D1BaseSchema, D1SchemaPrimitive {}
 
 // DATA TYPES
 
