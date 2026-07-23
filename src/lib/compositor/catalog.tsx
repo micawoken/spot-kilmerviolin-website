@@ -661,20 +661,6 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
     )
 }
 
-/** The pagefind search-box markup: a plain GET form to /search, same convention as entity/index.astro's
- * database-scoped search box — native browser navigation, no client JS required either here or on the
- * canvas (the catalog purity rule: no hooks, no state). Submitting with an empty query navigates to
- * /search with no `q`, which renders its own empty-state UI, matching that precedent exactly. */
-function renderPagefindSearchTag(scope: "site" | "database") {
-    return (
-        <form className="cmp-search" action="/search" method="get">
-            {scope === "database" && <input type="hidden" name="scope" value="database" />}
-            <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
-            <button type="submit">Search</button>
-        </form>
-    )
-}
-
 /** The breadcrumb-trail markup: Home, then each ancestor crumb (linked, or plain text when `href` is
  * null — the "Posts" case), then the current page's title as the final unlinked crumb. With no route
  * context (the editor previewing a template rather than a fixed route), an illustrative fallback trail
@@ -1160,7 +1146,16 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 }
             },
             defaultProps: { scope: "site" },
-            render: ({ scope }: PagefindSearchProps) => renderPagefindSearchTag(scope)
+            // Plain GET form to /search, same convention as entity/index.astro's database-scoped search
+            // box — native browser navigation, no client JS (catalog purity rule). An empty query
+            // navigates to /search with no `q`, which renders its own empty-state UI.
+            render: ({ scope }: PagefindSearchProps) => (
+                <form className="cmp-search" action="/search" method="get">
+                    {scope === "database" && <input type="hidden" name="scope" value="database" />}
+                    <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
+                    <button type="submit">Search</button>
+                </form>
+            )
         },
         // --- Content outlets (pivot §4, D7): read the routed entry from the `context` closure. Each is
         // a twin of the component above it — same markup via the shared render body — differing only in
