@@ -120,6 +120,70 @@ export enum Key {
 }
 
 /**
+ * Maps a Key's note+accidental component to its pitch-class semitone (0 = C … 11 = B), independent of
+ * major/minor. Used only by {@link normalizeKeyForSearch}.
+ */
+const KEY_PITCH_CLASS: Record<Key, number> = {
+    [Key.C_MAJOR]: 0,
+    [Key.C_MINOR]: 0,
+    [Key.Cs_MAJOR]: 1,
+    [Key.Cs_MINOR]: 1,
+    [Key.Db_MAJOR]: 1,
+    [Key.Db_MINOR]: 1,
+    [Key.D_MAJOR]: 2,
+    [Key.D_MINOR]: 2,
+    [Key.Ds_MAJOR]: 3,
+    [Key.Ds_MINOR]: 3,
+    [Key.Eb_MAJOR]: 3,
+    [Key.Eb_MINOR]: 3,
+    [Key.E_MAJOR]: 4,
+    [Key.E_MINOR]: 4,
+    [Key.Es_MAJOR]: 5,
+    [Key.Es_MINOR]: 5,
+    [Key.Fb_MAJOR]: 4,
+    [Key.Fb_MINOR]: 4,
+    [Key.F_MAJOR]: 5,
+    [Key.F_MINOR]: 5,
+    [Key.Fs_MAJOR]: 6,
+    [Key.Fs_MINOR]: 6,
+    [Key.Gb_MAJOR]: 6,
+    [Key.Gb_MINOR]: 6,
+    [Key.G_MAJOR]: 7,
+    [Key.G_MINOR]: 7,
+    [Key.Gs_MAJOR]: 8,
+    [Key.Gs_MINOR]: 8,
+    [Key.Ab_MAJOR]: 8,
+    [Key.Ab_MINOR]: 8,
+    [Key.A_MAJOR]: 9,
+    [Key.A_MINOR]: 9,
+    [Key.As_MAJOR]: 10,
+    [Key.As_MINOR]: 10,
+    [Key.Bb_MAJOR]: 10,
+    [Key.Bb_MINOR]: 10,
+    [Key.B_MAJOR]: 11,
+    [Key.B_MINOR]: 11,
+    [Key.Cb_MAJOR]: 11,
+    [Key.Cb_MINOR]: 11
+}
+
+/**
+ * Converts a Key to a pitch-class reference (e.g. "1-major") that collapses enharmonic spellings —
+ * C#/Db, D#/Eb, E/Fb, E#/F, F#/Gb, G#/Ab, A#/Bb, B/Cb — onto the same value, so two differently-spelled
+ * but musically identical keys compare equal.
+ *
+ * Currently unused: written ahead of the advanced search feature (docs/dev/plan-prelaunch-features.md
+ * §10), which will match/group compositions by key using this reference instead of the raw Key string.
+ *
+ * @param {Key} key - the key to normalize
+ * @returns {string} the pitch-class reference, of the form "<pitch class 0-11>-major" or "<pitch class 0-11>-minor"
+ */
+export function normalizeKeyForSearch(key: Key): string {
+    const pitch_class = KEY_PITCH_CLASS[key]
+    const mode = key.endsWith("Minor") ? "minor" : "major"
+    return `${pitch_class}-${mode}`
+}
+
+/**
  * Lists the available author roles
  */
 export enum AuthorRole {
