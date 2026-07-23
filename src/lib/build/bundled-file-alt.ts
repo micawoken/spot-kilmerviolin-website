@@ -26,26 +26,20 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 
 // integrations/optimize-files.mjs's astro:build:done hook writes dist/files-manifest.json (with alt),
-// but that hook runs AFTER page rendering has already happened in the same `astro build` invocation —
-// too late for getStaticPaths to read it. This reads the same src/files sidecar convention directly, so
-// entity pages can inject real alt text for bundled images at render time. The published-name derivation
-// (raster -> .webp, everything else verbatim) mirrors optimize-files.mjs's RASTER_EXT branch — keep in
-// sync; a mismatch here just means a resolved alt silently misses its lookup key, not a build failure,
-// since optimize-files.mjs remains the sole build-blocking enforcement point for the sidecar requirement.
+// but runs AFTER page rendering in the same `astro build` — too late for getStaticPaths. Reads the
+// same src/files sidecar convention directly instead. Published-name derivation (raster -> .webp,
+// else verbatim) mirrors optimize-files.mjs's RASTER_EXT branch — keep in sync; a mismatch just misses
+// a lookup key, not a build failure (optimize-files.mjs is the sole build-blocking enforcement point).
 
 const SRC_DIR = "src/files"
 const RASTER_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"])
 
 /**
- * Reads every bundled image's alt text from its src/files/<name>.txt sidecar, keyed by the name under
- * which optimize-files.mjs publishes it (i.e. the /files/<key> suffix a D1 entity's `image` field stores)
+ * Reads every bundled image's alt text from its src/files/<name>.txt sidecar, keyed by the name
+ * optimize-files.mjs publishes it under (the /files/<key> suffix a D1 entity's `image` field stores).
  *
- * A plain object, not a Map: this crosses an Astro getStaticPaths props boundary, and a plain object
- * survives any props-passing mechanism (in-memory or serialized) — a Map would not if props are ever
- * serialized rather than passed by reference.
- *
- * @param {string} [srcDir] - the source directory to scan (default "src/files"; overridable for tests)
- * @returns {Promise<Record<string, string>>} published file name -> alt text; empty when the directory is absent
+ * Plain object, not a Map: crosses an Astro getStaticPaths props boundary, survives any props-passing
+ * mechanism (in-memory or serialized) — a Map wouldn't if props are ever serialized.
  */
 export async function loadBundledFileAlt(srcDir: string = SRC_DIR): Promise<Record<string, string>> {
     const alt: Record<string, string> = {}
