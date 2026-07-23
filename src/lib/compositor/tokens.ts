@@ -1,15 +1,14 @@
 /**
  * lib/compositor/tokens.ts
  *
- * The design token catalog (impl §4.3): the closed set of theme values a design page may use.
- * Owns the `TokenCatalog` type, hand-rolled structural guards (project validation style,
- * `src/lib/api/validation.ts`), CSS custom-property emission (`tokensToCss`), the `var(--dtk-…)`
- * reference builder (`tokenVar`), and the Puck select-option builder (`tokenSelectOptions`).
+ * Design token catalog (impl §4.3): the closed set of theme values a design page may use. Owns the
+ * `TokenCatalog` type, structural guards, CSS custom-property emission (`tokensToCss`), the
+ * `var(--dtk-…)` reference builder (`tokenVar`), and the Puck select-option builder
+ * (`tokenSelectOptions`).
  *
- * Every visual control in the catalog stores a token *name* and resolves it to `var(--dtk-…)` at
- * render — raw CSS values never appear in component fields (plan decision 4). A stored name absent
- * from the current theme resolves to an unset custom property (emitted only for tokens that exist),
- * so rendering never throws on drift; lint (§6.7) surfaces the dangling reference instead.
+ * Every visual control stores a token *name*, resolved to `var(--dtk-…)` at render — raw CSS values
+ * never appear in component fields (plan decision 4). A stored name absent from the current theme
+ * resolves to an unset custom property (rendering never throws on drift); lint surfaces the dangle.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -55,23 +54,17 @@ export interface TypographyToken {
     weight: string
     lineHeight: string
     letterSpacing?: string
-    /** Default `font-style: italic` when true. OPTIONAL, trap A: absent means not italic. */
+    /** `font-style: italic` when true. Trap A: absent means not italic. */
     italic?: boolean
-    /**
-     * Shortcut that forces the emitted weight to `"bold"` when true, overriding `weight` for that one
-     * property (the `weight` field's own value is preserved, unaffected, so unchecking restores it).
-     * OPTIONAL, trap A: absent behaves exactly as before this field existed.
-     */
+    /** Forces the emitted weight to `"bold"`, overriding `weight` for that one property only (the
+     * field itself is untouched — unchecking restores it). Trap A: absent = pre-field behavior. */
     bold?: boolean
-    /**
-     * Default `text-decoration-line` components. CSS allows combining these (e.g. underline +
-     * line-through) so each is an independent flag rather than a single select. OPTIONAL, trap A:
-     * absent means no decoration, matching pre-existing behavior.
-     */
+    /** `text-decoration-line` components — independent flags since CSS allows combining them (e.g.
+     * underline + line-through). Trap A: absent means no decoration. */
     underline?: boolean
     lineThrough?: boolean
     overline?: boolean
-    /** Default `text-transform`. OPTIONAL, trap A: absent means no transform. */
+    /** Trap A: absent means no transform. */
     textTransform?: TextTransform
 }
 
@@ -129,19 +122,17 @@ export interface WebFont {
 }
 
 /**
- * The public site frame's fixed semantic color/border/spacing roles (page background, body text,
- * links, horizontal spacing, …), each naming a token the owner has authored elsewhere in the catalog.
- * The roles themselves are a closed, non-removable set — every role always exists as a concept in the
- * editor — but which named token fills each one is the owner's choice, resolved the same way
- * `Section.background` or `Divider.color` already resolve a stored name to `var(--dtk-…)`.
+ * Public site frame's fixed semantic color/border/spacing roles (page background, body text, links,
+ * horizontal spacing, …), each naming a token authored elsewhere in the catalog. Closed,
+ * non-removable role set; which token fills each is the owner's choice, resolved like
+ * `Section.background`/`Divider.color`.
  *
  * Replaces the earlier convention of `public-chrome.css`/`search.astro` hardcoding specific color
- * names (`ink`, `paper`, `garnet`, `slate`, `surface`), a `hairline` border name, and (until
- * `horizontalSpace` existed) a hand-picked `--dtk-space-*` name per declaration: those names were
- * undiscoverable from the editor UI and silently fell back to generic defaults whenever a theme didn't
- * happen to define them. Every role here is OPTIONAL (trap A): unset roles fall back to the old
+ * names (`ink`, `paper`, `garnet`, `slate`, `surface`), a `hairline` border name, and a hand-picked
+ * `--dtk-space-*` name per declaration — undiscoverable from the editor UI, silently falling back to
+ * generic defaults when unset. Every role is OPTIONAL (trap A): unset falls back to the old
  * magic-name lookup in the consuming CSS, so an unmigrated theme renders unchanged until its owner
- * opens the editor and sets these explicitly.
+ * sets these explicitly.
  */
 export interface SiteChromeRoles {
     /** names a `colors` token; the page/site frame background */
@@ -158,14 +149,11 @@ export interface SiteChromeRoles {
     footerBackground?: string
     /** names a `borders` token; header/footer hairline rule */
     hairlineBorder?: string
-    /**
-     * names a `space` token; DEPRECATED, superseded by the three split roles below. Kept only so a
-     * catalog written before the split still has a value to migrate from: `toEditable` (ThemeEditor.tsx)
-     * seeds `horizontalSpaceInset`/`horizontalSpaceItemGap`/`horizontalSpaceControl` from this field
-     * one time when they're unset, and `tokensToCss` falls back to it per-role the same way, so an
-     * already-configured theme doesn't silently revert to the built-in literal fallbacks the moment the
-     * split ships. Never written by a save going forward — the editor no longer exposes it.
-     */
+    /** names a `space` token; DEPRECATED, superseded by the three split roles below. Kept only so a
+     * pre-split catalog has a value to migrate from — `toEditable` seeds the three split roles from
+     * this one time when unset, `tokensToCss` falls back to it per-role the same way, so an
+     * already-configured theme doesn't revert to the built-in fallback the moment the split ships.
+     * Never written by a save going forward. */
     horizontalSpace?: string
     /**
      * names a `space` token; how far static site-chrome content sits from the viewport edge — header
@@ -182,24 +170,16 @@ export interface SiteChromeRoles {
      * header and search-page search boxes, and entity list-result cards.
      */
     horizontalSpaceControl?: string
-    /**
-     * names a `space` token; an extra horizontal nudge ADDED on top of `horizontalSpaceInset`, scoped only
-     * to the pre-generated, non-Puck "static" pages via their own `main > .static-page-body` marker (the
-     * entity index/list pages, the `/entity`+`/database` root, and `/search`) — NOT to `main > :not(
-     * .cmp-section, article)`, which would also match every Puck-rendered template's `.cmp-root` wrapper
-     * (entity detail pages, EmDash design pages) and silently apply this static-only nudge to them too.
-     * Those static pages hardcode their own structure rather than reading it from a design/entity
-     * template, so there is no way to keep them automatically in step with whatever inset a given
-     * EmDash-authored page ends up using — this is a manual dial the owner can use to re-align them when
-     * they drift apart. Unset means no nudge (0), matching the behavior before this role existed.
-     */
+    /** names a `space` token; extra horizontal nudge ADDED on top of `horizontalSpaceInset`, scoped
+     * only to pre-generated, non-Puck "static" pages via their `main > .static-page-body` marker
+     * (entity index/list, `/entity`+`/database` root, `/search`) — NOT `main > :not(.cmp-section,
+     * article)`, which would also match every Puck-rendered template's `.cmp-root` wrapper and apply
+     * the nudge there too. Static pages hardcode their structure with no template to sync from — this
+     * is a manual dial to re-align them when they drift. Unset means no nudge (0). */
     horizontalSpaceStatic?: string
-    /**
-     * names a `space` token; the vertical rhythm that separates major page blocks from each other —
-     * `main > article`'s and unwrapped `main` content's top/bottom padding, and the margin around the
-     * NavTiles/entity-list grids and the search-page form. Header and footer have their own split-out
-     * roles below (`verticalSpaceHeader`/`verticalSpaceFooter`) rather than sharing this one.
-     */
+    /** names a `space` token; vertical rhythm separating major page blocks — `main > article`/unwrapped
+     * `main` top/bottom padding, NavTiles/entity-list grid margins, search-page form margin. Header/
+     * footer have their own split-out roles below rather than sharing this one. */
     verticalSpaceSection?: string
     /** names a `space` token; the header nav's own top/bottom padding, independent of the footer's. */
     verticalSpaceHeader?: string
@@ -217,25 +197,18 @@ export interface SiteChromeRoles {
      * cards (and their corner ID badge), and the search page's scope note / result excerpts.
      */
     verticalSpaceControl?: string
-    /**
-     * names a `space` token; an extra vertical nudge ADDED on top of `verticalSpaceSection`, scoped to the
-     * same static-page top/bottom padding `horizontalSpaceStatic` nudges horizontally (§ that field for
-     * why this exists as a manual dial rather than an automatic sync). Unset means no nudge (0).
-     */
+    /** names a `space` token; extra vertical nudge ADDED on top of `verticalSpaceSection`, same
+     * static-page scope `horizontalSpaceStatic` nudges horizontally (see that field). Unset = no nudge. */
     verticalSpaceStatic?: string
 }
 
 export interface TokenCatalog {
     /** Catalog schema version, independent of the design-doc `schemaVersion`. */
     schemaVersion: number
-    /**
-     * How colors are authored. `"adaptive"` (the default when absent) means color values carry a
-     * `light-dark(L, D)` pair that follows the viewer's color scheme; `"fixed"` means a single value.
-     * Authoring metadata only — the theme editor uses it to choose one color picker or two; `tokensToCss`
-     * never reads it (it emits each color's `value` verbatim, whatever shape the editor composed). OPTIONAL
-     * and defaulted on read, same trap-A contract as `buttonVariants`/`fonts`: a theme predating this field
-     * must still validate or the whole catalog is rejected and every design page renders unstyled.
-     */
+    /** How colors are authored. `"adaptive"` (default when absent) means values carry a
+     * `light-dark(L, D)` pair following viewer color scheme; `"fixed"` means a single value.
+     * Authoring metadata only — theme editor picks one color picker or two; `tokensToCss` never reads
+     * it, emits `value` verbatim. Trap A: a pre-field theme must still validate. */
     colorScheme?: "adaptive" | "fixed"
     colors: ValueToken[]
     typography: TypographyToken[]
@@ -244,40 +217,24 @@ export interface TokenCatalog {
     shadows: ValueToken[]
     borders: BorderToken[]
     breakpoints: BreakpointToken[]
-    /**
-     * Theme-authored button styles. OPTIONAL and normalized to `[]` on read: a live theme predating this
-     * field must still validate, or `fetchPublishedTheme` would reject the whole catalog and unstyle every
-     * design page (see `isTokenCatalog`). New keys added to this interface must follow the same pattern.
-     */
+    /** Theme-authored button styles. Trap A, normalized to `[]` on read — a pre-field theme must still
+     * validate or `fetchPublishedTheme` rejects the whole catalog and unstyles every page. New keys
+     * added here must follow the same pattern. */
     buttonVariants?: ButtonVariantToken[]
-    /**
-     * Site-wide web fonts to load (Google Fonts). OPTIONAL and normalized to `[]` on read — same trap-A
-     * contract as `buttonVariants`. Consumed by `webFontsHref`, not `tokensToCss`.
-     */
+    /** Site-wide web fonts (Google Fonts). Trap A, normalized to `[]`. Consumed by `webFontsHref`, not
+     * `tokensToCss`. */
     fonts?: WebFont[]
-    /**
-     * The public site frame's semantic color/border role mapping (§ SiteChromeRoles). OPTIONAL, trap A:
-     * a theme predating this field must still validate; every role within it is independently optional
-     * too, so partial adoption (e.g. only `pageBackground` set) is valid.
-     */
+    /** Public site frame's semantic color/border role mapping. Trap A; every role within is
+     * independently optional too — partial adoption (e.g. only `pageBackground`) is valid. */
     siteChrome?: SiteChromeRoles
-    /**
-     * Names a `breakpoints` token whose `minWidth` drives the one real breakpoint-consuming rule on the
-     * site today (`Columns` stacking to a single column below this width). Site-wide, not per-component-
-     * instance: custom properties can't appear in `@media` conditions, so this value is read at CSS-
-     * generation time (`theme-head.ts`) and interpolated as a literal pixel value into a real `@media`
-     * rule, replacing the previously hardcoded 768px in the static stylesheet. OPTIONAL, trap A: unset
-     * (or naming a token that doesn't exist) preserves the original hardcoded 768px behavior.
-     */
+    /** Names a `breakpoints` token whose `minWidth` drives the one real breakpoint-consuming rule
+     * (`Columns` stacking below this width). Site-wide: custom properties can't appear in `@media`
+     * conditions, so read at CSS-generation time (`theme-head.ts`) and baked in as a literal pixel
+     * value, replacing the old hardcoded 768px. Trap A: unset (or a dangling name) preserves 768px. */
     layoutStackBreakpoint?: string
-    /**
-     * Whether cross-document view transitions (`@view-transition { navigation: auto; }`) are enabled on
-     * the public site. Site-wide, like `layoutStackBreakpoint`: a real `@view-transition` at-rule, not a
-     * `--dtk-*` custom property, so it is read at CSS-generation time (`theme-head.ts`) rather than
-     * emitted by `tokensToCss`. OPTIONAL, trap A: absent means enabled, matching the site's original
-     * always-on `styles/global.css` behavior before this control existed. Only `false` (explicitly
-     * disabled) changes anything.
-     */
+    /** Whether cross-document view transitions are enabled site-wide. Like `layoutStackBreakpoint`, a
+     * real `@view-transition` at-rule read at CSS-generation time, not emitted by `tokensToCss`. Trap
+     * A: absent means enabled (the site's original always-on behavior); only `false` changes anything. */
     viewTransitions?: boolean
 }
 
@@ -341,89 +298,39 @@ const KIND_SEGMENT: Record<TokenKind, string> = {
  */
 export const TOKEN_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
-/**
- * Whether a string is a valid kebab-case token name (see TOKEN_NAME_PATTERN).
- *
- * @param {string} name - the candidate token name
- * @returns {boolean} - true if the name is a valid kebab-case slug
- */
+/** Whether a string is a valid kebab-case token name (see TOKEN_NAME_PATTERN). */
 export function isValidTokenName(name: string): boolean {
     return TOKEN_NAME_PATTERN.test(name)
 }
 
-/**
- * The CSS custom-property name for a token, e.g. `--dtk-color-accent`, `--dtk-space-md`,
- * `--dtk-type-body-size`. `sub` names a typography/border sub-value.
- *
- * @param {TokenKind} kind - the catalog kind
- * @param {string} name - the token name
- * @param {string} [sub] - an optional sub-value segment (e.g. "size", "width")
- * @returns {string} - the `--dtk-…` custom-property name
- */
+/** CSS custom-property name for a token, e.g. `--dtk-color-accent`, `--dtk-type-body-size`. `sub`
+ * names a typography/border sub-value. */
 export function tokenVarName(kind: TokenKind, name: string, sub?: string): string {
     const base = `--dtk-${KIND_SEGMENT[kind]}-${name}`
     return sub ? `${base}-${sub}` : base
 }
 
-/**
- * A `var(--dtk-…)` reference to a token, for use in a component's rendered CSS. Returns the
- * reference regardless of whether the token currently exists — a missing token resolves to an
- * unset custom property (rendering does not throw); lint reports the dangling reference.
- *
- * @param {TokenKind} kind - the catalog kind
- * @param {string} name - the token name
- * @param {string} [sub] - an optional sub-value segment
- * @returns {string} - a `var(--dtk-…)` string
- */
+/** A `var(--dtk-…)` reference to a token, for a component's rendered CSS. Returns the reference
+ * regardless of whether the token currently exists — a missing token resolves to an unset custom
+ * property, not a throw; lint reports the dangle. */
 export function tokenVar(kind: TokenKind, name: string, sub?: string): string {
     return `var(${tokenVarName(kind, name, sub)})`
 }
 
-/**
- * Whether a token of the given kind and name exists in the catalog. Used by lint (§6.7) and the
- * unknown-token tests; rendering itself never needs it (missing tokens fail soft to unset vars).
- *
- * @param {TokenCatalog} catalog - the theme catalog
- * @param {TokenKind} kind - the catalog kind
- * @param {string} name - the token name
- * @returns {boolean} - true if a token with that name exists under that kind
- */
+/** Whether a token of the given kind/name exists in the catalog. Used by lint and the unknown-token
+ * tests; rendering itself never needs it (missing tokens fail soft to unset vars). */
 export function hasToken(catalog: TokenCatalog, kind: TokenKind, name: string): boolean {
     return (catalog[kind] ?? []).some((token) => token.name === name)
 }
 
-/**
- * Puck select options for a token kind: `{ label, value }` with both set to the token name
- * (editors pick by name). Order follows the catalog.
- *
- * @param {TokenCatalog} catalog - the theme catalog
- * @param {TokenKind} kind - the catalog kind
- * @returns {{ label: string; value: string }[]} - select options for the kind's tokens
- */
+/** Puck select options for a token kind: `{label, value}` both set to the token name. Order follows
+ * the catalog. */
 export function tokenSelectOptions(catalog: TokenCatalog, kind: TokenKind): { label: string; value: string }[] {
     return (catalog[kind] ?? []).map((token) => ({ label: token.name, value: token.name }))
 }
 
-/**
- * Emits the theme as CSS custom properties inside a `:root { … }` block — one property per simple
- * value token, one per typography/border sub-value. Injected as a `<style>` into the build head of
- * design pages and into the Puck canvas iframe in the editor (impl §4.3, spike (c)).
- *
- * Tokens whose name is not a valid kebab-case slug are skipped (defensive: a malformed name must
- * not become a malformed property). Breakpoints are not emitted — custom properties cannot be used
- * in `@media` conditions, so the catalog (§6.3) references breakpoint values directly.
- *
- * @param {TokenCatalog} catalog - the theme catalog
- * @returns {string} - a `:root { … }` CSS block declaring the `--dtk-*` properties
- */
-/**
- * The `text-decoration-line` value for a typography token's underline/lineThrough/overline flags.
- * CSS allows combining these on one element (e.g. `underline overline`), so each flag contributes
- * independently rather than the field being a single exclusive choice.
- *
- * @param {TypographyToken} token - the typography token
- * @returns {string} - `"none"`, or a space-separated list of the active decoration lines
- */
+/** `text-decoration-line` value for a typography token's underline/lineThrough/overline flags — CSS
+ * allows combining these on one element, so each flag contributes independently. */
 function textDecorationLine(token: TypographyToken): string {
     const lines: string[] = []
     if (token.underline) lines.push("underline")
@@ -432,6 +339,11 @@ function textDecorationLine(token: TypographyToken): string {
     return lines.length > 0 ? lines.join(" ") : "none"
 }
 
+/** Emits the theme as `--dtk-*` custom properties in a `:root { … }` block — one property per simple
+ * value token, one per typography/border sub-value. Injected as a `<style>` into the build head and
+ * the Puck canvas iframe. Malformed-name tokens are skipped; breakpoints aren't emitted (custom
+ * properties can't be used in `@media` conditions — the catalog references breakpoint values
+ * directly). */
 export function tokensToCss(catalog: TokenCatalog): string {
     const lines: string[] = []
 
@@ -442,8 +354,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
         if (!isValidTokenName(token.name)) continue
         lines.push(`${tokenVarName("typography", token.name, "family")}: ${token.family};`)
         lines.push(`${tokenVarName("typography", token.name, "size")}: ${token.size};`)
-        // `bold` is a shortcut that overrides the emitted weight for this property only; the token's
-        // own `weight` value is untouched, so unchecking `bold` restores it.
+        // `bold` overrides the emitted weight only; `weight` itself is untouched, so unchecking restores it.
         lines.push(`${tokenVarName("typography", token.name, "weight")}: ${token.bold ? "bold" : token.weight};`)
         lines.push(`${tokenVarName("typography", token.name, "line-height")}: ${token.lineHeight};`)
         if (token.letterSpacing !== undefined) {
@@ -469,9 +380,8 @@ export function tokensToCss(catalog: TokenCatalog): string {
         // colorRef resolves to the color token's own property; a dangling ref yields an unset var.
         lines.push(`${tokenVarName("borders", token.name, "color")}: ${tokenVar("colors", token.colorRef)};`)
     }
-    // Each variant field references another token, emitted as a var() to that token's own property
-    // (like borders' colorRef). A dangling ref yields an unset var, not a crash; the border sub-values
-    // are emitted only when `border` names a token, so a border-less variant inherits the CSS fallback.
+    // Each variant field is a var() to another token's property (like borders' colorRef) — a dangling
+    // ref yields an unset var, not a crash. Border sub-values emit only when `border` names a token.
     for (const variant of catalog.buttonVariants ?? []) {
         if (!isValidTokenName(variant.name)) continue
         lines.push(`${tokenVarName("buttonVariants", variant.name, "bg")}: ${tokenVar("colors", variant.background)};`)
@@ -491,10 +401,10 @@ export function tokensToCss(catalog: TokenCatalog): string {
             )
         }
     }
-    // Site Chrome roles: emitted only when the owner has set them, as `--dtk-chrome-<role>` pointing at
-    // the chosen token's own property (like buttonVariants' refs). An unset role emits nothing, so the
-    // consuming CSS's own `var(--dtk-chrome-…, <old magic-name lookup>)` fallback chain takes over —
-    // this is what makes an unmigrated theme render unchanged until its owner sets these explicitly.
+    // Site Chrome roles: emitted only when set, as `--dtk-chrome-<role>` pointing at the chosen
+    // token's property (like buttonVariants' refs). Unset emits nothing, so the consuming CSS's own
+    // `var(--dtk-chrome-…, <old magic-name lookup>)` fallback takes over — an unmigrated theme renders
+    // unchanged until its owner sets these explicitly.
     const chrome = catalog.siteChrome
     if (chrome) {
         const colorRoles: Array<[string, string | undefined]> = [
@@ -515,8 +425,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
             lines.push(`--dtk-chrome-hairline-color: ${tokenVar("borders", name, "color")};`)
         }
         // Each split role falls back to the deprecated singular `horizontalSpace` when unset, so a
-        // catalog saved before the split (§ SiteChromeRoles.horizontalSpace) keeps rendering identically
-        // until its owner opens the editor and adjusts the roles independently.
+        // pre-split catalog keeps rendering identically until its owner adjusts the roles independently.
         const horizontalSpaceRoles: Array<[string, string | undefined]> = [
             ["horizontal-space-inset", chrome.horizontalSpaceInset ?? chrome.horizontalSpace],
             ["horizontal-space-item-gap", chrome.horizontalSpaceItemGap ?? chrome.horizontalSpace],
@@ -527,10 +436,9 @@ export function tokensToCss(catalog: TokenCatalog): string {
         for (const [segment, name] of horizontalSpaceRoles) {
             if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
         }
-        // The vertical counterpart: independently settable roles, no legacy singular field to fall back to
-        // (there was no shared vertical dial before this — unlike horizontalSpace, this ships split from
-        // the start). Header and footer split out of the original verticalSpaceSection so their rhythms
-        // can be tuned independently of each other and of main-content/grid rhythm.
+        // Vertical counterpart: independently settable, no legacy singular fallback — unlike
+        // horizontalSpace, ships split from the start. Header/footer split from verticalSpaceSection so
+        // their rhythms tune independently of each other and of main-content/grid rhythm.
         const verticalSpaceRoles: Array<[string, string | undefined]> = [
             ["vertical-space-section", chrome.verticalSpaceSection],
             ["vertical-space-header", chrome.verticalSpaceHeader],
@@ -562,18 +470,11 @@ function stackCutoff(minWidth: string): string {
     return `${Number(match[1]) - 0.02}px`
 }
 
-/**
- * The `@media (max-width: …) { .cmp-columns { grid-template-columns: 1fr; } }` rule that drives `Columns`'
- * single-column stacking. Generated here rather than hardcoded in the static stylesheet (`compositor.css`)
- * because it is theme-authored: `layoutStackBreakpoint` names a `breakpoints` token, and custom properties
- * cannot appear in `@media` conditions, so the chosen breakpoint's literal pixel value must be baked
- * directly into this CSS text. Falls back to the historical fixed cutoff when the catalog doesn't
- * designate a breakpoint (unset, or naming a token that no longer exists) — preserving the exact
- * pre-existing behavior for a theme that predates this field, and for no theme at all.
- *
- * @param {TokenCatalog} catalog - the theme catalog
- * @returns {string} - the `@media { … }` rule
- */
+/** The `@media (max-width: …) { .cmp-columns { grid-template-columns: 1fr; } }` rule driving `Columns`'
+ * single-column stacking. Generated here, not hardcoded in `compositor.css`, because it's
+ * theme-authored: `layoutStackBreakpoint` names a `breakpoints` token, and custom properties can't
+ * appear in `@media` conditions — the chosen breakpoint's literal pixel value must be baked directly
+ * into this CSS text. Falls back to the historical fixed cutoff when unset or dangling. */
 export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
     const target = catalog.layoutStackBreakpoint
     const token = target ? catalog.breakpoints.find((candidate) => candidate.name === target) : undefined
@@ -581,22 +482,14 @@ export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
     return `@media (max-width: ${maxWidth}) {\n    .cmp-columns {\n        grid-template-columns: 1fr;\n    }\n}`
 }
 
-/**
- * The `@view-transition { navigation: auto; }` at-rule that crossfades between page navigations, or `""`
- * when the theme has explicitly disabled it. Generated here rather than hardcoded in the static
- * stylesheet (`styles/global.css`) because it is theme-authored, like `columnsStackBreakpointCss`.
- * Falls back to enabled (the historical always-on behavior) when the catalog doesn't set
- * `viewTransitions` at all — only an explicit `false` turns it off.
+/** The `@view-transition { navigation: auto; }` at-rule crossfading page navigations, or `""` when
+ * the theme explicitly disabled it. Generated here, not hardcoded, because it's theme-authored like
+ * `columnsStackBreakpointCss`. Falls back to enabled — only explicit `false` turns it off.
  *
- * Also overrides the UA default crossfade styling: the default's mix-blend-mode: plus-lighter additively
- * blends the old/new snapshots to avoid a black flash, which instead washes toward white on a light theme.
- * Giving the transition group a real backdrop (matching public-chrome.css's page-background fallback
- * chain) removes the need for that trick, so a plain mix-blend-mode: normal crossfade doesn't wash toward
- * white or dip toward black in either theme.
- *
- * @param {TokenCatalog} catalog - the theme catalog
- * @returns {string} - the `@view-transition { … }` rule (plus crossfade overrides), or `""` when disabled
- */
+ * Also overrides the UA default crossfade: `mix-blend-mode: plus-lighter` additively blends old/new
+ * snapshots to avoid a black flash, but washes toward white on a light theme. A real backdrop (matching
+ * public-chrome.css's page-background fallback chain) removes the need for that trick, so a plain
+ * `mix-blend-mode: normal` crossfade doesn't wash white or dip black in either theme. */
 export function viewTransitionCss(catalog: TokenCatalog): string {
     if (catalog.viewTransitions === false) return ""
     return (
@@ -707,20 +600,13 @@ function isWebFont(value: unknown): value is WebFont {
     )
 }
 
-/**
- * Whether a value is a structurally valid TokenCatalog. Used to validate the stored `design_theme`
- * item before use (theme editor §6.5, build fetch §6.6). Structural only — it does not check that
- * values are legal CSS or that names are unique.
- *
- * @param {unknown} value - the candidate catalog (e.g. a parsed `tokens` field)
- * @returns {boolean} - true if the value matches the TokenCatalog shape
- */
+/** Whether a value is a structurally valid TokenCatalog — validates the stored `design_theme` item
+ * before use. Structural only, doesn't check values are legal CSS or names are unique. */
 export function isTokenCatalog(value: unknown): value is TokenCatalog {
     return (
         isRecord(value) &&
         typeof value.schemaVersion === "number" &&
-        // Optional, trap-A: an older theme has no colorScheme and must still validate (defaults to
-        // "adaptive" on read). Present-but-not-one-of the two literals is a rejection.
+        // Trap A: an older theme has no colorScheme, must still validate (defaults "adaptive" on read).
         (value.colorScheme === undefined || value.colorScheme === "adaptive" || value.colorScheme === "fixed") &&
         isArrayOf(value.colors, isValueToken) &&
         isArrayOf(value.typography, isTypographyToken) &&
@@ -729,15 +615,12 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
         isArrayOf(value.shadows, isValueToken) &&
         isArrayOf(value.borders, isBorderToken) &&
         isArrayOf(value.breakpoints, isBreakpointToken) &&
-        // Optional (trap A): a theme predating buttonVariants must validate, or the whole catalog is
-        // rejected and every design page renders unstyled. Present-but-malformed is still a rejection.
+        // Trap A: a theme predating buttonVariants must validate, or the whole catalog is rejected and
+        // every design page renders unstyled. Present-but-malformed is still a rejection.
         (value.buttonVariants === undefined || isArrayOf(value.buttonVariants, isButtonVariantToken)) &&
-        // Optional, same trap-A contract as buttonVariants.
         (value.fonts === undefined || isArrayOf(value.fonts, isWebFont)) &&
-        // Optional, same trap-A contract as buttonVariants.
         (value.siteChrome === undefined || isSiteChromeRoles(value.siteChrome)) &&
         (value.layoutStackBreakpoint === undefined || typeof value.layoutStackBreakpoint === "string") &&
-        // Optional, trap-A: a theme predating this field must still validate (defaults to enabled on read).
         (value.viewTransitions === undefined || typeof value.viewTransitions === "boolean")
     )
 }
@@ -745,23 +628,15 @@ export function isTokenCatalog(value: unknown): value is TokenCatalog {
 /** A Google Fonts family name: letters/digits in single-space-separated words. Anything else is untrusted. */
 const WEB_FONT_FAMILY_PATTERN = /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/
 
-/**
- * Builds the Google Fonts css2 stylesheet URL for the given web fonts, or null when none is valid.
+/** Builds the Google Fonts css2 stylesheet URL for the given web fonts, or null when none is valid.
+ * Each family is validated against `WEB_FONT_FAMILY_PATTERN`, weights constrained to distinct positive
+ * integers (≤1000), so a hand-edited theme can't inject arbitrary text into the URL. A family failing
+ * validation is skipped, not fatal; no valid weight loads 400.
  *
- * Each family is validated against `WEB_FONT_FAMILY_PATTERN` and its weights are constrained to distinct
- * positive integers (≤ 1000), so a hand-edited theme cannot inject arbitrary text into the built URL. A
- * family that fails validation is skipped rather than aborting the whole URL. A family with no valid
- * weight loads weight 400.
- *
- * Not linked directly into a page — `theme-fonts.ts`'s `localizeThemeFonts` fetches this URL at build
- * time, downloads the font files it references, and rewrites them into locally self-hosted
- * `@font-face` rules (see that file for why: self-hosting is what makes `<link rel="preload">`, and so
- * a reliable first-paint, possible at all). No `display=` param: whatever this stylesheet says is
- * discarded and replaced by `localizeThemeFonts`'s own per-subset choice.
- *
- * @param {WebFont[]} fonts - the theme's declared web fonts
- * @returns {string | null} - the css2 stylesheet URL, or null if no font is valid
- */
+ * Not linked directly into a page — `theme-fonts.ts`'s `localizeThemeFonts` fetches this at build time,
+ * downloads the fonts, rewrites them into self-hosted `@font-face` rules (self-hosting is what makes
+ * `<link rel="preload">`, and reliable first-paint, possible). No `display=` param — discarded and
+ * replaced by `localizeThemeFonts`'s own per-subset choice. */
 export function webFontsHref(fonts: WebFont[]): string | null {
     const families: string[] = []
     for (const font of fonts) {
@@ -787,15 +662,10 @@ export interface TokenCatalogFinding {
     kind: TokenKind
 }
 
-/**
- * Lints a theme's own internal references: each button variant references color/space/radius/border
- * tokens by name, and this reports any whose target is absent. This is the second-order dangle the
- * design-level `unknown-token` rule cannot see — that rule checks a `Button.variant` names a variant
- * that exists; this checks the variant's own refs. Structural only, like `isTokenCatalog`.
- *
- * @param {TokenCatalog} catalog - the theme catalog
- * @returns {TokenCatalogFinding[]} - one finding per dangling variant reference, in catalog order
- */
+/** Lints a theme's own internal references: each button variant references color/space/radius/border
+ * tokens by name, reports any whose target is absent. The second-order dangle the design-level
+ * `unknown-token` rule can't see — that rule checks a `Button.variant` names a variant that exists,
+ * this checks the variant's own refs. */
 export function lintTokenCatalog(catalog: TokenCatalog): TokenCatalogFinding[] {
     const findings: TokenCatalogFinding[] = []
     for (const variant of catalog.buttonVariants ?? []) {
