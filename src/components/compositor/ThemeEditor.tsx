@@ -1,28 +1,28 @@
 /**
  * components/compositor/ThemeEditor.tsx
  *
- * The theme editor: edits the single `design_theme` item's `tokens` catalog — the closed set of
+ * The theme editor: edits the singleton `design_theme` item's `tokens` catalog — the closed set of
  * `--dtk-*` values every design page draws from. Mounted client-side by
- * `pages/admin/designs/theme.astro` inside the normal admin chrome (a form page, not the full-viewport
- * canvas), from a module script rather than an Astro island — the admin CSP blocks Astro's inline
- * island bootstrap.
+ * `pages/admin/designs/theme.astro` inside the normal admin chrome (not the full-viewport canvas),
+ * from a module script rather than an Astro island — the admin CSP blocks Astro's inline island
+ * bootstrap.
  *
  * Discovers the theme item via the content list, GETs it by id for the draft-overlaid `tokens`, edits
- * every token kind as rows, writes a draft `PUT`/`POST …/publish` the same way the design editor does.
- * Rename/remove is destructive to designs referencing the old name (Phase 1 accepts this — lint
- * surfaces the dangling reference; a usage scan is a later hardening step).
+ * every token kind as rows, writes a draft via `PUT`/`POST …/publish` like the design editor does.
+ * Rename/remove is destructive to designs referencing the old name — Phase 1 accepts this; lint
+ * surfaces the dangling reference, a usage scan is a later hardening step.
  *
- * The theme is a singleton with no version history, so a "Backup & restore" panel exports the current
- * catalog to JSON and imports one back (validated by `isTokenCatalog`) — a manual snapshot/rollback
- * around a redesign. Import loads into the form only; the user still Saves/Publishes.
+ * Theme is a singleton with no version history, so "Backup & restore" exports the current catalog to
+ * JSON and imports one back (validated by `isTokenCatalog`) — a manual snapshot/rollback around a
+ * redesign. Import loads into the form only; the user still Saves/Publishes.
  *
  * Each token cell is edited by a friendly, CSS-less control (color pickers, a number+unit stepper,
  * clamp/shadow builders), with one global "Show raw CSS values" switch flipping every cell back to
- * plain text for developers. A cell's stored string is the single source of truth: the friendly
- * control parses it on render and formats back on change, and any value a control can't round-trip
- * degrades to that same text input — the two views never disagree, a value is never clobbered. A
- * separate color-scheme switch flips the whole theme between adaptive (`light-dark(L, D)` pair) and
- * fixed (single value) — authoring metadata only, never read by the build.
+ * plain text. A cell's stored string is the single source of truth: the friendly control parses it on
+ * render and formats back on change; anything a control can't round-trip degrades to that same text
+ * input, so the two views never disagree and a value is never clobbered. A separate color-scheme
+ * switch flips the whole theme between adaptive (`light-dark(L, D)` pair) and fixed (single value) —
+ * authoring metadata only, never read by the build.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -88,18 +88,18 @@ import {
 } from "./ThemePreview"
 
 import "./design-editor.css"
-// Vite `?raw` yields the file's text — same mechanism DesignEditor.tsx uses for the Puck canvas
-// iframe. Here it styles the live preview specimens below, injected as a plain `<style>` in the admin
-// document itself (allowed: admin CSP is `style-src 'self' 'unsafe-inline'`).
+// Vite `?raw` yields the file's text, same mechanism as DesignEditor.tsx's Puck canvas iframe. Styles
+// the live preview specimens below via a plain `<style>` in the admin document (admin CSP allows
+// `style-src 'self' 'unsafe-inline'`).
 import compositorCss from "../../lib/compositor/compositor.css?raw"
 
 const DESIGN_THEME = "/_emdash/api/content/design_theme"
 
 /**
- * Which friendly control edits this field when the editor is NOT in raw mode. Absent (or `"text"`) keeps
- * the plain free-text input, which is also exactly what raw mode renders for every field. Each control
- * parses the stored string on render and formats it back on change (`lib/compositor/theme-controls.ts`),
- * so the raw and friendly views always edit the same underlying value.
+ * Which friendly control edits this field outside raw mode. Absent (or `"text"`) is the plain free-text
+ * input — also what raw mode renders for every field. Each control parses the stored string on render,
+ * formats it back on change (`theme-controls.ts`); raw and friendly views always edit the same
+ * underlying value.
  */
 type ControlKind = "text" | "color" | "length" | "clamp" | "shadow" | "family" | "weight" | "style" | "checkbox" | "transform"
 
@@ -112,15 +112,15 @@ interface FieldSpec {
     /** The friendly control for this field (see `ControlKind`); defaults to the raw text input. */
     control?: ControlKind
     /**
-     * The field holds a JS boolean (not a CSS value string) — e.g. typography's italic/bold/underline
-     * defaults. Rendered as a checkbox in both raw and friendly view (there is no "raw CSS" form of a
-     * flag), and converted to/from the row's string storage (`"true"`/`""`) at the catalog boundary.
+     * Field holds a JS boolean, not a CSS value string (e.g. italic/bold/underline defaults). Always a
+     * checkbox — no "raw CSS" form of a flag — converted to/from the row's string storage (`"true"`/`""`)
+     * at the catalog boundary.
      */
     valueType?: "boolean"
     /**
-     * When set, this field holds a REFERENCE to another token (by name) of that kind, and renders as a
-     * `<select>` of the names currently in that kind rather than a free-text input — making a dangling
-     * reference unrepresentable in the editor (§3.1), which is stronger than linting it after the fact.
+     * When set, field is a REFERENCE to another token (by name) of that kind — renders as a `<select>`
+     * over that kind's names, not free text. Makes a dangling reference unrepresentable in the editor
+     * (§3.1), stronger than linting it after the fact.
      */
     refKind?: TokenKind
 }
@@ -129,9 +129,9 @@ interface FieldSpec {
 type Row = Record<string, string>
 
 /**
- * A web-font row. Fonts are not tokens (not a `TokenKind`), so they sit beside the kind-keyed rows and
- * are edited/serialized separately. `weights` is a comma-separated string in the form and is parsed to a
- * `number[]` on save — storing it as a string would fail `isTokenCatalog` and unstyle every design page.
+ * A web-font row. Fonts aren't tokens (not a `TokenKind`), so they sit beside the kind-keyed rows,
+ * edited/serialized separately. `weights` is comma-separated in the form, parsed to `number[]` on save —
+ * storing it as a string would fail `isTokenCatalog` and unstyle every design page.
  */
 interface FontRow {
     family: string
@@ -139,8 +139,8 @@ interface FontRow {
 }
 
 /**
- * Site Chrome roles as edited: every role is a plain string row field, `""` meaning unset. Excludes the
- * deprecated `horizontalSpace` — it is a read-only migration source (§ toEditable), never a form field.
+ * Site Chrome roles as edited: every role a plain string field, `""` meaning unset. Excludes deprecated
+ * `horizontalSpace` — a read-only migration source (see `toEditable`), never a form field.
  */
 type SiteChromeRow = Record<Exclude<keyof SiteChromeRoles, "horizontalSpace">, string>
 
@@ -152,8 +152,8 @@ type EditableCatalog = {
     siteChrome: SiteChromeRow
     /** names a `breakpoints` token driving Columns' stack point; "" keeps the historical fixed 768px. */
     layoutStackBreakpoint: string
-    /** whether cross-document view transitions are enabled site-wide; defaults to true (the historical
-     *  always-on behavior) when the catalog has never set `viewTransitions`. */
+    /** whether cross-document view transitions are enabled site-wide; defaults true (historical always-on
+     *  behavior) when unset. */
     viewTransitions: boolean
 } & Record<TokenKind, Row[]>
 
@@ -209,9 +209,9 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
 ]
 
 /** Site Chrome roles, in render order, with which token kind each selects from. Rendered as three
- * tables: colors/borders roles in "Site Chrome", every `"space"`-kind role split by
- * `horizontalSpace`/`verticalSpace` key prefix into "Horizontal spacing"/"Vertical spacing" tables
- * under the Spacing section, next to the space tokens those roles reference. */
+ * tables: colors/borders under "Site Chrome"; `"space"`-kind roles split by `horizontalSpace`/
+ * `verticalSpace` prefix into "Horizontal spacing"/"Vertical spacing" under Spacing, next to the
+ * tokens they reference. */
 const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
     { key: "bodyText", label: "Body text", kind: "colors" },
@@ -275,11 +275,11 @@ const HORIZONTAL_SPACE_ROLE_KEYS = new Set<keyof SiteChromeRow>([
     "horizontalSpaceControl"
 ])
 
-/** Candidate token names to auto-suggest for a Site Chrome role when the catalog never had
- * `siteChrome` set (a theme predating this feature). Each role tries candidates in order, takes the
- * first that exists in the loaded catalog; no match leaves it unset rather than guessing wrong. Mirror
- * the magic names `public-chrome.css`/`search.astro` hardcoded before Site Chrome existed — a
- * one-time migration aid, not a permanent default. */
+/** Candidate names to auto-suggest for a Site Chrome role when the catalog never set `siteChrome`
+ * (predates the feature). Each role tries candidates in order, takes the first present in the catalog;
+ * no match leaves it unset rather than guessing wrong. Mirrors the magic names hardcoded in
+ * `public-chrome.css`/`search.astro` before Site Chrome existed — a one-time migration aid, not a
+ * permanent default. */
 const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     pageBackground: ["parchment", "paper"],
     bodyText: ["ink"],
@@ -288,15 +288,14 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     mutedText: ["slate"],
     footerBackground: ["surface"],
     hairlineBorder: ["hairline"],
-    // No legacy magic name for any of these: a catalog that already set the old singular `horizontalSpace`
-    // role is handled separately in toEditable (seeding all three from it), not via this candidate list.
+    // No legacy magic name for these: an old singular `horizontalSpace` value is handled separately in
+    // toEditable (seeds all three), not via this candidate list.
     horizontalSpaceInset: [],
     horizontalSpaceItemGap: [],
     horizontalSpaceControl: [],
     // The static-page nudge is brand new (no prior dial of any kind to migrate from).
     horizontalSpaceStatic: [],
-    // No legacy magic name or prior singular dial for the vertical roles either — they ship split from
-    // the start (§ SiteChromeRoles.verticalSpaceSection).
+    // No legacy name or prior singular dial for vertical roles either — ship split from the start.
     verticalSpaceSection: [],
     verticalSpaceHeader: [],
     verticalSpaceFooter: [],
@@ -309,9 +308,9 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
 function toEditable(catalog: TokenCatalog): EditableCatalog {
     const rows: Partial<Record<TokenKind, Row[]>> = {}
     for (const section of SECTIONS) {
-        // The rows are edited generically (kind → fields), so the token unions are read as bags of
-        // fields; every read below is typeof-guarded, so widening away the union is safe here. `?? []`
-        // covers optional kinds (buttonVariants) absent from a theme that predates them.
+        // Rows are edited generically (kind → fields), so token unions are read as bags of fields —
+        // every read below is typeof-guarded, widening away the union safely. `?? []` covers optional
+        // kinds (buttonVariants) absent from a theme predating them.
         rows[section.kind] = ((catalog[section.kind] ?? []) as unknown as Array<Record<string, unknown>>).map((token) => {
             const row: Row = {}
             for (const field of section.fields) {
@@ -326,8 +325,8 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
         weights: (font.weights ?? []).join(", ")
     }))
 
-    // Every role empty-string by default; if the catalog has never had siteChrome at all (not even an
-    // empty object), suggest matches from the legacy magic-name convention as a one-time migration aid.
+    // Every role empty-string by default; if the catalog never had siteChrome (not even `{}`), suggest
+    // matches from the legacy magic-name convention as a one-time migration aid.
     const chrome = catalog.siteChrome
     const colorNames = new Set(catalog.colors.map((token) => token.name))
     const borderNames = new Set(catalog.borders.map((token) => token.name))
@@ -336,11 +335,10 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
     const siteChrome = Object.fromEntries(
         SITE_CHROME_ROLES.map(({ key, kind }) => {
             if (chrome?.[key]) return [key, chrome[key]]
-            // One-time migration aid: a catalog saved before horizontalSpace split into three roles has
-            // only the singular value; seed all three from it here so an already-configured theme doesn't
-            // silently revert to the built-in literal fallback the moment this ships. Only fires while the
-            // split roles are still unset — Save always rewrites siteChrome from the row alone (§ toCatalog),
-            // so the legacy value is never read again once the owner saves.
+            // One-time migration: a catalog predating the horizontalSpace split has only the singular
+            // value — seed all three roles from it so an already-configured theme doesn't silently revert
+            // to the built-in fallback. Only fires while split roles are unset; Save always rewrites
+            // siteChrome from the rows (see toCatalog), so the legacy value is never read again.
             if (HORIZONTAL_SPACE_ROLE_KEYS.has(key) && chrome?.horizontalSpace) return [key, chrome.horizontalSpace]
             if (chrome !== undefined) return [key, ""]
             const names = namesByKind[kind]
@@ -384,9 +382,9 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
             return token
         })
     }
-    // Fonts are serialized apart from the kind loop: `weights` is parsed from its comma-separated string
-    // to distinct positive integers (a non-number is dropped), and a font with no valid weight omits the
-    // key so it defaults to 400 on render. A blank family drops the whole row.
+    // Fonts serialize apart from the kind loop: `weights` parses from its comma-separated string to
+    // distinct positive integers (non-numbers dropped); no valid weight omits the key, defaults to 400
+    // on render. Blank family drops the row.
     catalog.fonts = editable.fonts
         .map((row) => {
             const family = row.family.trim()
@@ -402,8 +400,8 @@ function toCatalog(editable: EditableCatalog): TokenCatalog {
         })
         .filter((font) => font.family !== "")
 
-    // Only non-empty roles are kept; an all-unset chrome mapping omits the field entirely (trap A) so an
-    // unmigrated/untouched theme keeps falling back to the legacy magic-name lookup in the consuming CSS.
+    // Only non-empty roles kept; an all-unset chrome mapping omits the field entirely (trap A), so an
+    // unmigrated theme keeps falling back to the legacy magic-name lookup in the consuming CSS.
     const chromeEntries = Object.entries(editable.siteChrome).filter(([, value]) => value.trim() !== "")
     if (chromeEntries.length > 0) catalog.siteChrome = Object.fromEntries(chromeEntries)
 
@@ -445,9 +443,9 @@ async function fetchTheme(): Promise<{ id: string; catalog: TokenCatalog; rev: s
 const USAGE_COLLECTIONS = ["design_page", "design_template"] as const
 
 /** Scans every design (pages and templates, INCLUDING drafts — a draft referencing a token breaks the
- * moment it's published) for token references, so the editor can tell how many designs a rename or
- * removal would strip. Fail-soft: a read error propagates to the caller, which falls back to the
- * static prose warning rather than breaking the editor over a lost advisory count. */
+ * moment it's published) for token references, so the editor can show how many designs a rename/removal
+ * would strip. Fail-soft: a read error propagates to the caller, which falls back to the static warning
+ * rather than breaking the editor over a lost advisory count. */
 async function fetchDesignUsage(): Promise<Map<string, string[]>> {
     const docs: { label: string; doc: DesignDoc }[] = []
     for (const collection of USAGE_COLLECTIONS) {
@@ -466,8 +464,8 @@ async function fetchDesignUsage(): Promise<Map<string, string[]>> {
 }
 
 /**
- * A token-reference select: the names available in the referenced kind, plus a way to represent an unset
- * choice and a now-missing reference — so a stored value is never silently rewritten to the first option.
+ * A token-reference select: names available in the referenced kind, plus unset and now-missing states —
+ * a stored value is never silently rewritten to the first option.
  */
 function RefSelect({
     names,
@@ -502,24 +500,19 @@ function TextControl({ value, onChange }: { value: string; onChange: (value: str
 }
 
 /**
- * A boolean flag control (e.g. italic/bold/underline defaults). Always a checkbox, in both raw and
- * friendly view — there is no "raw CSS string" form of a JS boolean to fall back to, unlike every other
- * control here. The row's string storage represents checked as `"true"` and unchecked as `""`.
+ * A boolean flag control (e.g. italic/bold/underline defaults). Always a checkbox in both views — no
+ * "raw CSS string" form of a JS boolean to fall back to, unlike every other control here. Row storage:
+ * checked = `"true"`, unchecked = `""`.
  */
 function CheckboxControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     return <input type="checkbox" checked={value === "true"} onChange={(event) => onChange(event.target.checked ? "true" : "")} />
 }
 
-/** A unit label for the dropdown; `""` (unitless) shows as an em dash. */
-function unitLabel(unit: string): string {
-    return unit === "" ? "—" : unit
-}
-
 /**
- * A number field plus a unit dropdown. Parses the stored length on render; a value it cannot round-trip
- * (a `clamp()`/`calc()`/`var()` or unknown unit) falls back to the raw text input so it is never
- * clobbered. An empty value stays empty (so an optional length can be cleared); typing a number composes
- * `<number><unit>`. Normalizing an authored `.5` to `0.5` via the number field is a semantic no-op.
+ * A number field plus a unit dropdown. Parses the stored length on render; a value it can't round-trip
+ * (`clamp()`/`calc()`/`var()` or unknown unit) falls back to raw text, never clobbered. Empty stays
+ * empty (clears an optional length); typing composes `<number><unit>`. Normalizing authored `.5` to
+ * `0.5` is a semantic no-op.
  */
 function LengthControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     if (value.trim() !== "" && parseLength(value) === null) return <TextControl value={value} onChange={onChange} />
@@ -537,7 +530,7 @@ function LengthControl({ value, onChange }: { value: string; onChange: (value: s
             <select value={parts.unit} onChange={(event) => emit(parts.number, event.target.value as typeof parts.unit)}>
                 {LENGTH_UNITS.map((unit) => (
                     <option key={unit} value={unit}>
-                        {unitLabel(unit)}
+                        {unit === "" ? "—" : unit}
                     </option>
                 ))}
             </select>
@@ -546,8 +539,8 @@ function LengthControl({ value, onChange }: { value: string; onChange: (value: s
 }
 
 /**
- * Coerces a hex color to the `#rrggbb` a native `<input type="color">` requires (it cannot show 3/4/8-digit
- * hex or alpha). Display only — the exact authored string stays the source of truth in the paired text field.
+ * Coerces a hex color to `#rrggbb` for a native `<input type="color">` (can't show 3/4/8-digit hex or
+ * alpha). Display only — the authored string stays source of truth in the paired text field.
  */
 function toColorInputValue(hex: string): string {
     const match = /^#([0-9a-f]{3,8})$/i.exec(hex.trim())
@@ -560,9 +553,9 @@ function toColorInputValue(hex: string): string {
 }
 
 /**
- * One color channel: a text field holding the exact CSS color, plus a native color picker when that value
- * is hex (the picker only round-trips `#rrggbb`, so a named color / `rgb()` / `var()` shows the text field
- * alone). Picking from the swatch emits `#rrggbb`; typing keeps whatever the author writes.
+ * One color channel: text field holding the exact CSS color, plus a native picker when the value is hex
+ * (picker only round-trips `#rrggbb`; named colors/`rgb()`/`var()` show text field alone). Swatch emits
+ * `#rrggbb`; typing keeps whatever's written.
  */
 function ColorChannel({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     return (
@@ -585,11 +578,10 @@ function ColorChannel({ value, onChange }: { value: string; onChange: (value: st
     )
 }
 
-/** A color value editor. `adaptive` mode: a `light-dark(L, D)` pair shown as two channels (a plain
- * color seeds both, first edit becomes a pair). `fixed` mode: single channel; a stored `light-dark()`
- * there is out of step with the scheme, falls back to raw text rather than dropping the dark channel.
- * Emits a plain color when only one channel is filled, so a half-authored pair never produces an
- * invalid `light-dark(x, )`. */
+/** A color editor. `adaptive`: `light-dark(L, D)` as two channels (plain color seeds both; first edit
+ * becomes a pair). `fixed`: single channel — a stored `light-dark()` there is out of step with the
+ * scheme, falls back to raw text rather than dropping the dark channel. Emits a plain color when only
+ * one channel is filled, so a half-authored pair never produces invalid `light-dark(x, )`. */
 function ColorControl({
     value,
     scheme,
@@ -624,10 +616,10 @@ function ColorControl({
     )
 }
 
-/** A size editor with two modes. `clamp(min, preferred, max)` shows three length sub-controls plus a
- * button to collapse to the ideal value; anything else is a fixed size — one length control — with a
- * button to make it responsive. Neither clamp nor plain length (e.g. a bare `calc()`) falls back to
- * raw text. Each sub-control is itself a `LengthControl`, so a `calc()` inside a clamp stays raw. */
+/** A size editor with two modes. `clamp(min, preferred, max)`: three length sub-controls plus a button
+ * to collapse to the ideal value. Otherwise: fixed size, one length control, button to make it
+ * responsive. Neither falls back to raw text for a bare `calc()`; each sub-control is its own
+ * `LengthControl`, so a `calc()` inside a clamp stays raw. */
 function ClampControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const clamp = parseClamp(value)
     if (clamp) {
@@ -673,9 +665,9 @@ function ClampControl({ value, onChange }: { value: string; onChange: (value: st
 /** A blank shadow layer seeded with a soft drop shadow, so a new layer is immediately visible. */
 const NEW_SHADOW_LAYER: ShadowLayer = { inset: false, x: "0", y: "1px", blur: "2px", spread: "", color: "#00000040" }
 
-/** A `box-shadow` builder: one row per layer (inset toggle, x/y/blur/spread length controls, color
- * channel), plus add/remove. Empty or `none` starts with no layers; a value the parser can't
- * confidently round-trip falls back to raw text. Removing every layer emits `none`. */
+/** A `box-shadow` builder: one row per layer (inset toggle, x/y/blur/spread, color), plus add/remove.
+ * Empty or `none` starts with no layers; a value the parser can't round-trip falls back to raw text.
+ * Removing every layer emits `none`. */
 function ShadowControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     let layers: ShadowLayer[]
     if (value.trim() === "") {
@@ -749,9 +741,9 @@ const SYSTEM_STACKS: { label: string; value: string }[] = [
     { label: "Monospace", value: "ui-monospace, SFMono-Regular, Menlo, monospace" }
 ]
 
-/** A `<select>` over a fixed keyword set that never rewrites an unrecognized value: an out-of-set
- * value is shown as a selected "(custom)" option and preserved, empty shows "— choose —". Editing an
- * unusual value requires raw mode; the dropdown covers the common cases without ever clobbering one. */
+/** A `<select>` over a fixed keyword set that never rewrites an unrecognized value: out-of-set shows as
+ * "(custom)" and is preserved; empty shows "— choose —". Editing an unusual value needs raw mode — the
+ * dropdown covers common cases without ever clobbering one. */
 function KeywordSelect({
     value,
     options,
@@ -775,9 +767,9 @@ function KeywordSelect({
     )
 }
 
-/** A font-family picker: theme's declared web fonts + a few system stacks, plus a "Custom…" escape to
- * a text field. Stored value is the full CSS font stack; picking a web font composes a `"Family",
- * sans-serif` stack, an unrecognized stored stack opens in the custom field, preserved exactly. */
+/** A font-family picker: theme's web fonts + a few system stacks, plus a "Custom…" escape to a text
+ * field. Stored value is the full CSS font stack; picking a web font composes `"Family", sans-serif`,
+ * an unrecognized stack opens in the custom field, preserved exactly. */
 function FamilySelect({
     value,
     families,
@@ -829,10 +821,10 @@ function FamilySelect({
     )
 }
 
-/** Renders the right editor for one token cell. A reference field is always the constrained
- * `RefSelect` (both views). Raw mode: every other field is plain text. Friendly mode: `control`
- * selects a friendly editor, an unannotated field falls through to text. Either way both views edit
- * the same stored string, so the raw toggle can never disagree with the friendly view. */
+/** Renders the right editor for one token cell. A reference field is always `RefSelect` (both views).
+ * Raw mode: everything else is plain text. Friendly mode: `control` selects a friendly editor,
+ * unannotated falls through to text. Both views always edit the same stored string — the raw toggle
+ * can never disagree. */
 function CellControl({
     field,
     value,
@@ -883,8 +875,8 @@ function CellControl({
 const RAW_MODE_KEY = "theme-editor:raw-mode"
 
 /** Every collapsible section's stable id, in render order. A token-kind section reuses its
- * `TokenKind` as the id; the rest are hand-picked ids for sections rendered inline in the JSX below
- * (Backup & restore, Page transitions, Site Chrome, Web fonts) rather than via `renderTokenSection`. */
+ * `TokenKind`; the rest are hand-picked ids for sections rendered inline below (Backup & restore, Page
+ * transitions, Site Chrome, Web fonts) rather than via `renderTokenSection`. */
 const SECTION_IDS = [
     "backup",
     "page-transitions",
@@ -915,9 +907,8 @@ function loadCollapsedSections(): Set<string> {
     }
 }
 
-/** A section's clickable heading: a chevron plus its `<h3>`, toggling that section's collapsed state.
- * The button spans the header, not a small icon-only hit target — a long section title anywhere is a
- * fast way to collapse it, the point of the feature: this page is long, needs coarse navigation. */
+/** A section's clickable heading: chevron + `<h3>`, toggling collapsed state. Button spans the whole
+ * header, not a small icon target — the point: this page is long, needs coarse, fast-to-hit collapse. */
 function SectionHeader({ id, title, open, onToggle }: { id: string; title: string; open: boolean; onToggle: (id: string) => void }) {
     return (
         <button
@@ -944,16 +935,15 @@ export default function ThemeEditor() {
     const [editable, setEditable] = useState<EditableCatalog | null>(null)
     const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
     const [message, setMessage] = useState("")
-    // `"<kind>:<name>"` → design labels using that token; null when the scan has not (yet) succeeded, in
-    // which case the editor falls back to the static rename warning (fetchDesignUsage is fail-soft).
+    // `"<kind>:<name>"` → design labels using that token; null until the scan succeeds — editor falls
+    // back to the static rename warning (fetchDesignUsage is fail-soft).
     const [usage, setUsage] = useState<Map<string, string[]> | null>(null)
     // Backup/restore status, shown beside the export/import buttons; null before either is used.
     const [ioStatus, setIoStatus] = useState<{ text: string; error: boolean } | null>(null)
     // A hidden file input the "Import JSON…" button opens; kept out of the layout (imports are rare).
     const fileInputRef = useRef<HTMLInputElement>(null)
-    // Raw view = the CSS-native inputs (for developers); off = the friendly controls. Persisted so the
-    // choice sticks. Read lazily and guarded: localStorage can throw (private mode), and a bad value is
-    // just "not raw".
+    // Raw view = CSS-native inputs; off = friendly controls. Persisted so the choice sticks. Read
+    // lazily, guarded: localStorage can throw (private mode); a bad value is just "not raw".
     const [rawMode, setRawMode] = useState<boolean>(() => {
         try {
             return localStorage.getItem(RAW_MODE_KEY) === "1"
@@ -961,14 +951,13 @@ export default function ThemeEditor() {
             return false
         }
     })
-    // Which sections are collapsed, keyed by SECTION_IDS entry; persisted so a developer's layout sticks
-    // across visits, same rationale as rawMode above. Absent (not in the set) means expanded — the
-    // page's original always-expanded look is the default for a first-time visitor.
+    // Which sections are collapsed, keyed by SECTION_IDS; persisted like rawMode above. Absent (not in
+    // the set) means expanded — the default for a first-time visitor.
     const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsedSections)
 
-    // The live preview's CSS: the in-progress (unsaved) edit converted to a catalog and emitted as
-    // `--dtk-*` custom properties, plus the same stylesheet real design pages use — recomputed on every
-    // edit so a preview specimen always reflects the current form state, not the last save.
+    // Live preview CSS: the in-progress edit converted to a catalog, emitted as `--dtk-*` properties plus
+    // the same stylesheet real design pages use — recomputed on every edit so a specimen always reflects
+    // current form state, not the last save.
     const previewCss = useMemo(() => {
         if (!editable) return ""
         const catalog = toCatalog(editable)
@@ -996,8 +985,8 @@ export default function ThemeEditor() {
         }
     }, [])
 
-    // The usage scan loads independently of the theme: a failed scan degrades to the static warning, it
-    // never blocks editing. Left null on any error so the fallback prose shows.
+    // Usage scan loads independently of the theme: a failed scan degrades to the static warning, never
+    // blocks editing. Left null on error so the fallback prose shows.
     useEffect(() => {
         let cancelled = false
         fetchDesignUsage()
@@ -1059,8 +1048,8 @@ export default function ThemeEditor() {
     const usageLabels = (kind: TokenKind, name: string): string[] => (name ? (usage?.get(`${kind}:${name}`) ?? []) : [])
 
     const removeRow = (kind: TokenKind, index: number) => {
-        // Naming which designs would lose the style is the whole point of the scan (§3.1): a silent
-        // removal is what the static warning could never prevent. Only guard when we actually know of uses.
+        // Naming which designs would lose the style is the point of the scan (§3.1) — a silent removal
+        // is what the static warning could never prevent. Only guard when uses are actually known.
         const name = editable[kind][index]?.name ?? ""
         const labels = usageLabels(kind, name)
         if (labels.length > 0) {
@@ -1075,9 +1064,9 @@ export default function ThemeEditor() {
         )
     }
 
-    // Switches the whole theme between adaptive (each color a light-dark pair) and fixed (single value),
-    // rewriting every color value to match. adaptive→fixed drops each dark channel, so it confirms first
-    // and points at the JSON backup; fixed→adaptive is non-destructive (seeds dark = light, editable after).
+    // Switches the theme between adaptive (each color a light-dark pair) and fixed (single value),
+    // rewriting every color to match. adaptive→fixed drops each dark channel — confirms first, points at
+    // the JSON backup. fixed→adaptive is non-destructive (seeds dark = light, editable after).
     const changeColorScheme = (next: "adaptive" | "fixed") => {
         if (!editable || editable.colorScheme === next) return
         if (next === "fixed") {
@@ -1127,9 +1116,8 @@ export default function ThemeEditor() {
         )
     }
 
-    // Looked up by kind so the sections below can render in a logical order (colors grouped with Site
-    // Chrome, typography grouped with Web fonts, §ThemeEditor doc comment) that differs from SECTIONS'
-    // declaration order, which instead drives load/save.
+    // Looked up by kind so sections below render in a logical order (colors with Site Chrome, typography
+    // with Web fonts) that differs from SECTIONS' declaration order, which instead drives load/save.
     const sectionByKind = Object.fromEntries(SECTIONS.map((section) => [section.kind, section])) as Record<
         TokenKind,
         (typeof SECTIONS)[number]
@@ -1168,9 +1156,9 @@ export default function ThemeEditor() {
                         <div className="theme-editor__row" key={index}>
                             {section.fields.map((field) =>
                                 field.valueType === "boolean" ? (
-                                    // A boolean field's checkbox and its caption are one control, not a
-                                    // caption-over-cell pair — matches .design-editor__checkbox's inline
-                                    // label + input elsewhere in the compositor.
+                                    // A boolean field's checkbox + caption are one control, not
+                                    // caption-over-cell — matches .design-editor__checkbox's inline
+                                    // label+input elsewhere.
                                     <label className="theme-editor__field theme-editor__checkbox" key={field.key}>
                                         <CellControl
                                             field={field}
@@ -1187,7 +1175,7 @@ export default function ThemeEditor() {
                                     <div className="theme-editor__field" key={field.key}>
                                         <span className="theme-editor__field-label">{field.label}</span>
                                         <span className="theme-editor__cell">
-                                            {/* The friendly color control shows its own picker swatches, so the row
+                                            {/* Friendly color control shows its own picker swatches — row
                                                 swatch is only the raw view's preview. */}
                                             {field.color && (rawMode || field.control !== "color") && (
                                                 <span
@@ -1308,9 +1296,9 @@ export default function ThemeEditor() {
         )
     }
 
-    // Downloads the current editor state (the normalized catalog, not necessarily the published one) as a
-    // JSON file — a manual snapshot to roll back to, since the theme is a singleton with no version history.
-    // The object URL is revoked right after the synthetic click; img-src blob: already covers it under the CSP.
+    // Downloads current editor state (normalized catalog, not necessarily published) as JSON — a manual
+    // snapshot, since the theme is a singleton with no version history. Object URL revoked right after
+    // the synthetic click; img-src blob: already covers it under the CSP.
     const exportJson = () => {
         const json = JSON.stringify(toCatalog(editable), null, 2)
         const url = URL.createObjectURL(new Blob([json], { type: "application/json" }))
@@ -1324,10 +1312,9 @@ export default function ThemeEditor() {
         setIoStatus({ text: "Exported the current editor state to a JSON file.", error: false })
     }
 
-    // Loads a previously exported file INTO the editor (it does not save): the user reviews the imported
-    // tokens and then Saves/Publishes. Validated with the same isTokenCatalog guard the build uses, so a
-    // malformed file is rejected before it can replace good rows. Parse and validation failures are reported
-    // and leave the editor untouched.
+    // Loads an exported file INTO the editor (doesn't save) — user reviews then Saves/Publishes.
+    // Validated with the same isTokenCatalog guard the build uses, so a malformed file is rejected
+    // before replacing good rows. Parse/validation failures are reported, editor left untouched.
     const importJson = async (file: File) => {
         let parsed: unknown
         try {
@@ -1401,8 +1388,8 @@ export default function ThemeEditor() {
 
     return (
         <div className="theme-editor">
-            {/* Scoped by class (`.cmp-*`) and custom-property namespace (`--dtk-*`); nothing here collides
-                with the admin chrome's own styles. Powers every specimen below. */}
+            {/* Scoped by class (`.cmp-*`) and `--dtk-*` namespace — nothing here collides with admin
+                chrome styles. Powers every specimen below. */}
             <style dangerouslySetInnerHTML={{ __html: previewCss }} />
             <div className="theme-editor__viewbar">
                 <label className="theme-editor__switch">
