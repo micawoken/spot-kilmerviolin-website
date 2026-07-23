@@ -2,24 +2,19 @@
  * lib/build/d1-api.ts
  *
  * Build-time reader for the D1-backed entity tables (composers, contributors, compositions) — the
- * runtime SQLite records administered by src/lib/api/database.ts, not to be confused with EmDash's
- * `pages`/`posts` collections (see emdash-api.ts). Reads the deployed Worker's own
- * `GET /api/v1/{composers,contributors,works}` endpoints, authenticated with a build token (see
- * src/lib/api/tokens.ts, docs/dev/plan-prelaunch-features.md §2 D9), because `astro build` runs in a
- * plain Node process with no D1 binding — src/lib/api/d1.ts's schema constants embed `env.DB_MAIN` from
- * `cloudflare:workers` at module scope, which only resolves inside a Worker.
+ * runtime SQLite records administered by src/lib/api/database.ts, not EmDash's `pages`/`posts`
+ * collections (see emdash-api.ts). Reads the deployed Worker's own
+ * `GET /api/v1/{composers,contributors,works}`, build-token-authenticated (src/lib/api/tokens.ts,
+ * docs/dev/plan-prelaunch-features.md §2 D9) — `astro build` runs plain Node, no D1 binding;
+ * src/lib/api/d1.ts's schema constants embed `env.DB_MAIN` from `cloudflare:workers`, Worker-only.
  *
- * This supersedes an earlier version of this file that read Cloudflare's D1 REST query endpoint
- * directly with a broad, account-scoped "D1: Read" API token. A build token is scoped to exactly these
- * three read-only routes and carries no write/admin capability, so a leaked build token exposes far
- * less than a leaked D1 REST token did (see docs/dev/handoff-entity-page-generation.md for the original
- * reasoning this replaces).
+ * Supersedes an earlier version reading Cloudflare's D1 REST endpoint with a broad, account-scoped "D1:
+ * Read" token. Build token is scoped to exactly these three read-only routes, no write/admin — a leak
+ * exposes far less (see docs/dev/handoff-entity-page-generation.md for the prior reasoning).
  *
- * Response shape. Unlike the old D1 REST reads (raw D1 rows requiring formatCompFromD1/
- * formatContribFromD1/formatWorkFromD1 to convert), GET /api/v1/{composers,contributors,works} with
- * meta.full=true already returns the application-level *Record shape (the same one listComposers/
- * listContributors/listCompositions produce) as its JSON `payload` — so this reader no longer converts
- * anything, only fetches and trusts the shape.
+ * Response shape: `meta.full=true` already returns the application-level `*Record` shape (same as
+ * listComposers/listContributors/listCompositions) as JSON `payload` — no conversion needed, unlike the
+ * old D1 REST reads (raw rows via formatCompFromD1/formatContribFromD1/formatWorkFromD1).
  *
  * Configuration — BUILD-TIME env only; never wrangler runtime secrets/vars (see .env.example):
  *   CONTENT_API_BASE         origin of the deployed site (shared with emdash-api.ts)
@@ -27,17 +22,8 @@
  *   CF_ACCESS_CLIENT_SECRET  mandatory here too — a build token alone authenticates nothing, D3)
  *   BUILD_API_TOKEN          the app-issued build token (X-Build-Token); see /admin/advanced/tokens/build
  *
- * Failure policy mirrors the file this replaces: unconfigured (any of the four unset) returns null and
- * the build completes without entity pages — the bootstrap build has no reason to have these set. Once
- * configured, a failed read THROWS ({@link BuildTokenReadError}) rather than falling soft: silently
- * emitting zero entity records over a build that already has published ones would regress the public
- * site the same way a swallowed EmDash read would (see emdash-api.ts's CmsReadError for the identical
- * reasoning).
- *
- * Timeout. This hits the same deployed Worker as emdash-api.ts, but NOT the EmDash package's own
- * cold-start init-lock path (that lock lives inside node_modules/emdash and only guards `/_emdash/*`) —
- * an Astro API route has no such hazard, so a conventional REST timeout applies here. Do not copy
- * emdash-api.ts's 75s READ_TIMEOUT_MS or its cold-start reasoning into this module.
+ * Failure policy and timeout rationale live next to {@link BuildTokenReadError} and
+ * {@link BUILD_API_READ_TIMEOUT_MS} below, not repeated here.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -68,11 +54,7 @@ interface BuildApiConfig {
     headers: Record<string, string>
 }
 
-/**
- * Reads a build-time configuration value from either import.meta.env (Astro/Vite) or process.env
- * (Node), so the client works whether invoked through the Astro build or a plain Node context. Mirrors
- * emdash-api.ts's identical helper.
- */
+/** Build-time config value: `import.meta.env`, fallback `process.env`. Deliberate duplicate of emdash-api.ts's helper, not shared (see module header). */
 function env(name: string): string | undefined {
     return import.meta.env[name] ?? process.env[name]
 }

@@ -133,14 +133,9 @@ const components: PortableTextComponents = {
     }
 }
 
-/**
- * Renders a stored Portable Text body to React elements with `pages`-parity output.
- *
- * @param {{ value: PortableTextBlock[] }} props - the Portable Text block array to render
- * @returns {JSX.Element} - the rendered rich text
- */
+/** Renders a stored Portable Text body to React elements with `pages`-parity output. */
 export function RichTextView({ value }: { value: PortableTextBlock[] }): JSX.Element {
     // emdash's PortableTextBlock is structurally the stored form; @portabletext/react types its value
-    // against @portabletext/types' near-identical shape, so bridge the two nominal types here.
+    // against @portabletext/types' near-identical shape — bridge the two nominal types here.
     return <PortableText value={value as never} components={components} />
 }

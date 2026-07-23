@@ -1,33 +1,28 @@
 /**
  * lib/build/route-authority.ts
  *
- * Single authority for what the public catch-all route builds (impl §6.6, amended by the content-routing
- * pivot). It answers two questions for every published slug: **who owns this path**, and **what layout
- * does it render through**.
+ * Single authority for what the public catch-all route builds (impl §6.6, amended by content-routing
+ * pivot). Answers two questions per published slug: who owns this path, what layout it renders through.
  *
- * Ownership. Three CMS collections claim routes — the content types `pages` and `posts` (the latter under
- * a `/posts/` prefix, pivot §7.2) and the compositor's `design_page` — and nothing in EmDash stops an
- * author from giving a design page the same slug as an existing page. Two URLs cannot both own one path,
- * and picking a winner silently would mean an author's published page vanishes with no signal. So a
- * duplicate slug **fails the build**, naming every collision at once (not just the first) so one build
- * reveals the full extent of the problem.
+ * Ownership: three CMS collections claim routes — `pages`, `posts` (`/posts/` prefix, pivot §7.2),
+ * compositor's `design_page`. Nothing in EmDash stops an author giving a design page an existing
+ * page's slug. Two URLs can't own one path; silently picking a winner means a published page vanishes
+ * with no signal — so a duplicate slug **fails the build**, naming every collision at once, not just
+ * the first.
  *
- * Layout (the pivot's D4). Content owns the URL; a `design_template` is a layout that content flows
- * *through*. Per entry, in order:
+ * Layout (pivot D4): content owns the URL, a `design_template` is a layout content flows through. Per
+ * entry, in order: 1) the template its `design` reference names (`designRef`, an item id), else 2) the
+ * published template that's its collection's `isDefault`, else 3) no template — renders as today (D3:
+ * article, auto `<h1>`, Portable Text).
  *
- *   1. the template its `design` reference names (`designRef`, an item id), else
- *   2. the published template that is its collection's `isDefault`, else
- *   3. no template — the entry renders exactly as it does today (D3: article, auto <h1>, Portable Text).
+ * Fail-soft vs fail-loud, deliberate split. Publication-state problem (named template draft/deleted):
+ * falls back to D3 with a warning — never to the collection default, since the author chose a specific
+ * layout and silently substituting another is worse than bare. Authored-wrong problem (template points
+ * at another collection; two templates defaulting one collection): fails the build, no fallback right.
  *
- * Fail-soft vs fail-loud is split deliberately. A *publication-state* problem (the named template is a
- * draft, or was deleted) falls back to D3 with a warning — never to the collection default, because the
- * author chose a specific layout and quietly substituting a different one is worse than rendering bare.
- * An *authored-wrong* problem (a template pointed at another collection's entries; two templates
- * defaulting one collection) fails the build: no fallback can be right.
- *
- * The `home` → `/` mapping is NOT applied here: this module decides slug ownership, and the route file
- * owns the param shape (an undefined rest-param is what Astro routes to "/"). Both sources normalize
- * their slugs through `emdash-api.ts`'s `normalizeSlug`, so the comparison below is apples to apples.
+ * `home` → `/` mapping NOT applied here — this module decides slug ownership, the route file owns the
+ * param shape (undefined rest-param is what Astro routes to "/"). Both sources normalize slugs through
+ * `emdash-api.ts`'s `normalizeSlug`, so the comparison is apples to apples.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -55,8 +50,8 @@ import { TEMPLATE_NONE_SLUG, type BuildDesignPage, type BuildTemplate, type Temp
 import type { BuildPage } from "./emdash-api"
 
 /**
- * What the route renders for one slug. `kind` is the discriminant the template switches on: a Portable
- * Text article (the pre-compositor behavior, unchanged) or a composed design document.
+ * What the route renders for one slug. `kind` discriminates: Portable Text article (pre-compositor
+ * behavior, unchanged) or a composed design document.
  */
 export type RouteProps =
     | { kind: "portable"; title: string; description: string; published_at: string | null; content: unknown }
@@ -65,17 +60,12 @@ export type RouteProps =
           title: string
           description: string
           doc: DesignDoc
-          /**
-           * The routed entry's field record, which the design's outlets read through the config context
-           * (D7). Null for a `design_page`, whose content is inline: it has no entry behind it, and an
-           * outlet placed in one is a lint error rather than a render-time concern.
-           */
+          /** Entry's field record, read by the design's outlets via config context (D7). Null for a
+           * `design_page` — no entry behind it, an outlet there is a lint error, not a render concern. */
           entry: Record<string, unknown> | null
-          /**
-           * The template this entry renders through — what the per-pairing lint names in its errors and
-           * whose collection selects the schema it checks against (§5.5). Null for a `design_page`,
-           * which is its own layout and is linted standalone before routes are collected.
-           */
+          /** Template this entry renders through — named in per-pairing lint errors, its collection
+           * selects the checked schema (§5.5). Null for a `design_page` — its own layout, linted
+           * standalone before routes are collected. */
           template: { slug: string; collection: TemplateCollection } | null
       }
 
@@ -95,8 +85,8 @@ export interface RouteSources {
 }
 
 /**
- * The resolved route table. `warnings` carries the fail-soft findings (a broken template reference) for
- * the caller to log — this module stays pure so it can be unit-tested without a console.
+ * The resolved route table. `warnings` carries fail-soft findings (broken template reference) for the
+ * caller to log — module stays pure, unit-testable without a console.
  */
 export interface RouteTable {
     routes: RouteEntry[]
@@ -107,11 +97,10 @@ export interface RouteTable {
 type SourceName = TemplateCollection | "design_page"
 
 /**
- * Posts are routed under a `/posts/` prefix (pivot §7.2, owner-decided), and the prefix is applied HERE —
- * at route collection — not in the reader and not in the route file. That placement is the whole point:
- * the slug this module compares is the one the URL actually has, so a `pages` entry authored with the
- * slug "posts/x" still collides with the post "x" and fails the build, instead of two sources silently
- * claiming one path.
+ * Posts route under a `/posts/` prefix (pivot §7.2, owner-decided), applied HERE — at route
+ * collection, not in the reader or the route file. The point: the slug this module compares is the
+ * one the URL actually has, so a `pages` entry authored as "posts/x" still collides with post "x" and
+ * fails the build, instead of two sources silently claiming one path.
  */
 export const POSTS_PREFIX = "posts"
 
@@ -126,15 +115,14 @@ function isNoneSentinel(template: BuildTemplate): boolean {
 }
 
 /**
- * Indexes the published templates by id, by slug, and by the collection each one defaults, rejecting an
- * ambiguous default: if two published templates both claim `isDefault` for one collection, no rule can
- * choose between them, and every entry of that collection would render through a coin-flip.
+ * Indexes published templates by id, by slug, by each one's defaulted collection — rejects an
+ * ambiguous default: two templates both claiming `isDefault` for one collection means no rule picks
+ * between them, every entry of that collection renders through a coin-flip.
  *
- * A template is indexed by both id and slug because an entry's `design` pointer may hold either (§ D4):
- * EmDash's reference field is a raw text box, so an author types the human-readable slug ("article"),
- * while a value stored the EmDash-native way is the item id. Slugs are unique within the single
- * `design_template` collection (EmDash enforces per-collection slug uniqueness), so `bySlug` is
- * unambiguous, and the id and slug key spaces do not overlap (ids are opaque, slugs are words).
+ * Indexed by both id and slug because an entry's `design` pointer may hold either (§ D4): EmDash's
+ * reference field is a raw text box, an author may type the slug ("article") or store the item id.
+ * `bySlug` is unambiguous (EmDash enforces per-collection slug uniqueness); id and slug key spaces
+ * don't overlap (ids opaque, slugs words).
  */
 function indexTemplates(templates: BuildTemplate[]): {
     byId: Map<string, BuildTemplate>
@@ -172,14 +160,10 @@ function indexTemplates(templates: BuildTemplate[]): {
 }
 
 /**
- * Resolves the template one entry renders through, per D4. Returns null when the entry renders bare —
- * because it names no template, because its collection has no default, or because either resolves to the
- * "None" sentinel.
- *
- * @param {BuildPage} entry - the published entry being routed
- * @param {TemplateCollection} collection - the collection it came from (which templates may render it)
- * @param {string} slug - the entry's routed slug, so a message names the URL an author can actually find
- * @throws {Error} when the entry's named template renders a different collection (authored wrong)
+ * Resolves the template one entry renders through, per D4. Null when the entry renders bare — no
+ * named template, no collection default, or either resolves to the "None" sentinel. `slug` is the
+ * entry's routed slug, so error/warning messages name a URL an author can find. Throws when the
+ * entry's named template renders a different collection (authored wrong).
  */
 function resolveTemplate(
     entry: BuildPage,
@@ -189,13 +173,12 @@ function resolveTemplate(
     warnings: string[]
 ): BuildTemplate | null {
     if (entry.designRef) {
-        // The pointer holds either the template's slug (what an author types into EmDash's reference text
-        // box) or its EmDash-native item id. The two key spaces are disjoint, so a single lookup by both
-        // resolves whichever was stored, without a migration of existing id-valued pointers.
+        // Pointer holds either the template's slug (what an author types) or its EmDash-native item
+        // id — disjoint key spaces, one lookup resolves whichever was stored, no migration needed.
         const named = index.byId.get(entry.designRef) ?? index.bySlug.get(entry.designRef)
         if (!named) {
-            // Draft, deleted, or garbage. Fall to D3 — NOT to the collection default: the author chose a
-            // specific layout, and silently substituting another one hides the breakage.
+            // Draft, deleted, or garbage. Fall to D3, NOT the collection default — author chose a
+            // specific layout, silently substituting another hides the breakage.
             warnings.push(
                 `[build/route-authority] "${slug}" names design template "${entry.designRef}", which is ` +
                     "not published (draft, deleted, or an invalid slug/id reference). The page renders " +
@@ -228,24 +211,21 @@ export interface BreadcrumbAncestor {
 
 /**
  * Auto-derives the breadcrumb *ancestor* chain for a routed slug (docs/dev/miscellaneous.txt "puck
- * components to add"): Home is always implicit (the Breadcrumbs component itself prepends it, never
- * listed here) and the current page's own title is the trail's final, unlinked crumb (the component
- * appends its own `pageTitle`, also not listed here) — so this returns only what comes in between.
+ * components to add") — Home always implicit (Breadcrumbs component prepends it), current page's own
+ * title is the final unlinked crumb (component appends its own `pageTitle`) — returns only what's
+ * between.
  *
- * A post's one ancestor is always the fixed, unlinked "Posts" crumb: the `/posts/` prefix (`POSTS_PREFIX`)
- * is a routing convention with no actual index page behind it to link to (posts are a latent capability —
- * none are published yet — but the prefix is real and permanent, so this case is handled regardless).
+ * A post's one ancestor is always the fixed, unlinked "Posts" crumb: `/posts/` (`POSTS_PREFIX`) is a
+ * routing convention with no index page to link to (posts are latent — none published yet — but the
+ * prefix is real and permanent).
  *
- * Every other slug is walked path-segment by path-segment from its start ("a/b/c" checks "a", then
- * "a/b" — never the full slug itself, which is the current page): each prefix that resolves to a real
- * published route contributes a linked crumb using THAT route's own title. The walk stops at the FIRST
- * prefix that does not resolve — "the initial valid paths" — rather than skipping the gap and checking
- * deeper prefixes, since a path segment that is not itself a real page has no meaningful crumb to show.
+ * Every other slug walked segment by segment from the start ("a/b/c" checks "a", then "a/b" — never
+ * the full slug, the current page): each prefix resolving to a real published route contributes a
+ * linked crumb using that route's own title. Stops at the FIRST unresolved prefix rather than
+ * skipping the gap — a segment that isn't itself a real page has no meaningful crumb.
  *
- * @param routes - the full resolved route table (`collectRoutes`'s output), used to look up each
- *   candidate ancestor prefix's own title
- * @param slug - the current route's own slug (as `collectRoutes` returns it — already `posts/`-prefixed
- *   when applicable), excluded from the walk
+ * `slug` is the current route's own slug (already `posts/`-prefixed when applicable), excluded from
+ * the walk.
  */
 export function breadcrumbAncestors(routes: RouteEntry[], slug: string): BreadcrumbAncestor[] {
     if (slug.startsWith(`${POSTS_PREFIX}/`)) {
@@ -264,17 +244,15 @@ export function breadcrumbAncestors(routes: RouteEntry[], slug: string): Breadcr
 }
 
 /**
- * Merges the published route sources into one route table: every entry resolved to the layout it renders
- * through (D4), with duplicate slugs failing the build.
+ * Merges the published route sources into one route table: every entry resolved to the layout it
+ * renders through (D4), duplicate slugs fail the build.
  *
- * Pages and posts differ only in the slug they claim (posts take the `/posts/` prefix) and the collection
- * a template must declare to render them. Everything else — D4 resolution, the collision check, the
- * design/portable split — is collection-agnostic, which is what makes adding a routed collection cheap.
+ * Pages and posts differ only in the slug they claim (posts take `/posts/`) and the collection a
+ * template must declare to render them — everything else (D4 resolution, collision check,
+ * design/portable split) is collection-agnostic, which is what makes adding a routed collection cheap.
  *
- * @param {RouteSources} sources - the published pages, posts, design pages, and design templates
- * @returns {RouteTable} - one route per slug (entries first, then design pages) plus fail-soft warnings
- * @throws {Error} when a slug is claimed twice, a collection has two default templates, or an entry names
- *   a template belonging to another collection
+ * Throws when a slug is claimed twice, a collection has two default templates, or an entry names a
+ * template belonging to another collection.
  */
 export function collectRoutes({ pages, posts, designPages, templates }: RouteSources): RouteTable {
     const index = indexTemplates(templates)

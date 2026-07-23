@@ -69,10 +69,8 @@ export async function fetchItems(endpoint: string): Promise<DesignItem[]> {
     return items
 }
 
-/**
- * Publication state for the badge. List responses carry published-column data only, but the
- * revision ids reveal an unpublished draft staged over a published page (draft != live).
- */
+/** Publication state for the badge — list responses carry published-column data only, but draft !=
+ *  live revision ids reveal an unpublished draft staged over a published page. */
 export function statusLabel(item: DesignItem): string {
     const pendingDraft = Boolean(item.draftRevisionId) && item.draftRevisionId !== item.liveRevisionId
     if (item.status === "published") return pendingDraft ? "Published · pending draft" : "Published"

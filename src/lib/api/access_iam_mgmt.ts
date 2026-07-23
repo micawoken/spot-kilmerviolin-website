@@ -101,7 +101,10 @@ async function put_policy(policy: AccessPolicy): Promise<void> {
  * @returns {Promise<boolean>} - whether the token passed verification
  */
 export async function test(): Promise<boolean> {
-    const test_endpoint = "/user/tokens/verify"
+    // CF_ACCESS_TOKEN is an Account Owned API token (see DEPLOY.md), which /user/tokens/verify does not
+    // recognize (that endpoint is for tokens tied to a user's own profile); the account-scoped verify
+    // endpoint is the correct one for this token type
+    const test_endpoint = "/accounts/{account_id}/tokens/verify"
     try {
         const response = await _fetch(test_endpoint, "GET")
         if (!response.ok) {

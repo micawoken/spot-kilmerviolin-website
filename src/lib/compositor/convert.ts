@@ -2,17 +2,15 @@
  * lib/compositor/convert.ts
  *
  * Portable Text ↔ ProseMirror conversion at the design-doc boundary (impl §4.4). Design docs store
- * rich text as Portable Text (the same format as `pages`, so the Phase 2 migration is lossless and
- * output parity is one renderer's concern). Puck's built-in richtext field edits ProseMirror
- * (Tiptap). So on load we convert every rich-text prop PT → ProseMirror; on save, the inverse.
+ * rich text as Portable Text, same as `pages` — lossless migration, parity is one renderer's concern.
+ * Puck's richtext field edits ProseMirror (Tiptap): PT → ProseMirror on load, inverse on save.
  *
- * The walk is driven by a registry (component type → rich-text prop names) supplied by the caller.
- * In Phase 1 that registry is `catalog.tsx`'s `RICH_TEXT_PROPS` (§6.3, exactly `RichText.body`);
- * passing it in keeps this module decoupled from the catalog and unit-testable on its own. Both
- * walks recurse into slot contents so a rich-text prop nested inside a Section/Columns slot is
- * reached. Conversion uses emdash's public converters; per spike (d) they regenerate every `_key`
- * on each PT pass and default a link markDef's `blank` to false — callers must diff semantically and
- * never hold `_key` references across an edit session.
+ * Walk driven by a registry (component type → rich-text prop names) supplied by the caller — Phase 1
+ * uses `catalog.tsx`'s `RICH_TEXT_PROPS` (exactly `RichText.body`) — keeps this module decoupled from
+ * the catalog and unit-testable alone. Both walks recurse into slots to reach nested rich-text props.
+ * Uses emdash's public converters; per spike (d) they regenerate every `_key` on each PT pass and
+ * default a link markDef's `blank` to false — diff semantically, never hold `_key` refs across an edit
+ * session.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -35,14 +33,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// The converters must run in the browser (the editor island loads and saves rich text client-side), but
-// emdash's package entry pulls its server graph (astro:config/server, kysely, node:async_hooks) in with
-// it, and `emdash/client` does not re-export them. The converter modules themselves are pure — no
-// platform APIs, only type-only imports — so `#emdash/converters` (package.json `imports`) resolves
-// straight to that source for Vite, Vitest, and tsc alike, keeping emdash the single source of truth
-// rather than vendoring ~900 lines that would drift from its Portable Text schema. It reaches past
-// emdash's export map, so an upgrade that moves the file breaks the build loudly; the durable fix is for
-// emdash to export the converters from `emdash/client`.
+// Converters must run in the browser, but emdash's package entry pulls in its server graph
+// (astro:config/server, kysely, node:async_hooks), and `emdash/client` doesn't re-export them. The
+// converter modules are pure — no platform APIs — so `#emdash/converters` (package.json `imports`)
+// resolves straight to that source, keeping emdash the single source of truth instead of vendoring
+// ~900 lines that would drift. Reaches past emdash's export map — an upgrade that moves the file
+// breaks the build loudly. Durable fix: emdash exports the converters from `emdash/client`.
 import { generateJSON } from "@tiptap/html"
 import { portableTextToProsemirror, prosemirrorToPortableText } from "#emdash/converters"
 import type { PortableTextBlock, ProseMirrorDocument } from "emdash"
@@ -65,13 +61,10 @@ function portableTextToEditor(value: unknown): unknown {
     return Array.isArray(value) ? portableTextToProsemirror(value as PortableTextBlock[]) : value
 }
 
-/**
- * ProseMirror document → PT block array. Puck's richtext field's actual working value is an HTML
- * string (`editor.getHTML()`), not a ProseMirror JSON doc, despite the field's own name — so a string
- * is parsed with the same Tiptap schema the editor edits it with (RICH_TEXT_EXTENSIONS) before handing
- * it to the PT converter. A `{type: "doc"}` value is converted directly; anything else (e.g. already-PT,
- * or an empty default) passes through, defensive against double conversion.
- */
+/** ProseMirror document → PT block array. Puck's richtext field's actual working value is an HTML
+ * string (`editor.getHTML()`), not ProseMirror JSON, despite the field's name — parse with the same
+ * Tiptap schema the editor uses (RICH_TEXT_EXTENSIONS) before the PT converter. A `{type: "doc"}`
+ * value converts directly; anything else (already-PT, empty default) passes through untouched. */
 function editorToPortableText(value: unknown): unknown {
     if (typeof value === "string") {
         return prosemirrorToPortableText(generateJSON(value, RICH_TEXT_EXTENSIONS) as unknown as ProseMirrorDocument)
@@ -131,26 +124,14 @@ function mapRichText(doc: DesignDoc, registry: RichTextPropRegistry, transform: 
     return { schemaVersion: doc.schemaVersion, puck: puck as PuckData }
 }
 
-/**
- * Load boundary: returns a copy of the design doc with every rich-text prop converted from stored
- * Portable Text to the ProseMirror form Puck's richtext field edits. Input is not mutated.
- *
- * @param {DesignDoc} doc - the stored design document (rich text as Portable Text)
- * @param {RichTextPropRegistry} registry - component type → rich-text prop names
- * @returns {DesignDoc} - a copy whose rich-text props hold ProseMirror documents
- */
+/** Load boundary: copy of the design doc with every rich-text prop converted PT → ProseMirror. Input
+ * not mutated. */
 export function designToEditorForm(doc: DesignDoc, registry: RichTextPropRegistry): DesignDoc {
     return mapRichText(doc, registry, portableTextToEditor)
 }
 
-/**
- * Save boundary: returns a copy of the editor's working doc with every rich-text prop converted
- * from ProseMirror back to stored Portable Text. Input is not mutated.
- *
- * @param {DesignDoc} working - the editor working document (rich text as ProseMirror)
- * @param {RichTextPropRegistry} registry - component type → rich-text prop names
- * @returns {DesignDoc} - a copy whose rich-text props hold Portable Text block arrays
- */
+/** Save boundary: copy of the editor's working doc with every rich-text prop converted ProseMirror →
+ * PT. Input not mutated. */
 export function editorFormToDesign(working: DesignDoc, registry: RichTextPropRegistry): DesignDoc {
     return mapRichText(working, registry, editorToPortableText)
 }

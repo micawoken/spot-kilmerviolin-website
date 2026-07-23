@@ -1,37 +1,14 @@
 /**
  * lib/build/emdash-api.ts
  *
- * Build-time reader for CMS content served over EmDash's authenticated HTTP API.
+ * Build-time HTTP reader for EmDash CMS content. Plain Node during `astro build` — no D1 binding, no
+ * request context — so EmDash's request-scoped readers (`getEmDashCollection`/`getSiteSettings`/
+ * `getMenu`, need AsyncLocalStorage + bound D1) don't work here; fetches over HTTP from the deployed
+ * worker's own EmDash API instead. Auth: Cloudflare Access service token (EDITOR role) + optional PAT
+ * fallback. Timeout rationale: {@link READ_TIMEOUT_MS}. Fail-loud policy: {@link CmsReadError}.
  *
- * The public site is prerendered (see src/pages/[...slug].astro getStaticPaths and the chrome readers in
- * src/lib/content/*). Prerendering runs in Node during `astro build` with no D1 binding and no request
- * context, so EmDash's request-scoped readers (getEmDashCollection/getSiteSettings/getMenu) cannot run
- * here — they depend on AsyncLocalStorage + a bound D1. Instead we fetch published content, the general
- * settings, and the primary menu from the *already-deployed* worker's EmDash API (`/_emdash/api/...`).
- *
- * Auth. The endpoints sit behind Cloudflare Access (edge) and EmDash's own permission checks. A Cloudflare
- * Access *service token* (CF-Access-Client-Id/-Secret) passes the edge policy and is mapped by EmDash's
- * access() adapter to the default EDITOR role, which carries content:read, settings:read and menus:read
- * (see @emdash-cms/auth permission→role map). An EmDash personal access token (Authorization: Bearer
- * ec_pat_...) is also sent when configured, as a fallback for setups where the service token does not
- * resolve to EDITOR.
- *
- * Configuration — BUILD-TIME env only; never wrangler runtime secrets/vars:
- *   CONTENT_API_BASE         origin of the deployed site to read from, e.g. https://kilmer.nrnnet.xyz
- *   CF_ACCESS_CLIENT_ID      Cloudflare Access service-token client id
- *   CF_ACCESS_CLIENT_SECRET  Cloudflare Access service-token client secret
- *   EMDASH_API_TOKEN         optional EmDash PAT fallback
- *
- * Failure policy. A build with NO `CONTENT_API_BASE` (the bootstrap build, before any worker exists, and
- * CI's staging preview) reads nothing and completes: content pages are not generated and chrome falls back
- * to the src/consts.ts defaults. But once a CMS IS configured, a failed read **fails the build**
- * (`CmsReadError`). Falling soft there was a live-outage hazard: a rebuild during a CMS outage would emit
- * a `dist/` with every published page missing and deploy it over the working site. Stopping loudly leaves
- * the previously deployed version serving.
- *
- * Patience. Reads are deliberately slow to give up (see READ_TIMEOUT_MS). A short client timeout here does
- * not merely fail the build — it DEGRADES THE CMS for every other caller, because aborting mid-cold-start
- * poisons the worker isolate EmDash is initializing in. See READ_TIMEOUT_MS for the mechanism.
+ * Build-time env only (never wrangler runtime secrets/vars): CONTENT_API_BASE, CF_ACCESS_CLIENT_ID,
+ * CF_ACCESS_CLIENT_SECRET, EMDASH_API_TOKEN (optional PAT fallback).
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -106,12 +83,8 @@ interface ApiConfig {
     headers: Record<string, string>
 }
 
-/**
- * Reads a build-time configuration value from either import.meta.env (Astro/Vite) or process.env (Node),
- * so the client works whether invoked through the Astro build or a plain Node context.
- */
+/** Build-time config value: `import.meta.env` (Astro/Vite), fallback `process.env` (Node/CI). */
 function env(name: string): string | undefined {
-    // import.meta.env is the Astro/Vite surface; process.env covers CI runners that only export to Node.
     return import.meta.env[name] ?? process.env[name]
 }
 

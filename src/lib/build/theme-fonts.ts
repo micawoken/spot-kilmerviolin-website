@@ -1,36 +1,32 @@
 /**
  * lib/build/theme-fonts.ts
  *
- * Self-hosts the design theme's Google Fonts (tokens.ts's `WebFont[]`) instead of the public site
- * linking straight to fonts.googleapis.com.
+ * Self-hosts the design theme's Google Fonts (tokens.ts's `WebFont[]`) instead of linking straight to
+ * fonts.googleapis.com.
  *
- * Root cause this fixes: `webFontsHref`'s `display=optional` (chosen to kill the theme font's
- * initial-load layout shift, docs/dev/miscellaneous.txt's "initial load layout shift") gives the
- * browser only ~100ms to have the font ready at first paint, and Google's css2 stylesheet cannot be
- * `<link rel="preload">`d — its actual font-file URL isn't known until that stylesheet's own response
- * resolves. On a cold cache (first visit, or once the browser evicts the font) that extra round trip
- * routinely blows past 100ms, so the browser abandons the custom font for the rest of that page load —
- * "the font usually doesn't load". Self-hosting removes the round trip: each file is downloaded once
- * at build time, so the page can `<link rel="preload">` it directly, the same trick
- * `AdminTypeface.astro` already relies on for the self-hosted admin Inter face.
+ * Root cause fixed: `webFontsHref`'s `display=optional` (kills theme-font initial-load layout shift,
+ * docs/dev/miscellaneous.txt "initial load layout shift") gives the browser only ~100ms to have the
+ * font ready at first paint, but Google's css2 stylesheet can't be `<link rel="preload">`d — the actual
+ * font-file URL isn't known until that stylesheet's response resolves. Cold cache (first visit, or
+ * evicted font): that round trip routinely blows past 100ms, browser abandons the custom font for the
+ * rest of the page load. Self-hosting removes the round trip: each file downloaded once at build time,
+ * page can preload it directly — same trick `AdminTypeface.astro` uses for the self-hosted admin Inter.
  *
- * MUST run from a real-Node context, never from page-render code: `@astrojs/cloudflare` prerenders
- * pages by sending requests to an actual workerd instance ("prerendering happens in the same runtime
- * that will serve the pages" — its own prerenderer.d.ts), and workerd has no writable local disk. A
- * `node:fs` `mkdir`/`writeFile` called from a `.astro` page's frontmatter (which runs inside that
- * sandbox during both `astro build`'s prerender step and `astro dev`) throws EPERM
- * ("operation not permitted") for every single font block — confirmed against the live theme, where
- * this used to be called straight from `theme-head.ts`/`PublicPage.astro` and silently produced ZERO
- * font files every build, permanently falling back to the typography token's next stack entry. This is
- * why `getThemeHead` no longer imports `localizeThemeFonts` — instead `integrations/theme-fonts.mjs`
- * calls it from the `astro:build:start`/`astro:server:setup` hooks, which Astro always runs in the
- * real orchestrating Node process, and writes the result to `theme-fonts-manifest.generated.json`
- * (this directory) for `theme-head.ts` to pick up via a plain source import. That import is resolved
- * by Vite while bundling the server code — before the prerenderer's workerd instance ever starts — so
- * the page-render code never needs to touch the filesystem at all.
+ * MUST run from a real-Node context, never page-render code: `@astrojs/cloudflare` prerenders by
+ * sending requests to an actual workerd instance (prerenderer.d.ts: "prerendering happens in the same
+ * runtime that will serve the pages"), and workerd has no writable local disk. `node:fs`
+ * `mkdir`/`writeFile` from a `.astro` page's frontmatter (runs inside that sandbox during both
+ * `astro build`'s prerender step and `astro dev`) throws EPERM for every font block — confirmed live:
+ * calling this straight from `theme-head.ts`/`PublicPage.astro` silently produced ZERO font files every
+ * build, permanently falling back to the typography token's next stack entry. Why `getThemeHead` no
+ * longer imports `localizeThemeFonts` directly — `integrations/theme-fonts.mjs` calls it instead from
+ * `astro:build:start`/`astro:server:setup` hooks (always the real orchestrating Node process), writes
+ * the result to `theme-fonts-manifest.generated.json` for `theme-head.ts` to pick up via a plain source
+ * import — resolved by Vite while bundling server code, before the prerenderer's workerd ever starts,
+ * so page-render code never touches the filesystem.
  *
  * Written to `public/fonts/theme/` only: the build-start hook fires before Vite's client-asset build
- * copies `publicDir` into `dist/client`, so that one copy step now picks the files up on its own.
+ * copies `publicDir` into `dist/client`, so that copy step picks the files up on its own.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -64,11 +60,9 @@ import { webFontsHref, type WebFont } from "../compositor/tokens"
 const GOOGLE_FONTS_FETCH_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-// Google's own per-block subset names that get preloaded + font-display: optional (no flash, but only
-// guaranteed to render if ready by first paint). Picked for a Western classical-music composer
-// database, where accented Latin names (e.g. "Dvořák") are routine but other scripts are not. Every
-// other subset (cyrillic, greek, vietnamese, …) still self-hosts and loads, just via
-// font-display: swap and no preload — present, but not flash-guarded.
+// Preloaded + font-display: optional (no flash, only guaranteed ready by first paint). Picked for a
+// Western classical-music composer database — accented Latin (e.g. "Dvořák") routine, other scripts
+// not. Every other subset (cyrillic, greek, vietnamese, …) still self-hosts, via swap, no preload.
 const PRELOADED_SUBSETS = new Set(["latin", "latin-ext"])
 
 const FONT_DIR_SEGMENTS = ["fonts", "theme"] as const
@@ -82,17 +76,13 @@ export interface LocalizedFonts {
 }
 
 /**
- * Self-hosts the theme's web fonts. Call once per build/dev-server start (see the file header for why
- * this must run from a real-Node build hook, not page-render code) — this does its own network I/O and
- * disk writes each time it is called, with no memoization of its own.
+ * Self-hosts the theme's web fonts. Call once per build/dev-server start (file header: must run from a
+ * real-Node build hook, not page-render code) — does its own network I/O and disk writes each call, no
+ * memoization of its own.
  *
- * Fails soft: a fetch/parse/download problem for any reason resolves to `null` (with a console
- * warning), never throwing — the theme font is simply skipped for this build rather than breaking
- * every public page, matching `fetchPublishedTheme`'s contract.
- *
- * @param {WebFont[]} fonts - the theme's declared web fonts (`design_theme.tokens.fonts`)
- * @returns {Promise<LocalizedFonts | null>} the local `@font-face` CSS and preload hrefs, or null when
- *   there is no valid font or self-hosting failed
+ * Fails soft: fetch/parse/download problem resolves to `null` (+ console warning), never throws — the
+ * theme font is skipped for this build rather than breaking every public page, matching
+ * `fetchPublishedTheme`'s contract.
  */
 export async function localizeThemeFonts(fonts: WebFont[]): Promise<LocalizedFonts | null> {
     const href = webFontsHref(fonts)
@@ -172,13 +162,10 @@ function parseFontFaceBlocks(css: string): ParsedFontFaceBlock[] {
 }
 
 /**
- * Downloads a single Google-hosted font file and writes it to `public/fonts/theme/` (see the file-level
- * comment for why only that one directory, and why this must run from a real-Node build hook). The
- * filename is a hash of the remote URL, which Google itself versions per family/weight/subset, so
- * repeated downloads of the same font are naturally content-addressed and idempotent.
- *
- * @param {string} url - the font file URL from a parsed Google `@font-face` block
- * @returns {Promise<string>} the local `/fonts/theme/<hash>.woff2` href
+ * Downloads one Google-hosted font file, writes it to `public/fonts/theme/` (file header: why only
+ * that directory, why this must run from a real-Node build hook). Filename is a hash of the remote
+ * URL — Google versions the URL per family/weight/subset, so repeated downloads are naturally
+ * content-addressed and idempotent.
  */
 async function downloadFont(url: string): Promise<string> {
     const res = await fetch(url)

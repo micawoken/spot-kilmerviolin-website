@@ -1,18 +1,17 @@
 /**
  * lib/build/design-api.ts
  *
- * Build-time reader for the compositor collections (impl §6.6), the design-page analog of
- * `emdash-api.ts`. It reuses that module's `emdashGet` (config, auth, timeout, failure policy) rather
- * than duplicating it, so both readers authenticate and fail identically.
+ * Build-time reader for the compositor collections (impl §6.6), design-page analog of
+ * `emdash-api.ts`. Reuses that module's `emdashGet` (config/auth/timeout/failure policy) instead
+ * of duplicating it — both readers authenticate and fail identically.
  *
- * Failure policy is deliberately split:
- *  - With no CONTENT_API_BASE (the bootstrap build) there is nothing to read; the readers return []/null
- *    and the build still succeeds.
- *  - A *read* failure against a CONFIGURED CMS throws (`CmsReadError`, see emdash-api.ts) — falling soft
- *    there would drop published pages out of `dist/` and deploy that over the live site.
- *  - A *migration* failure on a published design THROWS and fails the build, naming the page. The design
- *    is present and published; rendering it wrongly, or silently dropping it, would be a regression that
- *    reaches the public site. Loud and early beats a missing page nobody notices.
+ * Failure policy, three-way split:
+ *  - No CONTENT_API_BASE (bootstrap build): nothing to read, readers return []/null, build succeeds.
+ *  - Read failure against a CONFIGURED CMS: throws (`CmsReadError`) — soft fallback would drop
+ *    published pages from `dist/` and deploy that over the live site.
+ *  - Migration failure on a published design: THROWS, names the page. It's published — rendering
+ *    it wrong or dropping it silently would regress the public site. Loud and early beats a missing
+ *    page nobody notices.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -52,14 +51,11 @@ export interface BuildDesignPage {
 }
 
 /**
- * Fetches every published `design_page`, following cursor pagination to completion, and migrates each
- * one's stored `design` envelope to the current schema version.
+ * Fetches every published `design_page` (cursor-paginated to completion), migrating each's stored
+ * `design` envelope to the current schema version.
  *
- * A read failure returns [] (fail-soft, see the module header). A design that fails to migrate throws,
- * failing the build with the offending page named — it is published, so it cannot be quietly skipped.
- *
- * @returns {Promise<BuildDesignPage[]>} the published design pages to prerender, in API order
- * @throws {Error} when a published design's `design` field cannot be migrated to the current version
+ * Read failure: returns [] (fail-soft, see module header). Migration failure: throws, names the
+ * offending page — published, so it can't be quietly skipped.
  */
 export async function fetchPublishedDesignPages(): Promise<BuildDesignPage[]> {
     const designPages: BuildDesignPage[] = []
@@ -73,7 +69,7 @@ export async function fetchPublishedDesignPages(): Promise<BuildDesignPage[]> {
 
         for (const item of result.items) {
             const slug = normalizeSlug(item.slug)
-            // An unroutable item cannot be reached by any URL, so it is skipped rather than fatal.
+            // Unroutable item, unreachable by any URL — skip, not fatal.
             if (!slug) continue
             const data = item.data ?? {}
 
@@ -101,42 +97,37 @@ export async function fetchPublishedDesignPages(): Promise<BuildDesignPage[]> {
     return designPages
 }
 
-// Re-exported so the build's existing importers (route-authority) keep their import site; the list itself
-// is owned by lib/compositor/types, which the /_emdash gate can import without dragging build code in.
+// Re-exported so existing importers (route-authority) keep their import site; owned by
+// lib/compositor/types so the /_emdash gate can import it without dragging build code in.
 export type { TemplateCollection }
 
 /**
- * The reserved item slug of the "None (plain article)" sentinel template (pivot §3, §7.4). Referencing
- * it — or defaulting a collection to it — means "render this entry bare", i.e. D3's untemplated output.
- * It is the only way to opt one entry out of its collection's default template.
+ * Reserved slug of the "None (plain article)" sentinel template (pivot §3, §7.4). Referencing it —
+ * or defaulting a collection to it — means "render bare" (D3). Only way to opt one entry out of its
+ * collection's default template.
  *
- * The sentinel is exempt from the collection-mismatch check: it holds no layout, so the one item serves
- * every routed collection regardless of which collection its (required) `collection` field names.
+ * Exempt from the collection-mismatch check: holds no layout, so one item serves every routed
+ * collection regardless of its `collection` field.
  */
 export const TEMPLATE_NONE_SLUG = "none"
 
 /**
- * The reserved item slug that designates a `design_page` as the site's Not Found page (8-task plan #8).
- * An owner makes the 404 page editable through the compositor the same way they author any other design
- * page — by giving it this slug in `/admin/designs`. `pages/404.astro` looks it up directly and renders
- * it through the same Puck path `[...slug].astro` uses for an untemplated design page (kind "design",
- * `entry: null`).
+ * Reserved slug designating a `design_page` as the site's Not Found page (8-task plan #8). Owner
+ * authors the 404 page through the compositor like any other design page, giving it this slug.
+ * `pages/404.astro` looks it up directly, renders via the same Puck path `[...slug].astro` uses for
+ * an untemplated design page (kind "design", `entry: null`).
  *
- * Unlike every other design page, a page with this slug is deliberately EXCLUDED from `[...slug].astro`'s
- * route table (see its `getStaticPaths`): claiming a real "/404" URL would be redundant with (and
- * confusing next to) the dedicated static `dist/404.html` that Cloudflare's ASSETS binding serves for any
- * unmatched path, and — unlike "home" → "/" — there is no second path this slug should ALSO own.
+ * Deliberately EXCLUDED from `[...slug].astro`'s route table: claiming a real "/404" URL would be
+ * redundant with Cloudflare's static `dist/404.html` fallback, and unlike "home" → "/", no second
+ * path this slug should also own.
  */
 export const NOT_FOUND_PAGE_SLUG = "404"
 
 /**
- * Splits a fetched `design_page` list into the routable set `[...slug].astro` builds a route table from
- * and the reserved 404 page (if published), so the two callers that must agree on this split — the
- * catch-all route and `pages/404.astro` — share one definition instead of two independent filters that
- * could quietly drift apart. EmDash enforces per-collection slug uniqueness, so at most one page matches.
- *
- * @param {BuildDesignPage[]} designPages - every published design page, as `fetchPublishedDesignPages` returns it
- * @returns {{ routable: BuildDesignPage[]; notFoundPage: BuildDesignPage | null }} the split
+ * Splits fetched `design_page`s into the routable set `[...slug].astro` builds a route table from
+ * and the reserved 404 page (if published) — one definition so the two callers (catch-all route,
+ * `pages/404.astro`) can't drift apart. EmDash enforces per-collection slug uniqueness: at most one
+ * match.
  */
 export function partitionDesignPages(designPages: BuildDesignPage[]): {
     routable: BuildDesignPage[]
@@ -152,13 +143,12 @@ export function partitionDesignPages(designPages: BuildDesignPage[]): {
 }
 
 /**
- * What a `design_template.collection` field may legitimately target across the whole system: an EmDash
- * collection routed by `route-authority.ts` (`TemplateCollection`), or a D1-backed entity noun routed by
- * `entity-routes.ts` (`EntityNoun`). Deliberately wider than `TemplateCollection` alone, and deliberately
- * NOT folded into `TEMPLATE_COLLECTIONS`/`isTemplateCollection` — those also gate
- * `emdash_design_access.ts`'s `design_editor` read allowlist, which must stay scoped to collections
- * EmDash actually has. Entities are never read through `/_emdash` (see d1-api.ts); widening that allowlist
- * to a collection name EmDash doesn't serve would be a scope leak, not a routing concern.
+ * What `design_template.collection` may legitimately target system-wide: an EmDash collection routed
+ * by `route-authority.ts` (`TemplateCollection`), or a D1-backed entity noun routed by
+ * `entity-routes.ts` (`EntityNoun`). Deliberately NOT folded into `TEMPLATE_COLLECTIONS`/
+ * `isTemplateCollection` — those also gate `emdash_design_access.ts`'s `design_editor` allowlist,
+ * scoped to collections EmDash actually has. Entities never read through `/_emdash` (see d1-api.ts);
+ * widening that allowlist to an EmDash-unserved name would be a scope leak, not a routing concern.
  */
 export type DesignTemplateCollection = TemplateCollection | EntityNoun
 
@@ -205,23 +195,17 @@ export interface BuildEntityTemplate {
 }
 
 /**
- * Fetches every published `design_template`, following cursor pagination to completion, and migrates each
- * one's stored `design` envelope — the same envelope, ladder, and version as `design_page` (no fork).
+ * Fetches every published `design_template` (cursor-paginated), migrating each's stored `design`
+ * envelope — same envelope/ladder/version as `design_page`, no fork.
  *
- * The collection's ABSENCE is a legitimate state — it does not exist until the setup tooling creates it —
- * so a 404 reads as "no templates yet" ({ allowMissing: true }) and every entry falls back to its
- * untemplated render (D3). Any other read failure throws (`CmsReadError`), as everywhere else.
+ * Collection ABSENCE is legitimate (doesn't exist until setup tooling creates it) — 404 reads as "no
+ * templates yet" (`allowMissing: true`), every entry falls back to untemplated render (D3). Any other
+ * read failure throws (`CmsReadError`). An unmigratable design, or one naming a collection this build
+ * doesn't route at all, also THROWS, naming it — published and live, would otherwise silently lose
+ * its layout.
  *
- * A published template that cannot be migrated — or that names a collection this build does not route at
- * all (neither an EmDash collection nor a D1 entity noun) — also THROWS, naming it. Such a template is
- * published and live; whatever it renders would otherwise silently lose its layout.
- *
- * Not exported: callers want one of the two typed views below (`fetchPublishedTemplates` for pages/posts,
- * `fetchPublishedEntityTemplates` for entity nouns), never the undifferentiated raw list.
- *
- * @returns {Promise<RawBuildTemplate[]>} the published templates, in API order
- * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
- * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
+ * Not exported: callers want `fetchPublishedTemplates` (pages/posts) or
+ * `fetchPublishedEntityTemplates` (entity nouns), never the undifferentiated raw list.
  */
 async function fetchAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
     const templates: RawBuildTemplate[] = []
@@ -276,13 +260,9 @@ async function fetchAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
 }
 
 /**
- * The published templates that render `pages`/`posts` entries — the view `route-authority.ts` consumes.
- * Entity-noun templates are filtered out here, not routed through `route-authority.ts`'s slug/collision
- * rules, which entity records never participate in (see entity-routes.ts).
- *
- * @returns {Promise<BuildTemplate[]>} the published pages/posts templates, in API order
- * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
- * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
+ * Published templates rendering `pages`/`posts` entries — the view `route-authority.ts` consumes.
+ * Entity-noun templates filtered out here; entity records never enter `route-authority.ts`'s
+ * slug/collision rules (see entity-routes.ts).
  */
 export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
     const all = await fetchAllPublishedTemplates()
@@ -290,12 +270,8 @@ export async function fetchPublishedTemplates(): Promise<BuildTemplate[]> {
 }
 
 /**
- * The published templates that render a D1-backed entity noun's records — the view `entity-routes.ts`
+ * Published templates rendering a D1-backed entity noun's records — the view `entity-routes.ts`
  * consumes to resolve each noun's default layout (Step 6).
- *
- * @returns {Promise<BuildEntityTemplate[]>} the published entity templates, in API order
- * @throws {Error} when a published template's design cannot be migrated, or its `collection` is unknown
- * @throws {CmsReadError} when a configured CMS fails the read for any reason other than a 404
  */
 export async function fetchPublishedEntityTemplates(): Promise<BuildEntityTemplate[]> {
     const all = await fetchAllPublishedTemplates()
@@ -303,10 +279,10 @@ export async function fetchPublishedEntityTemplates(): Promise<BuildEntityTempla
 }
 
 /**
- * One field of a collection's live schema, as the outlet field pickers and the pairing lint consume it
- * (pivot §5.2): the slug an outlet binds, the label a picker shows, and the type that gates which
- * outlets accept it. A subset of EmDash's schema payload; the live schema endpoint is the only ground
- * truth for fields (pivot §1.10 — the generated emdash-env.d.ts tracks the local dev DB, not prod).
+ * One field of a collection's live schema, as outlet field pickers and the pairing lint consume it
+ * (pivot §5.2): outlet-bindable slug, picker label, type gating which outlets accept it. Subset of
+ * EmDash's schema payload — the live endpoint is the only ground truth for fields (pivot §1.10:
+ * generated emdash-env.d.ts tracks the local dev DB, not prod).
  */
 export interface CollectionField {
     slug: string
@@ -315,14 +291,11 @@ export interface CollectionField {
 }
 
 /**
- * Fetches the live field schema of one collection, for the dangling-outlet-field lint.
+ * Fetches one collection's live field schema, for the dangling-outlet-field lint.
  *
- * Fails SOFT to null — a schema-read hiccup must not fail the build; the caller skips that lint rule
- * for the build with a loud warning instead (pivot §5.2). This is deliberately weaker than content
- * reads (which throw): losing one advisory check for a build is recoverable, losing pages is not.
- *
- * @param {string} collection - the collection slug (e.g. "pages")
- * @returns {Promise<CollectionField[] | null>} the fields, or null when the schema could not be read
+ * Fails SOFT to null — a schema-read hiccup must not fail the build; caller skips that lint rule with
+ * a loud warning instead (pivot §5.2). Deliberately weaker than content reads (which throw): losing
+ * one advisory check is recoverable, losing pages is not.
  */
 export async function fetchCollectionFields(collection: string): Promise<CollectionField[] | null> {
     let result: { items?: Array<Record<string, unknown>> } | null
@@ -355,15 +328,12 @@ export async function fetchCollectionFields(collection: string): Promise<Collect
 /**
  * Fetches the published `design_theme` token catalog — the `--dtk-*` values every design draws from.
  *
- * Returns null (with a loud warning) when no theme is published or the stored catalog is invalid: design
- * pages then render structurally intact but with no token custom properties defined, so token-backed
- * declarations fall back to their initial values. That is a visible, recoverable state; failing the whole
- * build over an unpublished theme is not worth it.
+ * Null (+ loud warning) when no theme published or the stored catalog is invalid: pages render
+ * structurally intact, token-backed declarations just fall back to initial values — visible and
+ * recoverable, not worth failing the build over.
  *
- * Cached for the life of one build process, the same rationale as `emdash-api.ts`'s `pageHrefCache`:
- * every design page's render would otherwise re-read and re-lint the same published theme once per page.
- *
- * @returns {Promise<TokenCatalog | null>} the published catalog, or null when unavailable
+ * Cached for the build's lifetime, same rationale as `emdash-api.ts`'s `pageHrefCache` — otherwise
+ * every design page's render re-reads and re-lints the same published theme.
  */
 export function fetchPublishedTheme(): Promise<TokenCatalog | null> {
     if (!themeCache) {
@@ -397,10 +367,9 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
         return null
     }
 
-    // A button variant whose reference names a deleted token is an authoring bug the owner should see —
-    // but the emitted var() already fails soft (renders the CSS fallback), so warn, do not throw. This is
-    // narrower than the design-level unknown-token rule (DD2): that fails the build on a DESIGN referencing
-    // a missing token; this is a cosmetic THEME-internal dangle.
+    // Button variant referencing a deleted token: authoring bug, but emitted var() already fails soft
+    // (CSS fallback) — warn, don't throw. Narrower than DD2 (design referencing a missing token, which
+    // throws); this is a cosmetic theme-internal dangle.
     for (const finding of lintTokenCatalog(tokens)) {
         console.warn(
             `[build/design-api] button variant "${finding.variant}" ${finding.field} references ` +

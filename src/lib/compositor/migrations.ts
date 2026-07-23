@@ -2,10 +2,9 @@
  * lib/compositor/migrations.ts
  *
  * Design-doc envelope validation and schema migration (impl §4.2). `migrateDesign` runs on every
- * read in both the editor and the build: it validates the envelope, applies ordered transforms
- * `v → v+1` up to `CURRENT_SCHEMA_VERSION`, and throws an actionable error on malformed input or an
- * unknown version. Explicit failure is the point — a bad design fails the build loudly and shows an
- * error state in the editor rather than silently rendering wrong.
+ * read, editor and build: validates the envelope, applies ordered transforms `v → v+1` up to
+ * `CURRENT_SCHEMA_VERSION`, throws an actionable error on malformed input or an unknown version.
+ * Explicit failure is the point — a bad design fails the build loudly rather than rendering wrong.
  *
  * Contributor rule (impl §9.2): never rename or remove a component or prop without adding a
  * transform here and bumping the version.
@@ -49,13 +48,9 @@ interface SchemaTransform {
     migrate: (puck: PuckData) => PuckData
 }
 
-/**
- * v1 → v2: splits `Columns`/`Row`'s single `gap` prop into independent `columnGap`/`rowGap` selects (so
- * an owner can scale a component's horizontal spacing without also moving its vertical spacing — the
- * two axes shared one token under the old shape). A stored `gap: "<name>"` becomes `columnGap: "<name>",
- * rowGap: "<name>"`, so an existing design's rendered spacing is unchanged until its owner deliberately
- * splits the two apart in the editor. Recurses into every slot the same way `ensureComponentIds` does.
- */
+/** v1 → v2: splits `Columns`/`Row`'s single `gap` prop into independent `columnGap`/`rowGap` — the
+ * two axes shared one token under the old shape. `gap: "<name>"` becomes `columnGap`/`rowGap:
+ * "<name>"`, so rendered spacing is unchanged until the owner splits them apart in the editor. */
 function splitColumnsRowGap(components: unknown[]): void {
     for (const component of components) {
         if (!isPuckComponent(component)) continue
@@ -85,33 +80,26 @@ export function emptyDesignDoc(): DesignDoc {
     return { schemaVersion: CURRENT_SCHEMA_VERSION, puck: { root: {}, content: [] } as unknown as PuckData }
 }
 
-/**
- * Wraps a pre-envelope design value in a version-1 envelope; passes anything else through unchanged.
- *
- * An early build's editor autosaved the bare Puck tree into the `design` field instead of the
- * envelope, so those stored documents are `{ root, content }` with no `schemaVersion` — the layout is
- * intact, only the envelope is missing. They are read as version 1 (the only version that build could
- * have written) and the editor's next save rewrites them in envelope form. The shape is unambiguous:
- * an envelope always carries `schemaVersion`/`puck`, a Puck tree always carries a `content` array.
- * Drop this once no pre-envelope documents remain in the CMS.
- */
+/** Wraps a pre-envelope design value in a version-1 envelope; passes anything else through unchanged.
+ * An early build's editor autosaved the bare Puck tree (`{root, content}`, no `schemaVersion`)
+ * instead of the envelope — layout intact, envelope missing. Read as version 1 (the only version that
+ * build could have written); the editor's next save rewrites it in envelope form. Shape is
+ * unambiguous: an envelope always carries `schemaVersion`/`puck`, a Puck tree always carries
+ * `content`. Drop this once no pre-envelope documents remain in the CMS. */
 function wrapPreEnvelopeDesign(raw: Record<string, unknown>): Record<string, unknown> {
     const isPreEnvelope =
         raw.schemaVersion === undefined && raw.puck === undefined && Array.isArray(raw.content)
     return isPreEnvelope ? { schemaVersion: 1, puck: raw } : raw
 }
 
-/**
- * Assigns a fresh id to every component in a slot array that is missing one, recursing into nested
- * slots (mutates in place). Puck's editor store indexes every node BY `props.id` (`WithId<Props>` —
- * required, not optional, in `@puckeditor/core`'s own types); a component written without one does not
- * merely lack metadata, it collides with every other id-less sibling on the same index key, corrupting
- * the store and driving the editor into an infinite re-render loop that OOMs the tab. `editorFormToDesign`
- * always writes real ids (Puck assigns one to every component it creates), so this only ever fires on a
- * document written outside the editor — a hand-authored seed script being the one that shipped without
- * ids (see `tools/seed-entity-templates.mjs`) — but it runs unconditionally so ANY id-less write, present
- * or future, self-heals on the next read rather than corrupting the editor again.
- */
+/** Assigns a fresh id to every component missing one, recursing into slots, mutates in place.
+ * Puck's editor store indexes every node BY `props.id` (`WithId<Props>` — required, not optional, in
+ * `@puckeditor/core`'s own types) — an id-less component doesn't just lack metadata, it collides with
+ * every other id-less sibling on the same index key, corrupting the store and driving the editor into
+ * an infinite re-render loop that OOMs the tab. `editorFormToDesign` always writes real ids, so this
+ * only ever fires on a document written outside the editor (e.g. `tools/seed-entity-templates.mjs`) —
+ * but runs unconditionally so ANY id-less write, present or future, self-heals on next read instead of
+ * corrupting the editor again. */
 function ensureComponentIds(components: unknown[]): void {
     for (const component of components) {
         if (!isPuckComponent(component)) continue
@@ -124,17 +112,9 @@ function ensureComponentIds(components: unknown[]): void {
     }
 }
 
-/**
- * Validates and up-migrates a stored design envelope to `CURRENT_SCHEMA_VERSION`.
- *
- * Throws (with an actionable message) when `raw` is not an object, is missing a numeric
- * `schemaVersion` or an object `puck`, has a version newer than this build understands, or has a
- * version with no path to the current one. On success the returned document is at
- * CURRENT_SCHEMA_VERSION.
- *
- * @param {unknown} raw - the parsed `design` field value
- * @returns {DesignDoc} - the validated document, migrated to the current version
- */
+/** Validates and up-migrates a stored design envelope to `CURRENT_SCHEMA_VERSION`. Throws (with an
+ * actionable message) on a non-object `raw`, a missing numeric `schemaVersion`/object `puck`, a
+ * version newer than this build understands, or a version with no path to the current one. */
 export function migrateDesign(raw: unknown): DesignDoc {
     if (!isRecord(raw)) {
         throw new Error("Invalid design document: expected an object envelope")

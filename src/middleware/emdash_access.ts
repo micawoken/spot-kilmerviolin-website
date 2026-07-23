@@ -5,17 +5,17 @@
  * path but performs no _emdash-specific authorization itself (that decision belongs to the service being
  * requested — for /admin and /api that's the page/route itself; EmDash is a third-party integration whose
  * routes this app doesn't own, so this middleware plays that role instead). EmDash's own Cloudflare Access
- * adapter still authenticates the request separately; this is an additional in-app authorization gate on
- * top of it, not a replacement.
+ * adapter still authenticates the request separately; this is an additional in-app gate on top, not a
+ * replacement.
  *
- * Two permissions reach /_emdash, and they are NOT equals:
+ * Two permissions reach /_emdash, NOT equal:
  *
- *   cms_editor    the whole CMS — the admin UI, every collection, settings, media, users.
+ *   cms_editor    the whole CMS — admin UI, every collection, settings, media, users.
  *   design_editor ONLY the paths the visual design system calls (lib/api/emdash_design_access.ts).
  *
- * This gate is a complete chokepoint: EmDash is mounted INSIDE this worker, so every request to it passes
- * through this middleware. It is also the only thing bounding a design_editor — see that module's header
- * before changing an allowlist rule.
+ * Complete chokepoint: EmDash is mounted INSIDE this worker, every request to it passes through this
+ * middleware. Also the only thing bounding a design_editor — see that module's header before changing
+ * an allowlist rule.
  *
  *
  * Copyright (C) 2026 Michael Wong.

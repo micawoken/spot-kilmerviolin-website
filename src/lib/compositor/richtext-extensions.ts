@@ -1,17 +1,15 @@
 /**
  * lib/compositor/richtext-extensions.ts
  *
- * The Tiptap extension set Puck's built-in `richtext` field edits with, reconstructed for use with
- * `@tiptap/html`'s `generateJSON` (impl §4.4 follow-up). Puck 0.22's richtext field hands `onChange` an
- * HTML string (`editor.getHTML()`), not a ProseMirror document, so converting that string back to
- * Portable Text on save requires parsing it with the *same* schema Puck edited it with — an extension
- * mismatch would silently drop or reinterpret marks/nodes the editor actually allowed.
+ * Tiptap extension set Puck's built-in `richtext` field edits with, reconstructed for `@tiptap/html`'s
+ * `generateJSON` (impl §4.4 follow-up). Puck's richtext field hands `onChange` an HTML string
+ * (`editor.getHTML()`), not a ProseMirror doc — converting back to Portable Text on save must parse it
+ * with the *same* schema Puck edited with, or marks/nodes silently drop or misparse.
  *
- * This list is not importable from `@puckeditor/core` (its internal `PuckRichText` bundle, in
- * `dist/chunk-2CNEFIQP.mjs`, is not part of the package's public `exports` map) so it is reconstructed
- * here from the same public `@tiptap/extension-*` packages, matching the internal bundle's default
- * options exactly (every extension enabled, `TextAlign` scoped to heading/paragraph). If a future
- * `@puckeditor/core` upgrade changes that default set, this list must be updated to match.
+ * Not importable from `@puckeditor/core` — its internal `PuckRichText` bundle isn't in the package's
+ * public `exports` map — so reconstructed here from the same `@tiptap/extension-*` packages, matching
+ * its default options exactly (every extension enabled, `TextAlign` scoped to heading/paragraph). A
+ * future `@puckeditor/core` upgrade that changes that default set desyncs this list silently.
  *
  * Copyright (C) 2026 Michael Wong.
  *
