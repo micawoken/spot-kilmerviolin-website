@@ -124,6 +124,16 @@ interface FieldSpec {
      * reference unrepresentable in the editor (§3.1), which is stronger than linting it after the fact.
      */
     refKind?: TokenKind
+    /**
+     * Only meaningful with `control: "length"`. CSS line-height is the one length-ish property that
+     * legitimately takes a bare unitless number; every other `"length"` field (space/radius/border-width/
+     * breakpoint values, letter-spacing) is always consumed inside a `calc()` or as a plain length by its
+     * own consuming CSS, so a unitless value there is a guaranteed-invalid `calc()` operand that silently
+     * zeroes the whole declaration (rather than erroring) — exactly what broke the pre-generated static
+     * pages' `.static-page-body` padding when a Site Chrome spacing token lost its unit on edit. Defaults
+     * to false so only `lineHeight` opts in.
+     */
+    allowUnitless?: boolean
 }
 
 /** Editable row: every token value is a string in the form; optional empties are dropped on save. */
@@ -169,7 +179,7 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
             { key: "family", label: "Font family", control: "family" },
             { key: "size", label: "Size", control: "clamp" },
             { key: "weight", label: "Weight", control: "weight" },
-            { key: "lineHeight", label: "Line height", control: "length" },
+            { key: "lineHeight", label: "Line height", control: "length", allowUnitless: true },
             { key: "letterSpacing", label: "Letter spacing", optional: true, control: "length" },
             { key: "italic", label: "Italic", control: "checkbox", valueType: "boolean" },
             // Overrides `weight` above for this property only, when checked; unchecking restores it.
@@ -539,12 +549,27 @@ function unitLabel(unit: string): string {
  * (a `clamp()`/`calc()`/`var()` or unknown unit) falls back to the raw text input so it is never
  * clobbered. An empty value stays empty (so an optional length can be cleared); typing a number composes
  * `<number><unit>`. Normalizing an authored `.5` to `0.5` via the number field is a semantic no-op.
+ *
+ * `allowUnitless` gates the "—" (unitless) unit choice (§ FieldSpec.allowUnitless): most `"length"` fields
+ * feed a `calc()` elsewhere that requires an actual length, where a unitless number is a silent
+ * guaranteed-invalid operand rather than a visible error. When false, "—" is hidden from the dropdown UNLESS
+ * the stored value is already unitless (legacy/bad data stays visible instead of disappearing), and simply
+ * touching the number field coerces that legacy value to `rem` rather than re-saving it unitless.
  */
-function LengthControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function LengthControl({
+    value,
+    onChange,
+    allowUnitless = false
+}: {
+    value: string
+    onChange: (value: string) => void
+    allowUnitless?: boolean
+}) {
     if (value.trim() !== "" && parseLength(value) === null) return <TextControl value={value} onChange={onChange} />
     const parts = parseLength(value) ?? { number: "", unit: "" as (typeof LENGTH_UNITS)[number] }
     const emit = (num: string, unit: (typeof LENGTH_UNITS)[number]) =>
-        onChange(num === "" ? "" : formatLength({ number: num, unit }))
+        onChange(num === "" ? "" : formatLength({ number: num, unit: unit === "" && !allowUnitless ? "rem" : unit }))
+    const units = allowUnitless || parts.unit === "" ? LENGTH_UNITS : LENGTH_UNITS.filter((unit) => unit !== "")
     return (
         <span className="theme-editor__length">
             <input
@@ -554,7 +579,7 @@ function LengthControl({ value, onChange }: { value: string; onChange: (value: s
                 onChange={(event) => emit(event.target.value, parts.unit)}
             />
             <select value={parts.unit} onChange={(event) => emit(parts.number, event.target.value as typeof parts.unit)}>
-                {LENGTH_UNITS.map((unit) => (
+                {units.map((unit) => (
                     <option key={unit} value={unit}>
                         {unitLabel(unit)}
                     </option>
@@ -894,7 +919,7 @@ function CellControl({
     if (!rawMode) {
         switch (field.control) {
             case "length":
-                return <LengthControl value={value} onChange={onChange} />
+                return <LengthControl value={value} onChange={onChange} allowUnitless={field.allowUnitless} />
             case "color":
                 return <ColorControl value={value} scheme={colorScheme} onChange={onChange} />
             case "clamp":
