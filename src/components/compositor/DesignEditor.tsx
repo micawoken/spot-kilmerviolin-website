@@ -80,11 +80,6 @@ const AUTOSAVE_DELAY_MS = 2000
 /** Which document this editor session edits; selects the endpoint and the mode-specific UI. */
 export type DocumentKind = "page" | "template"
 
-/** The content endpoint for a document kind. */
-function endpointFor(kind: DocumentKind): string {
-    return kind === "template" ? DESIGN_TEMPLATE : DESIGN_PAGE
-}
-
 /** Debounced-save state, surfaced as a small status line in the toolbar. */
 type SaveState = "idle" | "saving" | "saved" | "error"
 
@@ -215,7 +210,7 @@ async function fetchSchemaFields(collection: string): Promise<CollectionField[]>
  * the collection edited — `design_page` (default) or `design_template` (`edit?…&type=template`).
  */
 export default function DesignEditor({ id, kind = "page" }: { id: string; kind?: DocumentKind }) {
-    const endpoint = endpointFor(kind)
+    const endpoint = kind === "template" ? DESIGN_TEMPLATE : DESIGN_PAGE
 
     const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading")
     const [loadError, setLoadError] = useState("")
