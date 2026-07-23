@@ -1217,6 +1217,11 @@ header[role="banner"] + .callout-emphasis {
  * Design / template list pages (admin/designs/index.astro, admin/designs/templates.astro)
  * ------------------------------------------------------------------------- */
 
+/* Without an explicit gap here, this section sits only the description paragraph's own 0.35rem margin
+ * below it (admin-entities.css:907) and reads as the description's caption rather than a new section. */
+.design-create {
+	margin-top: 1.5rem;
+}
 .design-create form {
 	display: flex;
 	flex-wrap: wrap;
