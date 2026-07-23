@@ -2,14 +2,13 @@
  * lib/compositor/theme-controls.ts
  *
  * Pure parse/format helpers behind the theme editor's friendly (CSS-less) controls. Each token cell
- * stores a raw CSS value string (the single source of truth, `tokens.ts`); a friendly control *parses*
- * that string on render and *formats* the edited pieces back on change. These functions are that seam,
- * and the entire risk surface — so they are pure, dependency-free, and unit-tested (`theme-controls.test.ts`).
+ * stores a raw CSS value string (source of truth, `tokens.ts`); a friendly control *parses* that
+ * string on render and *formats* it back on change. These functions are that seam and the entire
+ * risk surface — pure, dependency-free, unit-tested (`theme-controls.test.ts`).
  *
- * The contract every parser holds: return `null` for any input it cannot round-trip confidently, so the
- * control can fall back to a raw text input for that one cell rather than clobber a value it did not
- * understand (plan decision "never lossy" — this matters most for the load-bearing `md` centering clamp).
- * A parser never throws.
+ * Contract every parser holds: return `null` for any input it can't round-trip confidently, so the
+ * control falls back to raw text for that cell rather than clobbering a value it didn't understand
+ * (plan decision "never lossy" — matters most for the load-bearing `md` centering clamp). Never throws.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -32,15 +31,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Splits a CSS value on a single-character separator, but only at the top nesting level — a separator
- * inside `(...)` is kept, so `rgb(0, 0, 0)` inside a larger value is not mis-split. Shared by every
- * parser here (comma-splitting function args, space-splitting shadow layers) so they agree on nesting.
- *
- * @param {string} input - the CSS value to split
- * @param {string} separator - a single character to split on at depth 0
- * @returns {string[]} - the top-level segments, in order (never trimmed; callers trim as needed)
- */
+/** Splits a CSS value on a single-character separator, only at the top nesting level — a separator
+ * inside `(...)` is kept, so `rgb(0, 0, 0)` isn't mis-split. Shared by every parser here so they agree
+ * on nesting. Segments are never trimmed; callers trim as needed. */
 export function splitTopLevel(input: string, separator: string): string[] {
     const parts: string[] = []
     let depth = 0
@@ -65,13 +58,8 @@ export interface LightDarkPair {
     dark: string
 }
 
-/**
- * Parses a `light-dark(L, D)` color into its two channels, or `null` if the string is not exactly one
- * top-level `light-dark()` call with two non-empty arguments (e.g. a plain `#fff`, or trailing text).
- *
- * @param {string} input - the candidate color value
- * @returns {LightDarkPair | null} - the light/dark channels (trimmed), or null
- */
+/** Parses a `light-dark(L, D)` color into its two channels, or `null` if not exactly one top-level
+ * `light-dark()` call with two non-empty arguments (e.g. plain `#fff`, or trailing text). */
 export function parseLightDark(input: string): LightDarkPair | null {
     const match = /^light-dark\(([\s\S]*)\)$/.exec(input.trim())
     if (!match) return null
@@ -80,24 +68,13 @@ export function parseLightDark(input: string): LightDarkPair | null {
     return { light: parts[0], dark: parts[1] }
 }
 
-/**
- * Formats a light/dark channel pair back into a `light-dark(L, D)` string.
- *
- * @param {LightDarkPair} pair - the two channels
- * @returns {string} - the `light-dark(L, D)` value
- */
+/** Formats a light/dark channel pair back into a `light-dark(L, D)` string. */
 export function formatLightDark(pair: LightDarkPair): string {
     return `light-dark(${pair.light}, ${pair.dark})`
 }
 
-/**
- * Whether a string is a hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`). Gates the native
- * `<input type="color">`, which only round-trips hex; a non-hex channel (a named color, `rgb()`,
- * `var(...)`) falls back to a text input.
- *
- * @param {string} input - the candidate color value
- * @returns {boolean} - true if the trimmed value is a hex color
- */
+/** Whether a string is a hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`). Gates the native
+ * `<input type="color">`, which only round-trips hex; anything else falls back to a text input. */
 export function isHexColor(input: string): boolean {
     return /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(input.trim())
 }
@@ -114,15 +91,9 @@ export interface LengthParts {
     unit: LengthUnit
 }
 
-/**
- * Parses a `<number><unit>` length into its parts, or `null` for anything that is not a single plain
- * number with a known unit — `clamp(...)`, `calc(...)`, `var(...)`, or an unrecognized unit all return
- * null so the caller shows a raw or clamp control instead. `number` is kept verbatim (not reparsed to a
- * float) so `.5`, `0`, and `2.50` round-trip unchanged.
- *
- * @param {string} input - the candidate length value
- * @returns {LengthParts | null} - the number and unit, or null
- */
+/** Parses a `<number><unit>` length into its parts, or `null` for anything not a single plain number
+ * with a known unit — `clamp(...)`, `calc(...)`, `var(...)`, unrecognized units all return null.
+ * `number` kept verbatim (not reparsed to a float) so `.5`, `0`, `2.50` round-trip unchanged. */
 export function parseLength(input: string): LengthParts | null {
     const match = /^(-?(?:\d+\.?\d*|\.\d+))([a-z%]*)$/i.exec(input.trim())
     if (!match) return null
@@ -131,12 +102,7 @@ export function parseLength(input: string): LengthParts | null {
     return { number: match[1], unit: unit as LengthUnit }
 }
 
-/**
- * Formats length parts back into a `<number><unit>` string.
- *
- * @param {LengthParts} parts - the number and unit
- * @returns {string} - the length value
- */
+/** Formats length parts back into a `<number><unit>` string. */
 export function formatLength(parts: LengthParts): string {
     return `${parts.number}${parts.unit}`
 }
@@ -148,15 +114,9 @@ export interface ClampParts {
     max: string
 }
 
-/**
- * Parses a `clamp(min, preferred, max)` into its three sub-values, or `null` if the string is not
- * exactly one top-level `clamp()` call with three non-empty arguments. The sub-values are returned
- * verbatim (they may themselves be `calc(...)` etc.), so the builder edits them as lengths where it can
- * and as raw text otherwise.
- *
- * @param {string} input - the candidate clamp value
- * @returns {ClampParts | null} - the three sub-values (trimmed), or null
- */
+/** Parses a `clamp(min, preferred, max)` into its three sub-values, or `null` if not exactly one
+ * top-level `clamp()` call with three non-empty arguments. Sub-values returned verbatim (may
+ * themselves be `calc(...)`), so the builder edits them as lengths where it can, raw text otherwise. */
 export function parseClamp(input: string): ClampParts | null {
     const match = /^clamp\(([\s\S]*)\)$/.exec(input.trim())
     if (!match) return null
@@ -165,12 +125,7 @@ export function parseClamp(input: string): ClampParts | null {
     return { min: parts[0], preferred: parts[1], max: parts[2] }
 }
 
-/**
- * Formats clamp sub-values back into a `clamp(min, preferred, max)` string.
- *
- * @param {ClampParts} parts - the three sub-values
- * @returns {string} - the clamp value
- */
+/** Formats clamp sub-values back into a `clamp(min, preferred, max)` string. */
 export function formatClamp(parts: ClampParts): string {
     return `clamp(${parts.min}, ${parts.preferred}, ${parts.max})`
 }
@@ -192,12 +147,10 @@ export interface ShadowLayer {
 /** A single space-separated shadow token that reads as a length (offset/blur/spread), not a color. */
 const SHADOW_LENGTH_PATTERN = /^-?(?:\d+\.?\d*|\.\d+)(?:[a-z%]+)?$/i
 
-/**
- * Parses one `box-shadow` layer (no top-level commas) into structured parts, or `null` if it is
- * ambiguous. Recognizes the `inset` keyword anywhere, 2–4 length values (offset-x, offset-y, then
- * optional blur and spread, in order), and at most one color token (anything not a length or `inset`,
- * including `rgb(...)`, kept whole because `splitTopLevel` does not split inside its parens).
- */
+/** Parses one `box-shadow` layer (no top-level commas) into structured parts, or `null` if ambiguous.
+ * Recognizes `inset` anywhere, 2-4 length values (offset-x, offset-y, optional blur/spread in order),
+ * at most one color token (anything not a length/`inset`, `rgb(...)` kept whole since `splitTopLevel`
+ * doesn't split inside its parens). */
 function parseShadowLayer(layer: string): ShadowLayer | null {
     const tokens = splitTopLevel(layer.trim(), " ")
         .map((token) => token.trim())
@@ -224,13 +177,8 @@ function parseShadowLayer(layer: string): ShadowLayer | null {
     }
 }
 
-/**
- * Parses a `box-shadow` value into its layers, or `null` if any layer is ambiguous (so the whole cell
- * falls back to raw text rather than a partial builder). `"none"` parses to an empty layer list.
- *
- * @param {string} input - the candidate box-shadow value
- * @returns {ShadowLayer[] | null} - the layers (possibly empty for "none"), or null
- */
+/** Parses a `box-shadow` value into its layers, or `null` if any layer is ambiguous (whole cell falls
+ * back to raw text rather than a partial builder). `"none"` parses to an empty layer list. */
 export function parseShadow(input: string): ShadowLayer[] | null {
     const trimmed = input.trim()
     if (trimmed === "") return null
@@ -263,14 +211,9 @@ function formatShadowLayer(layer: ShadowLayer): string {
     return parts.join(" ")
 }
 
-/**
- * Formats shadow layers back into a `box-shadow` value; an empty list formats to `"none"`. Emits the
- * canonical token order, so a re-parsed value is semantically identical though not necessarily
- * byte-identical to an oddly-ordered original (only ever written when the user edits the layer).
- *
- * @param {ShadowLayer[]} layers - the layers to format
- * @returns {string} - the box-shadow value
- */
+/** Formats shadow layers back into a `box-shadow` value; empty list formats to `"none"`. Emits
+ * canonical token order — re-parsed value is semantically identical, not necessarily byte-identical
+ * to an oddly-ordered original. */
 export function formatShadow(layers: ShadowLayer[]): string {
     if (layers.length === 0) return "none"
     return layers.map(formatShadowLayer).join(", ")
@@ -303,9 +246,8 @@ function parseRgbChannel(token: string): number | null {
 function rgbFunctionToRgb(input: string): RgbColor | null {
     const match = /^rgba?\(([\s\S]*)\)$/i.exec(input.trim())
     if (!match) return null
-    // Only the comma-separated legacy syntax is supported (`rgb(r, g, b[, a])`); the modern
-    // space-separated `rgb(r g b / a)` form is rarer in hand-authored themes and falls back to null,
-    // same as any other value this module cannot confidently parse.
+    // Only the comma-separated legacy syntax (`rgb(r, g, b[, a])`) — the modern space-separated
+    // `rgb(r g b / a)` form falls back to null, same as any value this module can't confidently parse.
     const parts = splitTopLevel(match[1], ",").map((part) => part.trim())
     if (parts.length < 3) return null
     const channels = parts.slice(0, 3).map(parseRgbChannel)
@@ -347,26 +289,16 @@ function hslFunctionToRgb(input: string): RgbColor | null {
     return hslToRgb(h, s, l)
 }
 
-/**
- * Parses a CSS color into an RGB triple, or `null` if it is not hex, `rgb()`/`rgba()`, or `hsl()`/`hsla()`
- * (a named color, `var()`, `color-mix()`, `oklch()`, etc. all return null — the caller falls back to its
- * pre-contrast-aware behavior for those, same "never guess" contract as every parser in this module).
- *
- * @param {string} input - the candidate CSS color
- * @returns {RgbColor | null} - the color's RGB triple, or null if unparseable
- */
+/** Parses a CSS color into an RGB triple, or `null` if not hex, `rgb()`/`rgba()`, or `hsl()`/`hsla()`
+ * — a named color, `var()`, `color-mix()`, `oklch()` etc. return null, same "never guess" contract as
+ * every parser here. */
 export function parseCssColorToRgb(input: string): RgbColor | null {
     const trimmed = input.trim()
     return hexToRgb(trimmed) ?? rgbFunctionToRgb(trimmed) ?? hslFunctionToRgb(trimmed)
 }
 
-/**
- * WCAG relative luminance of an sRGB color (0 = black, 1 = white).
- * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
- *
- * @param {RgbColor} rgb - the color
- * @returns {number} - the relative luminance, in [0, 1]
- */
+/** WCAG relative luminance of an sRGB color (0 = black, 1 = white).
+ * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance */
 export function relativeLuminance({ r, g, b }: RgbColor): number {
     const channel = (value: number) => {
         const s = value / 255
@@ -375,15 +307,9 @@ export function relativeLuminance({ r, g, b }: RgbColor): number {
     return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
 }
 
-/**
- * The legible text color (`#000000` or `#ffffff`) to lay over a background color, chosen by whichever
- * gives the higher WCAG contrast ratio — or `null` if the background can't be parsed (see
- * `parseCssColorToRgb`), in which case the caller should keep its existing (ambient/inherited) text color
- * rather than guess.
- *
- * @param {string} background - the CSS background color
- * @returns {"#000000" | "#ffffff" | null} - the higher-contrast text color, or null if unparseable
- */
+/** Legible text color (`#000000`/`#ffffff`) to lay over a background, chosen by higher WCAG contrast
+ * — or `null` if the background can't be parsed, in which case the caller keeps its existing
+ * (ambient/inherited) text color rather than guessing. */
 export function bestTextColorFor(background: string): "#000000" | "#ffffff" | null {
     const rgb = parseCssColorToRgb(background)
     if (!rgb) return null
@@ -393,23 +319,14 @@ export function bestTextColorFor(background: string): "#000000" | "#ffffff" | nu
     return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff"
 }
 
-/**
- * WCAG 2.1 minimum contrast ratios for normal-size text (§1.4.3 "AA", §1.4.6 "AAA"). The theme editor's
- * contrast check (`ThemePreview.tsx`'s `SiteChromeContrastCheck`) judges every pairing against these —
- * site-chrome text (body copy, nav/footer links) is normal-size, so the large-text thresholds (3:1 / 4.5:1)
- * do not apply here.
- */
+/** WCAG 2.1 minimum contrast ratios for normal-size text (§1.4.3 "AA", §1.4.6 "AAA"). Site-chrome
+ * text (body copy, nav/footer links) is normal-size, so the large-text thresholds (3:1/4.5:1) don't
+ * apply — `ThemePreview.tsx`'s `SiteChromeContrastCheck` judges every pairing against these. */
 export const WCAG_AA_MIN_CONTRAST = 4.5
 export const WCAG_AAA_MIN_CONTRAST = 7
 
-/**
- * WCAG contrast ratio between two colors (2.1 §1.4.3): the lighter relative luminance over the darker,
- * each padded by 0.05. Argument order does not matter. Ranges from 1 (identical) to 21 (black on white).
- *
- * @param {RgbColor} a - the first color
- * @param {RgbColor} b - the second color
- * @returns {number} - the contrast ratio, in [1, 21]
- */
+/** WCAG contrast ratio between two colors (2.1 §1.4.3): lighter relative luminance over darker, each
+ * padded by 0.05. Argument order doesn't matter. Ranges [1, 21]. */
 export function contrastRatio(a: RgbColor, b: RgbColor): number {
     const luminanceA = relativeLuminance(a)
     const luminanceB = relativeLuminance(b)
