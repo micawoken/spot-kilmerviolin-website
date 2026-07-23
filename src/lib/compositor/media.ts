@@ -2,43 +2,36 @@
  * lib/compositor/media.ts
  *
  * Media URL resolution for the compositor's `Image` (picked media) and `ContentImage` (entry-fed image
- * field). Two constraints make this non-obvious, and getting either wrong emits a broken `<img>` into a
- * live page:
+ * field). Two constraints here, either one wrong emits a broken `<img>` into a live page:
  *
- * 1. **The file route is keyed by storage key, not media id.** EmDash serves a file from
- *    `/_emdash/api/media/file/{storageKey}` where the key is the `{ulid}{ext}` the upload pipeline
- *    produced. For local (R2) media EmDash also *strips* `src` when persisting an image field value —
- *    the key is carried at `meta.storageKey` (`emdash/src/media/normalize.ts`). The key, not the id, is
- *    the only durable handle on the file.
+ * 1. **File route is keyed by storage key, not media id.** EmDash serves a file from
+ *    `/_emdash/api/media/file/{storageKey}` — the `{ulid}{ext}` key the upload pipeline produced.
+ *    For local (R2) media, EmDash also *strips* `src` on persist; the key lives at `meta.storageKey`.
+ *    Key, not id, is the only durable handle on the file.
  *
- * 2. **The proxy route is unreachable for the public.** EmDash itself treats
- *    `/_emdash/api/media/file/` as public (`emdash/src/astro/middleware/auth.ts`), but our Cloudflare
- *    Access application gates *all* of `/_emdash`, so an anonymous visitor is redirected to the Access
- *    login page. A prerendered public page must therefore reference the **public media origin**
- *    (`EMDASH_MEDIA_PUBLIC_URL` — the R2 custom domain) and never the proxy. Inside the admin editor the
- *    proxy is the correct choice: that user is authenticated through Access, and the public origin is
- *    not exposed to the client bundle (it is not a `PUBLIC_`-prefixed var).
+ * 2. **Proxy route is unreachable for the public.** EmDash treats `/_emdash/api/media/file/` as
+ *    public, but our Cloudflare Access application gates *all* of `/_emdash` — an anonymous visitor
+ *    gets redirected to the Access login page. A prerendered public page must reference the
+ *    **public media origin** (`EMDASH_MEDIA_PUBLIC_URL`, the R2 custom domain), never the proxy.
+ *    Inside the admin editor the proxy is correct: that user is Access-authenticated, and the
+ *    public origin isn't exposed to the client bundle (not a `PUBLIC_`-prefixed var).
  *
- * This mirrors EmDash's own `resolvePublicMediaUrl` / `buildRenderMediaUrl` (`emdash/src/media/url.ts`).
- * We cannot call those directly: the build renders in Node against the HTTP API and has no
- * `Astro.locals.emdash.storage` binding to resolve against.
+ * Mirrors EmDash's own `resolvePublicMediaUrl`/`buildRenderMediaUrl` — can't call those directly, the
+ * build renders in Node against the HTTP API with no `Astro.locals.emdash.storage` binding.
  *
- * A D1 entity's own `image` column (a plain string, not an EmDash media object — see `types.d.ts`) can
- * also carry a same-origin `/api/v1/files/{key}` reference into our own R2_FILES bucket. That route
- * requires an authenticated identity in production (`pages/api/v1/files/[id].ts`), so it has the exact
- * same public-vs-proxy split as EmDash media, against a separate public origin (`FILES_PUBLIC_URL`, the
- * R2 custom domain for R2_FILES). See `isUploadedFilePath`/`publicFileUrl` below.
+ * A D1 entity's `image` column (plain string, not an EmDash media object) can also carry a
+ * same-origin `/api/v1/files/{key}` reference into our own R2_FILES bucket — same public-vs-proxy
+ * split as EmDash media, against a separate public origin (`FILES_PUBLIC_URL`). See
+ * `isUploadedFilePath`/`publicFileUrl` below.
  */
 import { isRecord } from "./types"
 
 /** EmDash's same-origin file route. Public to EmDash; gated by Cloudflare Access in front of it. */
 export const INTERNAL_MEDIA_PREFIX = "/_emdash/api/media/file/"
 
-/**
- * The `{ulid}{ext}` key shape the upload pipeline produces. Slashes, `?`, `#` and `%` are rejected so a
- * hostile value stored in a design doc (or a portable-text `asset.url`) cannot traverse or reroute on
- * the public CDN origin. Mirrors `SAFE_STORAGE_KEY` in `emdash/src/media/url.ts` — keep them in step.
- */
+/** The `{ulid}{ext}` key shape the upload pipeline produces. Slashes, `?`, `#`, `%` rejected so a
+ * hostile stored value can't traverse or reroute on the public CDN origin. Mirrors EmDash's own
+ * `SAFE_STORAGE_KEY` — keep in step. */
 const SAFE_STORAGE_KEY = /^[A-Za-z0-9._-]+$/
 
 /** Whether a storage key is safe to interpolate into a media URL. */
@@ -49,12 +42,7 @@ export function isSafeStorageKey(key: string): boolean {
 /** Our own `/api/v1/files/{key}` proxy route (see `pages/api/v1/files/[id].ts`), R2_FILES-backed. */
 const UPLOADED_FILE_PATTERN = /^\/api\/v\d+\/files\/([^/]+)$/
 
-/**
- * Whether a D1 entity `image` string is a same-origin uploaded-file reference, and if so, its key.
- *
- * @param {string} value - the raw `image` column value
- * @returns {string | null} - the extracted, key-safe file key, or null if this isn't that shape
- */
+/** Whether a D1 entity `image` string is a same-origin uploaded-file reference, and if so, its key. */
 export function isUploadedFilePath(value: string): string | null {
     const match = UPLOADED_FILE_PATTERN.exec(value)
     if (match === null) return null
@@ -62,38 +50,28 @@ export function isUploadedFilePath(value: string): string | null {
     return isSafeStorageKey(key) ? key : null
 }
 
-/**
- * What an image value resolves to: a local EmDash storage key or an uploaded-file key (each resolved per
- * render target), or an already-public absolute URL (an external media provider, or a bundled `/files/`
- * asset — both passed through untouched). `null` when the value carries nothing usable, which every
- * caller renders as "no image".
- */
+/** What an image value resolves to: a local EmDash storage key or uploaded-file key (each resolved
+ * per render target), or an already-public absolute URL (external provider or bundled `/files/`
+ * asset, passed through untouched). `null` when nothing usable — every caller renders "no image". */
 export type MediaSource =
     | { kind: "key"; storageKey: string }
     | { kind: "file"; key: string }
     | { kind: "url"; url: string }
     | null
 
-/**
- * Reads the media source out of an EmDash `image` field value. The wire shape is
- * `{ id, src?, alt?, width?, height?, provider?, meta? }` (`emdash/src/schema/zod-generator.ts`); for
- * local media `src` is absent and the key lives at `meta.storageKey`.
+/** Reads the media source out of a raw field value. EmDash media object wire shape is `{id, src?,
+ * alt?, width?, height?, provider?, meta?}`; for local media `src` is absent, key lives at
+ * `meta.storageKey`.
  *
- * A plain non-empty string is a D1 entity's `image` column, not an EmDash media object (see
- * `src/lib/api/types.d.ts`'s `image: string | null` — "refers to a file in assets, or an external
- * URL"). A same-origin `/api/v1/files/{key}` path is our own R2_FILES upload proxy (see
- * `isUploadedFilePath`) and needs the same public/proxy split as EmDash's storage keys; a bundled
- * `/files/{name}` path or an absolute URL is already fully public, so it passes through untouched — same
- * trust boundary the entity `*Info.astro` components already apply (`src={record.image ?? undefined}`,
- * no scheme validation beyond the admin form's `type="url"`).
+ * A plain non-empty string is a D1 entity's `image` column, not an EmDash media object. A
+ * same-origin `/api/v1/files/{key}` path is our own R2_FILES upload proxy (`isUploadedFilePath`),
+ * same public/proxy split as EmDash storage keys; a bundled `/files/{name}` path or absolute URL is
+ * already public, passes through untouched — same trust boundary the entity `*Info.astro` components
+ * already apply.
  *
- * Resolution order mirrors EmDash's `buildRenderMediaUrl`: the storage key wins; otherwise an internal
- * proxy URL is unwrapped back to its key; otherwise an absolute URL passes through. A bare media `id` is
- * **not** a usable handle — the file route 404s on it — so it resolves to `null` rather than a dead URL.
- *
- * @param {unknown} value - the raw field value from the entry's data record
- * @returns {MediaSource} - the resolved source, or null when nothing usable is present
- */
+ * Resolution order mirrors EmDash's `buildRenderMediaUrl`: storage key wins, else unwrap an internal
+ * proxy URL back to its key, else pass through an absolute URL. A bare media `id` is **not** a usable
+ * handle — the file route 404s on it — resolves to `null` rather than a dead URL. */
 export function mediaSource(value: unknown): MediaSource {
     if (typeof value === "string") {
         if (value === "") return null
@@ -124,31 +102,17 @@ export function mediaSource(value: unknown): MediaSource {
     return null
 }
 
-/**
- * The same-origin proxy URL for a storage key — correct **only** inside the admin, where the user is
- * authenticated through Cloudflare Access. Never emit this into a prerendered public page.
- *
- * @param {string} storageKey - a key that has already passed {@link isSafeStorageKey}
- * @returns {string} - the same-origin `/_emdash/api/media/file/{key}` URL
- */
+/** Same-origin proxy URL for a storage key — correct **only** inside the admin (Access-authenticated).
+ * Never emit into a prerendered public page. */
 export function proxyMediaUrl(storageKey: string): string {
     return `${INTERNAL_MEDIA_PREFIX}${storageKey}`
 }
 
-/**
- * The public URL for a storage key, served from the media origin (the R2 custom domain) so an anonymous
- * visitor can load it without passing Cloudflare Access. This is what a prerendered page must reference.
+/** Public URL for a storage key, from the media origin (R2 custom domain) — what a prerendered page
+ * must reference. Matches EmDash's `S3Storage.getPublicUrl` (`${publicUrl}/${key}`).
  *
- * Composition matches EmDash's `S3Storage.getPublicUrl` (`${publicUrl}/${key}`) so both sides agree.
- *
- * Throws when the origin is not configured: the alternative is silently emitting an Access-gated URL that
- * redirects to a login page for every visitor — a broken image nobody would notice until it shipped.
- *
- * @param {string} storageKey - a key that has already passed {@link isSafeStorageKey}
- * @param {string | undefined} publicBase - the media origin, from `EMDASH_MEDIA_PUBLIC_URL`
- * @returns {string} - the absolute public media URL
- * @throws {Error} when `publicBase` is missing or empty
- */
+ * Throws when the origin isn't configured: the alternative is silently emitting an Access-gated URL
+ * that redirects to a login page for every visitor — a broken image nobody notices until it ships. */
 export function publicMediaUrl(storageKey: string, publicBase: string | undefined): string {
     if (!publicBase) {
         throw new Error(
@@ -161,29 +125,14 @@ export function publicMediaUrl(storageKey: string, publicBase: string | undefine
     return `${publicBase.replace(/\/+$/, "")}/${storageKey}`
 }
 
-/**
- * The same-origin proxy URL for an uploaded-file key — correct **only** inside the admin, where the user
- * is authenticated through Cloudflare Access. Never emit this into a prerendered public page.
- *
- * @param {string} key - a key that has already passed {@link isSafeStorageKey}
- * @returns {string} - the same-origin `/api/v1/files/{key}` URL
- */
+/** Same-origin proxy URL for an uploaded-file key — correct **only** inside the admin. Never emit
+ * into a prerendered public page. */
 export function proxyFileUrl(key: string): string {
     return `/api/v1/files/${key}`
 }
 
-/**
- * The public URL for an uploaded-file key, served from the R2_FILES public origin so an anonymous
- * visitor can load it without passing Cloudflare Access. This is what a prerendered page must reference.
- *
- * Throws when the origin is not configured, for the same reason as {@link publicMediaUrl}: silently
- * falling back to the Access-gated proxy would ship a broken image to every anonymous visitor.
- *
- * @param {string} key - a key that has already passed {@link isSafeStorageKey}
- * @param {string | undefined} publicBase - the R2_FILES public origin, from `FILES_PUBLIC_URL`
- * @returns {string} - the absolute public file URL
- * @throws {Error} when `publicBase` is missing or empty
- */
+/** Public URL for an uploaded-file key, from the R2_FILES public origin — what a prerendered page
+ * must reference. Throws when unconfigured, same reason as {@link publicMediaUrl}. */
 export function publicFileUrl(key: string, publicBase: string | undefined): string {
     if (!publicBase) {
         throw new Error(
