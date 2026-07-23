@@ -1,19 +1,13 @@
 /**
  * lib/build/d1-schema.ts
  *
- * Build-safe copies of the D1 table shape for the three public entity tables (contributors,
- * composers, compositions), for use by the build-time D1 reader (src/lib/build/d1-api.ts).
+ * Build-safe copies of the D1 table shape (contributors, composers, compositions) for
+ * src/lib/build/d1-api.ts. Authoritative schema: src/lib/api/d1.ts (CONTRIBUTOR/COMPOSER/
+ * COMPOSITION) — not build-safe, does `import { env } from "cloudflare:workers"` and embeds
+ * `db: env.DB_MAIN` at module scope; throws in a plain-Node `astro build`.
  *
- * The authoritative schema lives in src/lib/api/d1.ts (CONTRIBUTOR/COMPOSER/COMPOSITION), but that
- * module is NOT build-safe: it does `import { env } from "cloudflare:workers"`, and each schema
- * constant embeds `db: env.DB_MAIN` at module top level. Importing it (even just for the schema
- * constants) into a plain-Node `astro build` process throws, because there is no Worker binding
- * available there.
- *
- * Only the static shape the build reader needs is duplicated here: column lists, the primary key,
- * and the `protected` redaction list (used to strip contributor identity fields from public pages).
- * This is stable data — a schema change requires a DB migration plus a src/lib/api/d1.ts edit — but
- * it is a second copy, so keep the two in sync by hand if the source tables change.
+ * Duplicates only column lists, primary key, `protected` redaction list. Stable data, but a
+ * second copy — keep in sync by hand on any schema change.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -37,11 +31,9 @@
  */
 
 /**
- * The subset of D1Schema (src/lib/api/types.d.ts) a build-time reader needs: enough to select
- * explicit columns (not `*`, so a table carrying a column not yet in the schema doesn't break the
- * build) and to redact protected columns before a record reaches a public page. Deliberately omits
- * `db` (a runtime D1Database handle), `index`, `repr_exclude`, `type_hint`, and `locked` — none of
- * those are needed outside the Worker's read/write/validation paths.
+ * Subset of D1Schema (src/lib/api/types.d.ts) a build-time reader needs: explicit columns (not
+ * `*`, so an unschema'd table column doesn't break the build), plus redaction. Omits `db`,
+ * `index`, `repr_exclude`, `type_hint`, `locked` — Worker-only concerns.
  */
 export interface BuildD1Schema {
     readonly name: string
@@ -129,14 +121,9 @@ export const COMPOSITION_SCHEMA: BuildD1Schema = {
 }
 
 /**
- * Strips a schema's protected columns from a record before it leaves the build. Build-safe mirror
- * of {@link redactProtected} in src/lib/api/d1.ts — the public build reads D1 directly (not through
- * the API's read endpoints), so it must redact itself; there is no server-side chokepoint in front
- * of it.
- *
- * @param schema - the BuildD1Schema whose `protected` list names the columns to remove (no-op when absent)
- * @param record - the record to redact
- * @returns a shallow copy of the record with protected properties removed
+ * Strips a schema's protected columns before a record leaves the build. Mirrors
+ * {@link redactProtected} in src/lib/api/d1.ts — public build reads D1 directly, no server-side
+ * chokepoint in front of it, so it redacts itself.
  */
 export function redactProtected(schema: BuildD1Schema, record: object): Record<string, unknown> {
     const protectedKeys = schema.protected
