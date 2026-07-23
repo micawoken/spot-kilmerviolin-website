@@ -1,29 +1,28 @@
 /**
  * components/compositor/ThemeEditor.tsx
  *
- * The theme editor (impl §6.5): edits the single `design_theme` item's `tokens` catalog — the closed
- * set of `--dtk-*` values every design page draws from (§4.3). Mounted client-side by
- * `pages/admin/designs/theme.astro` inside the normal admin chrome (this is a form page, not the
- * full-viewport canvas), from a module script rather than an Astro island — the admin CSP blocks
- * Astro's inline island bootstrap (see `pages/admin/designs/edit.astro`).
+ * The theme editor: edits the single `design_theme` item's `tokens` catalog — the closed set of
+ * `--dtk-*` values every design page draws from. Mounted client-side by
+ * `pages/admin/designs/theme.astro` inside the normal admin chrome (a form page, not the full-viewport
+ * canvas), from a module script rather than an Astro island — the admin CSP blocks Astro's inline
+ * island bootstrap.
  *
- * It discovers the theme item via the content list, then GETs it by id for the draft-overlaid `tokens`
- * (editor-role read), edits every token kind as rows, and writes a draft `PUT` / `POST …/publish` the
- * same way the design editor does. Rename/remove is destructive to designs referencing the old name
- * (Phase 1 accepts this — lint surfaces the dangling reference; a usage scan is a later hardening step).
+ * Discovers the theme item via the content list, GETs it by id for the draft-overlaid `tokens`, edits
+ * every token kind as rows, writes a draft `PUT`/`POST …/publish` the same way the design editor does.
+ * Rename/remove is destructive to designs referencing the old name (Phase 1 accepts this — lint
+ * surfaces the dangling reference; a usage scan is a later hardening step).
  *
  * The theme is a singleton with no version history, so a "Backup & restore" panel exports the current
- * catalog to a JSON file and imports one back into the editor (validated by `isTokenCatalog`) — a manual
- * snapshot/rollback around a redesign. Import loads into the form only; the user still Saves/Publishes.
+ * catalog to JSON and imports one back (validated by `isTokenCatalog`) — a manual snapshot/rollback
+ * around a redesign. Import loads into the form only; the user still Saves/Publishes.
  *
- * Each token cell is edited by a friendly, CSS-less control (color pickers, a number+unit stepper, and
- * clamp/shadow builders — `theme-controls.ts`), with one global "Show raw CSS values" switch that flips
- * every cell back to the plain text input for developers. A cell's stored string is the single source of
- * truth: the friendly control parses it on render and formats it back on change, and any value a control
- * cannot round-trip degrades to that same text input, so the two views never disagree and a value is
- * never clobbered. A separate color-scheme switch flips the whole theme between adaptive (each color a
- * `light-dark(L, D)` pair) and fixed (a single value); it is authoring metadata (`colorScheme`), never
- * read by the build.
+ * Each token cell is edited by a friendly, CSS-less control (color pickers, a number+unit stepper,
+ * clamp/shadow builders), with one global "Show raw CSS values" switch flipping every cell back to
+ * plain text for developers. A cell's stored string is the single source of truth: the friendly
+ * control parses it on render and formats back on change, and any value a control can't round-trip
+ * degrades to that same text input — the two views never disagree, a value is never clobbered. A
+ * separate color-scheme switch flips the whole theme between adaptive (`light-dark(L, D)` pair) and
+ * fixed (single value) — authoring metadata only, never read by the build.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -49,6 +48,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { TOKEN_PROPS, TOKEN_USAGE_NOTES, tokenKindUsers } from "../../lib/compositor/catalog"
+import { errorMessage } from "../../lib/compositor/design-list"
 import { collectTokenUsage } from "../../lib/compositor/lint"
 import { migrateDesign } from "../../lib/compositor/migrations"
 import {
@@ -88,10 +88,9 @@ import {
 } from "./ThemePreview"
 
 import "./design-editor.css"
-// Vite `?raw` yields the file's text (typed via astro/client) — the exact mechanism DesignEditor.tsx uses
-// to style the Puck canvas iframe. Here it styles the live preview specimens below, injected as a plain
-// `<style>` in the admin document itself (allowed: the admin CSP is `style-src 'self' 'unsafe-inline'`,
-// middleware/headers.ts).
+// Vite `?raw` yields the file's text — same mechanism DesignEditor.tsx uses for the Puck canvas
+// iframe. Here it styles the live preview specimens below, injected as a plain `<style>` in the admin
+// document itself (allowed: admin CSP is `style-src 'self' 'unsafe-inline'`).
 import compositorCss from "../../lib/compositor/compositor.css?raw"
 
 const DESIGN_THEME = "/_emdash/api/content/design_theme"
@@ -209,13 +208,10 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
     }
 ]
 
-/**
- * The Site Chrome roles, in the order they render, and which token kind each one selects from. Rendered
- * as three tables: the colors/borders roles in the "Site Chrome" section, and every `"space"`-kind role
- * in a "Horizontal spacing" or "Vertical spacing" table (split by the `horizontalSpace`/`verticalSpace`
- * key prefix — see `renderChromeRoleTable`'s call sites) under the Spacing token section instead, next to
- * the space tokens those roles reference.
- */
+/** Site Chrome roles, in render order, with which token kind each selects from. Rendered as three
+ * tables: colors/borders roles in "Site Chrome", every `"space"`-kind role split by
+ * `horizontalSpace`/`verticalSpace` key prefix into "Horizontal spacing"/"Vertical spacing" tables
+ * under the Spacing section, next to the space tokens those roles reference. */
 const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
     { key: "bodyText", label: "Body text", kind: "colors" },
@@ -279,13 +275,11 @@ const HORIZONTAL_SPACE_ROLE_KEYS = new Set<keyof SiteChromeRow>([
     "horizontalSpaceControl"
 ])
 
-/**
- * Candidate token names to auto-suggest for a Site Chrome role when the catalog has never had `siteChrome`
- * set at all (a theme predating this feature). Each role tries its candidates in order and takes the
- * first that actually exists in the loaded catalog; a role with no matching candidate is left unset
- * rather than guessing wrong (§ toEditable). These mirror the magic names `public-chrome.css`/`search.astro`
- * used to hardcode before Site Chrome existed — a one-time migration aid, not a permanent default.
- */
+/** Candidate token names to auto-suggest for a Site Chrome role when the catalog never had
+ * `siteChrome` set (a theme predating this feature). Each role tries candidates in order, takes the
+ * first that exists in the loaded catalog; no match leaves it unset rather than guessing wrong. Mirror
+ * the magic names `public-chrome.css`/`search.astro` hardcoded before Site Chrome existed — a
+ * one-time migration aid, not a permanent default. */
 const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     pageBackground: ["parchment", "paper"],
     bodyText: ["ink"],
@@ -309,17 +303,6 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     verticalSpaceItemGap: [],
     verticalSpaceControl: [],
     verticalSpaceStatic: []
-}
-
-/** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
-async function readError(response: Response): Promise<string> {
-    try {
-        const body = (await response.json()) as { error?: { message?: string } }
-        if (body.error?.message) return body.error.message
-    } catch {
-        // non-JSON body; fall through
-    }
-    return `${response.status} ${response.statusText}`
 }
 
 /** Converts a validated catalog into the string-row form the editor mutates. */
@@ -444,14 +427,14 @@ function blankRow(kind: TokenKind): Row {
 /** Loads the theme item id, its draft-overlaid tokens, revision token, and how many themes exist. */
 async function fetchTheme(): Promise<{ id: string; catalog: TokenCatalog; rev: string | undefined; count: number }> {
     const list = await fetch(`${DESIGN_THEME}?limit=100`, { headers: { Accept: "application/json" } })
-    if (!list.ok) throw new Error(`Could not list themes: ${await readError(list)}`)
+    if (!list.ok) throw new Error(`Could not list themes: ${await errorMessage(list)}`)
     const listBody = (await list.json()) as { data?: { items?: Array<{ id: string }> } }
     const items = listBody.data?.items ?? []
     if (items.length === 0) throw new Error("No theme item exists. Run the design-collection setup tool to seed one.")
 
     const id = items[0].id
     const get = await fetch(`${DESIGN_THEME}/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } })
-    if (!get.ok) throw new Error(`Could not load the theme: ${await readError(get)}`)
+    if (!get.ok) throw new Error(`Could not load the theme: ${await errorMessage(get)}`)
     const getBody = (await get.json()) as { data?: { item?: { data?: { tokens?: unknown } }; _rev?: string } }
     const tokens = getBody.data?.item?.data?.tokens
     if (!isTokenCatalog(tokens)) throw new Error("The stored theme is not a valid token catalog and cannot be edited here.")
@@ -461,17 +444,15 @@ async function fetchTheme(): Promise<{ id: string; catalog: TokenCatalog; rev: s
 /** The design collections whose token references the usage scan counts. Drafts count too (see below). */
 const USAGE_COLLECTIONS = ["design_page", "design_template"] as const
 
-/**
- * Scans every design (pages and templates, INCLUDING drafts — a draft referencing a token breaks the
- * moment it is published) for token references, so the editor can tell how many designs a rename or
- * removal would strip. Fail-soft: any read error propagates to the caller, which falls back to the
- * static prose warning rather than breaking the editor over a lost advisory count.
- */
+/** Scans every design (pages and templates, INCLUDING drafts — a draft referencing a token breaks the
+ * moment it's published) for token references, so the editor can tell how many designs a rename or
+ * removal would strip. Fail-soft: a read error propagates to the caller, which falls back to the
+ * static prose warning rather than breaking the editor over a lost advisory count. */
 async function fetchDesignUsage(): Promise<Map<string, string[]>> {
     const docs: { label: string; doc: DesignDoc }[] = []
     for (const collection of USAGE_COLLECTIONS) {
         const res = await fetch(`/_emdash/api/content/${collection}?limit=100`, { headers: { Accept: "application/json" } })
-        if (!res.ok) throw new Error(`Could not list ${collection}: ${await readError(res)}`)
+        if (!res.ok) throw new Error(`Could not list ${collection}: ${await errorMessage(res)}`)
         const body = (await res.json()) as {
             data?: { items?: Array<{ id: string; slug?: string; data?: { title?: unknown; design?: unknown } }> }
         }
@@ -604,13 +585,11 @@ function ColorChannel({ value, onChange }: { value: string; onChange: (value: st
     )
 }
 
-/**
- * A color value editor. In `adaptive` mode a color is a `light-dark(L, D)` pair, shown as two channels
- * (a plain color seeds both, so its first edit lawfully becomes a pair). In `fixed` mode it is a single
- * channel; a stored `light-dark()` there is out of step with the scheme, so it falls back to raw text
- * rather than silently dropping the dark channel. Emits a plain color when only one channel is filled, so
- * a half-authored pair never produces an invalid `light-dark(x, )`.
- */
+/** A color value editor. `adaptive` mode: a `light-dark(L, D)` pair shown as two channels (a plain
+ * color seeds both, first edit becomes a pair). `fixed` mode: single channel; a stored `light-dark()`
+ * there is out of step with the scheme, falls back to raw text rather than dropping the dark channel.
+ * Emits a plain color when only one channel is filled, so a half-authored pair never produces an
+ * invalid `light-dark(x, )`. */
 function ColorControl({
     value,
     scheme,
@@ -645,13 +624,10 @@ function ColorControl({
     )
 }
 
-/**
- * A size editor with two modes. A `clamp(min, preferred, max)` shows three length sub-controls (a
- * responsive size that scales with the viewport) plus a button to collapse to the ideal value; anything
- * else is treated as a fixed size — a single length control — with a button to make it responsive. A
- * value that is neither a clamp nor a plain length (e.g. a bare `calc()`) falls back to raw text so it is
- * never clobbered. Each sub-control is itself a `LengthControl`, so a `calc()` inside a clamp stays raw.
- */
+/** A size editor with two modes. `clamp(min, preferred, max)` shows three length sub-controls plus a
+ * button to collapse to the ideal value; anything else is a fixed size — one length control — with a
+ * button to make it responsive. Neither clamp nor plain length (e.g. a bare `calc()`) falls back to
+ * raw text. Each sub-control is itself a `LengthControl`, so a `calc()` inside a clamp stays raw. */
 function ClampControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const clamp = parseClamp(value)
     if (clamp) {
@@ -697,12 +673,9 @@ function ClampControl({ value, onChange }: { value: string; onChange: (value: st
 /** A blank shadow layer seeded with a soft drop shadow, so a new layer is immediately visible. */
 const NEW_SHADOW_LAYER: ShadowLayer = { inset: false, x: "0", y: "1px", blur: "2px", spread: "", color: "#00000040" }
 
-/**
- * A `box-shadow` builder: one row per layer (an inset toggle, x/y/blur/spread length controls, and a
- * color channel), plus add/remove. An empty value or `none` starts with no layers; a value the parser
- * cannot round-trip confidently falls back to raw text so an unusual shadow is never mangled. Removing
- * every layer emits `none`.
- */
+/** A `box-shadow` builder: one row per layer (inset toggle, x/y/blur/spread length controls, color
+ * channel), plus add/remove. Empty or `none` starts with no layers; a value the parser can't
+ * confidently round-trip falls back to raw text. Removing every layer emits `none`. */
 function ShadowControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     let layers: ShadowLayer[]
     if (value.trim() === "") {
@@ -776,12 +749,9 @@ const SYSTEM_STACKS: { label: string; value: string }[] = [
     { label: "Monospace", value: "ui-monospace, SFMono-Regular, Menlo, monospace" }
 ]
 
-/**
- * A `<select>` over a fixed keyword set that never rewrites an unrecognized value: an out-of-set value
- * (e.g. `normal` for a weight) is shown as a selected "(custom)" option and preserved, and an empty value
- * shows a "— choose —" placeholder. Editing such a value requires raw mode; the dropdown covers the
- * common cases without ever clobbering an unusual one.
- */
+/** A `<select>` over a fixed keyword set that never rewrites an unrecognized value: an out-of-set
+ * value is shown as a selected "(custom)" option and preserved, empty shows "— choose —". Editing an
+ * unusual value requires raw mode; the dropdown covers the common cases without ever clobbering one. */
 function KeywordSelect({
     value,
     options,
@@ -805,12 +775,9 @@ function KeywordSelect({
     )
 }
 
-/**
- * A font-family picker: the theme's declared web fonts and a few system stacks, plus a "Custom…" escape
- * to a text field for any other stack. The stored value is the full CSS font stack; picking a web font
- * composes a `"Family", sans-serif` stack (refine the generic in Custom), and an unrecognized stored
- * stack opens in the custom text field so it is preserved exactly.
- */
+/** A font-family picker: theme's declared web fonts + a few system stacks, plus a "Custom…" escape to
+ * a text field. Stored value is the full CSS font stack; picking a web font composes a `"Family",
+ * sans-serif` stack, an unrecognized stored stack opens in the custom field, preserved exactly. */
 function FamilySelect({
     value,
     families,
@@ -862,12 +829,10 @@ function FamilySelect({
     )
 }
 
-/**
- * Renders the right editor for one token cell. A reference field is always the constrained `RefSelect`
- * (both views). In raw mode every other field is the plain text input. In friendly mode the field's
- * `control` selects a friendly editor; an unannotated field falls through to the same text input. Either
- * way both views edit the same stored string, so the raw toggle can never disagree with the friendly view.
- */
+/** Renders the right editor for one token cell. A reference field is always the constrained
+ * `RefSelect` (both views). Raw mode: every other field is plain text. Friendly mode: `control`
+ * selects a friendly editor, an unannotated field falls through to text. Either way both views edit
+ * the same stored string, so the raw toggle can never disagree with the friendly view. */
 function CellControl({
     field,
     value,
@@ -917,11 +882,9 @@ function CellControl({
 /** localStorage key for the raw/friendly view preference, so a developer's choice sticks across visits. */
 const RAW_MODE_KEY = "theme-editor:raw-mode"
 
-/**
- * Every collapsible section's stable id, in render order. A token-kind section reuses its `TokenKind` as
- * the id (see `SECTIONS`); the rest are hand-picked ids for the sections rendered inline in the JSX below
- * (Backup & restore, Page transitions, Site Chrome, Web fonts) rather than via `renderTokenSection`.
- */
+/** Every collapsible section's stable id, in render order. A token-kind section reuses its
+ * `TokenKind` as the id; the rest are hand-picked ids for sections rendered inline in the JSX below
+ * (Backup & restore, Page transitions, Site Chrome, Web fonts) rather than via `renderTokenSection`. */
 const SECTION_IDS = [
     "backup",
     "page-transitions",
@@ -952,12 +915,9 @@ function loadCollapsedSections(): Set<string> {
     }
 }
 
-/**
- * A section's clickable heading: a chevron plus its `<h3>`, toggling that section's collapsed state. The
- * button spans the header instead of a small icon-only hit target, so a long section title anywhere in
- * this long page is a fast way to collapse it — the whole point of the collapse feature (a page this long
- * needs coarse, quick-to-hit navigation, not fiddly controls).
- */
+/** A section's clickable heading: a chevron plus its `<h3>`, toggling that section's collapsed state.
+ * The button spans the header, not a small icon-only hit target — a long section title anywhere is a
+ * fast way to collapse it, the point of the feature: this page is long, needs coarse navigation. */
 function SectionHeader({ id, title, open, onToggle }: { id: string; title: string; open: boolean; onToggle: (id: string) => void }) {
     return (
         <button
@@ -1399,7 +1359,7 @@ export default function ThemeEditor() {
                 setMessage("The theme changed elsewhere. Reload the page to get the latest version before editing.")
                 return
             }
-            if (!put.ok) throw new Error(await readError(put))
+            if (!put.ok) throw new Error(await errorMessage(put))
             const putBody = (await put.json()) as { data?: { _rev?: string } }
             setRev(putBody.data?._rev)
 
@@ -1408,7 +1368,7 @@ export default function ThemeEditor() {
                     method: "POST",
                     headers: { Accept: "application/json", "X-EmDash-Request": "1" }
                 })
-                if (!publishResponse.ok) throw new Error(await readError(publishResponse))
+                if (!publishResponse.ok) throw new Error(await errorMessage(publishResponse))
             }
             setSaveState("saved")
             setMessage(publish ? "Published. Rebuild the site to apply the theme to published pages." : "Draft saved.")
