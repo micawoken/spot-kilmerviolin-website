@@ -53,6 +53,7 @@ import type { Config, Data } from "@puckeditor/core"
 
 import { buildConfig, OUTLET_PROPS, RICH_TEXT_PROPS, TOKEN_PROPS } from "../../lib/compositor/catalog"
 import { designToEditorForm, editorFormToDesign } from "../../lib/compositor/convert"
+import { errorMessage } from "../../lib/compositor/design-list"
 import { entityFields, isEntityNoun } from "../../lib/compositor/entity-fields"
 import { hasBlockingError, lintDesign, type LintFinding } from "../../lib/compositor/lint"
 // Type-only: erased at compile, so the build-side reader module never enters this client bundle.
@@ -119,24 +120,13 @@ interface SavePayload {
     slug?: string
 }
 
-/** Best-effort human message from an EmDash `{ error: { message } }` body, else the status line. */
-async function readError(response: Response): Promise<string> {
-    try {
-        const body = (await response.json()) as { error?: { message?: string } }
-        if (body.error?.message) return body.error.message
-    } catch {
-        // non-JSON body; fall through
-    }
-    return `${response.status} ${response.statusText}`
-}
-
 /**
  * Loads the published theme (first `design_theme` item). The list endpoint returns published column
  * data only, so the editor previews against what the build will emit; a theme must be published first.
  */
 async function fetchTheme(): Promise<TokenCatalog> {
     const response = await fetch(`${DESIGN_THEME}?limit=1`, { headers: { Accept: "application/json" } })
-    if (!response.ok) throw new Error(`Could not load the theme: ${await readError(response)}`)
+    if (!response.ok) throw new Error(`Could not load the theme: ${await errorMessage(response)}`)
     const body = (await response.json()) as { data?: { items?: Array<{ data?: Record<string, unknown> | null }> } }
     const tokens = body.data?.items?.[0]?.data?.tokens
     if (!isTokenCatalog(tokens)) {
@@ -148,7 +138,7 @@ async function fetchTheme(): Promise<TokenCatalog> {
 /** Loads one design item by id (draft-overlaid for an editor-role caller) and its revision token. */
 async function fetchDesign(endpoint: string, id: string): Promise<LoadedDesign> {
     const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } })
-    if (!response.ok) throw new Error(`Could not load the design: ${await readError(response)}`)
+    if (!response.ok) throw new Error(`Could not load the design: ${await errorMessage(response)}`)
     const body = (await response.json()) as {
         data?: { item?: { slug?: string | null; status?: string; data?: Record<string, unknown> | null }; _rev?: string }
     }
@@ -178,7 +168,7 @@ async function fetchEntryList(collection: string): Promise<EntryListItem[]> {
     const response = await fetch(`/_emdash/api/content/${encodeURIComponent(collection)}?limit=100`, {
         headers: { Accept: "application/json" }
     })
-    if (!response.ok) throw new Error(`Could not list ${collection}: ${await readError(response)}`)
+    if (!response.ok) throw new Error(`Could not list ${collection}: ${await errorMessage(response)}`)
     const body = (await response.json()) as {
         data?: { items?: Array<{ id?: string; slug?: string | null; data?: Record<string, unknown> | null }> }
     }
@@ -200,7 +190,7 @@ async function fetchEntryFields(collection: string, entryId: string): Promise<Re
         `/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(entryId)}`,
         { headers: { Accept: "application/json" } }
     )
-    if (!response.ok) throw new Error(`Could not load the preview entry: ${await readError(response)}`)
+    if (!response.ok) throw new Error(`Could not load the preview entry: ${await errorMessage(response)}`)
     const body = (await response.json()) as { data?: { item?: { data?: Record<string, unknown> | null } } }
     return body.data?.item?.data ?? {}
 }
@@ -210,7 +200,7 @@ async function fetchSchemaFields(collection: string): Promise<CollectionField[]>
     const response = await fetch(`/_emdash/api/schema/collections/${encodeURIComponent(collection)}/fields`, {
         headers: { Accept: "application/json" }
     })
-    if (!response.ok) throw new Error(`Could not load the ${collection} schema: ${await readError(response)}`)
+    if (!response.ok) throw new Error(`Could not load the ${collection} schema: ${await errorMessage(response)}`)
     const body = (await response.json()) as { data?: { items?: Array<Record<string, unknown>> } }
     const fields: CollectionField[] = []
     for (const item of body.data?.items ?? []) {
@@ -399,7 +389,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                 setSaveError("This design changed elsewhere.")
                 return
             }
-            if (!response.ok) throw new Error(await readError(response))
+            if (!response.ok) throw new Error(await errorMessage(response))
             const body = (await response.json()) as { data?: { _rev?: string } }
             revRef.current = body.data?._rev
             setSaveState("saved")
@@ -627,7 +617,7 @@ async function publishDesign(endpoint: string, id: string): Promise<void> {
         method: "POST",
         headers: { Accept: "application/json", "X-EmDash-Request": "1" }
     })
-    if (!response.ok) throw new Error(await readError(response))
+    if (!response.ok) throw new Error(await errorMessage(response))
 }
 
 /** A centered full-viewport message for the load and error states. */
