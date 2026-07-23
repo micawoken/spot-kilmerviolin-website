@@ -489,7 +489,10 @@ export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
  * Also overrides the UA default crossfade: `mix-blend-mode: plus-lighter` additively blends old/new
  * snapshots to avoid a black flash, but washes toward white on a light theme. A real backdrop (matching
  * public-chrome.css's page-background fallback chain) removes the need for that trick, so a plain
- * `mix-blend-mode: normal` crossfade doesn't wash white or dip black in either theme. */
+ * `mix-blend-mode: normal` crossfade doesn't wash white or dip black in either theme. Must be
+ * `!important`: the UA drives mix-blend-mode via an actual CSS Animation, and animation-origin
+ * declarations beat normal-priority author rules regardless of specificity — confirmed via a DevTools
+ * trace with a plain override still overridden. */
 export function viewTransitionCss(catalog: TokenCatalog): string {
     if (catalog.viewTransitions === false) return ""
     return (
@@ -501,7 +504,7 @@ export function viewTransitionCss(catalog: TokenCatalog): string {
         "}\n" +
         "::view-transition-old(root),\n" +
         "::view-transition-new(root) {\n" +
-        "    mix-blend-mode: normal;\n" +
+        "    mix-blend-mode: normal !important;\n" +
         "}"
     )
 }
