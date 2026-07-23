@@ -27,17 +27,8 @@
  *   CF_ACCESS_CLIENT_SECRET  mandatory here too — a build token alone authenticates nothing, D3)
  *   BUILD_API_TOKEN          the app-issued build token (X-Build-Token); see /admin/advanced/tokens/build
  *
- * Failure policy mirrors the file this replaces: unconfigured (any of the four unset) returns null and
- * the build completes without entity pages — the bootstrap build has no reason to have these set. Once
- * configured, a failed read THROWS ({@link BuildTokenReadError}) rather than falling soft: silently
- * emitting zero entity records over a build that already has published ones would regress the public
- * site the same way a swallowed EmDash read would (see emdash-api.ts's CmsReadError for the identical
- * reasoning).
- *
- * Timeout. This hits the same deployed Worker as emdash-api.ts, but NOT the EmDash package's own
- * cold-start init-lock path (that lock lives inside node_modules/emdash and only guards `/_emdash/*`) —
- * an Astro API route has no such hazard, so a conventional REST timeout applies here. Do not copy
- * emdash-api.ts's 75s READ_TIMEOUT_MS or its cold-start reasoning into this module.
+ * Failure policy and timeout rationale live next to {@link BuildTokenReadError} and
+ * {@link BUILD_API_READ_TIMEOUT_MS} below, not repeated here.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -68,11 +59,7 @@ interface BuildApiConfig {
     headers: Record<string, string>
 }
 
-/**
- * Reads a build-time configuration value from either import.meta.env (Astro/Vite) or process.env
- * (Node), so the client works whether invoked through the Astro build or a plain Node context. Mirrors
- * emdash-api.ts's identical helper.
- */
+/** Reads a build-time config value: `import.meta.env` falling back to `process.env`. A deliberate duplicate of emdash-api.ts's identical helper, not a shared import (see module header). */
 function env(name: string): string | undefined {
     return import.meta.env[name] ?? process.env[name]
 }
