@@ -2,16 +2,7 @@
 /**
  * pages/admin/designs/templates.astro
  *
- * Lists every `design_template` item and offers a create form (impl §6.5). Split out of
- * admin/designs/index.astro so each admin/designs page covers one topic — mirroring theme.astro's
- * single-topic layout instead of stacking Designs and Templates under one page. The list is read
- * client-side from EmDash's content API (same-origin, session cookie), same as the Designs page,
- * because the design collections live in EmDash, not the app database (lib/build/emdash-api.ts).
- * Middleware already gates the whole /admin/designs subtree on cms_editor (middleware/identity.ts),
- * so no in-page guard is needed.
- *
- * Trash/restore and revision history are intentionally absent here — those live in the EmDash admin
- * UI, which this page links to rather than duplicating (plan: "EmDash admin remains where content lives").
+ * Manage design templates used for the page pre-rendering process
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -54,13 +45,10 @@ export const prerender = false
         <main class="admin-main" role="main">
             <h2>Templates</h2>
             <p class="general-infohelp">
-                A template is a layout that content entries render through — it owns no URL of its own.
-                Bind content outlets to the collection's fields in the editor; a collection's default
-                template applies to every entry that names no template. The reserved
-                <code>none</code> template opts a single entry out of the default. Return to the{" "}
-                <a href="/admin/designs">Designs list</a>.
+                Design templates are used to render CMS content and database content. Change these{" "}
+                to modify how data is organized. To change appearance (color, typography, spacing, etc.),{" "}
+                use the <a href="/admin/designs/theme">Theme page</a>.
             </p>
-
             <section class="design-create" aria-labelledby="template-create-heading">
                 <h3 id="template-create-heading">Create a template</h3>
                 <form id="template-create-form">

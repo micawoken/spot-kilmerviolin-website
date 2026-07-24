@@ -2,10 +2,7 @@
 /**
  * pages/admin/works/import.astro
  *
- * Admin-only CSV bulk import for compositions. Composer and contributor references are given by NAME and
- * resolved to ids in the browser (unknown names are flagged with suggestions); the free-text
- * "contribution_period" column is mapped to phase number(s) in the preview. Flow: upload → editable
- * preview (name resolution + phase mapping + duplicate flagging) → server dry-run → atomic commit.
+ * Admin-only CSV bulk import for compositions
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -52,13 +49,12 @@ export const prerender = false
         <main class="admin-main" role="main">
             <h2>Import Compositions from CSV</h2>
             <p class="general-infohelp">
-                Upload a CSV file whose header row contains these columns (in any order):
-                <code>{composition_csv_columns.join(", ")}</code>. The <code>composer</code> and contributor columns
-                reference existing records by <strong>name</strong> (resolved to ids below; upload composers and
-                contributors first). List cells (<code>contrib_addl</code>, <code>author_secondary</code>,
-                <code>tags</code>) separate multiple values with a semicolon (<code>;</code>). Map each distinct
-                <code>contribution_period</code> to phase number(s) in the preview. Up to 999 rows may be imported at
-                once.
+                Upload a CSV file with these header columns (in any order):
+                <code>{composition_csv_columns.join(", ")}</code>. The <code>composer</code> and <code>contributor</code> columns
+                reference existing records by <strong>name</strong>. List cells (<code>contrib_addl</code>,{" "}
+                <code>author_secondary</code>, <code>tags</code>) separate multiple values with a semicolon{" "}
+                (<code>;</code>). Map each distinct <code>contribution_period</code> to phase number(s) in the{" "}
+                preview. Max 999 rows per transaction.
             </p>
             <div class="import-controls">
                 <input type="file" id="import-file" accept=".csv,text/csv" />

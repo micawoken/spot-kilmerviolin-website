@@ -2,7 +2,7 @@
 /**
  * pages/admin/composers/import.astro
  *
- * Admin-only CSV bulk import for composers (upload → editable preview → server dry-run → atomic commit).
+ * Admin-only CSV bulk import for composers
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -46,9 +46,9 @@ export const prerender = false
         <main class="admin-main" role="main">
             <h2>Import Composers from CSV</h2>
             <p class="general-infohelp">
-                Upload a CSV file whose header row contains these columns (in any order):
+                Upload a CSV file with these header columns (in any order):
                 <code>{composer_csv_columns.join(", ")}</code>. Optional cells may be left blank. List cells (tags)
-                separate multiple values with a semicolon (<code>;</code>). Up to 999 rows may be imported at once.
+                separate multiple values with a semicolon (<code>;</code>). Max 999 rows per transaction.
             </p>
             <div class="import-controls">
                 <input type="file" id="import-file" accept=".csv,text/csv" />

@@ -198,20 +198,11 @@ export const TOKEN_PROPS: TokenPropRegistry = {
  * "which component" clearly enough for those.
  */
 export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
-    space: "Used directly by Section's vertical padding, Columns' and Row's column gap (horizontal) and " +
-        "row gap (vertical), Spacer's size, and Divider's space around — plus indirectly by a button " +
-        "variant's own horizontal/vertical padding.",
-    radius: "Used by a button variant's radius field, and directly by Section, Image, Content Image, and " +
-        "Media + text's own optional Corner radius field (each defaults to None, the pre-existing look).",
-    borders: "Used by a button variant's border field, and directly by Section, Image, Content Image, " +
-        "and Media + text's own optional Border field (each defaults to None), plus the theme's Site " +
-        "Chrome hairline border role.",
-    shadows: "Used by Section, Image, Content Image, and Media + text's own optional Shadow field, and " +
-        "Button's own optional Shadow field (none of these come from a button variant) — each defaults " +
-        "to None, the pre-existing look.",
-    breakpoints: "One breakpoint can be designated (the \"Columns stacks below\" control above) to drive " +
-        "Columns' single-column stacking point; the rest are documentary. Unset, Columns stacks below a " +
-        "fixed 768px."
+    space: "Preview sizing of spacers used on the site.",
+    radius: "Preview radius used on buttons and other components.",
+    borders: "Preview border styles used on buttons and other components.",
+    shadows: "Preview shadow styles used on buttons and other components.",
+    breakpoints: "Preview breakpoint values used for responsive design."
 }
 
 /** Puck components (and field) that draw from a token kind, formatted `"Component.field"`, in
