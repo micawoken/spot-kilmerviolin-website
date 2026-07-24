@@ -1,6 +1,6 @@
 ---
 /**
- * pages/admin/designs/index.astro
+ * pages/admin/advanced/designs/index.astro
  *
  * Lists custom-designed pages (not managed in the CMS)
  *
@@ -83,7 +83,7 @@ export const prerender = false
                 import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../lib/compositor/design-list"
 
                 const CONTENT_ENDPOINT = "/_emdash/api/content/design_page"
-                const EDITOR_PATH = "/admin/designs/edit"
+                const EDITOR_PATH = "/admin/advanced/designs/edit"
 
                 const listStatus = document.getElementById("design-list-status") as HTMLParagraphElement
                 const listContainer = document.getElementById("design-list") as HTMLDivElement

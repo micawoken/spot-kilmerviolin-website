@@ -1,7 +1,7 @@
 /**
  * components/compositor/DesignEditor.tsx
  *
- * The visual compositor's editor. Mounted client-side by `pages/admin/designs/edit.astro`, from a
+ * The visual compositor's editor. Mounted client-side by `pages/admin/advanced/designs/edit.astro`, from a
  * module script rather than an Astro island — the admin CSP blocks Astro's inline island bootstrap.
  * Never runs on the build/RSC path (that uses `buildConfig(theme, "build")` + `<Render>`).
  *
@@ -513,7 +513,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     return (
         <div className="design-editor">
             <div className="design-editor__bar">
-                <a href={kind === "template" ? "/admin/designs/templates" : "/admin/designs"} className="design-editor__back">
+                <a href={kind === "template" ? "/admin/advanced/designs/templates" : "/admin/advanced/designs"} className="design-editor__back">
                     {kind === "template" ? "← Templates" : "← Designs"}
                 </a>
                 <strong className="design-editor__title">{meta.title || "(untitled)"}</strong>
@@ -624,9 +624,9 @@ function FullScreenMessage({ title, detail, kind }: { title: string; detail?: st
                 {detail && <p>{detail}</p>}
                 <p>
                     {kind === "template" ? (
-                        <a href="/admin/designs/templates">Back to Templates</a>
+                        <a href="/admin/advanced/designs/templates">Back to Templates</a>
                     ) : (
-                        <a href="/admin/designs">Back to Designs</a>
+                        <a href="/admin/advanced/designs">Back to Designs</a>
                     )}
                 </p>
             </div>

@@ -20,7 +20,7 @@
  *   CONTENT_API_BASE         origin of the deployed site (shared with emdash-api.ts)
  *   CF_ACCESS_CLIENT_ID      Cloudflare Access service-token client id (shared with emdash-api.ts;
  *   CF_ACCESS_CLIENT_SECRET  mandatory here too — a build token alone authenticates nothing, D3)
- *   BUILD_API_TOKEN          the app-issued build token (X-Build-Token); see /admin/advanced/tokens/build
+ *   BUILD_API_TOKEN          the app-issued build token (X-Build-Token); see /admin/user/tokens/build
  *
  * Failure policy and timeout rationale live next to {@link BuildTokenReadError} and
  * {@link BUILD_API_READ_TIMEOUT_MS} below, not repeated here.

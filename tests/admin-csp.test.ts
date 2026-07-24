@@ -67,7 +67,7 @@ describe("admin pages under the CSP", () => {
             match?.[1],
             `${path} uses ${match?.[0]}. Astro emits the island bootstrap inline, which the admin CSP's ` +
                 `script-src 'self' blocks, so the island will never hydrate. Mount the component from a ` +
-                `page <script> with a real import instead (see pages/admin/designs/edit.astro).`
+                `page <script> with a real import instead (see pages/admin/advanced/designs/edit.astro).`
         ).toBeUndefined()
     })
 })

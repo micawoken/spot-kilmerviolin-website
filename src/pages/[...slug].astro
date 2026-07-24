@@ -100,7 +100,7 @@ export async function getStaticPaths() {
             throw new Error(
                 `[build] design page "${designPage.slug}" fails the design lint and cannot be published:\n` +
                     `${errors}\n` +
-                    "Fix it in /admin/designs, or unpublish the page."
+                    "Fix it in /admin/advanced/designs, or unpublish the page."
             )
         }
     }
@@ -141,7 +141,7 @@ export async function getStaticPaths() {
                 .join("\n")
             throw new Error(
                 `[build] ${label} fails the pairing lint:\n${errors}\n` +
-                    "Fix the template in /admin/designs, or fix the entry's content in the EmDash admin."
+                    "Fix the template in /admin/advanced/designs, or fix the entry's content in the EmDash admin."
             )
         }
     }

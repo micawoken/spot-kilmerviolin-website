@@ -324,7 +324,7 @@ interface Identity extends BaseIdentity {
  *   in-worker EmDash CMS at /_emdash, enforced by src/middleware/emdash_access.ts. See
  *   docs/dev/emdash-migration.md.
  * @property {boolean} design_editor - Whether the role provides authorization to use the visual design
- *   system (/admin/designs: the design list, the Puck editor, the theme). STRICTLY WEAKER than cms_editor
+ *   system (/admin/advanced/designs: the design list, the Puck editor, the theme). STRICTLY WEAKER than cms_editor
  *   over /_emdash: the design system is a browser-side EmDash API client, so emdash_access.ts admits a
  *   design_editor to a fixed ALLOWLIST of the paths it calls (its own design_* collections; read-only
  *   entry, schema and media reads) and denies the rest of the CMS — the admin UI, other collections'

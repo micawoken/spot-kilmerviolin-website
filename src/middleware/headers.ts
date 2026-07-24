@@ -46,7 +46,7 @@ import { detectEnvironment } from "../lib/api/environment"
  *  - Admin pages cannot use an Astro client directive (`client:only`, `client:load`, …). Astro emits its
  *    island bootstrap as inline <script> tags with no nonce or hash (getPrescripts, astro/runtime/server/
  *    scripts), so the island silently never hydrates. Mount React from a page <script> that carries a real
- *    import instead — that stays an external hashed module. See pages/admin/designs/edit.astro.
+ *    import instead — that stays an external hashed module. See pages/admin/advanced/designs/edit.astro.
  *  - Astro's own `csp` config is not the way out: it always emits a hash-based style-src, and a source list
  *    containing hashes makes 'unsafe-inline' inert, which would block the runtime <style> the compositor
  *    injects into the Puck canvas (DesignEditor.tsx) — and it would extend CSP to the public site and

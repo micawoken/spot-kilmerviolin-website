@@ -353,7 +353,7 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
     if (!item) {
         console.warn(
             "[build/design-api] no PUBLISHED design_theme found — design pages will render without any " +
-                "design tokens. Publish the theme in /admin/designs/theme, then rebuild."
+                "design tokens. Publish the theme in /admin/advanced/designs/theme, then rebuild."
         )
         return null
     }
@@ -362,7 +362,7 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
     if (!isTokenCatalog(tokens)) {
         console.warn(
             "[build/design-api] the published design_theme is not a valid token catalog — design pages " +
-                "will render without any design tokens. Re-save the theme in /admin/designs/theme."
+                "will render without any design tokens. Re-save the theme in /admin/advanced/designs/theme."
         )
         return null
     }
