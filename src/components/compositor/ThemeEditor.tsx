@@ -1,28 +1,7 @@
 /**
  * components/compositor/ThemeEditor.tsx
  *
- * The theme editor: edits the singleton `design_theme` item's `tokens` catalog — the closed set of
- * `--dtk-*` values every design page draws from. Mounted client-side by
- * `pages/admin/designs/theme.astro` inside the normal admin chrome (not the full-viewport canvas),
- * from a module script rather than an Astro island — the admin CSP blocks Astro's inline island
- * bootstrap.
- *
- * Discovers the theme item via the content list, GETs it by id for the draft-overlaid `tokens`, edits
- * every token kind as rows, writes a draft via `PUT`/`POST …/publish` like the design editor does.
- * Rename/remove is destructive to designs referencing the old name — Phase 1 accepts this; lint
- * surfaces the dangling reference, a usage scan is a later hardening step.
- *
- * Theme is a singleton with no version history, so "Backup & restore" exports the current catalog to
- * JSON and imports one back (validated by `isTokenCatalog`) — a manual snapshot/rollback around a
- * redesign. Import loads into the form only; the user still Saves/Publishes.
- *
- * Each token cell is edited by a friendly, CSS-less control (color pickers, a number+unit stepper,
- * clamp/shadow builders), with one global "Show raw CSS values" switch flipping every cell back to
- * plain text. A cell's stored string is the single source of truth: the friendly control parses it on
- * render and formats back on change; anything a control can't round-trip degrades to that same text
- * input, so the two views never disagree and a value is never clobbered. A separate color-scheme
- * switch flips the whole theme between adaptive (`light-dark(L, D)` pair) and fixed (single value) —
- * authoring metadata only, never read by the build.
+ * React component for the design theme editor
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -1099,7 +1078,7 @@ export default function ThemeEditor() {
             if (
                 pairs > 0 &&
                 !window.confirm(
-                    `Switching to a fixed color scheme keeps each color’s light value and discards its dark value ` +
+                    `Switching to a fixed color scheme keeps each color's light value and discards its dark value ` +
                         `(${pairs} affected). Export a JSON backup first if you might want to undo this. Continue?`
                 )
             ) {
@@ -1169,7 +1148,7 @@ export default function ThemeEditor() {
                     </label>
                     <span className="theme-editor__hint">
                         {editable.colorScheme === "adaptive"
-                            ? "Each color has a light and a dark value; the site follows the viewer’s color scheme."
+                            ? "Each color has a light and a dark value; the site follows the viewer's color scheme."
                             : "Each color is a single value, the same in light and dark."}
                     </span>
                 </div>
@@ -1264,11 +1243,7 @@ export default function ThemeEditor() {
                     <div className="theme-editor__spacing-group">
                         <h4>Horizontal spacing</h4>
                         <p className="theme-editor__hint">
-                            Splits horizontal spacing into roles instead of one dial, so each kind of element can scale
-                            independently: how far page content sits from the edge, the gap between repeated list/grid
-                            items, the padding/gap inside interactive controls like search boxes, and a nudge that adds
-                            extra inset to the pre-generated static pages (/entity, /database, /search) if they ever
-                            drift out of alignment with the EmDash-authored pages next to them.
+                            Manage horizontal (left-right) spacing on the site. Enter values as CSS spacing, with units.
                         </p>
                         {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("horizontalSpace")))}
                     </div>
@@ -1276,10 +1251,7 @@ export default function ThemeEditor() {
                     <div className="theme-editor__spacing-group">
                         <h4>Vertical spacing</h4>
                         <p className="theme-editor__hint">
-                            The vertical counterpart: the rhythm separating major page sections (main content), the
-                            header and footer's own independent rhythms, the gap between repeated stacked items, the
-                            padding/gap inside interactive controls, and the same static-page nudge as above, applied
-                            to top/bottom padding instead of the edge inset — independent of the horizontal roles above.
+                            Manage vertical (top-bottom) spacing on the site. Enter values as CSS spacing, with units.
                         </p>
                         {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.key.toString().startsWith("verticalSpace")))}
                     </div>
@@ -1345,11 +1317,11 @@ export default function ThemeEditor() {
         try {
             parsed = JSON.parse(await file.text())
         } catch {
-            setIoStatus({ text: "That file isn’t valid JSON.", error: true })
+            setIoStatus({ text: "That file isn't valid JSON.", error: true })
             return
         }
         if (!isTokenCatalog(parsed)) {
-            setIoStatus({ text: "That file isn’t a valid theme token catalog.", error: true })
+            setIoStatus({ text: "That file isn't a valid theme token catalog.", error: true })
             return
         }
         setEditable(toEditable(parsed))
@@ -1423,8 +1395,8 @@ export default function ThemeEditor() {
                 </label>
                 <span className="theme-editor__hint">
                     {rawMode
-                        ? "Editing the raw CSS token strings directly."
-                        : "Friendly controls. Turn this on to edit the underlying CSS values by hand."}
+                        ? "CSS controls shown"
+                        : "Simple controls shown"}
                 </span>
                 <span className="theme-editor__viewbar-spacer" />
                 <button type="button" onClick={expandAllSections}>
@@ -1452,16 +1424,14 @@ export default function ThemeEditor() {
                 <SectionHeader id="backup" title="Backup & restore" open={!collapsed.has("backup")} onToggle={toggleSection} />
                 {!collapsed.has("backup") && <>
                 <p className="theme-editor__hint">
-                    Export the current editor state to a JSON file to snapshot the theme before a redesign, or import a
-                    file you exported earlier to replace it. Importing only loads the tokens into the editor — nothing is
-                    saved until you Save draft or Publish, so you can review first.
+                    Export the current theme to a JSON file. When importing, remember to Save draft and Publish.
                 </p>
                 <div className="theme-editor__actions">
                     <button type="button" onClick={exportJson}>
                         Export JSON
                     </button>
                     <button type="button" onClick={() => fileInputRef.current?.click()}>
-                        Import JSON…
+                        Import JSON...
                     </button>
                     <input
                         ref={fileInputRef}
@@ -1475,8 +1445,7 @@ export default function ThemeEditor() {
                             if (!file) return
                             if (
                                 !window.confirm(
-                                    "Importing replaces everything in the editor with the file’s tokens. Unsaved edits " +
-                                        "are lost (nothing is saved until you Save draft or Publish). Continue?"
+                                    "Importing deletes all in-progress work. Continue?"
                                 )
                             ) {
                                 return
@@ -1502,9 +1471,7 @@ export default function ThemeEditor() {
                 />
                 {!collapsed.has("page-transitions") && <>
                 <p className="theme-editor__hint">
-                    Crossfades between page navigations instead of the browser's default blank flash. Native CSS, no
-                    JS; unsupported browsers (Firefox, Safari) just fall back to a normal navigation with no
-                    regression either way.
+                    Manage page transitions, viewable on supported browsers.
                 </p>
                 <label className="theme-editor__switch">
                     <input
@@ -1530,18 +1497,14 @@ export default function ThemeEditor() {
                 />
                 {!collapsed.has("site-chrome") && <>
                 <p className="theme-editor__hint">
-                    Which of your colors, borders, and spacing values paint the public site frame — page
-                    background, body text, links, and the header/footer — as opposed to a design page's own
-                    content. Leave a role unset to keep the theme's built-in fallback look. The horizontal and
-                    vertical spacing roles are set under Spacing below, alongside the space tokens they reference.
+                    Control which colors are connected to which interface components.
                 </p>
                 {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space"))}
 
                 <div className="theme-preview">
                     <h4 className="theme-preview__heading">Contrast check</h4>
                     <p className="theme-editor__hint">
-                        WCAG AA/AAA contrast for each pairing the roles above actually render together on the
-                        public site. A role left unset above can’t be checked until it’s assigned.
+                        WCAG AA/AAA contrast accessibility check for the Site Chrome roles above. Red indicates failure of accessibility standard.
                     </p>
                     <SiteChromeContrastCheck
                         colors={editable.colors}
@@ -1565,9 +1528,8 @@ export default function ThemeEditor() {
                 <SectionHeader id="web-fonts" title="Web fonts" open={!collapsed.has("web-fonts")} onToggle={toggleSection} />
                 {!collapsed.has("web-fonts") && <>
                 <p className="theme-editor__hint">
-                    Loads a font from Google Fonts for the whole site. Enter the family name exactly as Google lists it
-                    (e.g. “Playfair Display”) and the weights to load, comma-separated (e.g. 400, 700). Then reference the
-                    family from a Typography token’s font family. Publish and rebuild to apply.
+                    Loads a font from Google Fonts, available for use on the site. Enter the family name exactly as Google lists it
+                    (e.g. "Playfair Display") and the weights to load, comma-separated (e.g. 400, 700).
                 </p>
                 <div className="theme-editor__rows">
                     {editable.fonts.map((font, index) => (

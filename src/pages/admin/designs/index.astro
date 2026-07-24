@@ -2,17 +2,7 @@
 /**
  * pages/admin/designs/index.astro
  *
- * The visual compositor's entry point (impl §6.5): lists every `design_page` item and offers a create
- * form. The list is read client-side from EmDash's content API (same-origin, session cookie) rather
- * than server-side, because the design collections live in EmDash, not the app database — mirroring
- * how the public build reads them (lib/build/emdash-api.ts). Middleware already gates the whole
- * /admin/designs subtree on cms_editor (middleware/identity.ts), so no in-page guard is needed.
- *
- * Templates (design_template items) live on their own page, templates.astro, rather than here — one
- * admin/designs page per topic, matching theme.astro.
- *
- * Trash/restore and revision history are intentionally absent here — those live in the EmDash admin
- * UI, which this page links to rather than duplicating (plan: "EmDash admin remains where content lives").
+ * Lists custom-designed pages (not managed in the CMS)
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -54,14 +44,10 @@ export const prerender = false
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main class="admin-main" role="main">
             <h2>Designs</h2>
+            <p class="general-warning">In most cases, a CMS page will work better. Only use designed pages when you need full design control.</p>
             <p class="general-infohelp">
-                Visual design pages are laid out in the editor and stored in the CMS. Changes stay private until you
-                publish a page and rebuild the site. To trash, restore, or review revisions, use the{" "}
-                <a href="/_emdash">EmDash admin</a>. Layouts for entity/collection entries are managed on the{" "}
-                <a href="/admin/designs/templates">Templates page</a>. Shared theme tokens are edited on the{" "}
-                <a href="/admin/designs/theme">Theme page</a>.
-            </p>
-
+                This system allows you to create custom pages with full design control.{" "}
+                They are rendered as-is and not passed through templates.</p>
             <section class="design-create" aria-labelledby="design-create-heading">
                 <h3 id="design-create-heading">Create a design</h3>
                 <form id="design-create-form">

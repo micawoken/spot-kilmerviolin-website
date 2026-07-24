@@ -61,7 +61,7 @@ import { tokenVar } from "../../lib/compositor/tokens"
 type Row = Record<string, string>
 
 /** A short, realistic sample line — not lorem ipsum — so a specimen reads like real site copy. */
-const SAMPLE_LINE = "Handcrafted violins, violas, and cellos — sales, restoration, and setup."
+const SAMPLE_LINE = "All human beings are born free and equal in dignity and rights."
 
 /**
  * Colors, in context: each swatch is the color as a background with sample text laid over it. Typography
@@ -308,8 +308,7 @@ export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; 
         <div className="theme-preview__stack">
             {usedBy && usedBy.length > 0 && (
                 <p className="theme-editor__hint">
-                    Each row below is a text style a Puck component's typography field can select from —
-                    currently used by {usedBy.join(", ")}.
+                    Available for use in {usedBy.join(", ")}.
                 </p>
             )}
             <label className="theme-preview__text-input">
@@ -342,8 +341,7 @@ export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; 
                 </div>
             ))}
             <p className="theme-editor__hint">
-                Web fonts (Google Fonts) can’t load inside this editor, so a family that names one shows its
-                fallback typeface here. The real typeface appears on the published site.
+                Web fonts (Google Fonts) can't load inside this editor, so a fallback is shown for now.
             </p>
         </div>
     )
@@ -504,9 +502,9 @@ export function ResponsivePreviewFrame({ children }: { children: ReactNode }) {
                 {children}
             </div>
             <p className="theme-editor__hint">
-                This resizes a container, not the real browser window — it only previews %-based values
-                correctly. A vw-based value or the site's actual @media breakpoint (Columns stacks below
-                768px) won't respond here; resize the real browser window to test those.
+                This preview resizes an inner <code>div</code> component, not the viewport.
+                Rules using <code>vw</code> or the columns breakpoint won't respond; resize your
+                browser window for that.
             </p>
         </div>
     )

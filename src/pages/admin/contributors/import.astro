@@ -2,9 +2,7 @@
 /**
  * pages/admin/contributors/import.astro
  *
- * Admin-only CSV bulk import for contributors. Imported contributors are name-only "inactive placeholders"
- * (no permissions conferred); extra CSV columns are ignored. Flow: upload → editable preview → server
- * dry-run → atomic commit.
+ * Admin-only CSV bulk import for contributors
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -50,10 +48,9 @@ export const prerender = false
         <main class="admin-main" role="main">
             <h2>Import Contributors from CSV</h2>
             <p class="general-infohelp">
-                Upload a CSV file whose header row contains a <code>name</code> column. Any other columns are ignored.
-                Imported contributors are <strong>inactive placeholders</strong>: they are marked inactive, are not
-                administrators, hold no roles, and are given a generated placeholder sign-in email. They confer no
-                access. Up to 999 rows may be imported at once.
+                Upload a CSV file with a <code>name</code> column. Imported contributors are
+                <strong>inactive placeholders</strong>, with no email assigned. They confer no
+                access. Max 999 rows per transaction.
             </p>
             <div class="import-controls">
                 <input type="file" id="import-file" accept=".csv,text/csv" />

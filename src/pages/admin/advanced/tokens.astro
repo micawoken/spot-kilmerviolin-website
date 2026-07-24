@@ -1,6 +1,8 @@
 ---
 /**
  * pages/admin/advanced/tokens.astro
+ * 
+ * Manages issuance/revocation of user-scoped API tokens
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -75,12 +77,12 @@ try {
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main class="admin-main" role="main">
             <h2>API Tokens</h2>
+            <p class="general-warning">API tokens are like passwords - never share them with anyone else. Keep them safe.</p>
             <p class="general-infohelp">
-                An API token lets a script call the API as you, in addition to your Cloudflare Access
-                credential. Anyone holding the token can act with your permissions until it expires or you
-                revoke it — treat it like a password.
+                Issue and revoke API tokens scoped to your user account permissions.
+                Usage requires presentation of both an API token and a Cloudflare
+                Access Service Token. 
             </p>
-
             <h3>Issue a new token</h3>
             <form id="token-issue-form" class="generic-form">
                 <fieldset>
@@ -106,8 +108,7 @@ try {
 
             <div id="token-issued-panel" hidden>
                 <p class="general-warning">
-                    Copy this token now — it will not be shown again. It grants your permissions to whoever
-                    holds it.
+                    Copy this token now — it will not be shown again.
                 </p>
                 <input type="text" id="token-issued-secret" readonly />
                 <button type="button" id="token-issued-copy">Copy</button>

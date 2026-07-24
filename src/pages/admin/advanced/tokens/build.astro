@@ -1,6 +1,8 @@
 ---
 /**
  * pages/admin/advanced/tokens/build.astro
+ * 
+ * Manage issuance of API tokens used during the Astro build process
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -75,11 +77,10 @@ try {
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main class="admin-main" role="main">
             <h2>Build Tokens</h2>
+            <p class="general-warning">Build tokens are ownerless and like passwords - never share them with anyone else. Keep them safe.</p>
             <p class="general-infohelp">
-                A build token authenticates the site build process, not a person. It grants no identity and
-                admits only the three read-only, full-list endpoints (composers, works, contributors) the
-                build needs — nothing else, and nothing it can write. Treat it like any other credential:
-                anyone holding it can read the complete, unredacted dataset until it expires or is revoked.
+                Build tokens grant admin-level read access to the database for the page prerendering system during
+                the Astro build process. They do not confer any additional permissions.
             </p>
 
             <h3>Issue a new token</h3>
