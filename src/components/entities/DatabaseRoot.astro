@@ -17,11 +17,11 @@
  * database root (docs/dev/miscellaneous.txt "/database alias"), so both aliases send a visitor into the
  * canonical namespace rather than /entity's. Individual entries still only exist under /entity/{noun}/{id}.
  *
- * Search box targets /search/advanced (not plain /search) so its advanced panel has somewhere to submit
- * to (docs/dev/plan-prelaunch-features.md §10) — that page is inherently database-scoped, reproducing
- * this bar's former ?scope=database behavior for a keyword-only search with no extra hidden input. Field
- * markup mirrors the Puck `PagefindSearch` component's advanced panel (catalog.tsx), both driven off the
- * same `ADVANCED_FIELDS` list (lib/search/facets.ts) — the "same core" the two search surfaces share.
+ * Search box targets /search/advanced (not plain /search), reproducing this bar's former ?scope=database
+ * behavior for a keyword-only search with no extra hidden input — that page is inherently database-scoped
+ * (docs/dev/plan-prelaunch-features.md §10). The criteria form itself (ADVANCED_FIELDS,
+ * lib/search/facets.ts) lives only on that page now; this bar just links to it rather than duplicating it
+ * inline, matching the Puck `PagefindSearch` component's own `advancedLink` option (catalog.tsx).
  *
  * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
  * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
@@ -52,12 +52,12 @@
  */
 
 import NavTiles from "../NavTiles.astro"
+import StaticBreadcrumbs from "../StaticBreadcrumbs.astro"
 import PublicPage from "../../layouts/PublicPage.astro"
 import { fetchComposers, fetchCompositions, fetchContributors } from "../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../lib/build/design-api"
 import { resolveEntityTemplates } from "../../lib/build/entity-routes"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../../lib/compositor/entity-fields"
-import { ADVANCED_FIELDS } from "../../lib/search/facets"
 
 // Same dual-source-dependency gate as entity/[noun]/index.astro (resolved default template AND at least
 // one D1 record) — reused independently here (not a shared computation, matching that file's own
@@ -93,12 +93,7 @@ const availableNouns = resolutions
     <div class="entity-index-body static-page-body">
         {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
             not a Puck design, so the component can never be placed here. */}
-        <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
-            <ol>
-                <li><a href="/">Home</a></li>
-                <li aria-current="page">Database</li>
-            </ol>
-        </nav>
+        <StaticBreadcrumbs current="Database" />
         <h1>Database</h1>
         <p>What can we help you find?</p>
 
@@ -113,31 +108,11 @@ const availableNouns = resolutions
                 />
                 <button type="submit">Search</button>
             </div>
-            <details class="search-advanced">
-                <summary>Advanced search</summary>
-                <div class="search-advanced__grid">
-                    {ADVANCED_FIELDS.map((field) => (
-                        <div class="search-advanced__field">
-                            <label for={`db-adv-${field.param}`}>{field.label}</label>
-                            {field.control === "select" ? (
-                                <select id={`db-adv-${field.param}`} name={field.param}>
-                                    {(field.options ?? []).map((option) => (
-                                        <option value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input
-                                    id={`db-adv-${field.param}`}
-                                    type={field.control === "number" ? "number" : "text"}
-                                    name={field.param}
-                                    placeholder={field.placeholder}
-                                />
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </details>
         </form>
+        {/* Was an inline `<details>` criteria panel duplicating /search/advanced's own form — replaced by a
+            plain link there, since the panel meant advanced search was always "triggering" here rather
+            than being an explicit, separate action a visitor opts into. */}
+        <p class="search-advanced-link"><a href="/search/advanced">Advanced search →</a></p>
 
         {
             availableNouns.length > 0 && (
@@ -152,29 +127,3 @@ const availableNouns = resolutions
         }
     </div>
 </PublicPage>
-
-<style>
-    .entity-breadcrumbs ol {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0;
-        margin: 0 0 var(--dtk-space-md, 1rem);
-        padding: 0;
-        list-style: none;
-        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
-        font-size: var(--dtk-type-label-size, 0.85rem);
-        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-    }
-    .entity-breadcrumbs li:not(:first-child)::before {
-        content: "/";
-        margin-inline: 0.5em;
-        opacity: 0.6;
-    }
-    .entity-breadcrumbs a {
-        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
-    }
-    .entity-breadcrumbs li[aria-current="page"] {
-        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-    }
-</style>

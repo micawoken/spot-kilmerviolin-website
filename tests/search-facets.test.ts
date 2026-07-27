@@ -28,8 +28,10 @@ import {
     keyOptions,
     keyRefLabel,
     matchesFacets,
+    nounOptions,
     parseFacetParams,
     parseFacetQuery,
+    type FacetCriteria,
     type FacetEntry
 } from "../src/lib/search/facets"
 
@@ -52,6 +54,14 @@ describe("keyOptions / keyRefLabel", () => {
         expect(option).toBeDefined()
         expect(keyRefLabel(option!.value)).toBe(option!.label)
         expect(keyRefLabel("not-a-ref")).toBe("not-a-ref")
+    })
+})
+
+describe("nounOptions", () => {
+    it("lists all three entity nouns by their public URL slugs, with no 'Any' pseudo-option", () => {
+        const options = nounOptions()
+        expect(options).toHaveLength(3)
+        expect(options.map((option) => option.value).sort()).toEqual(["composer", "contributor", "work"])
     })
 })
 
@@ -81,73 +91,111 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, {})).toBe(true)
     })
 
-    it("noun gates the entry type", () => {
-        expect(matchesFacets(work, { noun: "composition" })).toBe(true)
-        expect(matchesFacets(work, { noun: "composer" })).toBe(false)
+    it("nouns gates the entry type, and accepts more than one", () => {
+        expect(matchesFacets(work, { nouns: ["composition"] })).toBe(true)
+        expect(matchesFacets(work, { nouns: ["composer"] })).toBe(false)
+        expect(matchesFacets(work, { nouns: ["composer", "composition"] })).toBe(true)
+        expect(matchesFacets(work, { nouns: [] })).toBe(true)
     })
 
-    it("composer/type/role match case-insensitive substrings", () => {
-        expect(matchesFacets(work, { composer: "bach" })).toBe(true)
-        expect(matchesFacets(work, { composer: "handel" })).toBe(false)
-        expect(matchesFacets(work, { type: "cham" })).toBe(true)
-        expect(matchesFacets(composer, { role: "primary" })).toBe(true)
+    it("text fields default to case-insensitive 'contains', and support exact 'is'", () => {
+        expect(matchesFacets(work, { composer: { op: "contains", value: "bach" } })).toBe(true)
+        expect(matchesFacets(work, { composer: { op: "contains", value: "handel" } })).toBe(false)
+        expect(matchesFacets(composer, { role: { op: "contains", value: "primary" } })).toBe(true)
+        expect(matchesFacets(work, { composer: { op: "is", value: "bach" } })).toBe(false)
+        expect(matchesFacets(work, { composer: { op: "is", value: "Johann Sebastian Bach" } })).toBe(true)
     })
 
-    it("country matches either the raw code or the resolved display name", () => {
-        expect(matchesFacets(composer, { country: "de" })).toBe(true)
-        expect(matchesFacets(composer, { country: "germany" })).toBe(true)
-        expect(matchesFacets(composer, { country: "france" })).toBe(false)
+    it("country matches either the raw code or the resolved display name, honoring contains/is", () => {
+        expect(matchesFacets(composer, { country: { op: "contains", value: "de" } })).toBe(true)
+        expect(matchesFacets(composer, { country: { op: "contains", value: "germany" } })).toBe(true)
+        expect(matchesFacets(composer, { country: { op: "contains", value: "france" } })).toBe(false)
+        expect(matchesFacets(composer, { country: { op: "is", value: "DE" } })).toBe(true)
+        expect(matchesFacets(composer, { country: { op: "is", value: "germany" } })).toBe(true)
+        expect(matchesFacets(composer, { country: { op: "is", value: "d" } })).toBe(false)
     })
 
-    it("keyRef is an exact match", () => {
+    it("keyRef and type are exact matches", () => {
         expect(matchesFacets(work, { keyRef: "7-minor" })).toBe(true)
         expect(matchesFacets(work, { keyRef: "7-major" })).toBe(false)
+        expect(matchesFacets(work, { type: "Chamber" })).toBe(true)
+        expect(matchesFacets(work, { type: "Solo" })).toBe(false)
     })
 
-    it("year/suzuki/nyssma respect range and minimum bounds, excluding entries missing the field", () => {
-        expect(matchesFacets(work, { yearFrom: 1700, yearTo: 1750 })).toBe(true)
-        expect(matchesFacets(work, { yearFrom: 1800 })).toBe(false)
-        expect(matchesFacets(work, { suzukiMin: 4 })).toBe(true)
-        expect(matchesFacets(work, { suzukiMin: 5 })).toBe(false)
-        expect(matchesFacets(composer, { suzukiMin: 1 })).toBe(false) // composer entries carry no suzuki field
+    it("number fields support is/before/after/between/around, excluding entries missing the field", () => {
+        expect(matchesFacets(work, { year: { op: "is", value: 1723 } })).toBe(true)
+        expect(matchesFacets(work, { year: { op: "before", value: 1800 } })).toBe(true)
+        expect(matchesFacets(work, { year: { op: "before", value: 1700 } })).toBe(false)
+        expect(matchesFacets(work, { year: { op: "after", value: 1700 } })).toBe(true)
+        expect(matchesFacets(work, { year: { op: "between", value: 1700, valueTo: 1750 } })).toBe(true)
+        expect(matchesFacets(work, { year: { op: "between", value: 1800, valueTo: 1850 } })).toBe(false)
+        expect(matchesFacets(work, { year: { op: "around", value: 1725 } })).toBe(true)
+        expect(matchesFacets(work, { year: { op: "around", value: 2000 } })).toBe(false)
+        expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(false) // composer entries carry no year field
     })
 
-    it("birthYear/deathYear are exact matches", () => {
-        expect(matchesFacets(composer, { birthYear: 1685 })).toBe(true)
-        expect(matchesFacets(composer, { birthYear: 1686 })).toBe(false)
-        expect(matchesFacets(composer, { deathYear: 1750 })).toBe(true)
+    it("ratings support is/atLeast/atMost", () => {
+        expect(matchesFacets(work, { suzuki: { op: "atLeast", value: 4 } })).toBe(true)
+        expect(matchesFacets(work, { suzuki: { op: "atLeast", value: 5 } })).toBe(false)
+        expect(matchesFacets(work, { suzuki: { op: "atMost", value: 4 } })).toBe(true)
+        expect(matchesFacets(work, { suzuki: { op: "is", value: 4 } })).toBe(true)
+        expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(false) // composer entries carry no suzuki field
+    })
+
+    it("birthYear/deathYear support the same operators as publication year", () => {
+        expect(matchesFacets(composer, { birthYear: { op: "is", value: 1685 } })).toBe(true)
+        expect(matchesFacets(composer, { birthYear: { op: "is", value: 1686 } })).toBe(false)
+        expect(matchesFacets(composer, { deathYear: { op: "between", value: 1700, valueTo: 1800 } })).toBe(true)
     })
 })
 
 describe("parseFacetParams / criteriaToParams round-trip", () => {
     it("round-trips every criterion through URLSearchParams", () => {
-        const criteria = {
-            noun: "composition" as const,
-            composer: "Bach",
+        const criteria: FacetCriteria = {
+            nouns: ["composition", "composer"],
+            composer: { op: "is", value: "Bach" },
             keyRef: "7-minor",
             type: "Chamber",
-            yearFrom: 1700,
-            yearTo: 1750,
-            suzukiMin: 4,
-            nyssmaMin: 3,
-            country: "DE",
-            role: "arranger",
-            birthYear: 1685,
-            deathYear: 1750
+            year: { op: "between", value: 1700, valueTo: 1750 },
+            suzuki: { op: "atLeast", value: 4 },
+            nyssma: { op: "is", value: 3 },
+            country: { op: "contains", value: "DE" },
+            role: { op: "is", value: "arranger" },
+            birthYear: { op: "before", value: 1750 },
+            deathYear: { op: "after", value: 1700 }
         }
         const roundTripped = parseFacetParams(criteriaToParams(criteria))
         expect(roundTripped).toEqual(criteria)
     })
 
     it("drops blank/absent params rather than emitting empty-string criteria", () => {
-        const criteria = parseFacetParams(new URLSearchParams("composer=&yearFrom=1700"))
-        expect(criteria).toEqual({ yearFrom: 1700 })
+        const criteria = parseFacetParams(new URLSearchParams("composer=&year=1700"))
+        expect(criteria).toEqual({ year: { op: "is", value: 1700 } })
     })
 
-    it("noun params use the public URL slug (work), not the internal noun (composition)", () => {
-        const params = criteriaToParams({ noun: "composition" })
-        expect(params.get("noun")).toBe("work")
-        expect(parseFacetParams(params).noun).toBe("composition")
+    it("noun params use the public URL slug (work), not the internal noun (composition), and accumulate", () => {
+        const params = criteriaToParams({ nouns: ["composition", "contributor"] })
+        expect(params.getAll("noun")).toEqual(["work", "contributor"])
+        expect(parseFacetParams(params).nouns).toEqual(["composition", "contributor"])
+    })
+
+    it("a text/number field with no explicit operator param falls back to that field's default operator", () => {
+        expect(parseFacetParams(new URLSearchParams("composer=bach")).composer).toEqual({ op: "contains", value: "bach" })
+        expect(parseFacetParams(new URLSearchParams("suzuki=4")).suzuki).toEqual({ op: "atLeast", value: 4 })
+        expect(parseFacetParams(new URLSearchParams("year=1700")).year).toEqual({ op: "is", value: 1700 })
+    })
+
+    it("an unrecognized operator param falls back to the default rather than producing an invalid criterion", () => {
+        expect(parseFacetParams(new URLSearchParams("year=1700&year_op=nonsense")).year).toEqual({ op: "is", value: 1700 })
+    })
+
+    it("valueTo is only read (and only round-tripped) when the operator is 'between'", () => {
+        expect(parseFacetParams(new URLSearchParams("year=1700&year_op=is&yearTo=1750")).year).toEqual({
+            op: "is",
+            value: 1700
+        })
+        const params = criteriaToParams({ year: { op: "is", value: 1700, valueTo: 1750 } })
+        expect(params.has("yearTo")).toBe(false)
     })
 })
 
@@ -159,9 +207,9 @@ describe("parseFacetQuery", () => {
         expect(result.criteria).toEqual({})
     })
 
-    it("noun: token maps the public slug to the internal noun and snaps to database mode", () => {
-        const result = parseFacetQuery("noun:work")
-        expect(result.criteria.noun).toBe("composition")
+    it("noun: token maps the public slug to the internal noun, accumulates, and snaps to database mode", () => {
+        const result = parseFacetQuery("noun:work noun:contributor")
+        expect(result.criteria.nouns).toEqual(["composition", "contributor"])
         expect(hasCriteria(result.criteria)).toBe(true)
         expect(result.text).toBe("")
     })
@@ -175,23 +223,28 @@ describe("parseFacetQuery", () => {
     })
 
     it("year: token supports a range, a comparison, and an exact value", () => {
-        expect(parseFacetQuery("year:1700-1750").criteria).toMatchObject({ yearFrom: 1700, yearTo: 1750 })
-        expect(parseFacetQuery("year:>=1700").criteria).toMatchObject({ yearFrom: 1700 })
-        expect(parseFacetQuery("year:>1700").criteria).toMatchObject({ yearFrom: 1701 })
-        expect(parseFacetQuery("year:<=1750").criteria).toMatchObject({ yearTo: 1750 })
-        expect(parseFacetQuery("year:<1750").criteria).toMatchObject({ yearTo: 1749 })
-        expect(parseFacetQuery("year:1802").criteria).toMatchObject({ yearFrom: 1802, yearTo: 1802 })
+        expect(parseFacetQuery("year:1700-1750").criteria.year).toEqual({ op: "between", value: 1700, valueTo: 1750 })
+        expect(parseFacetQuery("year:>=1700").criteria.year).toEqual({ op: "atLeast", value: 1700 })
+        expect(parseFacetQuery("year:>1700").criteria.year).toEqual({ op: "after", value: 1700 })
+        expect(parseFacetQuery("year:<=1750").criteria.year).toEqual({ op: "atMost", value: 1750 })
+        expect(parseFacetQuery("year:<1750").criteria.year).toEqual({ op: "before", value: 1750 })
+        expect(parseFacetQuery("year:1802").criteria.year).toEqual({ op: "is", value: 1802 })
     })
 
-    it("suzuki:/nyssma: tokens support a comparison or an exact value, both as a minimum threshold", () => {
-        expect(parseFacetQuery("suzuki:>=4").criteria.suzukiMin).toBe(4)
-        expect(parseFacetQuery("suzuki:4").criteria.suzukiMin).toBe(4)
-        expect(parseFacetQuery("nyssma:>3").criteria.nyssmaMin).toBe(4)
+    it("suzuki:/nyssma: tokens support a comparison or an exact value, both as a floor threshold", () => {
+        expect(parseFacetQuery("suzuki:>=4").criteria.suzuki).toEqual({ op: "atLeast", value: 4 })
+        expect(parseFacetQuery("suzuki:4").criteria.suzuki).toEqual({ op: "atLeast", value: 4 })
+        expect(parseFacetQuery("nyssma:>3").criteria.nyssma).toEqual({ op: "after", value: 3 })
     })
 
-    it("composer:/type:/country:/role: tokens carry their value through verbatim", () => {
+    it("composer:/type:/country:/role: tokens carry their value through verbatim as a 'contains' criterion", () => {
         const result = parseFacetQuery("composer:bach type:chamber country:france role:arranger")
-        expect(result.criteria).toMatchObject({ composer: "bach", type: "chamber", country: "france", role: "arranger" })
+        expect(result.criteria).toMatchObject({
+            composer: { op: "contains", value: "bach" },
+            type: "chamber",
+            country: { op: "contains", value: "france" },
+            role: { op: "contains", value: "arranger" }
+        })
         expect(result.text).toBe("")
     })
 
@@ -203,7 +256,7 @@ describe("parseFacetQuery", () => {
 
     it("mixes recognized tokens with leftover free text", () => {
         const result = parseFacetQuery("year:>=1700 violin sonata")
-        expect(result.criteria).toMatchObject({ yearFrom: 1700 })
+        expect(result.criteria.year).toEqual({ op: "atLeast", value: 1700 })
         expect(result.text).toBe("violin sonata")
         expect(result.hasCriteria).toBe(true)
     })
@@ -215,6 +268,20 @@ describe("ADVANCED_FIELDS", () => {
             if (field.control !== "select") continue
             expect(field.options?.[0]).toEqual({ label: "Any", value: "" })
         }
+    })
+
+    it("gives every text/number field an operators list, with no operators for select fields", () => {
+        for (const field of ADVANCED_FIELDS) {
+            if (field.control === "select") {
+                expect(field.operators).toBeUndefined()
+            } else {
+                expect(field.operators?.length).toBeGreaterThan(0)
+            }
+        }
+    })
+
+    it("does not include a 'noun' entry — entity type is its own checkbox group, not an ADVANCED_FIELDS control", () => {
+        expect(ADVANCED_FIELDS.some((field) => field.param === "noun")).toBe(false)
     })
 
     it("param names are unique (each is also the URLSearchParams/form key)", () => {

@@ -9,6 +9,10 @@
  * lib/search/facets.ts), pre-filled from those params, so an arriving submission is both executed and
  * immediately editable in place.
  *
+ * Entity type is its own checkbox group (not an ADVANCED_FIELDS entry) so multiple nouns can be checked
+ * at once — this page stays database-scoped (unlike plain /search, which can mix pages/posts in via its
+ * own type filter), but "composers and works" is a legitimate combined search here.
+ *
  * Hybrid engine: structured criteria (year ranges, rating minimums, etc.) are impossible to express as
  * Pagefind filters (discrete values only), so they run against the build-time database-facets.json
  * instead. With no keywords, results are the JSON filter alone (Pagefind returns nothing for an empty
@@ -39,15 +43,20 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import PublicPage from "../../layouts/PublicPage.astro"
-import { ADVANCED_FIELDS } from "../../lib/search/facets"
+import StaticBreadcrumbs from "../../components/StaticBreadcrumbs.astro"
+import { ADVANCED_FIELDS, nounOptions } from "../../lib/search/facets"
+import { ENTITY_NOUN_SLUGS } from "../../lib/compositor/entity-fields"
 
 export const prerender = true
 
 // Pre-fills every control from the arriving URL — the same params an entry-point form (the Puck
 // component, DatabaseRoot.astro) submits, and the same shape /search/advanced's own resubmission uses.
+// (This page is fully prerendered, so at build time these are always empty; the real pre-fill for an
+// arriving request happens client-side, from `location.search`, in the script below.)
 const params = Astro.url.searchParams
 const initialQuery = params.get("q") ?? ""
 const valueFor = (param: string): string => params.get(param) ?? ""
+const selectedNouns = new Set(params.getAll("noun"))
 ---
 
 <PublicPage
@@ -59,9 +68,10 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         (see that file), since this page hardcodes its own structure rather than reading it from a
         design/entity template. */}
     <div class="search-page static-page-body">
+        <StaticBreadcrumbs crumbs={[{ label: "Search", href: "/search" }]} current="Advanced search" />
         <h1>Advanced search</h1>
-        <p class="search-scope-note">Searching composers, works, and contributors.</p>
         <form id="advanced-search-form" role="search">
+            <label for="search-input" class="search-section-label">Free-text keyword search</label>
             <div class="search-form">
                 <input
                     type="search"
@@ -74,9 +84,27 @@ const valueFor = (param: string): string => params.get(param) ?? ""
                 />
                 <button type="submit">Search</button>
             </div>
-            <div class="search-advanced__grid">
+            {/* A real, visible fieldset/legend (not the bar's free-text input): makes explicit that
+                everything below is a set of filters narrowing which composers/works/contributors match,
+                distinct in kind from the keyword search above it. */}
+            <fieldset class="search-advanced__grid">
+                <legend class="search-section-label">Filters</legend>
+                <fieldset class="search-advanced__field search-advanced__nouns">
+                    <legend>Entity type</legend>
+                    <div class="search-advanced__nouns-options">
+                        {nounOptions().map((option) => (
+                            <label>
+                                <input type="checkbox" name="noun" value={option.value} checked={selectedNouns.has(option.value)} />
+                                {option.label}
+                            </label>
+                        ))}
+                    </div>
+                </fieldset>
                 {ADVANCED_FIELDS.map((field) => (
-                    <div class="search-advanced__field">
+                    <div
+                        class="search-advanced__field"
+                        data-nouns={field.nouns.map((noun) => ENTITY_NOUN_SLUGS[noun]).join(" ")}
+                    >
                         <label for={`adv-${field.param}`}>{field.label}</label>
                         {field.control === "select" ? (
                             <select id={`adv-${field.param}`} name={field.param}>
@@ -87,20 +115,54 @@ const valueFor = (param: string): string => params.get(param) ?? ""
                                 ))}
                             </select>
                         ) : (
-                            <input
-                                id={`adv-${field.param}`}
-                                type={field.control === "number" ? "number" : "text"}
-                                name={field.param}
-                                placeholder={field.placeholder}
-                                value={valueFor(field.param)}
-                            />
+                            <div class="search-advanced__control">
+                                {field.operators && (
+                                    <select
+                                        class="search-advanced__op"
+                                        id={`adv-${field.param}-op`}
+                                        name={`${field.param}_op`}
+                                        aria-label={`${field.label} comparison`}
+                                    >
+                                        {field.operators.map((op) => (
+                                            <option
+                                                value={op.value}
+                                                selected={(valueFor(`${field.param}_op`) || field.operators?.[0].value) === op.value}
+                                            >
+                                                {op.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                                <input
+                                    id={`adv-${field.param}`}
+                                    type={field.control === "number" ? "number" : "text"}
+                                    name={field.param}
+                                    placeholder={field.placeholder}
+                                    value={valueFor(field.param)}
+                                />
+                                {field.operators?.some((op) => op.value === "between") && (
+                                    <input
+                                        type="number"
+                                        class="search-advanced__to"
+                                        id={`adv-${field.param}-to`}
+                                        name={`${field.param}To`}
+                                        placeholder="to"
+                                        aria-label={`${field.label} upper bound`}
+                                        value={valueFor(`${field.param}To`)}
+                                        hidden={valueFor(`${field.param}_op`) !== "between"}
+                                        disabled={valueFor(`${field.param}_op`) !== "between"}
+                                    />
+                                )}
+                            </div>
                         )}
                     </div>
                 ))}
-            </div>
+            </fieldset>
         </form>
+        <p class="search-back-link"><a href="/search">← Back to search</a></p>
         <p id="search-status" role="status" aria-live="polite"></p>
         <ul id="search-results"></ul>
+        <div id="search-pagination"></div>
     </div>
 </PublicPage>
 
@@ -108,13 +170,68 @@ const valueFor = (param: string): string => params.get(param) ?? ""
     .search-page {
         max-width: 48rem;
     }
-    .search-scope-note {
-        font-size: 0.85rem;
+    /* Visible caption for a control group — the free-text bar's label and the filter fieldset's legend
+       share this so the two are legibly distinguished as different kinds of control. */
+    .search-section-label {
+        display: block;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.72rem);
+        letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+        text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-        margin: 0 0 var(--dtk-space-md, 1.5rem);
+        margin: 0 0 var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem));
     }
     #advanced-search-form {
         margin-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+    }
+    .search-advanced__grid {
+        border: none;
+        padding: 0;
+        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+    }
+    .search-advanced__grid legend {
+        margin: 0 0 var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem));
+        padding: 0;
+        width: 100%;
+    }
+    .search-advanced__nouns {
+        grid-column: 1 / -1;
+        border: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .search-advanced__nouns-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+    }
+    .search-advanced__nouns-options label {
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35em;
+    }
+    .search-advanced__control {
+        display: flex;
+        gap: 0.35rem;
+    }
+    .search-advanced__op {
+        flex: 0 0 auto;
+        min-width: 6rem;
+    }
+    .search-advanced__to {
+        flex: 1;
+        min-width: 4rem;
+    }
+    .search-back-link {
+        font-size: 0.875rem;
+        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+    }
+    .search-back-link a {
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
     }
     #search-status {
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
@@ -122,6 +239,12 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        /* Stronger separation from the search controls above it than plain whitespace gives. */
+        margin-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+        padding-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+        border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
     }
     #search-results {
         list-style: none;
@@ -131,11 +254,15 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         flex-direction: column;
         gap: var(--dtk-chrome-vertical-space-item-gap, var(--dtk-space-sm, 1rem));
     }
+    #search-pagination {
+        margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+    }
 </style>
 
 <!-- Astro's scoped styling only rewrites markup present in this file's own template at build time; the
-     <li>/<a>/<p>/<mark> a result renders are created by the client script below, so those rules must be
-     global or they silently never match (Astro adds no scoping class to runtime-created nodes). -->
+     <li>/<a>/<p>/<mark> a result renders, and the pagination controls, are created by the client script
+     below, so those rules must be global or they silently never match (Astro adds no scoping class to
+     runtime-created nodes). -->
 <style is:global>
     #search-results li a {
         font-weight: 600;
@@ -153,10 +280,36 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
         font-weight: 600;
     }
+    .search-pagination {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+        font-size: 0.875rem;
+    }
+    .search-pagination button {
+        padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.35rem))
+            var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.6rem));
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: transparent;
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+        cursor: pointer;
+    }
+    .search-pagination button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+    .search-pagination button:not(:disabled):hover {
+        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+    }
 </style>
 
 <script>
     import { matchesFacets, parseFacetParams, type FacetEntry } from "../../lib/search/facets"
+    import { computePageWindow, withPage, withShowAll, type PageWindow } from "../../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — see pages/search.astro's own copy of this pattern for why the
      *  path is a runtime string, not a static import. */
@@ -182,16 +335,33 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         return facetsCache
     }
 
+    // "page"/"perPage" are paging state, not search criteria — ignored here so a bare `?page=2` (never
+    // produced by this page itself, but reachable via a hand-edited URL) doesn't look like a real query.
+    function hasAnyValue(params: URLSearchParams): boolean {
+        for (const [key, value] of params.entries()) {
+            if (key === "page" || key === "perPage") continue
+            if (value.trim() !== "") return true
+        }
+        return false
+    }
+
     function formToParams(form: HTMLFormElement): URLSearchParams {
         const params = new URLSearchParams()
         for (const [key, value] of new FormData(form).entries()) {
-            if (typeof value === "string" && value.trim() !== "") params.set(key, value)
+            // FormData already omits disabled controls (the hidden "to" input when its operator isn't
+            // "between") and unchecked checkboxes, so no extra filtering is needed for those; `.append`
+            // (not `.set`) keeps every checked "noun" checkbox instead of only the last one.
+            if (typeof value === "string" && value.trim() !== "") params.append(key, value)
         }
         return params
     }
 
     function applyParamsToForm(form: HTMLFormElement, params: URLSearchParams): void {
         for (const element of form.elements) {
+            if (element instanceof HTMLInputElement && element.type === "checkbox") {
+                element.checked = params.getAll(element.name).includes(element.value)
+                continue
+            }
             if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLSelectElement)) continue
             if (!element.name) continue
             element.value = params.get(element.name) ?? ""
@@ -219,16 +389,139 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         list.appendChild(item)
     }
 
+    function pageStatusText(pageWindow: PageWindow): string {
+        const noun = pageWindow.totalCount === 1 ? "result" : "results"
+        if (pageWindow.showingAll) return `${pageWindow.totalCount} ${noun}`
+        return `${pageWindow.start + 1}–${pageWindow.end} of ${pageWindow.totalCount} ${noun}`
+    }
+
+    interface ResultItem {
+        url: string
+        title: string
+        subtitle: string
+        excerptHtml?: string
+    }
+
     function initAdvancedSearch(): void {
         const form = document.getElementById("advanced-search-form")
         const status = document.getElementById("search-status")
         const results = document.getElementById("search-results")
-        if (!(form instanceof HTMLFormElement) || !status || !results) return
+        const pagination = document.getElementById("search-pagination")
+        const input = document.getElementById("search-input")
+        if (
+            !(form instanceof HTMLFormElement) ||
+            !status ||
+            !results ||
+            !pagination ||
+            !(input instanceof HTMLInputElement)
+        ) {
+            return
+        }
         const statusEl = status
         const resultsEl = results
+        const paginationEl = pagination
+        // TS's narrowing of `form` above does not carry into the nested function declarations below (same
+        // quirk documented for statusEl/resultsEl/inputEl elsewhere in this codebase) — rebind so those
+        // closures see a statically non-null HTMLFormElement instead of `HTMLFormElement | null`.
+        const formEl = form
+
+        function selectedNouns(): string[] {
+            return Array.from(formEl.querySelectorAll<HTMLInputElement>('input[name="noun"]:checked')).map(
+                (checkbox) => checkbox.value
+            )
+        }
+
+        // Not every filter is meaningful for every entity type (e.g. "Composer country" has nothing to do
+        // with a composition) — each field's `.search-advanced__field` carries the noun slugs it applies to
+        // (data-nouns, set from ADVANCED_FIELDS' `nouns` in the template above); hide fields that don't
+        // apply to ANY checked noun, and show everything again once no noun (or every noun) is checked.
+        function updateFieldVisibility(): void {
+            const nouns = selectedNouns()
+            for (const field of formEl.querySelectorAll<HTMLElement>(".search-advanced__field:not(.search-advanced__nouns)")) {
+                const fieldNouns = (field.dataset.nouns ?? "").split(" ").filter(Boolean)
+                field.hidden = nouns.length > 0 && !fieldNouns.some((noun) => nouns.includes(noun))
+            }
+        }
+        for (const checkbox of form.querySelectorAll<HTMLInputElement>('input[name="noun"]')) {
+            checkbox.addEventListener("change", updateFieldVisibility)
+        }
+        updateFieldVisibility()
+
+        // A number field's operator select conditionally reveals (and enables — FormData skips disabled
+        // controls, so this also keeps a stale "to" value out of the submission) its paired upper-bound
+        // input when "between" is chosen.
+        function updateOperatorControls(): void {
+            // Queried as the generic Element (not <HTMLSelectElement>): HTMLSelectElement's `remove(index)`
+            // overload is incompatible with querySelectorAll's `E extends Element` constraint (Element.remove
+            // takes no arguments) — see scripts/common.ts's FormControl comment for the same quirk.
+            for (const opSelect of formEl.querySelectorAll(".search-advanced__op")) {
+                if (!(opSelect instanceof HTMLSelectElement)) continue
+                const param = opSelect.name.replace(/_op$/, "")
+                const toInput = document.getElementById(`adv-${param}-to`)
+                if (!(toInput instanceof HTMLInputElement)) continue
+                const isBetween = opSelect.value === "between"
+                toInput.hidden = !isBetween
+                toInput.disabled = !isBetween
+            }
+        }
+        for (const opSelect of form.querySelectorAll(".search-advanced__op")) {
+            if (opSelect instanceof HTMLSelectElement) opSelect.addEventListener("change", updateOperatorControls)
+        }
+        updateOperatorControls()
+
+        function navigate(params: URLSearchParams): void {
+            const url = new URL(location.href)
+            url.search = params.toString()
+            // pushState (not search.astro's replaceState): each submission/page change is a distinct search
+            // a visitor may want to return to via the browser's back button.
+            history.pushState(null, "", url)
+            void runSearch(params)
+        }
+
+        function renderPagination(pageWindow: PageWindow, currentParams: URLSearchParams): void {
+            paginationEl.replaceChildren()
+            if (pageWindow.totalPages <= 1 && pageWindow.showingAll) return
+            const nav = document.createElement("div")
+            nav.className = "search-pagination"
+            if (!pageWindow.showingAll) {
+                const prev = document.createElement("button")
+                prev.type = "button"
+                prev.textContent = "← Previous"
+                prev.disabled = pageWindow.page <= 1
+                prev.addEventListener("click", () => navigate(withPage(currentParams, pageWindow.page - 1)))
+                nav.appendChild(prev)
+
+                const label = document.createElement("span")
+                label.textContent = `Page ${pageWindow.page} of ${pageWindow.totalPages}`
+                nav.appendChild(label)
+
+                const next = document.createElement("button")
+                next.type = "button"
+                next.textContent = "Next →"
+                next.disabled = pageWindow.page >= pageWindow.totalPages
+                next.addEventListener("click", () => navigate(withPage(currentParams, pageWindow.page + 1)))
+                nav.appendChild(next)
+            }
+            const toggle = document.createElement("button")
+            toggle.type = "button"
+            toggle.textContent = pageWindow.showingAll ? "Show paginated" : `Show all ${pageWindow.totalCount}`
+            toggle.addEventListener("click", () => {
+                navigate(pageWindow.showingAll ? withPage(currentParams, 1) : withShowAll(currentParams))
+            })
+            nav.appendChild(toggle)
+            paginationEl.appendChild(nav)
+        }
 
         async function runSearch(params: URLSearchParams): Promise<void> {
             resultsEl.replaceChildren()
+            paginationEl.replaceChildren()
+            // Reject a fully empty submission (no keyword, no filter) rather than running it — with no
+            // criteria set, matchesFacets treats every entry as a match, so this would otherwise "search"
+            // for and render the entire database.
+            if (!hasAnyValue(params)) {
+                statusEl.textContent = "Enter a keyword or set at least one filter."
+                return
+            }
             const criteria = parseFacetParams(params)
             const query = (params.get("q") ?? "").trim()
             statusEl.textContent = "Searching…"
@@ -237,31 +530,36 @@ const valueFor = (param: string): string => params.get(param) ?? ""
                 const facets = await loadFacets()
                 const matched = facets.filter((entry) => matchesFacets(entry, criteria))
 
+                let items: ResultItem[]
                 if (query === "") {
-                    if (matched.length === 0) {
-                        statusEl.textContent = "No results found."
-                        return
+                    items = matched.map((entry) => ({ url: entry.url, title: entry.name, subtitle: entry.composer ?? "" }))
+                } else {
+                    // Keyword + criteria: Pagefind ranks and excerpts, the JSON-matched URL set narrows. This
+                    // still costs one `.data()` call per raw Pagefind hit before pagination can slice
+                    // anything — unlike search.astro's plain keyword mode, the JSON intersection has to see
+                    // every hit's URL to know which survive, so there is no way to slice first here.
+                    const matchedByUrl = new Map(matched.map((entry) => [entry.url, entry]))
+                    const pf = await loadPagefind()
+                    const search = await pf.search(query, { filters: { scope: ["database"] } })
+                    items = []
+                    for (const result of search.results) {
+                        const data = await result.data()
+                        const entry = matchedByUrl.get(data.url)
+                        if (!entry) continue
+                        items.push({ url: data.url, title: data.meta.title || entry.name, subtitle: entry.composer ?? "", excerptHtml: data.excerpt })
                     }
-                    statusEl.textContent = `${matched.length} result${matched.length === 1 ? "" : "s"}`
-                    for (const entry of matched) {
-                        renderEntry(resultsEl, entry.url, entry.name, entry.composer ?? "")
-                    }
-                    return
                 }
 
-                // Keyword + criteria: Pagefind ranks and excerpts, the JSON-matched URL set narrows.
-                const matchedByUrl = new Map(matched.map((entry) => [entry.url, entry]))
-                const pf = await loadPagefind()
-                const search = await pf.search(query, { filters: { scope: ["database"] } })
-                let count = 0
-                for (const result of search.results) {
-                    const data = await result.data()
-                    const entry = matchedByUrl.get(data.url)
-                    if (!entry) continue
-                    count++
-                    renderEntry(resultsEl, data.url, data.meta.title || entry.name, entry.composer ?? "", data.excerpt)
+                if (items.length === 0) {
+                    statusEl.textContent = "No results found."
+                    return
                 }
-                statusEl.textContent = count === 0 ? "No results found." : `${count} result${count === 1 ? "" : "s"}`
+                const pageWindow = computePageWindow(items.length, params)
+                statusEl.textContent = pageStatusText(pageWindow)
+                for (const item of items.slice(pageWindow.start, pageWindow.end)) {
+                    renderEntry(resultsEl, item.url, item.title, item.subtitle, item.excerptHtml)
+                }
+                renderPagination(pageWindow, params)
             } catch {
                 // Most likely cause: opened via `astro dev`, which never runs Pagefind (see search.astro).
                 statusEl.textContent = "Search is unavailable right now."
@@ -270,18 +568,14 @@ const valueFor = (param: string): string => params.get(param) ?? ""
 
         form.addEventListener("submit", (event) => {
             event.preventDefault()
-            const params = formToParams(form)
-            const url = new URL(location.href)
-            url.search = params.toString()
-            // pushState (not search.astro's replaceState): each submission is a distinct search a visitor
-            // may want to return to via the browser's back button.
-            history.pushState(null, "", url)
-            void runSearch(params)
+            navigate(formToParams(form))
         })
 
         window.addEventListener("popstate", () => {
             const params = new URLSearchParams(location.search)
             applyParamsToForm(form, params)
+            updateFieldVisibility()
+            updateOperatorControls()
             void runSearch(params)
         })
 
@@ -289,6 +583,13 @@ const valueFor = (param: string): string => params.get(param) ?? ""
         const initialParams = new URLSearchParams(location.search)
         if (initialParams.toString() !== "") {
             void runSearch(initialParams)
+        } else {
+            // Arriving from /search's "Advanced search" link, which carries the typed query as a `#q=`
+            // hash fragment rather than a `?q=` search param specifically so it prefills without running —
+            // see that page's updateAdvancedLink for why.
+            const hashParams = new URLSearchParams(location.hash.replace(/^#/, ""))
+            const prefill = hashParams.get("q")
+            if (prefill) input.value = prefill
         }
     }
 
