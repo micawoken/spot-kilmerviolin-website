@@ -25,11 +25,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import BaseHead from "../../../components/BaseHead.astro"
-import AdminHead from "../../../components/AdminHead.astro"
-import AdminHeader from "../../../components/AdminHeader.astro"
-import AdminFooter from "../../../components/AdminFooter.astro"
-import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import BaseHead from "../../../../components/BaseHead.astro"
+import AdminHead from "../../../../components/AdminHead.astro"
+import AdminHeader from "../../../../components/AdminHeader.astro"
+import AdminFooter from "../../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../../consts"
 
 export const prerender = false
 ---
@@ -74,10 +74,10 @@ export const prerender = false
             <script>
                 // A real module import forces Astro to emit this as an external hashed module (never inlined),
                 // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
-                import { emptyDesignDoc } from "../../../lib/compositor/migrations"
-                import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../lib/compositor/types"
-                import { ENTITY_NOUNS } from "../../../lib/compositor/entity-fields"
-                import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../lib/compositor/design-list"
+                import { emptyDesignDoc } from "../../../../lib/compositor/migrations"
+                import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../../lib/compositor/types"
+                import { ENTITY_NOUNS } from "../../../../lib/compositor/entity-fields"
+                import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../../lib/compositor/design-list"
 
                 const TEMPLATE_ENDPOINT = "/_emdash/api/content/design_template"
                 const EDITOR_PATH = "/admin/advanced/designs/edit"
