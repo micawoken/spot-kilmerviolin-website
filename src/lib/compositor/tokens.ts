@@ -486,27 +486,14 @@ export function columnsStackBreakpointCss(catalog: TokenCatalog): string {
  * the theme explicitly disabled it. Generated here, not hardcoded, because it's theme-authored like
  * `columnsStackBreakpointCss`. Falls back to enabled — only explicit `false` turns it off.
  *
- * Also overrides the UA default crossfade: `mix-blend-mode: plus-lighter` additively blends old/new
- * snapshots to avoid a black flash, but washes toward white on a light theme. A real backdrop (matching
- * public-chrome.css's page-background fallback chain) removes the need for that trick, so a plain
- * `mix-blend-mode: normal` crossfade doesn't wash white or dip black in either theme. Must be
- * `!important`: the UA drives mix-blend-mode via an actual CSS Animation, and animation-origin
- * declarations beat normal-priority author rules regardless of specificity — confirmed via a DevTools
- * trace with a plain override still overridden. */
+ * Deliberately does not restyle the UA crossfade. The UA drives it with complementary opacity keyframes
+ * under `mix-blend-mode: plus-lighter` inside an `isolation: isolate` image pair, so the two snapshots
+ * sum to exactly `(1-t)·old + t·new` at alpha 1 — an exact crossfade. Overriding the blend to `normal`
+ * instead stacks them, dropping content to 0.75 alpha at the midpoint and visibly dimming every
+ * navigation; a DevTools trace measured that dip to the decimal. Leave the UA default alone. */
 export function viewTransitionCss(catalog: TokenCatalog): string {
     if (catalog.viewTransitions === false) return ""
-    return (
-        "@view-transition {\n" +
-        "    navigation: auto;\n" +
-        "}\n" +
-        "::view-transition-group(root) {\n" +
-        "    background-color: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));\n" +
-        "}\n" +
-        "::view-transition-old(root),\n" +
-        "::view-transition-new(root) {\n" +
-        "    mix-blend-mode: normal !important;\n" +
-        "}"
-    )
+    return "@view-transition {\n" + "    navigation: auto;\n" + "}"
 }
 
 /** Whether every element of an array passes a per-element guard. */

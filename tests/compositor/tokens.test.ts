@@ -490,17 +490,7 @@ describe("columnsStackBreakpointCss", () => {
 })
 
 describe("viewTransitionCss", () => {
-    const ENABLED_CSS =
-        "@view-transition {\n" +
-        "    navigation: auto;\n" +
-        "}\n" +
-        "::view-transition-group(root) {\n" +
-        "    background-color: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));\n" +
-        "}\n" +
-        "::view-transition-old(root),\n" +
-        "::view-transition-new(root) {\n" +
-        "    mix-blend-mode: normal !important;\n" +
-        "}"
+    const ENABLED_CSS = "@view-transition {\n" + "    navigation: auto;\n" + "}"
 
     it("is enabled by default when no theme is published (empty catalog)", () => {
         expect(viewTransitionCss(EMPTY_TOKEN_CATALOG)).toBe(ENABLED_CSS)

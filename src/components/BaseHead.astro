@@ -71,27 +71,15 @@ const noindex = detectEnvironment(Astro.request) === "staging"
   of this rule, layouts/PublicPage.astro via tokens.ts's viewTransitionCss) — the admin has no design
   theme of its own to read a toggle from.
 
-  The UA default styles the crossfade with mix-blend-mode: plus-lighter, additively blending the old/new
-  snapshots over the transition's transparent canvas to avoid a black flash. On this light-themed admin
-  that instead washes the whole ~250ms crossfade toward white. Giving the group a real backdrop
-  (--color-bg, matching global.css's body background) removes the need for the additive-blend trick, so a
-  plain mix-blend-mode: normal crossfade doesn't wash toward white or dip toward black either.
+  Deliberately does not restyle the UA crossfade. The UA drives it with complementary opacity keyframes
+  under mix-blend-mode: plus-lighter inside an isolation: isolate image pair, so the two snapshots sum to
+  exactly (1-t)·old + t·new at alpha 1 — an exact crossfade. Overriding the blend to normal instead
+  stacks them, dropping content to 0.75 alpha at the midpoint and visibly dimming every navigation; a
+  DevTools trace measured that dip to the decimal. Leave the UA default alone.
 -->
 <style is:global>
     @view-transition {
         navigation: auto;
-    }
-    ::view-transition-group(root) {
-        background-color: var(--color-bg);
-    }
-    ::view-transition-old(root),
-    ::view-transition-new(root) {
-        /* !important: the UA stylesheet drives this property via an actual CSS Animation
-         * (-ua-mix-blend-mode-plus-lighter), not a static rule. Per the cascade, animation-origin
-         * declarations beat normal-priority author declarations regardless of specificity — only
-         * !important author rules can win against it. Confirmed via a DevTools performance trace
-         * showing that animation still active with a plain (non-important) override in place. */
-        mix-blend-mode: normal !important;
     }
 </style>
 
