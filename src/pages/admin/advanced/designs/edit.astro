@@ -32,10 +32,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import BaseHead from "../../../components/BaseHead.astro"
-import AdminTypeface from "../../../components/AdminTypeface.astro"
-import ReactRefreshPreamble from "../../../components/compositor/ReactRefreshPreamble.astro"
-import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import BaseHead from "../../../../components/BaseHead.astro"
+import AdminTypeface from "../../../../components/AdminTypeface.astro"
+import ReactRefreshPreamble from "../../../../components/compositor/ReactRefreshPreamble.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../../consts"
 
 export const prerender = false
 
@@ -72,7 +72,7 @@ const kind = Astro.url.searchParams.get("type") === "template" ? "template" : "p
             // which that CSP permits. Do not reintroduce a client directive on an /admin page.
             import { createElement } from "react"
             import { createRoot } from "react-dom/client"
-            import DesignEditor from "../../../components/compositor/DesignEditor"
+            import DesignEditor from "../../../../components/compositor/DesignEditor"
 
             const host = document.getElementById("design-editor")
             if (!host) throw new Error("The design editor host element is missing")

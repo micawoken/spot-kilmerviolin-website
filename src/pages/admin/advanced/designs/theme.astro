@@ -28,12 +28,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import BaseHead from "../../../components/BaseHead.astro"
-import AdminHead from "../../../components/AdminHead.astro"
-import AdminHeader from "../../../components/AdminHeader.astro"
-import AdminFooter from "../../../components/AdminFooter.astro"
-import ReactRefreshPreamble from "../../../components/compositor/ReactRefreshPreamble.astro"
-import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import BaseHead from "../../../../components/BaseHead.astro"
+import AdminHead from "../../../../components/AdminHead.astro"
+import AdminHeader from "../../../../components/AdminHeader.astro"
+import AdminFooter from "../../../../components/AdminFooter.astro"
+import ReactRefreshPreamble from "../../../../components/compositor/ReactRefreshPreamble.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../../consts"
 
 export const prerender = false
 ---
@@ -59,7 +59,7 @@ export const prerender = false
                 // directive cannot be used under the admin CSP (middleware/headers.ts).
                 import { createElement } from "react"
                 import { createRoot } from "react-dom/client"
-                import ThemeEditor from "../../../components/compositor/ThemeEditor"
+                import ThemeEditor from "../../../../components/compositor/ThemeEditor"
 
                 const host = document.getElementById("theme-editor")
                 if (!host) throw new Error("The theme editor host element is missing")
