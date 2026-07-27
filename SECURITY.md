@@ -1,5 +1,8 @@
 # SECURITY POLICY
 
+## Code Standards
+You must comply with our code contribution policies in CONTRIBUTING.md, including the disclosure and human review of AI-generated code.
+
 ## Searching For and Reporting Security Vulnerabilities
 You are permitted to search for vulnerabilities in the project source code, so long as you:
 1. Do not modify or delete any data on the service;
