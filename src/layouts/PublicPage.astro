@@ -35,6 +35,7 @@ import PublicHeader from "../components/PublicHeader.astro"
 import PublicFooter from "../components/PublicFooter.astro"
 import { getSiteSettings } from "../lib/content/site"
 import { getThemeHead } from "../lib/content/theme-head"
+import { getNav, getFooterNav } from "../lib/content/nav"
 // Binds the shared public chrome (body, PublicHeader, PublicFooter) to the theme's --dtk-* tokens, each
 // with a styles/global.css --color-* fallback. Public-only: never imported by the admin (BaseHead), so the
 // admin keeps its built-in palette. Loaded after global.css (imported by PublicHead) so its body rule wins.
@@ -65,15 +66,15 @@ interface Props {
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
 // when a page does not supply its own title/description
-const site = await getSiteSettings()
+//
+// getNav/getFooterNav are started here too, alongside settings/theme, even though their results aren't
+// used until PublicHeader/PublicFooter render below: fetchSettings/fetchMenu memoize per build, so firing
+// all four now lets them race over the network together instead of each component discovering — and
+// paying for — its own read one at a time as the page renders top to bottom.
+const [site, themeHead] = await Promise.all([getSiteSettings(), getThemeHead(), getNav(), getFooterNav()])
 const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore, contentType = "page" } =
     Astro.props
 const bodyPagefindFilter = [`type:${contentType}`, pagefindFilter].filter(Boolean).join(", ")
-
-// The theme's whole-page head contribution — the web-font links and the --dtk-* custom-property block —
-// from a single theme read. Emitted on every public page (not just design pages) so the chrome binding in
-// public-chrome.css has tokens to resolve site-wide. Empty (no links, no tokens) when no theme is authored.
-const themeHead = await getThemeHead()
 ---
 
 <!doctype html>
