@@ -148,22 +148,26 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                                             ))}
                                         </select>
                                     )}
-                                    {/* A field whose operator list never includes "between" (composer/country's
-                                        TEXT_OPERATORS) never renders a `to` input at all, so its value control
-                                        spans both remaining columns instead of leaving the third one permanently
-                                        empty. A field that DOES support "between" (year/rating/birth/death) keeps
-                                        the reserved third column even when its current operator isn't "between" —
-                                        see search-form.css's fixed-column grid comment for why that reservation
-                                        (not filling it) is what avoids a layout shift on toggling the operator.
-                                        `is-inactive` hides via visibility (not `hidden`/`display`) for the same
-                                        no-shift reason. */}
+                                    {/* Value spans both remaining columns (search-advanced__value--full) whenever
+                                        the "to" column isn't in use: either the field's operator list never
+                                        includes "between" at all (composer/country's TEXT_OPERATORS), or it does
+                                        but the current operator isn't "between" (year/rating/birth/death) — in
+                                        both cases there's no "to" input to leave room for. updateOperatorControls
+                                        (script below) keeps this in sync when the operator changes client-side;
+                                        toggling into/out of "between" does shift the value input's width as a
+                                        result, traded deliberately for not leaving the "to" column's width unused
+                                        the rest of the time. deathYear's "alive" operator is excluded from the
+                                        full-width swap (isAlive) so its value input's reserved column still lines
+                                        up with the "to" column while both sit inactive side by side. `is-inactive`
+                                        hides via visibility (not `hidden`/`display`) so its own reserved width
+                                        never changes when toggling alive/not-alive. */}
                                     {/* "from" pairs with the "to" input below while "between" is the active operator
                                         (matching its lowercase style exactly); any other operator falls back to the
                                         field's own placeholder. data-default-placeholder lets updateOperatorControls
                                         (script below) restore this without hardcoding it client-side. */}
                                     <input
                                         id={`adv-${field.param}`}
-                                        class:list={["search-advanced__value", { "is-inactive": isAlive, "search-advanced__value--full": !hasBetween }]}
+                                        class:list={["search-advanced__value", { "is-inactive": isAlive, "search-advanced__value--full": !isBetween && !isAlive }]}
                                         type={field.control === "number" ? "number" : "text"}
                                         name={field.param}
                                         placeholder={isBetween ? "from" : field.placeholder}
@@ -241,7 +245,10 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
     .search-advanced__grid {
         border: none;
         padding: 0;
-        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+        /* Doubled (not the plain control-space used elsewhere on this page) — this is the gap between
+           "← Back to search" and the "FILTERS" legend below it; at the plain control-space the legend read
+           as part of the same line of controls as the link above it, rather than the start of a new section. */
+        margin: calc(var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) * 2) 0 0;
     }
     .search-advanced__grid legend {
         margin: 0 0 var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem));
@@ -249,15 +256,14 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         width: 100%;
     }
     /* "FILTERS" (the fieldset legend below) is the umbrella label for this whole grid — entity type AND
-       every individual field are all filters — not a header specifically for the checkbox row. This
-       row's own bottom margin (beyond the grid's shared row `gap`) is what visually separates "entity
-       type" from "the rest of the filters" as two parts of one section, rather than the checkbox row
-       reading as its own thing "FILTERS" happens to sit directly above. */
+       every individual field are all filters, not a header specifically for the checkbox row — so this
+       row carries no bottom margin of its own beyond the grid's shared row `gap`, same as the gap between
+       any two field rows below it. An added margin here read as its own separate section instead of a
+       first row of the same "FILTERS" group the fields below it belong to. */
     .search-advanced__nouns {
         grid-column: 1 / -1;
         border: none;
         padding: 0;
-        margin: 0 0 var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
@@ -276,6 +282,18 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         align-items: center;
         /* Was 0.35em — checkbox and its own label sat uncomfortably close together. */
         gap: 0.5em;
+        /* The nouns fieldset also carries .search-advanced__field (see the template) so its own field-label
+           rule (search-form.css) still applies here too — including the 2-line min-height reservation meant
+           for a field label that might wrap (SUZUKI RATING, COMPOSER COUNTRY, …). These three labels never
+           wrap, so that reservation only read as extra padding under the whole checkbox row. */
+        min-height: 0;
+    }
+    /* The UA default checkbox margin (3px 3px 3px 4px in Chrome) makes the checkbox's own margin box taller
+       than the label text's line-height, so align-items: center above was sizing this row to fit that
+       margin box rather than the text — reading as extra padding under the whole checkbox row. Zeroing it
+       lets the text's own line-height govern the row's height instead. */
+    .search-advanced__nouns-options input[type="checkbox"] {
+        margin: 0;
     }
     /* Shown when the checked noun(s) have no applicable fields at all (contributor — no ADVANCED_FIELDS
        entry carries "contributor" in its `nouns`, see facets.ts) rather than leaving a silent empty gap
@@ -286,10 +304,16 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         margin: 0;
     }
-    /* Reused by /search's own "Advanced search →" link (search-form.css) — this margin, matching that
-       page's local override, is the only piece not shared. */
+    /* This page's own override of search-form.css's shared `.search-advanced-link` (font-size/color only) —
+       deliberately NOT the same margin value as /search's own override (search.astro), even though both
+       links should land at the same vertical position. There, `#search-form` (the section-space
+       margin-block below) IS the free-text row itself, so its section-space bottom margin collapses with
+       the link <p>'s own (smaller) top margin and wins — the link ends up section-space below the row
+       either way. Here the free-text row is a plain <div> inside `#advanced-search-form` with no margin of
+       its own, so nothing section-space-sized exists for this link's margin to collapse with; it has to be
+       section-space itself to land "← Back to search" at that same spot. */
     .search-advanced-link {
-        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+        margin: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) 0 0;
     }
     #search-status {
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
@@ -552,8 +576,13 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                     valueInput.classList.toggle("is-inactive", isAlive)
                     valueInput.disabled = isAlive
                     // Only a field with a "to" input (hasBetween in the template above) ever pairs "from"/"to" —
-                    // toInput is null for every other field, so this never touches their placeholder.
-                    if (toInput) valueInput.placeholder = isBetween ? "from" : (valueInput.dataset.defaultPlaceholder ?? "")
+                    // toInput is null for every other field, so this never touches their placeholder, and its
+                    // value input already carries search-advanced__value--full from the server render (always
+                    // true for it) with nothing here to keep in sync.
+                    if (toInput) {
+                        valueInput.placeholder = isBetween ? "from" : (valueInput.dataset.defaultPlaceholder ?? "")
+                        valueInput.classList.toggle("search-advanced__value--full", !isBetween && !isAlive)
+                    }
                 }
             }
         }

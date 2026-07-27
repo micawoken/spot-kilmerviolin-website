@@ -91,7 +91,10 @@
 .search-advanced__grid {
 	display: grid;
 	grid-template-columns: repeat(1, 1fr);
-	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+	/* Row/column rhythm for the field grid itself — deliberately its own, smaller fallback (not the shared
+	 * control-space fallback used elsewhere on this page) now that every row (including the entity-type
+	 * checkboxes) relies on this alone with no extra per-row margin of its own. */
+	gap: var(--dtk-chrome-horizontal-space-control, 0.5rem);
 	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
 }
 @media (min-width: 30rem) {
@@ -139,6 +142,14 @@
 	display: grid;
 	grid-template-columns: 7rem 1fr 1fr;
 	gap: 0.35rem;
+}
+/* Pins every child to row 1 explicitly — this control is always exactly one row. Needed once
+ * search-advanced__value--full and search-advanced__to's own grid-row/grid-column pin (below) can overlap
+ * in column 3: leaving either side's row to auto-placement makes the grid treat that column as occupied by
+ * whichever one it placed first and bump the other onto a second row, inflating the field's height either
+ * way — pinning only one side just moves the bug to the other. */
+.search-advanced__control > * {
+	grid-row: 1;
 }
 .search-advanced__op,
 .search-advanced__value,
@@ -191,16 +202,24 @@
 	-webkit-appearance: none;
 	margin: 0;
 }
-/* Composer/country (TEXT_OPERATORS has no "between") never render a `to` input, so their value control
- * fills both remaining columns instead of leaving the third one an empty gap — see advanced.astro's
- * template comment for why a "between"-capable field keeps that column reserved instead. */
+/* Applied whenever the "to" column is unused: composer/country (TEXT_OPERATORS has no "between") never
+ * render a `to` input at all, and a "between"-capable field (year/rating/birth/death) gets this class
+ * too whenever its current operator isn't "between" — see advanced.astro's template/script comments for
+ * how the latter is kept in sync client-side. Either way the value control fills both remaining columns
+ * instead of leaving the third one an empty gap. */
 .search-advanced__value--full {
 	grid-column: 2 / -1;
 }
-/* Reserves its column's space (rather than `hidden`/`display: none`, which would collapse it) whenever the
- * chosen operator doesn't need this control — the "to" input outside "between", or the value input itself
- * under deathYear's "alive" (see pages/search/advanced.astro). This is the layout-shift fix: toggling the
- * operator only ever changes what's drawn inside an already-reserved box, never the box's own size. */
+/* Pinned to column 3 explicitly (not left to auto-placement) so it still lands there — overlapping, since
+ * it's invisible whenever it's also inactive (see below) — even while search-advanced__value--full spans
+ * columns 2 AND 3 above. Its row is pinned too, by the shared `> *` rule above. */
+.search-advanced__to {
+	grid-column: 3;
+}
+/* Hidden via visibility (not `hidden`/`display: none`, which would pull it out of the grid and change
+ * `.search-advanced__control`'s content-driven height) whenever the chosen operator doesn't need this
+ * control — the "to" input outside "between", or the value input itself under deathYear's "alive" (see
+ * pages/search/advanced.astro). */
 .search-advanced__to.is-inactive,
 .search-advanced__value.is-inactive {
 	visibility: hidden;
