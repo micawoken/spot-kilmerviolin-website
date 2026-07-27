@@ -4,7 +4,7 @@
  * Seeds one draft design_template per D1-backed entity noun (composer, composition, contributor),
  * every field pre-placed (unified field-outlet rewrite — see entity-fields.ts for the field catalog
  * these mirror exactly). The owner reviews, adjusts, and marks/publishes each as its noun's default
- * through the normal /admin/designs editor — this script never sets `is_default: true` or publishes,
+ * through the normal /admin/advanced/designs editor — this script never sets `is_default: true` or publishes,
  * so it can never silently replace a live default template out from under the owner (mirrors
  * setup-design-collections.mjs's `seedTheme`, which seeds a draft for the same reason; contrast
  * `seedNoneSentinel`, which is safe to auto-publish because it renders nothing).
@@ -237,7 +237,7 @@ if (isMainModule) {
         for (const seed of SEEDS) await seedTemplate(seed)
         console.log(
             `\nSeeded against ${base}. Each item is a DRAFT, not the noun's default: review it in ` +
-                "/admin/designs, adjust the layout, then mark 'Default template for this collection' and " +
+                "/admin/advanced/designs, adjust the layout, then mark 'Default template for this collection' and " +
                 "publish when ready — publishing is a deliberate owner action, not automated here."
         )
     }

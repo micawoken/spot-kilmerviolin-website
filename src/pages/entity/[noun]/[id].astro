@@ -122,7 +122,7 @@ export async function getStaticPaths() {
                 .join("\n")
             throw new Error(
                 `[build] ${label} fails the pairing lint:\n${errors}\n` +
-                    "Fix the template in /admin/designs, or unpublish it."
+                    "Fix the template in /admin/advanced/designs, or unpublish it."
             )
         }
 

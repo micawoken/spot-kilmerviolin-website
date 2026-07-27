@@ -8,7 +8,7 @@
  *
  * Designable (8-task plan #8): an owner can author the 404 body through the compositor, the same way they
  * author any other design page, by giving a `design_page` the reserved slug `NOT_FOUND_PAGE_SLUG` (see its
- * doc comment in lib/build/design-api.ts) in /admin/designs. That page is looked up here, linted the same
+ * doc comment in lib/build/design-api.ts) in /admin/advanced/designs. That page is looked up here, linted the same
  * way [...slug].astro lints every design page (loud and early — a design that fails the a11y/safety lint
  * must not reach the public 404), and rendered through the same zero-JS Puck path. With no such page
  * published, this falls back to the original static markup below, so a fresh build with no CMS content
@@ -60,7 +60,7 @@ if (notFoundPage) {
             .join("\n")
         throw new Error(
             `[build] the reserved "${NOT_FOUND_PAGE_SLUG}" design page fails the design lint and cannot be ` +
-                `published:\n${errors}\nFix it in /admin/designs, or unpublish the page to fall back to the ` +
+                `published:\n${errors}\nFix it in /admin/advanced/designs, or unpublish the page to fall back to the ` +
                 "static Not Found page."
         )
     }

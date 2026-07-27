@@ -26,7 +26,7 @@ import { describe, it, expect } from "vitest"
 
 /**
  * Guards against an admin page that exists on disk but is reachable only by typing its URL — the exact
- * gap that let /admin/designs sit undiscoverable for weeks (plan-prelaunch-features.md §4). Every page
+ * gap that let /admin/advanced/designs sit undiscoverable for weeks (plan-prelaunch-features.md §4). Every page
  * under src/pages/admin/** must appear as a literal href somewhere in admin.astro or another admin page
  * (a section landing page linking to its own children, e.g. profile.astro -> profile/edit).
  *
@@ -60,8 +60,8 @@ const sharedChrome = import.meta.glob("../src/components/AdminFooter.astro", {
  */
 const ALLOWLIST = new Set<string>([
     // per-design editor, reached from the design list's client-side EDITOR_PATH navigation, not a static
-    // href (src/pages/admin/designs/index.astro)
-    "/admin/designs/edit",
+    // href (src/pages/admin/advanced/designs/index.astro)
+    "/admin/advanced/designs/edit",
     // the dynamic route pattern itself; per-doc pages are reached from docs/index.astro's
     // `href={`/admin/docs/${doc.id}`}` template literal, one per content-collection entry
     "/admin/docs/[...slug]"

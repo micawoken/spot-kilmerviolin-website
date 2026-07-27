@@ -1,6 +1,6 @@
 ---
 /**
- * pages/admin/designs/templates.astro
+ * pages/admin/advanced/designs/templates.astro
  *
  * Manage design templates used for the page pre-rendering process
  *
@@ -47,7 +47,7 @@ export const prerender = false
             <p class="general-infohelp">
                 Design templates are used to render CMS content and database content. Change these{" "}
                 to modify how data is organized. To change appearance (color, typography, spacing, etc.),{" "}
-                use the <a href="/admin/designs/theme">Theme page</a>.
+                use the <a href="/admin/advanced/designs/theme">Theme page</a>.
             </p>
             <section class="design-create" aria-labelledby="template-create-heading">
                 <h3 id="template-create-heading">Create a template</h3>
@@ -80,7 +80,7 @@ export const prerender = false
                 import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../lib/compositor/design-list"
 
                 const TEMPLATE_ENDPOINT = "/_emdash/api/content/design_template"
-                const EDITOR_PATH = "/admin/designs/edit"
+                const EDITOR_PATH = "/admin/advanced/designs/edit"
 
                 const templateListStatus = document.getElementById("template-list-status") as HTMLParagraphElement
                 const templateListContainer = document.getElementById("template-list") as HTMLDivElement

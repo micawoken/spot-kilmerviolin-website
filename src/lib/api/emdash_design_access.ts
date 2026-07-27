@@ -4,7 +4,7 @@
  * Allowlist of /_emdash paths the visual design system calls — the set a `design_editor` may reach
  * WITHOUT holding `cms_editor`. Applied by src/middleware/emdash_access.ts.
  *
- * Why this exists: the design system (/admin/designs — design list, Puck editor, theme editor) is a
+ * Why this exists: the design system (/admin/advanced/designs — design list, Puck editor, theme editor) is a
  * browser-side EmDash API client, talking to /_emdash directly from the page. "Let a design editor use
  * the design system without handing them the CMS" can't be a page gate — has to be expressed over the
  * paths/methods that page actually calls. That's this module.
@@ -67,7 +67,7 @@ interface DesignSystemRule {
 /**
  * The paths a design_editor may reach, nothing else. Each rule is the narrowest expression of one call
  * the design system actually makes; re-derive with
- * `grep -rn "_emdash" src/components/compositor src/lib/compositor src/pages/admin/designs`.
+ * `grep -rn "_emdash" src/components/compositor src/lib/compositor src/pages/admin/advanced/designs`.
  *
  * Read-only rules pinned to GET deliberately — the design system never writes to a content collection
  * other than its own, so admitting any other method there would grant the CMS by accident.
