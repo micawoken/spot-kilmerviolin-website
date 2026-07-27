@@ -86,6 +86,10 @@ import { renderCitationsList } from "../../scripts/citations"
 // Likewise framework-agnostic — reused so composer death_year/country render identically to the admin's
 // ComposerInfo.astro/format.ts treatment, not a second hand-written "-1 => Present"/code=>name copy.
 import { countryCodeName, formatDeathYear, titleCaseRole } from "../../scripts/format"
+// The advanced-search shared field list (docs/dev/plan-prelaunch-features.md §10) — PagefindSearch's
+// advanced panel maps over the same array DatabaseRoot.astro and /search/advanced render from, so all
+// three surfaces can't drift in fields, labels, param names, or markup. Framework-agnostic, safe here.
+import { ADVANCED_FIELDS } from "../search/facets"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 // Same type-only split as CollectionField above — RelatedEntries reads this from context, never imports
@@ -537,6 +541,13 @@ interface PagefindSearchProps {
      *  "database" restricts to pages carrying `data-pagefind-filter="scope:database"` (see search.astro
      *  and layouts/PublicPage.astro's `pagefindFilter` prop) — the three entity nouns' index/detail pages. */
     scope: "site" | "database"
+    /** "advanced" opens the criteria panel by default; "simple" (the pre-existing default) keeps it
+     *  collapsed (or absent, per `showToggle`). Optional — undefined on any design stored before this
+     *  field existed, defaulted defensively in `render`, not just `defaultProps`, for that back-compat. */
+    display?: "simple" | "advanced"
+    /** Whether the advanced criteria panel is offered as a `<details>` disclosure at all. "no" + "simple"
+     *  reproduces the original PagefindSearch markup exactly. Same back-compat treatment as `display`. */
+    showToggle?: "yes" | "no"
 }
 interface RelatedEntriesProps {
     heading: string
@@ -1129,19 +1140,71 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "Whole site", value: "site" },
                         { label: "Database only", value: "database" }
                     ]
+                },
+                display: {
+                    type: "select" as const,
+                    label: "Default view",
+                    options: [
+                        { label: "Simple", value: "simple" },
+                        { label: "Advanced (open by default)", value: "advanced" }
+                    ]
+                },
+                showToggle: {
+                    type: "select" as const,
+                    label: "Show advanced toggle",
+                    options: [
+                        { label: "Yes", value: "yes" },
+                        { label: "No", value: "no" }
+                    ]
                 }
             },
-            defaultProps: { scope: "site" },
-            // Plain GET form to /search, same convention as entity/index.astro's database-scoped search
-            // box — native browser navigation, no client JS (catalog purity rule). An empty query
-            // navigates to /search with no `q`, which renders its own empty-state UI.
-            render: ({ scope }: PagefindSearchProps) => (
-                <form className="cmp-search" action="/search" method="get">
-                    {scope === "database" && <input type="hidden" name="scope" value="database" />}
-                    <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
-                    <button type="submit">Search</button>
-                </form>
-            )
+            defaultProps: { scope: "site", display: "simple", showToggle: "no" },
+            // Plain GET form — native browser navigation, no client JS (catalog purity rule): the advanced
+            // panel is a <details> disclosure, needing no script to open/close. `display`/`showToggle`
+            // default in the destructure (not just `defaultProps`) so a design stored before these fields
+            // existed still renders exactly as it did — "simple" panel, target /search.
+            render: ({ scope, display = "simple", showToggle = "no" }: PagefindSearchProps) => {
+                const showAdvanced = showToggle === "yes" || display === "advanced"
+                // /search/advanced always filters database entries (plan-prelaunch-features.md §10 — scope
+                // is database-only there), so its own scope is implicit; the hidden scope input only
+                // matters for the plain /search target below.
+                const action = showAdvanced ? "/search/advanced" : "/search"
+                return (
+                    <form className="search-form" action={action} method="get">
+                        {!showAdvanced && scope === "database" && <input type="hidden" name="scope" value="database" />}
+                        <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
+                        {showAdvanced && (
+                            <details className="search-advanced" open={display === "advanced"}>
+                                <summary>Advanced search</summary>
+                                <div className="search-advanced__grid">
+                                    {ADVANCED_FIELDS.map((advField) => (
+                                        <div className="search-advanced__field" key={advField.param}>
+                                            <label htmlFor={`pfs-${advField.param}`}>{advField.label}</label>
+                                            {advField.control === "select" ? (
+                                                <select id={`pfs-${advField.param}`} name={advField.param}>
+                                                    {(advField.options ?? []).map((option) => (
+                                                        <option key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    id={`pfs-${advField.param}`}
+                                                    type={advField.control === "number" ? "number" : "text"}
+                                                    name={advField.param}
+                                                    placeholder={advField.placeholder}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        )}
+                        <button type="submit">Search</button>
+                    </form>
+                )
+            }
         },
         // --- Content outlets (pivot §4, D7): read the routed entry from the `context` closure. Each is
         // a twin of the component above it — same markup via the shared render body — differing only in

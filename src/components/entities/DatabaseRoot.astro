@@ -17,6 +17,12 @@
  * database root (docs/dev/miscellaneous.txt "/database alias"), so both aliases send a visitor into the
  * canonical namespace rather than /entity's. Individual entries still only exist under /entity/{noun}/{id}.
  *
+ * Search box targets /search/advanced (not plain /search) so its advanced panel has somewhere to submit
+ * to (docs/dev/plan-prelaunch-features.md §10) — that page is inherently database-scoped, reproducing
+ * this bar's former ?scope=database behavior for a keyword-only search with no extra hidden input. Field
+ * markup mirrors the Puck `PagefindSearch` component's advanced panel (catalog.tsx), both driven off the
+ * same `ADVANCED_FIELDS` list (lib/search/facets.ts) — the "same core" the two search surfaces share.
+ *
  * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
  * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
  * rewrite mechanism exists in this project (Astro, wrangler, and EmDash were all checked), and
@@ -51,6 +57,7 @@ import { fetchComposers, fetchCompositions, fetchContributors } from "../../lib/
 import { fetchPublishedEntityTemplates } from "../../lib/build/design-api"
 import { resolveEntityTemplates } from "../../lib/build/entity-routes"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../../lib/compositor/entity-fields"
+import { ADVANCED_FIELDS } from "../../lib/search/facets"
 
 // Same dual-source-dependency gate as entity/[noun]/index.astro (resolved default template AND at least
 // one D1 record) — reused independently here (not a shared computation, matching that file's own
@@ -95,16 +102,41 @@ const availableNouns = resolutions
         <h1>Database</h1>
         <p>What can we help you find?</p>
 
-        <form action="/search" method="get" class="entity-search-form">
-            <input type="hidden" name="scope" value="database" />
-            <input
-                type="search"
-                name="q"
-                placeholder="Search the database…"
-                aria-label="Search the database"
-                autocomplete="off"
-            />
-            <button type="submit">Search</button>
+        <form action="/search/advanced" method="get">
+            <div class="search-form">
+                <input
+                    type="search"
+                    name="q"
+                    placeholder="Search the database…"
+                    aria-label="Search the database"
+                    autocomplete="off"
+                />
+                <button type="submit">Search</button>
+            </div>
+            <details class="search-advanced">
+                <summary>Advanced search</summary>
+                <div class="search-advanced__grid">
+                    {ADVANCED_FIELDS.map((field) => (
+                        <div class="search-advanced__field">
+                            <label for={`db-adv-${field.param}`}>{field.label}</label>
+                            {field.control === "select" ? (
+                                <select id={`db-adv-${field.param}`} name={field.param}>
+                                    {(field.options ?? []).map((option) => (
+                                        <option value={option.value}>{option.label}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input
+                                    id={`db-adv-${field.param}`}
+                                    type={field.control === "number" ? "number" : "text"}
+                                    name={field.param}
+                                    placeholder={field.placeholder}
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </details>
         </form>
 
         {
@@ -144,37 +176,5 @@ const availableNouns = resolutions
     }
     .entity-breadcrumbs li[aria-current="page"] {
         color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-    }
-    .entity-search-form {
-        display: flex;
-        gap: var(--dtk-space-sm, 0.75rem);
-        margin-block: var(--dtk-space-md, 1.5rem);
-    }
-    .entity-search-form input[type="search"] {
-        flex: 1;
-        padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-sm, 0.75rem);
-        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-        border-radius: var(--dtk-radius-sm, 0);
-        background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
-        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-        font-size: 1rem;
-    }
-    .entity-search-form button {
-        padding: var(--dtk-space-sm, 0.5rem) var(--dtk-space-md, 1rem);
-        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-        border-radius: var(--dtk-radius-sm, 0);
-        background: transparent;
-        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-        /* Matches the input's font-size — buttons default to a smaller UA font-size than inputs, which
-         * otherwise leaves this shorter than the bar despite identical padding/border. */
-        font-size: 1rem;
-        cursor: pointer;
-    }
-    .entity-search-form button:hover {
-        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
     }
 </style>

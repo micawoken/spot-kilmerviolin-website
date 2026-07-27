@@ -14,6 +14,10 @@
  * "Database" crumb always points at the canonical /database root, but this component's own current-page
  * crumb has no link (it IS the current page, reached via either /entity/{noun}/ or /database/{noun}/).
  *
+ * Opts out of the Pagefind index (PublicPage's pagefindIgnore prop), same reasoning as DatabaseRoot.astro:
+ * it renders at two URLs (/entity/{noun}/ and /database/{noun}/) and every name it lists already has its
+ * own indexed detail page, so leaving it indexed would only add duplicate, lower-quality search hits.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at
@@ -65,7 +69,7 @@ const GENERATED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
 const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
-<PublicPage title={title} pagefindFilter="scope:database">
+<PublicPage title={title} pagefindFilter="scope:database" pagefindIgnore>
     {/* Single wrapper, not four bare children directly under <main>: public-chrome.css's
         `main > :not(.cmp-section, article)` rule insets each direct child individually via
         `var(--dtk-space-md)`. That token can be authored as a font-relative expression (e.g. a

@@ -177,8 +177,16 @@ interface PagefindSearchResult {
     data: () => Promise<PagefindSearchFragment>
 }
 
+// Value counts per filter key (e.g. { type: { page: 4, post: 2, work: 116 } }) — from either the
+// standalone `filters()` call (whole index) or a search result's own `filters` (narrowed to that
+// result set), used by pages/search.astro to populate its content-type checkboxes with live counts.
+interface PagefindFilterCounts {
+    [filterKey: string]: Record<string, number>
+}
+
 interface PagefindSearchResults {
     results: PagefindSearchResult[]
+    filters: PagefindFilterCounts
 }
 
 interface PagefindSearchOptions {
@@ -190,6 +198,8 @@ interface PagefindSearchOptions {
 interface PagefindApi {
     init: () => Promise<void>
     search: (query: string, options?: PagefindSearchOptions) => Promise<PagefindSearchResults>
+    /** Every filter key/value pair currently in the index, with unfiltered result counts. */
+    filters: () => Promise<PagefindFilterCounts>
 }
 
 interface ResponseInfo {

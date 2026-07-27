@@ -292,6 +292,33 @@ describe("buildConfig — PagefindSearch renders a plain GET form to /search", (
         const html = render(config, "PagefindSearch", { scope: "database" })
         expect(html).toContain('type="hidden" name="scope" value="database"')
     })
+
+    it("defaults to no advanced panel and /search when display/showToggle are absent (pre-existing stored designs)", () => {
+        // Simulates a design saved before `display`/`showToggle` existed — props carries neither field.
+        const html = render(config, "PagefindSearch", { scope: "site" })
+        expect(html).not.toContain("search-advanced")
+        expect(html).toContain('action="/search"')
+    })
+
+    it("renders no advanced panel when showToggle is explicitly \"no\"", () => {
+        const html = render(config, "PagefindSearch", { scope: "site", display: "simple", showToggle: "no" })
+        expect(html).not.toContain("search-advanced")
+        expect(html).toContain('action="/search"')
+    })
+
+    it("renders a collapsed advanced panel and targets /search/advanced when showToggle is \"yes\"", () => {
+        const html = render(config, "PagefindSearch", { scope: "site", display: "simple", showToggle: "yes" })
+        expect(html).toContain("search-advanced")
+        expect(html).not.toContain("open=")
+        expect(html).toContain('action="/search/advanced"')
+    })
+
+    it("renders the advanced panel open by default when display is \"advanced\", even with showToggle \"no\"", () => {
+        const html = render(config, "PagefindSearch", { scope: "site", display: "advanced", showToggle: "no" })
+        expect(html).toContain("search-advanced")
+        expect(html).toContain("open=")
+        expect(html).toContain('action="/search/advanced"')
+    })
 })
 
 describe("buildConfig — Breadcrumbs auto-derives its trail from route context", () => {

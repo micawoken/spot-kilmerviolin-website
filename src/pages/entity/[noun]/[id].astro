@@ -147,7 +147,7 @@ const { template, entry, theme, bundledFileAlt, relatedEntries } = Astro.props
 const title = typeof entry.name === "string" ? entry.name : undefined
 ---
 
-<PublicPage title={title} pagefindFilter="scope:database">
+<PublicPage title={title} pagefindFilter="scope:database" contentType={ENTITY_NOUN_SLUGS[template.collection]}>
     <style slot="head" set:html={compositorCss} />
     <EntityOgMeta slot="head" entryDate={entry.entry_date} changeDate={entry.change_date} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
