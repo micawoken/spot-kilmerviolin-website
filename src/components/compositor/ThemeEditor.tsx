@@ -71,6 +71,9 @@ import "./design-editor.css"
 // the live preview specimens below via a plain `<style>` in the admin document (admin CSP allows
 // `style-src 'self' 'unsafe-inline'`).
 import compositorCss from "../../lib/compositor/compositor.css?raw"
+// The PagefindSearch component's shared form styles (styles/search-form.css) — same `?raw` route, since
+// a bare `@import` in compositorCss would not survive that transform.
+import searchFormCss from "../../styles/search-form.css?raw"
 
 const DESIGN_THEME = "/_emdash/api/content/design_theme"
 
@@ -965,7 +968,7 @@ export default function ThemeEditor() {
     const previewCss = useMemo(() => {
         if (!editable) return ""
         const catalog = toCatalog(editable)
-        return `${tokensToCss(catalog)}\n${compositorCss}\n${columnsStackBreakpointCss(catalog)}`
+        return `${tokensToCss(catalog)}\n${compositorCss}\n${searchFormCss}\n${columnsStackBreakpointCss(catalog)}`
     }, [editable])
 
     useEffect(() => {

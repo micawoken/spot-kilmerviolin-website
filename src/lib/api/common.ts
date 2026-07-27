@@ -171,8 +171,9 @@ const KEY_PITCH_CLASS: Record<Key, number> = {
  * C#/Db, D#/Eb, E/Fb, E#/F, F#/Gb, G#/Ab, A#/Bb, B/Cb — onto the same value, so two differently-spelled
  * but musically identical keys compare equal.
  *
- * Currently unused: written ahead of the advanced search feature (docs/dev/plan-prelaunch-features.md
- * §10), which will match/group compositions by key using this reference instead of the raw Key string.
+ * Used by the advanced search feature (docs/dev/plan-prelaunch-features.md §10) — lib/search/facets.ts's
+ * `keyOptions`/`parseFacetQuery` and the database-facets.json.ts build endpoint — to match/group
+ * compositions by key using this reference instead of the raw Key string.
  *
  * @param {Key} key - the key to normalize
  * @returns {string} the pitch-class reference, of the form "<pitch class 0-11>-major" or "<pitch class 0-11>-minor"

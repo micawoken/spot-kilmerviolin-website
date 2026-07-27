@@ -320,36 +320,8 @@ a.cmp-related__tile:hover .cmp-related__name {
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
 
-/* PagefindSearch — a GET form to /search, same look as entity/index.astro's own database-scoped search
- * box (its inline styles are the source for these rules) so the two read as one search affordance. */
-.cmp-search {
-	display: flex;
-	gap: var(--dtk-space-sm, 0.75rem);
-}
-.cmp-search input[type="search"] {
-	flex: 1;
-	padding: 0.5rem 0.75rem;
-	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-	border-radius: var(--dtk-radius-sm, 0);
-	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
-	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-	font-size: 1rem;
-}
-.cmp-search button {
-	padding: 0.5rem 1rem;
-	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-	border-radius: var(--dtk-radius-sm, 0);
-	background: transparent;
-	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-	cursor: pointer;
-}
-.cmp-search button:hover {
-	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
-}
+/* PagefindSearch's form now renders with the shared `.search-form`/`.search-advanced*` classes
+ * (styles/search-form.css) instead of its own `.cmp-search` rules — see that file's header. */
 
 /* MediaText (unified field-outlet rewrite) — the collapsing media+text primitive (concern #3): the
  * image side is only rendered by catalog.tsx when the bound field resolves to a usable source, so an

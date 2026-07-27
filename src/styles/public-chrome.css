@@ -236,6 +236,9 @@ header .nav-area {
  * tree while closed, matching what the `hidden` attribute did before. */
 header #header-search-form {
 	display: flex;
+	/* Overrides `.search-form`'s own `flex-wrap: wrap` (styles/search-form.css) — this bar is a fixed-height
+	 * absolute-positioned overlay (below) and must stay one line regardless of width. */
+	flex-wrap: nowrap;
 	align-items: center;
 	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
 	position: absolute;
@@ -258,37 +261,9 @@ header #header-search-form.is-open {
 		transition: none;
 	}
 }
-/* Sizing/colors here match the other two public search bars (pages/search.astro's #search-form,
- * pages/entity/index.astro's .entity-search-form) so all three read as one consistent control. */
-header #header-search-form input {
-	flex: 1;
-	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
-	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-	border-radius: var(--dtk-radius-sm, 0);
-	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
-	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-	font-size: 1rem;
-}
-header #header-search-form button {
-	padding: var(--dtk-space-xs, 0.5rem) var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
-	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-	border-radius: var(--dtk-radius-sm, 0);
-	background: transparent;
-	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-	/* Buttons don't inherit font-size from the page (UA stylesheet defaults them to ~13px), so without
-	 * this the button's text sits in a shorter line box than the input's and the two controls end up
-	 * different heights despite identical padding/border. Matching the input's font-size is what makes
-	 * the button exactly as tall as the bar. */
-	font-size: 1rem;
-	cursor: pointer;
-}
-header #header-search-form button:hover {
-	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
-}
+/* The input/button look (padding, border, colors, font-size, hover) comes from the `.search-form` class
+ * on #header-search-form itself (styles/search-form.css) — the shared source all public search bars now
+ * read from — leaving only this form's own overlay positioning/transition above. */
 header .nav-links {
 	display: flex;
 	flex-wrap: wrap;

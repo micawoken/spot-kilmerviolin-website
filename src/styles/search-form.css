@@ -1,0 +1,110 @@
+/**
+ * styles/search-form.css
+ *
+ * Single source for every public search form's look (docs/dev/plan-prelaunch-features.md §10) —
+ * replaces four independently hand-synced copies: the Puck `PagefindSearch` component's `.cmp-search`
+ * (formerly in compositor.css), `DatabaseRoot.astro`'s `.entity-search-form`, `pages/search.astro`'s
+ * `#search-form`, and `PublicHeader.astro`'s `#header-search-form` (which keeps its own header-specific
+ * layout/overlay rules in public-chrome.css, adopting only the shared input/button look from here).
+ *
+ * Consumed two ways: a normal import from `layouts/PublicPage.astro` (covers every public page, design
+ * pages included — they render through that layout too), and a `?raw` import from
+ * `components/compositor/DesignEditor.tsx`/`ThemeEditor.tsx`, concatenated with `compositor.css`'s own
+ * `?raw` text for injection into their preview iframes (a bare `@import` would not survive `?raw`).
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+.search-form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
+}
+.search-form input[type="search"],
+.search-form input[type="text"],
+.search-form input[type="number"],
+.search-form select {
+	flex: 1;
+	min-width: 8rem;
+	padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem))
+		var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	font-size: 1rem;
+}
+.search-form button {
+	padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem))
+		var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: transparent;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	/* Matches the inputs' font-size — buttons default to a smaller UA font-size than inputs, which
+	 * otherwise leaves this shorter than the bar despite identical padding/border. */
+	font-size: 1rem;
+	cursor: pointer;
+}
+.search-form button:hover {
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+}
+
+/* The JS-free simple/advanced toggle (<details>), shared by the Puck component (when showToggle="yes"),
+ * DatabaseRoot.astro's bar, and /search/advanced's own criteria form. */
+.search-advanced {
+	margin-block: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+}
+.search-advanced > summary {
+	cursor: pointer;
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.85rem);
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+.search-advanced__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+}
+.search-advanced__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.search-advanced__field label {
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.72rem);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+	text-transform: uppercase;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+.search-advanced__actions {
+	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+}
+.search-advanced-link {
+	font-size: 0.875rem;
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+}

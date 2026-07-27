@@ -39,6 +39,9 @@ import { getThemeHead } from "../lib/content/theme-head"
 // with a styles/global.css --color-* fallback. Public-only: never imported by the admin (BaseHead), so the
 // admin keeps its built-in palette. Loaded after global.css (imported by PublicHead) so its body rule wins.
 import "../styles/public-chrome.css"
+// Single source for every public search form's look (docs/dev/plan-prelaunch-features.md §10) — see that
+// file's header for the full list of forms it replaces.
+import "../styles/search-form.css"
 
 interface Props {
     title?: string
@@ -53,12 +56,19 @@ interface Props {
      *  search box and nav tiles duplicated across two URLs). Pagefind then has nothing to index for the
      *  page, so it never appears as a search result. */
     pagefindIgnore?: boolean
+    /** Pagefind content-type filter value ("page" | "post" | one of ENTITY_NOUN_SLUGS), emitted as
+     *  "type:<value>" alongside pagefindFilter so /search's content-type checkboxes can narrow results.
+     *  Defaults to "page" so every existing/future public page is tagged automatically with no caller
+     *  change required — only [...slug].astro (posts) and entity/[noun]/[id].astro override it. */
+    contentType?: string
 }
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
 // when a page does not supply its own title/description
 const site = await getSiteSettings()
-const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore } = Astro.props
+const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore, contentType = "page" } =
+    Astro.props
+const bodyPagefindFilter = [`type:${contentType}`, pagefindFilter].filter(Boolean).join(", ")
 
 // The theme's whole-page head contribution — the web-font links and the --dtk-* custom-property block —
 // from a single theme read. Emitted on every public page (not just design pages) so the chrome binding in
@@ -99,7 +109,7 @@ const themeHead = await getThemeHead()
             every other caller simply leaves it empty. */}
         <slot name="head" />
     </head>
-    <body data-pagefind-filter={pagefindFilter} data-pagefind-ignore={pagefindIgnore}>
+    <body data-pagefind-filter={bodyPagefindFilter} data-pagefind-ignore={pagefindIgnore}>
         <PublicHeader />
         <main>
             <slot />

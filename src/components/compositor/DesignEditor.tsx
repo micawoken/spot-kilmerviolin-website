@@ -64,6 +64,9 @@ import { cmsBoolean, type DesignDoc } from "../../lib/compositor/types"
 // Vite `?raw` yields the file's text (typed via astro/client). Injected into the canvas iframe below,
 // where host styles are not synced — so this is how compositor.css reaches the preview.
 import compositorCss from "../../lib/compositor/compositor.css?raw"
+// The PagefindSearch component's shared form styles (styles/search-form.css) — same `?raw` route, since
+// a bare `@import` in compositorCss would not survive that transform.
+import searchFormCss from "../../styles/search-form.css?raw"
 import { rebuildSite } from "../../scripts/connector"
 
 // puck-theme.css rebinds Puck's own semantic color tokens to the app's palette (it ships no dark mode);
@@ -332,7 +335,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
         const context =
             kind === "template" ? { entry: previewEntry, fields: schemaFields ?? undefined } : undefined
         const base = buildConfig(theme, "editor", context) as unknown as Record<string, unknown>
-        const canvasCss = `${tokensToCss(theme)}\n${compositorCss}\n${columnsStackBreakpointCss(theme)}`
+        const canvasCss = `${tokensToCss(theme)}\n${compositorCss}\n${searchFormCss}\n${columnsStackBreakpointCss(theme)}`
         // Overrides buildConfig's own `root.render` (the flow invariant's `.cmp-root` wrapper) rather than
         // composing it — reproduce that same wrapper here so the canvas doesn't silently disagree with the
         // build about top-level stacking behavior; the injected canvas CSS sits outside it as a sibling.

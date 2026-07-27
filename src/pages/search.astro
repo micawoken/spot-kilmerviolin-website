@@ -11,11 +11,16 @@
  * The index only exists post-build: `astro dev` does not run Pagefind, so search only works against a
  * built site (`npm run preview`, or the deployed worker) — see the empty-index handling in the script.
  *
+ * Query syntax (docs/dev/plan-prelaunch-features.md §10): typing a recognized `field:value` token (see
+ * lib/search/facets.ts's `parseFacetQuery`) snaps this page to the same JSON+Pagefind hybrid
+ * pages/search/advanced.astro uses, restricted to database entries — without exposing that page's
+ * criteria form. A plain query with no recognized token behaves exactly as before.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -43,7 +48,7 @@ export const prerender = true
     <div class="search-page static-page-body">
         <h1>Search</h1>
         <p id="search-scope-note" class="search-scope-note" hidden>Searching database entries only.</p>
-        <form id="search-form" role="search">
+        <form id="search-form" role="search" class="search-form">
             <input
                 type="search"
                 id="search-input"
@@ -54,6 +59,12 @@ export const prerender = true
             />
             <button type="submit">Search</button>
         </form>
+        {/* Populated by the client script from Pagefind's own `filters()` counts — a type absent from the
+            index this build (zero pages of that kind) never renders a dead checkbox. */}
+        <fieldset id="search-type-filters" class="search-type-filters" hidden>
+            <legend>Content type</legend>
+        </fieldset>
+        <p class="search-advanced-link"><a href="/search/advanced">Advanced search →</a></p>
         <p id="search-status" role="status" aria-live="polite"></p>
         <ul id="search-results"></ul>
     </div>
@@ -64,38 +75,7 @@ export const prerender = true
         max-width: 40rem;
     }
     #search-form {
-        display: flex;
-        gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
         margin-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
-    }
-    #search-input {
-        flex: 1;
-        padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem))
-            var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
-        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-        border-radius: var(--dtk-radius-sm, 0);
-        background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
-        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-        font-size: 1rem;
-    }
-    #search-form button {
-        padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem))
-            var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
-        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-        border-radius: var(--dtk-radius-sm, 0);
-        background: transparent;
-        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-        /* Matches #search-input's font-size — buttons default to a smaller UA font-size than inputs,
-         * which otherwise leaves this shorter than the bar despite identical padding/border. */
-        font-size: 1rem;
-        cursor: pointer;
-    }
-    #search-form button:hover {
-        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
     }
     #search-status {
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
@@ -108,6 +88,33 @@ export const prerender = true
         font-size: 0.85rem;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem)) 0 0;
+    }
+    .search-type-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+        border: none;
+        padding: 0;
+        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+    }
+    .search-type-filters legend {
+        width: 100%;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.72rem);
+        letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+        text-transform: uppercase;
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        padding: 0;
+        margin: 0 0 var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem));
+    }
+    .search-type-filters label {
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35em;
+    }
+    .search-advanced-link {
+        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
     }
     #search-results {
         list-style: none;
@@ -142,6 +149,8 @@ export const prerender = true
 </style>
 
 <script>
+    import { matchesFacets, parseFacetQuery, type FacetEntry } from "../lib/search/facets"
+
     /** Lazily loaded Pagefind module — only exists at `/pagefind/pagefind.js` once a build has indexed the
      * site (see the "build" npm script), so it is dynamically imported (never bundled: the path does not
      * exist in the source tree) and cached after the first successful load. See env.d.ts (PagefindApi) for
@@ -161,6 +170,25 @@ export const prerender = true
         return pagefind
     }
 
+    /** Lazily loaded, cached for the page's lifetime — only fetched when the query syntax snaps this page
+     *  to database mode (see the module header). */
+    let facetsCache: FacetEntry[] | null = null
+    async function loadFacets(): Promise<FacetEntry[]> {
+        if (!facetsCache) {
+            const response = await fetch("/database-facets.json")
+            facetsCache = response.ok ? ((await response.json()) as FacetEntry[]) : []
+        }
+        return facetsCache
+    }
+
+    const TYPE_LABELS: Record<string, string> = {
+        page: "Pages",
+        post: "Posts",
+        composer: "Composers",
+        work: "Works",
+        contributor: "Contributors"
+    }
+
     // Wrapped in a function (rather than narrowing inline at module scope) so the guard clause's narrowing
     // of `status`/`results` is visible inside the nested closures below — TS does not carry module-scope
     // `if` narrowing into function bodies, only a function-scope early return.
@@ -169,21 +197,108 @@ export const prerender = true
         const input = document.getElementById("search-input")
         const status = document.getElementById("search-status")
         const results = document.getElementById("search-results")
-        if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement) || !status || !results) {
+        const typeFilters = document.getElementById("search-type-filters")
+        if (
+            !(form instanceof HTMLFormElement) ||
+            !(input instanceof HTMLInputElement) ||
+            !status ||
+            !results ||
+            !(typeFilters instanceof HTMLFieldSetElement)
+        ) {
             return
         }
-        // Rebound to their own (non-nullable) consts: TS narrows `status`/`results` above, but that
+        // Rebound to their own (non-nullable) consts: TS narrows `status`/`results`/`input` above, but that
         // narrowing does not carry into the nested closures below, only a fresh binding's own static type.
         const statusEl = status
         const resultsEl = results
+        const typeFiltersEl = typeFilters
+        const inputEl = input
 
         // "database" restricts results to pages carrying data-pagefind-filter="scope:database" (the three
         // entity nouns' index/detail pages, see layouts/PublicPage.astro) — used by the /entity root
         // page's search box and the Puck pagefind-search component's "Database only" scope option.
         const scope = new URLSearchParams(location.search).get("scope")
-        const searchOptions = scope === "database" ? { filters: { scope: ["database"] } } : undefined
         const scopeNote = document.getElementById("search-scope-note")
         if (scope === "database" && scopeNote) scopeNote.hidden = false
+
+        function selectedTypes(): string[] {
+            return Array.from(typeFiltersEl.querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked")).map(
+                (checkbox) => checkbox.value
+            )
+        }
+
+        function buildSearchOptions(): PagefindSearchOptions | undefined {
+            const filters: Record<string, string[]> = {}
+            if (scope === "database") filters.scope = ["database"]
+            const types = selectedTypes()
+            if (types.length > 0) filters.type = types
+            return Object.keys(filters).length > 0 ? { filters } : undefined
+        }
+
+        async function populateTypeFilters(): Promise<void> {
+            try {
+                const pf = await loadPagefind()
+                const counts = (await pf.filters()).type ?? {}
+                const entries = Object.entries(counts).filter(([, count]) => count > 0)
+                if (entries.length === 0) return
+                const initialTypes = new Set(new URLSearchParams(location.search).getAll("type"))
+                for (const [type, count] of entries) {
+                    const label = document.createElement("label")
+                    const checkbox = document.createElement("input")
+                    checkbox.type = "checkbox"
+                    checkbox.name = "type"
+                    checkbox.value = type
+                    checkbox.checked = initialTypes.has(type)
+                    checkbox.addEventListener("change", () => void runSearch(inputEl.value.trim()))
+                    label.appendChild(checkbox)
+                    label.append(` ${TYPE_LABELS[type] ?? type} (${count})`)
+                    typeFiltersEl.appendChild(label)
+                }
+                typeFiltersEl.hidden = false
+            } catch {
+                // Same "not built yet" cause as a failed search below — leave the fieldset hidden.
+            }
+        }
+
+        function renderResult(url: string, title: string, excerptHtml?: string): void {
+            const item = document.createElement("li")
+            const link = document.createElement("a")
+            link.href = url
+            link.textContent = title || url
+            item.appendChild(link)
+            if (excerptHtml) {
+                const excerpt = document.createElement("p")
+                excerpt.innerHTML = excerptHtml
+                item.appendChild(excerpt)
+            }
+            resultsEl.appendChild(item)
+        }
+
+        async function runDatabaseModeSearch(text: string, criteria: ReturnType<typeof parseFacetQuery>["criteria"]) {
+            const facets = await loadFacets()
+            const matched = facets.filter((entry) => matchesFacets(entry, criteria))
+            if (text === "") {
+                if (matched.length === 0) {
+                    statusEl.textContent = "No results found."
+                    return
+                }
+                statusEl.textContent = `${matched.length} result${matched.length === 1 ? "" : "s"}`
+                for (const entry of matched) renderResult(entry.url, entry.name)
+                return
+            }
+            const matchedByUrl = new Map(matched.map((entry) => [entry.url, entry]))
+            const pf = await loadPagefind()
+            const search = await pf.search(text, { filters: { scope: ["database"] } })
+            let count = 0
+            for (const result of search.results) {
+                const data = await result.data()
+                const entry = matchedByUrl.get(data.url)
+                if (!entry) continue
+                count++
+                renderResult(data.url, data.meta.title || entry.name, data.excerpt)
+            }
+            statusEl.textContent = count === 0 ? "No results found." : `${count} result${count === 1 ? "" : "s"}`
+        }
 
         async function runSearch(query: string) {
             resultsEl.replaceChildren()
@@ -193,8 +308,15 @@ export const prerender = true
             }
             statusEl.textContent = "Searching…"
             try {
+                const { text, criteria, hasCriteria } = parseFacetQuery(query)
+                if (hasCriteria) {
+                    if (scopeNote) scopeNote.hidden = false
+                    await runDatabaseModeSearch(text.trim(), criteria)
+                    return
+                }
+
                 const pf = await loadPagefind()
-                const search = await pf.search(query, searchOptions)
+                const search = await pf.search(query, buildSearchOptions())
                 if (search.results.length === 0) {
                     statusEl.textContent = "No results found."
                     return
@@ -202,17 +324,7 @@ export const prerender = true
                 statusEl.textContent = `${search.results.length} result${search.results.length === 1 ? "" : "s"}`
                 for (const result of search.results) {
                     const data = await result.data()
-                    const item = document.createElement("li")
-                    const link = document.createElement("a")
-                    link.href = data.url
-                    link.textContent = data.meta.title || data.url
-                    const excerpt = document.createElement("p")
-                    // Pagefind's own excerpt HTML (plain text plus <mark> highlights around matched terms),
-                    // built from this site's own indexed pages — the documented way to render a hit.
-                    excerpt.innerHTML = data.excerpt
-                    item.appendChild(link)
-                    item.appendChild(excerpt)
-                    resultsEl.appendChild(item)
+                    renderResult(data.url, data.meta.title || data.url, data.excerpt)
                 }
             } catch {
                 // Most likely cause: the page was opened via `astro dev`, which never runs Pagefind, so
@@ -233,6 +345,8 @@ export const prerender = true
             history.replaceState(null, "", url)
             void runSearch(query)
         })
+
+        void populateTypeFilters()
 
         // deep-linking: /search?q=... runs immediately with no extra click
         const initialQuery = new URLSearchParams(location.search).get("q")

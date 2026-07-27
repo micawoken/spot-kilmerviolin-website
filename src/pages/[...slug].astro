@@ -56,7 +56,7 @@ import {
     partitionDesignPages,
     type CollectionField
 } from "../lib/build/design-api"
-import { breadcrumbAncestors, collectRoutes } from "../lib/build/route-authority"
+import { breadcrumbAncestors, collectRoutes, POSTS_PREFIX } from "../lib/build/route-authority"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
@@ -158,11 +158,17 @@ const props = Astro.props
 // block is emitted site-wide by PublicPage (getThemeHead), not repeated here. Kept off Portable-Text
 // pages entirely — they render no compositor components.
 const headCss = props.kind === "design" ? compositorCss : ""
+
+// route.slug already carries the "posts/" prefix routedSlug() applies (route-authority.ts), and that's
+// exactly what the rest-param route matches it on — so the same prefix check identifies a post here.
+const slugParam = Astro.params.slug
+const isPost = typeof slugParam === "string" && slugParam.startsWith(`${POSTS_PREFIX}/`)
+const contentType = isPost ? "post" : "page"
 ---
 
 {
     props.kind === "portable" ? (
-        <PublicPage title={props.title} description={props.description}>
+        <PublicPage title={props.title} description={props.description} contentType={contentType}>
             <article>
                 <h1>{props.title}</h1>
                 {props.published_at && (
@@ -174,7 +180,7 @@ const headCss = props.kind === "design" ? compositorCss : ""
             </article>
         </PublicPage>
     ) : (
-        <PublicPage title={props.title} description={props.description}>
+        <PublicPage title={props.title} description={props.description} contentType={contentType}>
             <style slot="head" set:html={headCss} />
             {/* Puck's config holds React render functions, can't travel through getStaticPaths props
                 (serialized) — rebuilt here from the serializable theme. "build" target swaps the two
