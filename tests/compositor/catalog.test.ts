@@ -293,31 +293,43 @@ describe("buildConfig — PagefindSearch renders a plain GET form to /search", (
         expect(html).toContain('type="hidden" name="scope" value="database"')
     })
 
-    it("defaults to no advanced panel and /search when display/showToggle are absent (pre-existing stored designs)", () => {
-        // Simulates a design saved before `display`/`showToggle` existed — props carries neither field.
+    it("defaults to no advanced link and /search when advancedLink/display/showToggle are absent (pre-existing stored designs)", () => {
+        // Simulates a design saved before `advancedLink` (or its `display`/`showToggle` predecessors) existed.
         const html = render(config, "PagefindSearch", { scope: "site" })
-        expect(html).not.toContain("search-advanced")
+        expect(html).not.toContain("search-advanced-link")
         expect(html).toContain('action="/search"')
     })
 
-    it("renders no advanced panel when showToggle is explicitly \"no\"", () => {
-        const html = render(config, "PagefindSearch", { scope: "site", display: "simple", showToggle: "no" })
-        expect(html).not.toContain("search-advanced")
+    it("renders no advanced link when advancedLink is explicitly \"none\"", () => {
+        const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "none" })
+        expect(html).not.toContain("search-advanced-link")
         expect(html).toContain('action="/search"')
     })
 
-    it("renders a collapsed advanced panel and targets /search/advanced when showToggle is \"yes\"", () => {
+    it("renders a link to /search/advanced when advancedLink is \"advanced\", without changing the form's own target", () => {
+        const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "advanced" })
+        expect(html).toContain('action="/search"')
+        expect(html).toContain('class="search-advanced-link"')
+        expect(html).toContain('href="/search/advanced"')
+    })
+
+    it("renders a link to /search when advancedLink is \"search\"", () => {
+        const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "search" })
+        expect(html).toContain('class="search-advanced-link"')
+        expect(html).toContain('href="/search"')
+        expect(html).not.toContain('href="/search/advanced"')
+    })
+
+    it("maps a pre-existing showToggle=\"yes\" design onto advancedLink=\"advanced\" (back-compat)", () => {
         const html = render(config, "PagefindSearch", { scope: "site", display: "simple", showToggle: "yes" })
-        expect(html).toContain("search-advanced")
-        expect(html).not.toContain("open=")
-        expect(html).toContain('action="/search/advanced"')
+        expect(html).toContain('action="/search"')
+        expect(html).toContain('href="/search/advanced"')
     })
 
-    it("renders the advanced panel open by default when display is \"advanced\", even with showToggle \"no\"", () => {
+    it("maps a pre-existing display=\"advanced\" design onto advancedLink=\"advanced\" (back-compat)", () => {
         const html = render(config, "PagefindSearch", { scope: "site", display: "advanced", showToggle: "no" })
-        expect(html).toContain("search-advanced")
-        expect(html).toContain("open=")
-        expect(html).toContain('action="/search/advanced"')
+        expect(html).toContain('action="/search"')
+        expect(html).toContain('href="/search/advanced"')
     })
 })
 

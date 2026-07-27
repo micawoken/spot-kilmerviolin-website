@@ -37,6 +37,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import PublicPage from "../layouts/PublicPage.astro"
+import StaticBreadcrumbs from "../components/StaticBreadcrumbs.astro"
 
 export const prerender = true
 ---
@@ -46,9 +47,11 @@ export const prerender = true
         (see that file), since this page hardcodes its own structure rather than reading it from a
         design/entity template. */}
     <div class="search-page static-page-body">
+        <StaticBreadcrumbs current="Search" />
         <h1>Search</h1>
         <p id="search-scope-note" class="search-scope-note" hidden>Searching database entries only.</p>
         <form id="search-form" role="search" class="search-form">
+            <label for="search-input" class="visually-hidden">Search by keyword</label>
             <input
                 type="search"
                 id="search-input"
@@ -56,23 +59,42 @@ export const prerender = true
                 placeholder="Search…"
                 aria-label="Search query"
                 autocomplete="off"
+                required
             />
             <button type="submit">Search</button>
         </form>
-        {/* Populated by the client script from Pagefind's own `filters()` counts — a type absent from the
-            index this build (zero pages of that kind) never renders a dead checkbox. */}
+        {/* Fixed above the content-type filter: this is a new action (leaving the page), while content
+            type only filters the results already on screen — see the fieldset below. */}
+        <p class="search-advanced-link">
+            <a href="/search/advanced" id="search-advanced-link">Advanced search →</a>
+        </p>
+        {/* Populated by the client script from Pagefind's own `filters()` counts, and only once a search has
+            actually run — a type absent from the index this build (zero pages of that kind) never renders a
+            dead checkbox, and the control stays out of the way until there are results to filter. */}
         <fieldset id="search-type-filters" class="search-type-filters" hidden>
             <legend>Content type</legend>
         </fieldset>
-        <p class="search-advanced-link"><a href="/search/advanced">Advanced search →</a></p>
         <p id="search-status" role="status" aria-live="polite"></p>
         <ul id="search-results"></ul>
+        <div id="search-pagination"></div>
     </div>
 </PublicPage>
 
 <style>
     .search-page {
-        max-width: 40rem;
+        /* Matches /search/advanced's `.search-page` so the search bar is the same width on both pages. */
+        max-width: 48rem;
+    }
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
     #search-form {
         margin-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
@@ -83,6 +105,12 @@ export const prerender = true
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        /* Stronger separation from the search controls above it than plain whitespace gives. */
+        margin-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+        padding-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+        border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
     }
     .search-scope-note {
         font-size: 0.85rem;
@@ -124,11 +152,15 @@ export const prerender = true
         flex-direction: column;
         gap: var(--dtk-chrome-vertical-space-item-gap, var(--dtk-space-sm, 1rem));
     }
+    #search-pagination {
+        margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+    }
 </style>
 
 <!-- Astro's default scoped styling only rewrites markup present in this file's own template at build time;
-     the <li>/<a>/<p>/<mark> a search result renders are created by the client script below, so those rules
-     must be global or they silently never match (Astro adds no scoping class to runtime-created nodes). -->
+     the <li>/<a>/<p>/<mark> a search result renders, and the pagination controls, are created by the client
+     script below, so those rules must be global or they silently never match (Astro adds no scoping class
+     to runtime-created nodes). -->
 <style is:global>
     #search-results li a {
         font-weight: 600;
@@ -146,10 +178,36 @@ export const prerender = true
         color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
         font-weight: 600;
     }
+    .search-pagination {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+        font-size: 0.875rem;
+    }
+    .search-pagination button {
+        padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.35rem))
+            var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.6rem));
+        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+        border-radius: var(--dtk-radius-sm, 0);
+        background: transparent;
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+        cursor: pointer;
+    }
+    .search-pagination button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+    .search-pagination button:not(:disabled):hover {
+        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
+    }
 </style>
 
 <script>
     import { matchesFacets, parseFacetQuery, type FacetEntry } from "../lib/search/facets"
+    import { computePageWindow, withPage, withShowAll, type PageWindow } from "../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — only exists at `/pagefind/pagefind.js` once a build has indexed the
      * site (see the "build" npm script), so it is dynamically imported (never bundled: the path does not
@@ -189,6 +247,28 @@ export const prerender = true
         contributor: "Contributors"
     }
 
+    interface ResultItem {
+        url: string
+        title: string
+        excerptHtml?: string
+    }
+
+    function currentParams(): URLSearchParams {
+        return new URLSearchParams(location.search)
+    }
+
+    function setUrlParams(params: URLSearchParams): void {
+        const url = new URL(location.href)
+        url.search = params.toString()
+        history.replaceState(null, "", url)
+    }
+
+    function pageStatusText(pageWindow: PageWindow): string {
+        const noun = pageWindow.totalCount === 1 ? "result" : "results"
+        if (pageWindow.showingAll) return `${pageWindow.totalCount} ${noun}`
+        return `${pageWindow.start + 1}–${pageWindow.end} of ${pageWindow.totalCount} ${noun}`
+    }
+
     // Wrapped in a function (rather than narrowing inline at module scope) so the guard clause's narrowing
     // of `status`/`results` is visible inside the nested closures below — TS does not carry module-scope
     // `if` narrowing into function bodies, only a function-scope early return.
@@ -197,13 +277,17 @@ export const prerender = true
         const input = document.getElementById("search-input")
         const status = document.getElementById("search-status")
         const results = document.getElementById("search-results")
+        const pagination = document.getElementById("search-pagination")
         const typeFilters = document.getElementById("search-type-filters")
+        const advancedLink = document.getElementById("search-advanced-link")
         if (
             !(form instanceof HTMLFormElement) ||
             !(input instanceof HTMLInputElement) ||
             !status ||
             !results ||
-            !(typeFilters instanceof HTMLFieldSetElement)
+            !pagination ||
+            !(typeFilters instanceof HTMLFieldSetElement) ||
+            !(advancedLink instanceof HTMLAnchorElement)
         ) {
             return
         }
@@ -211,8 +295,10 @@ export const prerender = true
         // narrowing does not carry into the nested closures below, only a fresh binding's own static type.
         const statusEl = status
         const resultsEl = results
+        const paginationEl = pagination
         const typeFiltersEl = typeFilters
         const inputEl = input
+        const advancedLinkEl = advancedLink
 
         // "database" restricts results to pages carrying data-pagefind-filter="scope:database" (the three
         // entity nouns' index/detail pages, see layouts/PublicPage.astro) — used by the /entity root
@@ -220,6 +306,23 @@ export const prerender = true
         const scope = new URLSearchParams(location.search).get("scope")
         const scopeNote = document.getElementById("search-scope-note")
         if (scope === "database" && scopeNote) scopeNote.hidden = false
+
+        // Reflects the current input into the "Advanced search" link's target so a visitor who already typed
+        // something doesn't have to retype it there — carried as a `#q=` hash fragment (not a `?q=` search
+        // param) since /search/advanced.astro only auto-runs a search off `location.search`, so the hash
+        // prefills the field on arrival without executing anything.
+        function updateAdvancedLink(): void {
+            const query = inputEl.value.trim()
+            advancedLinkEl.href = query ? `/search/advanced#q=${encodeURIComponent(query)}` : "/search/advanced"
+        }
+        inputEl.addEventListener("input", updateAdvancedLink)
+
+        let typeFiltersRequested = false
+        function ensureTypeFilters(): void {
+            if (typeFiltersRequested) return
+            typeFiltersRequested = true
+            void populateTypeFilters()
+        }
 
         function selectedTypes(): string[] {
             return Array.from(typeFiltersEl.querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked")).map(
@@ -229,9 +332,16 @@ export const prerender = true
 
         function buildSearchOptions(): PagefindSearchOptions | undefined {
             const filters: Record<string, string[]> = {}
-            if (scope === "database") filters.scope = ["database"]
             const types = selectedTypes()
-            if (types.length > 0) filters.type = types
+            if (types.length > 0) {
+                // An explicit type selection fully defines scope on its own (and may mix database nouns with
+                // "page"/"post"), so it replaces rather than joins the scope:database restriction below —
+                // otherwise checking "Pages" here would never show a result, since every page fails
+                // scope:database.
+                filters.type = types
+            } else if (scope === "database") {
+                filters.scope = ["database"]
+            }
             return Object.keys(filters).length > 0 ? { filters } : undefined
         }
 
@@ -249,7 +359,17 @@ export const prerender = true
                     checkbox.name = "type"
                     checkbox.value = type
                     checkbox.checked = initialTypes.has(type)
-                    checkbox.addEventListener("change", () => void runSearch(inputEl.value.trim()))
+                    checkbox.addEventListener("change", () => {
+                        // A changed filter is a new result set — reflect the now-checked types into the URL
+                        // (so pagination/back-forward/sharing keeps them) and reset back to page one.
+                        const params = currentParams()
+                        params.delete("type")
+                        for (const selected of selectedTypes()) params.append("type", selected)
+                        params.delete("page")
+                        params.delete("perPage")
+                        setUrlParams(params)
+                        void runSearch(inputEl.value.trim(), params)
+                    })
                     label.appendChild(checkbox)
                     label.append(` ${TYPE_LABELS[type] ?? type} (${count})`)
                     typeFiltersEl.appendChild(label)
@@ -274,58 +394,119 @@ export const prerender = true
             resultsEl.appendChild(item)
         }
 
-        async function runDatabaseModeSearch(text: string, criteria: ReturnType<typeof parseFacetQuery>["criteria"]) {
+        function renderPagination(pageWindow: PageWindow, params: URLSearchParams): void {
+            paginationEl.replaceChildren()
+            if (pageWindow.totalPages <= 1 && pageWindow.showingAll) return
+            const goTo = (nextParams: URLSearchParams): void => {
+                setUrlParams(nextParams)
+                void runSearch(inputEl.value.trim(), nextParams)
+            }
+            const nav = document.createElement("div")
+            nav.className = "search-pagination"
+            if (!pageWindow.showingAll) {
+                const prev = document.createElement("button")
+                prev.type = "button"
+                prev.textContent = "← Previous"
+                prev.disabled = pageWindow.page <= 1
+                prev.addEventListener("click", () => goTo(withPage(params, pageWindow.page - 1)))
+                nav.appendChild(prev)
+
+                const label = document.createElement("span")
+                label.textContent = `Page ${pageWindow.page} of ${pageWindow.totalPages}`
+                nav.appendChild(label)
+
+                const next = document.createElement("button")
+                next.type = "button"
+                next.textContent = "Next →"
+                next.disabled = pageWindow.page >= pageWindow.totalPages
+                next.addEventListener("click", () => goTo(withPage(params, pageWindow.page + 1)))
+                nav.appendChild(next)
+            }
+            const toggle = document.createElement("button")
+            toggle.type = "button"
+            toggle.textContent = pageWindow.showingAll ? "Show paginated" : `Show all ${pageWindow.totalCount}`
+            toggle.addEventListener("click", () => goTo(pageWindow.showingAll ? withPage(params, 1) : withShowAll(params)))
+            nav.appendChild(toggle)
+            paginationEl.appendChild(nav)
+        }
+
+        function renderItemsPaged(items: ResultItem[], params: URLSearchParams): void {
+            if (items.length === 0) {
+                statusEl.textContent = "No results found."
+                return
+            }
+            const pageWindow = computePageWindow(items.length, params)
+            statusEl.textContent = pageStatusText(pageWindow)
+            for (const item of items.slice(pageWindow.start, pageWindow.end)) {
+                renderResult(item.url, item.title, item.excerptHtml)
+            }
+            renderPagination(pageWindow, params)
+        }
+
+        async function runDatabaseModeSearch(
+            text: string,
+            criteria: ReturnType<typeof parseFacetQuery>["criteria"],
+            params: URLSearchParams
+        ): Promise<void> {
             const facets = await loadFacets()
             const matched = facets.filter((entry) => matchesFacets(entry, criteria))
             if (text === "") {
-                if (matched.length === 0) {
-                    statusEl.textContent = "No results found."
-                    return
-                }
-                statusEl.textContent = `${matched.length} result${matched.length === 1 ? "" : "s"}`
-                for (const entry of matched) renderResult(entry.url, entry.name)
+                renderItemsPaged(
+                    matched.map((entry) => ({ url: entry.url, title: entry.name })),
+                    params
+                )
                 return
             }
             const matchedByUrl = new Map(matched.map((entry) => [entry.url, entry]))
             const pf = await loadPagefind()
             const search = await pf.search(text, { filters: { scope: ["database"] } })
-            let count = 0
+            const items: ResultItem[] = []
             for (const result of search.results) {
                 const data = await result.data()
                 const entry = matchedByUrl.get(data.url)
                 if (!entry) continue
-                count++
-                renderResult(data.url, data.meta.title || entry.name, data.excerpt)
+                items.push({ url: data.url, title: data.meta.title || entry.name, excerptHtml: data.excerpt })
             }
-            statusEl.textContent = count === 0 ? "No results found." : `${count} result${count === 1 ? "" : "s"}`
+            renderItemsPaged(items, params)
         }
 
-        async function runSearch(query: string) {
+        async function runPlainSearch(query: string, params: URLSearchParams): Promise<void> {
+            const pf = await loadPagefind()
+            const search = await pf.search(query, buildSearchOptions())
+            if (search.results.length === 0) {
+                statusEl.textContent = "No results found."
+                return
+            }
+            // Pagefind's results are lightweight refs until `.data()` is called — slicing to the current
+            // page's window BEFORE fetching data means only the visible page's worth of results is ever
+            // resolved, unlike the database-mode path above (which must resolve every hit up front to
+            // intersect it against the JSON-matched URL set).
+            const pageWindow = computePageWindow(search.results.length, params)
+            statusEl.textContent = pageStatusText(pageWindow)
+            for (const result of search.results.slice(pageWindow.start, pageWindow.end)) {
+                const data = await result.data()
+                renderResult(data.url, data.meta.title || data.url, data.excerpt)
+            }
+            renderPagination(pageWindow, params)
+        }
+
+        async function runSearch(query: string, params: URLSearchParams = currentParams()): Promise<void> {
             resultsEl.replaceChildren()
+            paginationEl.replaceChildren()
             if (query === "") {
                 statusEl.textContent = ""
                 return
             }
+            ensureTypeFilters()
             statusEl.textContent = "Searching…"
             try {
                 const { text, criteria, hasCriteria } = parseFacetQuery(query)
                 if (hasCriteria) {
                     if (scopeNote) scopeNote.hidden = false
-                    await runDatabaseModeSearch(text.trim(), criteria)
+                    await runDatabaseModeSearch(text.trim(), criteria, params)
                     return
                 }
-
-                const pf = await loadPagefind()
-                const search = await pf.search(query, buildSearchOptions())
-                if (search.results.length === 0) {
-                    statusEl.textContent = "No results found."
-                    return
-                }
-                statusEl.textContent = `${search.results.length} result${search.results.length === 1 ? "" : "s"}`
-                for (const result of search.results) {
-                    const data = await result.data()
-                    renderResult(data.url, data.meta.title || data.url, data.excerpt)
-                }
+                await runPlainSearch(query, params)
             } catch {
                 // Most likely cause: the page was opened via `astro dev`, which never runs Pagefind, so
                 // /pagefind/pagefind.js 404s. `npm run preview` (or the deployed site) has the real index.
@@ -336,22 +517,24 @@ export const prerender = true
         form.addEventListener("submit", (event) => {
             event.preventDefault()
             const query = input.value.trim()
-            const url = new URL(location.href)
+            const params = currentParams()
             if (query) {
-                url.searchParams.set("q", query)
+                params.set("q", query)
             } else {
-                url.searchParams.delete("q")
+                params.delete("q")
             }
-            history.replaceState(null, "", url)
-            void runSearch(query)
+            // A new query is a new result set — start back at page one.
+            params.delete("page")
+            params.delete("perPage")
+            setUrlParams(params)
+            void runSearch(query, params)
         })
-
-        void populateTypeFilters()
 
         // deep-linking: /search?q=... runs immediately with no extra click
         const initialQuery = new URLSearchParams(location.search).get("q")
         if (initialQuery) {
             input.value = initialQuery
+            updateAdvancedLink()
             void runSearch(initialQuery)
         }
     }

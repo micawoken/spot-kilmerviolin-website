@@ -72,22 +72,27 @@
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
-/* The JS-free simple/advanced toggle (<details>), shared by the Puck component (when showToggle="yes"),
- * DatabaseRoot.astro's bar, and /search/advanced's own criteria form. */
-.search-advanced {
-	margin-block: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
-}
-.search-advanced > summary {
-	cursor: pointer;
-	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
-	font-size: var(--dtk-type-label-size, 0.85rem);
-	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-}
+/* The filter grid on /search/advanced (lib/search/facets.ts's ADVANCED_FIELDS) — the only remaining
+ * renderer of it; the Puck component and DatabaseRoot.astro used to duplicate it inline behind a
+ * <details> toggle, now they just link to this page instead (catalog.tsx's `advancedLink` option). Fixed
+ * column counts at each breakpoint (not `auto-fit`/`minmax`): auto-fit's column count is driven by
+ * content width, so it can seat a different number of cells per row depending on exactly how wide the
+ * container is — fixed counts keep every row the same shape. */
 .search-advanced__grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+	grid-template-columns: repeat(1, 1fr);
 	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
 	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+}
+@media (min-width: 30rem) {
+	.search-advanced__grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+@media (min-width: 48rem) {
+	.search-advanced__grid {
+		grid-template-columns: repeat(3, 1fr);
+	}
 }
 .search-advanced__field {
 	display: flex;
@@ -100,9 +105,12 @@
 	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
 	text-transform: uppercase;
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-}
-.search-advanced__actions {
-	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+	/* Reserves 2 lines' worth of height regardless of whether this particular label wraps, and bottom-aligns
+	 * the text within it — so every field's input lines up with its row's tallest (wrapped) label instead of
+	 * sitting high under a short one-line label. */
+	min-height: calc(var(--dtk-type-label-size, 0.72rem) * 2 * 1.4);
+	display: flex;
+	align-items: flex-end;
 }
 .search-advanced-link {
 	font-size: 0.875rem;

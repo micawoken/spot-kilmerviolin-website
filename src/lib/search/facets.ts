@@ -2,10 +2,19 @@
  * lib/search/facets.ts
  *
  * Shared core for advanced database search (docs/dev/plan-prelaunch-features.md §10). Pure and
- * dependency-light — imported by the build-time facet endpoint (database-facets.json.ts), the
- * `/search` and `/search/advanced` client scripts, the Puck `PagefindSearch` component (catalog.tsx),
- * and `DatabaseRoot.astro`'s search bar. `ADVANCED_FIELDS` is the single field-definition list every one
- * of those renderers maps over, so they cannot drift in fields, labels, param names, or markup.
+ * dependency-light — imported by the build-time facet endpoint (database-facets.json.ts) and the
+ * `/search` and `/search/advanced` client scripts. `ADVANCED_FIELDS` is the criteria form's single
+ * field-definition list, rendered only by pages/search/advanced.astro — the Puck `PagefindSearch`
+ * component and `DatabaseRoot.astro` used to duplicate that form inline, but now just link to that page
+ * (catalog.tsx's `advancedLink` option) rather than rendering their own copy of it.
+ *
+ * Every filterable field follows a `[field][operator][value]` shape: text fields (composer, country,
+ * role) choose contains/is; number fields (year, ratings, birth/death year) choose is/before/after/
+ * between/around or is/at-least/at-most. `key` and `type` stay plain exact-match selects — there is only
+ * one sensible operator for an enum, so no operator control is rendered for them (an operator dropdown
+ * with a single, unchangeable option would be UI noise, not the multi-choice behavior the rest of this
+ * file is about). Entity type (composer/composition/contributor) is its own multi-select checkbox group
+ * on the advanced-search template, not an ADVANCED_FIELDS entry — see `nounOptions`.
  *
  * Pagefind's own filters are discrete-value only — no ranges, no comparisons — so structured filtering
  * (year ranges, rating minimums) runs off `FacetEntry`/`matchesFacets` instead, against a build-time JSON
@@ -72,20 +81,40 @@ export interface FacetEntry {
     classYear?: number
 }
 
-/** Structured search criteria. Every field is a discrete match except the three explicit ranges. */
+export type TextOperator = "contains" | "is"
+export interface TextCriterion {
+    op: TextOperator
+    value: string
+}
+
+export type NumberOperator = "is" | "before" | "after" | "atLeast" | "atMost" | "between" | "around"
+export interface NumberCriterion {
+    op: NumberOperator
+    value: number
+    /** only meaningful (and only read) when op is "between" */
+    valueTo?: number
+}
+
+/** "Around" tolerance for publish/birth/death year, in years either side of the given value. An explicit
+ *  round-number assumption (not derived from any product spec) — revisit if it ever needs to be field- or
+ *  user-configurable. */
+const AROUND_YEAR_TOLERANCE = 5
+
+/** Structured search criteria. `nouns` (empty/absent = any) plus one optional criterion per filterable
+ *  field; `keyRef`/`type` are plain exact-match values, everything else is a `[field][operator][value]`
+ *  criterion object. */
 export interface FacetCriteria {
-    noun?: EntityNoun
-    composer?: string
+    nouns?: EntityNoun[]
+    composer?: TextCriterion
     keyRef?: string
     type?: string
-    yearFrom?: number
-    yearTo?: number
-    suzukiMin?: number
-    nyssmaMin?: number
-    country?: string
-    role?: string
-    birthYear?: number
-    deathYear?: number
+    year?: NumberCriterion
+    suzuki?: NumberCriterion
+    nyssma?: NumberCriterion
+    country?: TextCriterion
+    role?: TextCriterion
+    birthYear?: NumberCriterion
+    deathYear?: NumberCriterion
 }
 
 export type FacetControlKind = "select" | "text" | "number"
@@ -95,7 +124,13 @@ export interface AdvancedFieldOption {
     value: string
 }
 
-/** One criterion's shared shape: URL/form param name, label, control kind, and (for a select) its options. */
+export interface FacetOperatorOption {
+    value: TextOperator | NumberOperator
+    label: string
+}
+
+/** One criterion's shared shape: URL/form param name, label, control kind, and (for a select) its
+ *  options, or (for text/number) its available operators — the first entry is the default. */
 export interface AdvancedFieldDef {
     /** also the FacetCriteria/URLSearchParams key this control reads and writes */
     param: string
@@ -103,6 +138,8 @@ export interface AdvancedFieldDef {
     control: FacetControlKind
     options?: AdvancedFieldOption[]
     placeholder?: string
+    /** present only for text/number fields; absent (select fields) means "exact match, no operator UI" */
+    operators?: readonly FacetOperatorOption[]
     /** which entity nouns this criterion is meaningful for — grouping metadata for renderers; matching
      *  itself needs no noun gate, since a field absent on a noun's entries just never matches it */
     nouns: EntityNoun[]
@@ -163,30 +200,77 @@ function workTypeOptions(): AdvancedFieldOption[] {
     return Object.values(WorkType).map((value) => ({ label: value, value }))
 }
 
-function nounOptions(): AdvancedFieldOption[] {
+/** The three entity-type options for the advanced-search noun checkbox group (docs: "do filtering only" —
+ *  unlike plain /search, /search/advanced stays database-scoped, but lets multiple nouns be checked at
+ *  once rather than picking exactly one). No "Any" pseudo-option: an empty selection already means any. */
+export function nounOptions(): AdvancedFieldOption[] {
     return ALL_NOUNS.map((noun) => ({ label: ENTITY_NOUN_LABELS[noun], value: ENTITY_NOUN_SLUGS[noun] }))
 }
 
 const ANY_OPTION: AdvancedFieldOption = { label: "Any", value: "" }
 
+const TEXT_OPERATORS: readonly FacetOperatorOption[] = [
+    { value: "contains", label: "Contains" },
+    { value: "is", label: "Is exactly" }
+]
+
+const YEAR_OPERATORS: readonly FacetOperatorOption[] = [
+    { value: "is", label: "Is" },
+    { value: "before", label: "Before" },
+    { value: "after", label: "After" },
+    { value: "between", label: "Between" },
+    { value: "around", label: `Around (±${AROUND_YEAR_TOLERANCE})` }
+]
+
+const RATING_OPERATORS: readonly FacetOperatorOption[] = [
+    { value: "atLeast", label: "At least" },
+    { value: "is", label: "Is" },
+    { value: "atMost", label: "At most" }
+]
+
 /**
- * The shared field-definition list every advanced-search renderer (the Puck component, the /database
- * bar, /search/advanced) maps over. Field controls are static enums / free-entry text / number inputs —
- * no live option lists (see plan-prelaunch-features.md §10's "deliberately out of scope").
+ * The shared field-definition list /search/advanced maps over to render its filter fieldset. Field
+ * controls are static enums / free-entry text / number inputs — no live option lists (see
+ * plan-prelaunch-features.md §10's "deliberately out of scope").
  */
 export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
-    { param: "noun", label: "Type", control: "select", options: [ANY_OPTION, ...nounOptions()], nouns: ALL_NOUNS },
-    { param: "composer", label: "Composer", control: "text", placeholder: "e.g. Bach", nouns: ["composition"] },
+    {
+        param: "composer",
+        label: "Composer",
+        control: "text",
+        placeholder: "e.g. Bach",
+        operators: TEXT_OPERATORS,
+        nouns: ["composition"]
+    },
     { param: "key", label: "Key", control: "select", options: [ANY_OPTION, ...KEY_OPTIONS], nouns: ["composition"] },
-    { param: "type", label: "Work type", control: "select", options: [ANY_OPTION, ...workTypeOptions()], nouns: ["composition"] },
-    { param: "yearFrom", label: "Published from", control: "number", nouns: ["composition"] },
-    { param: "yearTo", label: "Published to", control: "number", nouns: ["composition"] },
-    { param: "suzukiMin", label: "Suzuki rating (min)", control: "number", nouns: ["composition"] },
-    { param: "nyssmaMin", label: "NYSSMA rating (min)", control: "number", nouns: ["composition"] },
-    { param: "country", label: "Composer country", control: "text", placeholder: "e.g. France", nouns: ["composer"] },
-    { param: "role", label: "Composer role", control: "text", placeholder: "e.g. arranger", nouns: ["composer"] },
-    { param: "birthYear", label: "Birth year", control: "number", nouns: ["composer"] },
-    { param: "deathYear", label: "Death year", control: "number", nouns: ["composer"] }
+    {
+        param: "type",
+        label: "Work type",
+        control: "select",
+        options: [ANY_OPTION, ...workTypeOptions()],
+        nouns: ["composition"]
+    },
+    { param: "year", label: "Publication year", control: "number", operators: YEAR_OPERATORS, nouns: ["composition"] },
+    { param: "suzuki", label: "Suzuki rating", control: "number", operators: RATING_OPERATORS, nouns: ["composition"] },
+    { param: "nyssma", label: "NYSSMA rating", control: "number", operators: RATING_OPERATORS, nouns: ["composition"] },
+    {
+        param: "country",
+        label: "Composer country",
+        control: "text",
+        placeholder: "e.g. France",
+        operators: TEXT_OPERATORS,
+        nouns: ["composer"]
+    },
+    {
+        param: "role",
+        label: "Composer role",
+        control: "text",
+        placeholder: "e.g. arranger",
+        operators: TEXT_OPERATORS,
+        nouns: ["composer"]
+    },
+    { param: "birthYear", label: "Birth year", control: "number", operators: YEAR_OPERATORS, nouns: ["composer"] },
+    { param: "deathYear", label: "Death year", control: "number", operators: YEAR_OPERATORS, nouns: ["composer"] }
 ]
 
 const NOUN_BY_SLUG = new Map<string, EntityNoun>(
@@ -197,31 +281,54 @@ function parseNounSlug(value: string): EntityNoun | undefined {
     return NOUN_BY_SLUG.get(value.trim().toLowerCase())
 }
 
+function matchesText(entryValue: string | undefined, criterion: TextCriterion): boolean {
+    const value = (entryValue ?? "").toLowerCase()
+    const query = criterion.value.toLowerCase()
+    return criterion.op === "is" ? value === query : value.includes(query)
+}
+
+// Composer country matches both the raw ISO code and its resolved display name (e.g. "de" and "Germany"
+// both hit), so this can't reuse matchesText's single-string comparison.
+function matchesCountry(entry: FacetEntry, criterion: TextCriterion): boolean {
+    const query = criterion.value.toLowerCase()
+    const code = (entry.country ?? "").toLowerCase()
+    const name = entry.country ? countryCodeName(entry.country).toLowerCase() : ""
+    return criterion.op === "is" ? code === query || name === query : code.includes(query) || name.includes(query)
+}
+
+function matchesNumber(entryValue: number | undefined, criterion: NumberCriterion): boolean {
+    if (entryValue === undefined) return false
+    switch (criterion.op) {
+        case "is":
+            return entryValue === criterion.value
+        case "before":
+            return entryValue < criterion.value
+        case "after":
+            return entryValue > criterion.value
+        case "atLeast":
+            return entryValue >= criterion.value
+        case "atMost":
+            return entryValue <= criterion.value
+        case "between":
+            return entryValue >= criterion.value && entryValue <= (criterion.valueTo ?? criterion.value)
+        case "around":
+            return Math.abs(entryValue - criterion.value) <= AROUND_YEAR_TOLERANCE
+    }
+}
+
 /** The single predicate every search surface uses to test one facet entry against submitted criteria. */
 export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boolean {
-    if (criteria.noun && entry.noun !== criteria.noun) return false
-    if (criteria.composer) {
-        if (!(entry.composer ?? "").toLowerCase().includes(criteria.composer.toLowerCase())) return false
-    }
+    if (criteria.nouns && criteria.nouns.length > 0 && !criteria.nouns.includes(entry.noun)) return false
+    if (criteria.composer && !matchesText(entry.composer, criteria.composer)) return false
     if (criteria.keyRef && entry.keyRef !== criteria.keyRef) return false
-    if (criteria.type) {
-        if (!(entry.type ?? "").toLowerCase().includes(criteria.type.toLowerCase())) return false
-    }
-    if (criteria.yearFrom !== undefined && (entry.year === undefined || entry.year < criteria.yearFrom)) return false
-    if (criteria.yearTo !== undefined && (entry.year === undefined || entry.year > criteria.yearTo)) return false
-    if (criteria.suzukiMin !== undefined && (entry.suzuki === undefined || entry.suzuki < criteria.suzukiMin)) return false
-    if (criteria.nyssmaMin !== undefined && (entry.nyssma === undefined || entry.nyssma < criteria.nyssmaMin)) return false
-    if (criteria.country) {
-        const query = criteria.country.toLowerCase()
-        const code = (entry.country ?? "").toLowerCase()
-        const name = entry.country ? countryCodeName(entry.country).toLowerCase() : ""
-        if (!code.includes(query) && !name.includes(query)) return false
-    }
-    if (criteria.role) {
-        if (!(entry.role ?? "").toLowerCase().includes(criteria.role.toLowerCase())) return false
-    }
-    if (criteria.birthYear !== undefined && entry.birthYear !== criteria.birthYear) return false
-    if (criteria.deathYear !== undefined && entry.deathYear !== criteria.deathYear) return false
+    if (criteria.type && entry.type !== criteria.type) return false
+    if (criteria.year && !matchesNumber(entry.year, criteria.year)) return false
+    if (criteria.suzuki && !matchesNumber(entry.suzuki, criteria.suzuki)) return false
+    if (criteria.nyssma && !matchesNumber(entry.nyssma, criteria.nyssma)) return false
+    if (criteria.country && !matchesCountry(entry, criteria.country)) return false
+    if (criteria.role && !matchesText(entry.role, criteria.role)) return false
+    if (criteria.birthYear && !matchesNumber(entry.birthYear, criteria.birthYear)) return false
+    if (criteria.deathYear && !matchesNumber(entry.deathYear, criteria.deathYear)) return false
     return true
 }
 
@@ -244,84 +351,114 @@ function readNumber(params: URLSearchParams, key: string): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined
 }
 
-/** URL params (as submitted by any of the shared forms, or round-tripped by {@link criteriaToParams}) -> criteria. */
+function readTextCriterion(params: URLSearchParams, param: string, operators: readonly FacetOperatorOption[]): TextCriterion | undefined {
+    const value = readString(params, param)
+    if (value === undefined) return undefined
+    const opRaw = params.get(`${param}_op`)
+    const op = (operators.find((candidate) => candidate.value === opRaw)?.value ?? operators[0].value) as TextOperator
+    return { op, value }
+}
+
+function readNumberCriterion(params: URLSearchParams, param: string, operators: readonly FacetOperatorOption[]): NumberCriterion | undefined {
+    const value = readNumber(params, param)
+    if (value === undefined) return undefined
+    const opRaw = params.get(`${param}_op`)
+    const op = (operators.find((candidate) => candidate.value === opRaw)?.value ?? operators[0].value) as NumberOperator
+    const criterion: NumberCriterion = { op, value }
+    if (op === "between") {
+        const valueTo = readNumber(params, `${param}To`)
+        if (valueTo !== undefined) criterion.valueTo = valueTo
+    }
+    return criterion
+}
+
+/** URL params (as submitted by /search/advanced's form, or round-tripped by {@link criteriaToParams}) ->
+ *  criteria. Each text/number field reads its bare param plus an optional `{param}_op` (falls back to
+ *  that field's default operator) and, for a "between" number criterion, `{param}To`. */
 export function parseFacetParams(params: URLSearchParams): FacetCriteria {
     const criteria: FacetCriteria = {}
-    const noun = readString(params, "noun")
-    if (noun) {
-        const resolved = parseNounSlug(noun)
-        if (resolved) criteria.noun = resolved
-    }
-    const composer = readString(params, "composer")
+    const nouns = params
+        .getAll("noun")
+        .map(parseNounSlug)
+        .filter((noun): noun is EntityNoun => noun !== undefined)
+    if (nouns.length > 0) criteria.nouns = nouns
+    const composer = readTextCriterion(params, "composer", TEXT_OPERATORS)
     if (composer) criteria.composer = composer
     const key = readString(params, "key")
     if (key) criteria.keyRef = key
     const type = readString(params, "type")
     if (type) criteria.type = type
-    const yearFrom = readNumber(params, "yearFrom")
-    if (yearFrom !== undefined) criteria.yearFrom = yearFrom
-    const yearTo = readNumber(params, "yearTo")
-    if (yearTo !== undefined) criteria.yearTo = yearTo
-    const suzukiMin = readNumber(params, "suzukiMin")
-    if (suzukiMin !== undefined) criteria.suzukiMin = suzukiMin
-    const nyssmaMin = readNumber(params, "nyssmaMin")
-    if (nyssmaMin !== undefined) criteria.nyssmaMin = nyssmaMin
-    const country = readString(params, "country")
+    const year = readNumberCriterion(params, "year", YEAR_OPERATORS)
+    if (year) criteria.year = year
+    const suzuki = readNumberCriterion(params, "suzuki", RATING_OPERATORS)
+    if (suzuki) criteria.suzuki = suzuki
+    const nyssma = readNumberCriterion(params, "nyssma", RATING_OPERATORS)
+    if (nyssma) criteria.nyssma = nyssma
+    const country = readTextCriterion(params, "country", TEXT_OPERATORS)
     if (country) criteria.country = country
-    const role = readString(params, "role")
+    const role = readTextCriterion(params, "role", TEXT_OPERATORS)
     if (role) criteria.role = role
-    const birthYear = readNumber(params, "birthYear")
-    if (birthYear !== undefined) criteria.birthYear = birthYear
-    const deathYear = readNumber(params, "deathYear")
-    if (deathYear !== undefined) criteria.deathYear = deathYear
+    const birthYear = readNumberCriterion(params, "birthYear", YEAR_OPERATORS)
+    if (birthYear) criteria.birthYear = birthYear
+    const deathYear = readNumberCriterion(params, "deathYear", YEAR_OPERATORS)
+    if (deathYear) criteria.deathYear = deathYear
     return criteria
 }
 
 /** Criteria -> URL params, the inverse of {@link parseFacetParams} — makes results shareable/back-forward-able. */
 export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
     const params = new URLSearchParams()
-    if (criteria.noun) params.set("noun", ENTITY_NOUN_SLUGS[criteria.noun])
-    if (criteria.composer) params.set("composer", criteria.composer)
+    for (const noun of criteria.nouns ?? []) params.append("noun", ENTITY_NOUN_SLUGS[noun])
+    if (criteria.composer) {
+        params.set("composer", criteria.composer.value)
+        params.set("composer_op", criteria.composer.op)
+    }
     if (criteria.keyRef) params.set("key", criteria.keyRef)
     if (criteria.type) params.set("type", criteria.type)
-    if (criteria.yearFrom !== undefined) params.set("yearFrom", String(criteria.yearFrom))
-    if (criteria.yearTo !== undefined) params.set("yearTo", String(criteria.yearTo))
-    if (criteria.suzukiMin !== undefined) params.set("suzukiMin", String(criteria.suzukiMin))
-    if (criteria.nyssmaMin !== undefined) params.set("nyssmaMin", String(criteria.nyssmaMin))
-    if (criteria.country) params.set("country", criteria.country)
-    if (criteria.role) params.set("role", criteria.role)
-    if (criteria.birthYear !== undefined) params.set("birthYear", String(criteria.birthYear))
-    if (criteria.deathYear !== undefined) params.set("deathYear", String(criteria.deathYear))
+    const setNumber = (param: string, criterion: NumberCriterion | undefined): void => {
+        if (!criterion) return
+        params.set(param, String(criterion.value))
+        params.set(`${param}_op`, criterion.op)
+        if (criterion.op === "between" && criterion.valueTo !== undefined) params.set(`${param}To`, String(criterion.valueTo))
+    }
+    setNumber("year", criteria.year)
+    setNumber("suzuki", criteria.suzuki)
+    setNumber("nyssma", criteria.nyssma)
+    if (criteria.country) {
+        params.set("country", criteria.country.value)
+        params.set("country_op", criteria.country.op)
+    }
+    if (criteria.role) {
+        params.set("role", criteria.role.value)
+        params.set("role_op", criteria.role.op)
+    }
+    setNumber("birthYear", criteria.birthYear)
+    setNumber("deathYear", criteria.deathYear)
     return params
 }
 
-function parseYearToken(value: string): Pick<FacetCriteria, "yearFrom" | "yearTo"> | undefined {
+function parseYearToken(value: string): NumberCriterion | undefined {
     const range = value.match(/^(\d+)-(\d+)$/)
-    if (range) return { yearFrom: Number(range[1]), yearTo: Number(range[2]) }
+    if (range) return { op: "between", value: Number(range[1]), valueTo: Number(range[2]) }
     const comparison = value.match(/^(>=|<=|>|<)(\d+)$/)
     if (comparison) {
         const [, op, num] = comparison
-        const n = Number(num)
-        if (op === ">=") return { yearFrom: n }
-        if (op === ">") return { yearFrom: n + 1 }
-        if (op === "<=") return { yearTo: n }
-        return { yearTo: n - 1 }
+        const opMap: Record<string, NumberOperator> = { ">=": "atLeast", ">": "after", "<=": "atMost", "<": "before" }
+        return { op: opMap[op], value: Number(num) }
     }
-    if (/^\d+$/.test(value)) {
-        const n = Number(value)
-        return { yearFrom: n, yearTo: n }
-    }
+    if (/^\d+$/.test(value)) return { op: "is", value: Number(value) }
     return undefined
 }
 
-// Ratings only expose a "minimum" filter (FacetCriteria has no exact/max field for them), so an exact or
-// ">" token both resolve to a floor: ">4" excludes 4 itself, so its floor is 5; "4" and ">=4" both floor at 4.
-function parseMinToken(value: string): number | undefined {
+// Ratings only expose a "minimum"/"maximum"/"is" choice; a bare number or ">=" token both floor at that
+// value, ">" floors one above it (kept as a strict "after" rather than pre-adding 1, since matchesNumber's
+// "after" is already a strict comparison).
+function parseMinToken(value: string): NumberCriterion | undefined {
     const match = value.match(/^(>=|>)?(\d+)$/)
     if (!match) return undefined
     const [, op, num] = match
     const n = Number(num)
-    return op === ">" ? n + 1 : n
+    return op === ">" ? { op: "after", value: n } : { op: "atLeast", value: n }
 }
 
 const QUERY_TOKEN = /^(noun|composer|key|type|year|suzuki|nyssma|country|role):(.+)$/i
@@ -345,12 +482,12 @@ export function parseFacetQuery(raw: string): { text: string; criteria: FacetCri
         switch (field.toLowerCase()) {
             case "noun": {
                 const resolved = parseNounSlug(value)
-                if (resolved) criteria.noun = resolved
+                if (resolved) criteria.nouns = [...(criteria.nouns ?? []), resolved]
                 else leftover.push(word)
                 break
             }
             case "composer":
-                criteria.composer = value
+                criteria.composer = { op: "contains", value }
                 break
             case "key": {
                 const ref = parseKeyToken(value)
@@ -362,28 +499,28 @@ export function parseFacetQuery(raw: string): { text: string; criteria: FacetCri
                 criteria.type = value
                 break
             case "year": {
-                const range = parseYearToken(value)
-                if (range) Object.assign(criteria, range)
+                const criterion = parseYearToken(value)
+                if (criterion) criteria.year = criterion
                 else leftover.push(word)
                 break
             }
             case "suzuki": {
-                const min = parseMinToken(value)
-                if (min !== undefined) criteria.suzukiMin = min
+                const criterion = parseMinToken(value)
+                if (criterion) criteria.suzuki = criterion
                 else leftover.push(word)
                 break
             }
             case "nyssma": {
-                const min = parseMinToken(value)
-                if (min !== undefined) criteria.nyssmaMin = min
+                const criterion = parseMinToken(value)
+                if (criterion) criteria.nyssma = criterion
                 else leftover.push(word)
                 break
             }
             case "country":
-                criteria.country = value
+                criteria.country = { op: "contains", value }
                 break
             case "role":
-                criteria.role = value
+                criteria.role = { op: "contains", value }
                 break
             default:
                 leftover.push(word)

@@ -1,0 +1,84 @@
+---
+/**
+ * components/StaticBreadcrumbs.astro
+ *
+ * Breadcrumb nav for hand-authored (non-Puck) static pages — DatabaseRoot.astro, pages/search.astro, and
+ * pages/search/advanced.astro all hardcode their own structure rather than reading it from a design/entity
+ * template (see each file's `static-page-body` comment), so they cannot place the Puck `Breadcrumbs`
+ * component (catalog.tsx) and instead share this one. Markup/CSS mirror that component's rendered output
+ * (Home, then each ancestor crumb, then the current unlinked page) so spacing/treatment stays identical
+ * between Puck-rendered and hand-authored pages.
+ *
+ * Props:
+ * - crumbs (optional): ancestor crumbs between Home and the current page
+ * - current (required): the current page's label, rendered as the trail's final unlinked crumb
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+interface Crumb {
+    label: string
+    href: string
+}
+
+interface Props {
+    crumbs?: Crumb[]
+    current: string
+}
+
+const { crumbs = [], current }: Props = Astro.props
+---
+
+<nav class="static-breadcrumbs" aria-label="Breadcrumb">
+    <ol>
+        <li><a href="/">Home</a></li>
+        {crumbs.map((crumb) => (
+            <li><a href={crumb.href}>{crumb.label}</a></li>
+        ))}
+        <li aria-current="page">{current}</li>
+    </ol>
+</nav>
+
+<style>
+    .static-breadcrumbs ol {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0;
+        margin: 0 0 var(--dtk-space-md, 1rem);
+        padding: 0;
+        list-style: none;
+        font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+        font-size: var(--dtk-type-label-size, 0.85rem);
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+    }
+    .static-breadcrumbs li:not(:first-child)::before {
+        content: "/";
+        margin-inline: 0.5em;
+        opacity: 0.6;
+    }
+    .static-breadcrumbs a {
+        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+    }
+    .static-breadcrumbs li[aria-current="page"] {
+        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+    }
+</style>
