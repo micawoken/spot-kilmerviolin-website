@@ -47,7 +47,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Key, WorkType, normalizeKeyForSearch } from "../api/common"
+import { AuthorRole, Key, WorkType, normalizeKeyForSearch } from "../api/common"
 import { countryCodeName } from "../../scripts/format"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../compositor/entity-fields"
 
@@ -87,9 +87,10 @@ export interface TextCriterion {
     value: string
 }
 
-export type NumberOperator = "is" | "before" | "after" | "atLeast" | "atMost" | "between" | "around"
+export type NumberOperator = "is" | "before" | "after" | "atLeast" | "atMost" | "between" | "around" | "alive"
 export interface NumberCriterion {
     op: NumberOperator
+    /** unused (and not read) when op is "alive" — that operator alone needs no value */
     value: number
     /** only meaningful (and only read) when op is "between" */
     valueTo?: number
@@ -101,8 +102,8 @@ export interface NumberCriterion {
 const AROUND_YEAR_TOLERANCE = 5
 
 /** Structured search criteria. `nouns` (empty/absent = any) plus one optional criterion per filterable
- *  field; `keyRef`/`type` are plain exact-match values, everything else is a `[field][operator][value]`
- *  criterion object. */
+ *  field; `keyRef`/`type`/`role` are plain exact-match values (all three are closed-vocabulary selects, not
+ *  free text), everything else is a `[field][operator][value]` criterion object. */
 export interface FacetCriteria {
     nouns?: EntityNoun[]
     composer?: TextCriterion
@@ -112,7 +113,7 @@ export interface FacetCriteria {
     suzuki?: NumberCriterion
     nyssma?: NumberCriterion
     country?: TextCriterion
-    role?: TextCriterion
+    role?: string
     birthYear?: NumberCriterion
     deathYear?: NumberCriterion
 }
@@ -140,6 +141,9 @@ export interface AdvancedFieldDef {
     placeholder?: string
     /** present only for text/number fields; absent (select fields) means "exact match, no operator UI" */
     operators?: readonly FacetOperatorOption[]
+    /** number fields only — rendered as the value/"to" inputs' min/max attributes */
+    min?: number
+    max?: number
     /** which entity nouns this criterion is meaningful for — grouping metadata for renderers; matching
      *  itself needs no noun gate, since a field absent on a noun's entries just never matches it */
     nouns: EntityNoun[]
@@ -225,8 +229,20 @@ const YEAR_OPERATORS: readonly FacetOperatorOption[] = [
 const RATING_OPERATORS: readonly FacetOperatorOption[] = [
     { value: "atLeast", label: "At least" },
     { value: "is", label: "Is" },
-    { value: "atMost", label: "At most" }
+    { value: "atMost", label: "At most" },
+    { value: "between", label: "Between" }
 ]
+
+// Death year's own operator list, distinct from YEAR_OPERATORS (used by birth/publication year): adds
+// "Alive" so a living composer (the -1 sentinel, omitted from the facets JSON entirely — see
+// database-facets.json.ts) can be filtered for without a year value.
+const DEATH_YEAR_OPERATORS: readonly FacetOperatorOption[] = [...YEAR_OPERATORS, { value: "alive", label: "Alive" }]
+
+function authorRoleOptions(): AdvancedFieldOption[] {
+    return Object.values(AuthorRole).map((value) => ({ label: value[0].toUpperCase() + value.slice(1), value }))
+}
+
+const currentYear = new Date().getFullYear()
 
 /**
  * The shared field-definition list /search/advanced maps over to render its filter fieldset. Field
@@ -251,8 +267,24 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         nouns: ["composition"]
     },
     { param: "year", label: "Publication year", control: "number", operators: YEAR_OPERATORS, nouns: ["composition"] },
-    { param: "suzuki", label: "Suzuki rating", control: "number", operators: RATING_OPERATORS, nouns: ["composition"] },
-    { param: "nyssma", label: "NYSSMA rating", control: "number", operators: RATING_OPERATORS, nouns: ["composition"] },
+    {
+        param: "suzuki",
+        label: "Suzuki rating",
+        control: "number",
+        operators: RATING_OPERATORS,
+        min: 1,
+        max: 10,
+        nouns: ["composition"]
+    },
+    {
+        param: "nyssma",
+        label: "NYSSMA rating",
+        control: "number",
+        operators: RATING_OPERATORS,
+        min: 1,
+        max: 6,
+        nouns: ["composition"]
+    },
     {
         param: "country",
         label: "Composer country",
@@ -264,13 +296,28 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
     {
         param: "role",
         label: "Composer role",
-        control: "text",
-        placeholder: "e.g. arranger",
-        operators: TEXT_OPERATORS,
+        control: "select",
+        options: [ANY_OPTION, ...authorRoleOptions()],
         nouns: ["composer"]
     },
-    { param: "birthYear", label: "Birth year", control: "number", operators: YEAR_OPERATORS, nouns: ["composer"] },
-    { param: "deathYear", label: "Death year", control: "number", operators: YEAR_OPERATORS, nouns: ["composer"] }
+    {
+        param: "birthYear",
+        label: "Birth year",
+        control: "number",
+        operators: YEAR_OPERATORS,
+        min: 1,
+        max: currentYear,
+        nouns: ["composer"]
+    },
+    {
+        param: "deathYear",
+        label: "Death year",
+        control: "number",
+        operators: DEATH_YEAR_OPERATORS,
+        min: 1,
+        max: currentYear,
+        nouns: ["composer"]
+    }
 ]
 
 const NOUN_BY_SLUG = new Map<string, EntityNoun>(
@@ -297,6 +344,10 @@ function matchesCountry(entry: FacetEntry, criterion: TextCriterion): boolean {
 }
 
 function matchesNumber(entryValue: number | undefined, criterion: NumberCriterion): boolean {
+    // "Alive" is the inverse of every other operator here: a living composer has no deathYear at all (the
+    // -1 sentinel is omitted from the facets JSON — see database-facets.json.ts), so this is the one case
+    // where "value absent" is the match, not an automatic non-match.
+    if (criterion.op === "alive") return entryValue === undefined
     if (entryValue === undefined) return false
     switch (criterion.op) {
         case "is":
@@ -326,7 +377,7 @@ export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boole
     if (criteria.suzuki && !matchesNumber(entry.suzuki, criteria.suzuki)) return false
     if (criteria.nyssma && !matchesNumber(entry.nyssma, criteria.nyssma)) return false
     if (criteria.country && !matchesCountry(entry, criteria.country)) return false
-    if (criteria.role && !matchesText(entry.role, criteria.role)) return false
+    if (criteria.role && entry.role !== criteria.role) return false
     if (criteria.birthYear && !matchesNumber(entry.birthYear, criteria.birthYear)) return false
     if (criteria.deathYear && !matchesNumber(entry.deathYear, criteria.deathYear)) return false
     return true
@@ -360,10 +411,13 @@ function readTextCriterion(params: URLSearchParams, param: string, operators: re
 }
 
 function readNumberCriterion(params: URLSearchParams, param: string, operators: readonly FacetOperatorOption[]): NumberCriterion | undefined {
-    const value = readNumber(params, param)
-    if (value === undefined) return undefined
     const opRaw = params.get(`${param}_op`)
     const op = (operators.find((candidate) => candidate.value === opRaw)?.value ?? operators[0].value) as NumberOperator
+    // "Alive" needs no value at all (see matchesNumber) — read it before the value check below, which would
+    // otherwise bail out with nothing typed into the (hidden, for this operator) value input.
+    if (op === "alive") return { op, value: 0 }
+    const value = readNumber(params, param)
+    if (value === undefined) return undefined
     const criterion: NumberCriterion = { op, value }
     if (op === "between") {
         const valueTo = readNumber(params, `${param}To`)
@@ -396,11 +450,11 @@ export function parseFacetParams(params: URLSearchParams): FacetCriteria {
     if (nyssma) criteria.nyssma = nyssma
     const country = readTextCriterion(params, "country", TEXT_OPERATORS)
     if (country) criteria.country = country
-    const role = readTextCriterion(params, "role", TEXT_OPERATORS)
+    const role = readString(params, "role")
     if (role) criteria.role = role
     const birthYear = readNumberCriterion(params, "birthYear", YEAR_OPERATORS)
     if (birthYear) criteria.birthYear = birthYear
-    const deathYear = readNumberCriterion(params, "deathYear", YEAR_OPERATORS)
+    const deathYear = readNumberCriterion(params, "deathYear", DEATH_YEAR_OPERATORS)
     if (deathYear) criteria.deathYear = deathYear
     return criteria
 }
@@ -417,8 +471,11 @@ export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
     if (criteria.type) params.set("type", criteria.type)
     const setNumber = (param: string, criterion: NumberCriterion | undefined): void => {
         if (!criterion) return
-        params.set(param, String(criterion.value))
         params.set(`${param}_op`, criterion.op)
+        // "Alive" carries no value (see matchesNumber/readNumberCriterion) — writing a placeholder number
+        // would just be noise in the URL.
+        if (criterion.op === "alive") return
+        params.set(param, String(criterion.value))
         if (criterion.op === "between" && criterion.valueTo !== undefined) params.set(`${param}To`, String(criterion.valueTo))
     }
     setNumber("year", criteria.year)
@@ -428,10 +485,7 @@ export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
         params.set("country", criteria.country.value)
         params.set("country_op", criteria.country.op)
     }
-    if (criteria.role) {
-        params.set("role", criteria.role.value)
-        params.set("role_op", criteria.role.op)
-    }
+    if (criteria.role) params.set("role", criteria.role)
     setNumber("birthYear", criteria.birthYear)
     setNumber("deathYear", criteria.deathYear)
     return params
@@ -520,7 +574,7 @@ export function parseFacetQuery(raw: string): { text: string; criteria: FacetCri
                 criteria.country = { op: "contains", value }
                 break
             case "role":
-                criteria.role = { op: "contains", value }
+                criteria.role = value.toLowerCase()
                 break
             default:
                 leftover.push(word)

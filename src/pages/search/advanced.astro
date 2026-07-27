@@ -57,6 +57,11 @@ const params = Astro.url.searchParams
 const initialQuery = params.get("q") ?? ""
 const valueFor = (param: string): string => params.get(param) ?? ""
 const selectedNouns = new Set(params.getAll("noun"))
+// No "noun" param at all (a fresh arrival, not a resubmission with every box deliberately unchecked) starts
+// every entity type checked, so a first-time visitor doesn't have to opt into all three by hand — matches
+// updateFieldVisibility's own "no noun checked" == "show every field" default in the client script below.
+const hasNounParam = params.has("noun")
+const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.has(value) : true)
 ---
 
 <PublicPage
@@ -84,82 +89,99 @@ const selectedNouns = new Set(params.getAll("noun"))
                 />
                 <button type="submit">Search</button>
             </div>
+            <p class="search-advanced-link"><a href="/search">← Back to search</a></p>
             {/* A real, visible fieldset/legend (not the bar's free-text input): makes explicit that
                 everything below is a set of filters narrowing which composers/works/contributors match,
                 distinct in kind from the keyword search above it. */}
             <fieldset class="search-advanced__grid">
                 <legend class="search-section-label">Filters</legend>
-                <fieldset class="search-advanced__field search-advanced__nouns">
-                    <legend>Entity type</legend>
+                {/* No visible legend — the three checkbox labels (Composer/Work/Contributor) already say
+                    what's being picked with no caption needed; aria-label keeps the group named for
+                    assistive tech without adding visible text. */}
+                <fieldset class="search-advanced__field search-advanced__nouns" aria-label="Entity type">
                     <div class="search-advanced__nouns-options">
                         {nounOptions().map((option) => (
                             <label>
-                                <input type="checkbox" name="noun" value={option.value} checked={selectedNouns.has(option.value)} />
+                                <input type="checkbox" name="noun" value={option.value} checked={isNounChecked(option.value)} />
                                 {option.label}
                             </label>
                         ))}
                     </div>
                 </fieldset>
-                {ADVANCED_FIELDS.map((field) => (
-                    <div
-                        class="search-advanced__field"
-                        data-nouns={field.nouns.map((noun) => ENTITY_NOUN_SLUGS[noun]).join(" ")}
-                    >
-                        <label for={`adv-${field.param}`}>{field.label}</label>
-                        {field.control === "select" ? (
-                            <select id={`adv-${field.param}`} name={field.param}>
-                                {(field.options ?? []).map((option) => (
-                                    <option value={option.value} selected={valueFor(field.param) === option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : (
-                            <div class="search-advanced__control">
-                                {field.operators && (
-                                    <select
-                                        class="search-advanced__op"
-                                        id={`adv-${field.param}-op`}
-                                        name={`${field.param}_op`}
-                                        aria-label={`${field.label} comparison`}
-                                    >
-                                        {field.operators.map((op) => (
-                                            <option
-                                                value={op.value}
-                                                selected={(valueFor(`${field.param}_op`) || field.operators?.[0].value) === op.value}
-                                            >
-                                                {op.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                                <input
-                                    id={`adv-${field.param}`}
-                                    type={field.control === "number" ? "number" : "text"}
-                                    name={field.param}
-                                    placeholder={field.placeholder}
-                                    value={valueFor(field.param)}
-                                />
-                                {field.operators?.some((op) => op.value === "between") && (
+                {ADVANCED_FIELDS.map((field) => {
+                    const hasBetween = field.operators?.some((op) => op.value === "between")
+                    const currentOp = valueFor(`${field.param}_op`) || field.operators?.[0].value
+                    const isBetween = currentOp === "between"
+                    // Only deathYear's operator list carries "alive" (see facets.ts), so this only ever
+                    // fires there — checked generically rather than gated on the field so no per-field
+                    // special case is needed here.
+                    const isAlive = currentOp === "alive"
+                    return (
+                        <div
+                            class="search-advanced__field"
+                            data-nouns={field.nouns.map((noun) => ENTITY_NOUN_SLUGS[noun]).join(" ")}
+                        >
+                            <label for={`adv-${field.param}`}>{field.label}</label>
+                            {field.control === "select" ? (
+                                <select id={`adv-${field.param}`} name={field.param}>
+                                    {(field.options ?? []).map((option) => (
+                                        <option value={option.value} selected={valueFor(field.param) === option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div class="search-advanced__control">
+                                    {field.operators && (
+                                        <select
+                                            class="search-advanced__op"
+                                            id={`adv-${field.param}-op`}
+                                            name={`${field.param}_op`}
+                                            aria-label={`${field.label} comparison`}
+                                        >
+                                            {field.operators.map((op) => (
+                                                <option value={op.value} selected={currentOp === op.value}>
+                                                    {op.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    {/* Reserved-space column even when nothing renders in it (no `to` input for
+                                        this field) — see search-form.css's fixed-column grid. `is-inactive` hides
+                                        via visibility (not `hidden`/`display`) so the "alive" operator never
+                                        shifts the row's other controls. */}
                                     <input
-                                        type="number"
-                                        class="search-advanced__to"
-                                        id={`adv-${field.param}-to`}
-                                        name={`${field.param}To`}
-                                        placeholder="to"
-                                        aria-label={`${field.label} upper bound`}
-                                        value={valueFor(`${field.param}To`)}
-                                        hidden={valueFor(`${field.param}_op`) !== "between"}
-                                        disabled={valueFor(`${field.param}_op`) !== "between"}
+                                        id={`adv-${field.param}`}
+                                        class:list={["search-advanced__value", { "is-inactive": isAlive }]}
+                                        type={field.control === "number" ? "number" : "text"}
+                                        name={field.param}
+                                        placeholder={field.placeholder}
+                                        value={valueFor(field.param)}
+                                        min={field.min}
+                                        max={field.max}
+                                        disabled={isAlive}
                                     />
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ))}
+                                    {hasBetween && (
+                                        <input
+                                            type="number"
+                                            class:list={["search-advanced__to", { "is-inactive": !isBetween }]}
+                                            id={`adv-${field.param}-to`}
+                                            name={`${field.param}To`}
+                                            placeholder="to"
+                                            aria-label={`${field.label} upper bound`}
+                                            value={valueFor(`${field.param}To`)}
+                                            min={field.min}
+                                            max={field.max}
+                                            disabled={!isBetween}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
             </fieldset>
         </form>
-        <p class="search-back-link"><a href="/search">← Back to search</a></p>
         <p id="search-status" role="status" aria-live="polite"></p>
         <ul id="search-results"></ul>
         <div id="search-pagination"></div>
@@ -214,24 +236,10 @@ const selectedNouns = new Set(params.getAll("noun"))
         align-items: center;
         gap: 0.35em;
     }
-    .search-advanced__control {
-        display: flex;
-        gap: 0.35rem;
-    }
-    .search-advanced__op {
-        flex: 0 0 auto;
-        min-width: 6rem;
-    }
-    .search-advanced__to {
-        flex: 1;
-        min-width: 4rem;
-    }
-    .search-back-link {
-        font-size: 0.875rem;
+    /* Reused by /search's own "Advanced search →" link (search-form.css) — this margin, matching that
+       page's local override, is the only piece not shared. */
+    .search-advanced-link {
         margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
-    }
-    .search-back-link a {
-        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
     }
     #search-status {
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
@@ -239,8 +247,12 @@ const selectedNouns = new Set(params.getAll("noun"))
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-        /* Stronger separation from the search controls above it than plain whitespace gives. */
+        /* Stronger separation from the search controls above it than plain whitespace gives. Only shown
+           once there's actual status text (see :not(:empty) below) — otherwise this hairline+padding would
+           render as a bare empty line before any search has run. */
         margin-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+    }
+    #search-status:not(:empty) {
         padding-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
         border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
             var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
@@ -448,8 +460,10 @@ const selectedNouns = new Set(params.getAll("noun"))
         updateFieldVisibility()
 
         // A number field's operator select conditionally reveals (and enables — FormData skips disabled
-        // controls, so this also keeps a stale "to" value out of the submission) its paired upper-bound
-        // input when "between" is chosen.
+        // controls, so this also keeps a stale "to"/value out of the submission) its paired upper-bound
+        // input when "between" is chosen, or (deathYear only) hides its own value input when "alive" is
+        // chosen. "is-inactive" (search-form.css) hides via visibility, not `hidden`/`display`, so the
+        // reserved grid column never changes size — see that file's comment for why.
         function updateOperatorControls(): void {
             // Queried as the generic Element (not <HTMLSelectElement>): HTMLSelectElement's `remove(index)`
             // overload is incompatible with querySelectorAll's `E extends Element` constraint (Element.remove
@@ -457,11 +471,18 @@ const selectedNouns = new Set(params.getAll("noun"))
             for (const opSelect of formEl.querySelectorAll(".search-advanced__op")) {
                 if (!(opSelect instanceof HTMLSelectElement)) continue
                 const param = opSelect.name.replace(/_op$/, "")
-                const toInput = document.getElementById(`adv-${param}-to`)
-                if (!(toInput instanceof HTMLInputElement)) continue
                 const isBetween = opSelect.value === "between"
-                toInput.hidden = !isBetween
-                toInput.disabled = !isBetween
+                const isAlive = opSelect.value === "alive"
+                const toInput = document.getElementById(`adv-${param}-to`)
+                if (toInput instanceof HTMLInputElement) {
+                    toInput.classList.toggle("is-inactive", !isBetween)
+                    toInput.disabled = !isBetween
+                }
+                const valueInput = document.getElementById(`adv-${param}`)
+                if (valueInput instanceof HTMLInputElement) {
+                    valueInput.classList.toggle("is-inactive", isAlive)
+                    valueInput.disabled = isAlive
+                }
             }
         }
         for (const opSelect of form.querySelectorAll(".search-advanced__op")) {

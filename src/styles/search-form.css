@@ -72,6 +72,16 @@
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
+/* Modifier for a search bar sitting in tight vertical quarters (currently only the header's overlay, see
+ * PublicHeader.astro) — shrinks just the vertical padding, not the horizontal rhythm/border/font the rest of
+ * `.search-form` still supplies. Consolidating every public search form onto this one shared class (see this
+ * file's header) dropped the header's own shorter-than-default padding along with it; this restores that
+ * without re-forking the header's look back into its own stylesheet. */
+.search-form--compact input[type="search"],
+.search-form--compact button {
+	padding-block: 0.3rem;
+}
+
 /* The filter grid on /search/advanced (lib/search/facets.ts's ADVANCED_FIELDS) — the only remaining
  * renderer of it; the Puck component and DatabaseRoot.astro used to duplicate it inline behind a
  * <details> toggle, now they just link to this page instead (catalog.tsx's `advancedLink` option). Fixed
@@ -111,6 +121,34 @@
 	min-height: calc(var(--dtk-type-label-size, 0.72rem) * 2 * 1.4);
 	display: flex;
 	align-items: flex-end;
+}
+/* A text/number field's op-select + value(+"to") row. Fixed grid columns (not flex) so every field's value
+ * input is exactly the same width whether or not it has a "to" column — a flex row instead would let a
+ * two-control field's value input grow into the space a three-control field's must share with its "to"
+ * input, which is exactly the "single field is wider than a two-value field" inconsistency this replaces.
+ * The third column is left empty (no DOM element) for a field with no "between"/"alive" operator; an empty
+ * grid track still reserves its width, so that field's value input still lands at the same column edge. */
+.search-advanced__control {
+	display: grid;
+	grid-template-columns: 7rem 1fr 1fr;
+	gap: 0.35rem;
+}
+.search-advanced__op,
+.search-advanced__value,
+.search-advanced__to {
+	/* Overrides this file's own shared `flex: 1; min-width: 8rem;` input rule above — a grid item's
+	 * intrinsic content width (a <select>'s longest option, in particular) can otherwise exceed its fixed
+	 * column and force the grid wider than the field cell around it. */
+	width: 100%;
+	min-width: 0;
+}
+/* Reserves its column's space (rather than `hidden`/`display: none`, which would collapse it) whenever the
+ * chosen operator doesn't need this control — the "to" input outside "between", or the value input itself
+ * under deathYear's "alive" (see pages/search/advanced.astro). This is the layout-shift fix: toggling the
+ * operator only ever changes what's drawn inside an already-reserved box, never the box's own size. */
+.search-advanced__to.is-inactive,
+.search-advanced__value.is-inactive {
+	visibility: hidden;
 }
 .search-advanced-link {
 	font-size: 0.875rem;

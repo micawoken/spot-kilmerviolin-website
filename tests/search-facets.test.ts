@@ -82,9 +82,16 @@ describe("matchesFacets", () => {
         noun: "composer",
         name: "Johann Sebastian Bach",
         country: "DE",
-        role: "Primary Author",
+        role: "composer",
         birthYear: 1685,
         deathYear: 1750
+    }
+    const livingComposer: FacetEntry = {
+        url: "/entity/composer/2",
+        noun: "composer",
+        name: "Living Composer",
+        country: "US"
+        // no birthYear/deathYear — mirrors database-facets.json.ts omitting the -1 "living" sentinel
     }
 
     it("matches on an empty criteria object (no filters applied)", () => {
@@ -101,9 +108,13 @@ describe("matchesFacets", () => {
     it("text fields default to case-insensitive 'contains', and support exact 'is'", () => {
         expect(matchesFacets(work, { composer: { op: "contains", value: "bach" } })).toBe(true)
         expect(matchesFacets(work, { composer: { op: "contains", value: "handel" } })).toBe(false)
-        expect(matchesFacets(composer, { role: { op: "contains", value: "primary" } })).toBe(true)
         expect(matchesFacets(work, { composer: { op: "is", value: "bach" } })).toBe(false)
         expect(matchesFacets(work, { composer: { op: "is", value: "Johann Sebastian Bach" } })).toBe(true)
+    })
+
+    it("role is a closed-vocabulary exact match, not free text", () => {
+        expect(matchesFacets(composer, { role: "composer" })).toBe(true)
+        expect(matchesFacets(composer, { role: "arranger" })).toBe(false)
     })
 
     it("country matches either the raw code or the resolved display name, honoring contains/is", () => {
@@ -134,11 +145,13 @@ describe("matchesFacets", () => {
         expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(false) // composer entries carry no year field
     })
 
-    it("ratings support is/atLeast/atMost", () => {
+    it("ratings support is/atLeast/atMost/between", () => {
         expect(matchesFacets(work, { suzuki: { op: "atLeast", value: 4 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "atLeast", value: 5 } })).toBe(false)
         expect(matchesFacets(work, { suzuki: { op: "atMost", value: 4 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "is", value: 4 } })).toBe(true)
+        expect(matchesFacets(work, { suzuki: { op: "between", value: 3, valueTo: 5 } })).toBe(true)
+        expect(matchesFacets(work, { suzuki: { op: "between", value: 5, valueTo: 6 } })).toBe(false)
         expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(false) // composer entries carry no suzuki field
     })
 
@@ -146,6 +159,11 @@ describe("matchesFacets", () => {
         expect(matchesFacets(composer, { birthYear: { op: "is", value: 1685 } })).toBe(true)
         expect(matchesFacets(composer, { birthYear: { op: "is", value: 1686 } })).toBe(false)
         expect(matchesFacets(composer, { deathYear: { op: "between", value: 1700, valueTo: 1800 } })).toBe(true)
+    })
+
+    it("deathYear's 'alive' operator matches only entries with no deathYear (the -1 sentinel is omitted, not encoded)", () => {
+        expect(matchesFacets(livingComposer, { deathYear: { op: "alive", value: 0 } })).toBe(true)
+        expect(matchesFacets(composer, { deathYear: { op: "alive", value: 0 } })).toBe(false)
     })
 })
 
@@ -160,12 +178,19 @@ describe("parseFacetParams / criteriaToParams round-trip", () => {
             suzuki: { op: "atLeast", value: 4 },
             nyssma: { op: "is", value: 3 },
             country: { op: "contains", value: "DE" },
-            role: { op: "is", value: "arranger" },
+            role: "arranger",
             birthYear: { op: "before", value: 1750 },
             deathYear: { op: "after", value: 1700 }
         }
         const roundTripped = parseFacetParams(criteriaToParams(criteria))
         expect(roundTripped).toEqual(criteria)
+    })
+
+    it("round-trips deathYear's 'alive' operator without a value param", () => {
+        const criteria: FacetCriteria = { deathYear: { op: "alive", value: 0 } }
+        const params = criteriaToParams(criteria)
+        expect(params.has("deathYear")).toBe(false)
+        expect(parseFacetParams(params).deathYear).toEqual({ op: "alive", value: 0 })
     })
 
     it("drops blank/absent params rather than emitting empty-string criteria", () => {
@@ -237,13 +262,13 @@ describe("parseFacetQuery", () => {
         expect(parseFacetQuery("nyssma:>3").criteria.nyssma).toEqual({ op: "after", value: 3 })
     })
 
-    it("composer:/type:/country:/role: tokens carry their value through verbatim as a 'contains' criterion", () => {
-        const result = parseFacetQuery("composer:bach type:chamber country:france role:arranger")
+    it("composer:/country: tokens carry their value through verbatim as a 'contains' criterion; type:/role: are exact", () => {
+        const result = parseFacetQuery("composer:bach type:chamber country:france role:Arranger")
         expect(result.criteria).toMatchObject({
             composer: { op: "contains", value: "bach" },
             type: "chamber",
             country: { op: "contains", value: "france" },
-            role: { op: "contains", value: "arranger" }
+            role: "arranger"
         })
         expect(result.text).toBe("")
     })
