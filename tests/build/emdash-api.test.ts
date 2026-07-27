@@ -24,14 +24,18 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-import {
-    CmsReadError,
-    EMDASH_MAX_WAIT_MS,
-    READ_TIMEOUT_MS,
-    emdashGet,
-    fetchPublishedPages,
-    fetchPublishedPosts
-} from "../../src/lib/build/emdash-api"
+import { CmsReadError, EMDASH_MAX_WAIT_MS, READ_TIMEOUT_MS, emdashGet } from "../../src/lib/build/emdash-api"
+
+/**
+ * Fetches a fresh module instance. `fetchPublishedPages`/`fetchPublishedPosts` each cache their read for
+ * the life of one build process (see their doc comments in emdash-api.ts) — exactly the thing each of
+ * these tests must NOT share, or an earlier test's mocked response (or thrown error) would leak into a
+ * later test's assertions. Same rationale as `freshFetchMenu` below, for `fetchMenu`'s own cache.
+ */
+async function freshEmdashApi() {
+    vi.resetModules()
+    return import("../../src/lib/build/emdash-api")
+}
 
 /** A JSON Response, as EmDash's API would return it. */
 function json(status: number, body: unknown): Response {
@@ -182,14 +186,16 @@ describe("emdashGet — a successful read", () => {
 
 describe("fetchPublishedPages — an outage must not look like an empty site", () => {
     it("throws instead of returning [], which a deploy would publish over the live pages", async () => {
+        const { CmsReadError: FreshCmsReadError, fetchPublishedPages } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("socket hang up")))
 
         // The regression this guards: a soft [] here builds a dist/ with every page missing.
-        await expect(settle(fetchPublishedPages())).rejects.toBeInstanceOf(CmsReadError)
+        await expect(settle(fetchPublishedPages())).rejects.toBeInstanceOf(FreshCmsReadError)
     })
 
     it("still returns [] when the CMS genuinely has no published pages", async () => {
+        const { fetchPublishedPages } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [] } })))
 
@@ -213,6 +219,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
     }
 
     it("reads the posts collection", async () => {
+        const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         const fetchSpy = vi.fn().mockResolvedValue(json(200, { data: { items: [] } }))
         vi.stubGlobal("fetch", fetchSpy)
@@ -224,6 +231,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
     })
 
     it("maps `excerpt` onto description — posts have no `description` field", async () => {
+        const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
 
@@ -233,6 +241,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
     })
 
     it("has no published_at: the field does not exist on posts, so the D3 render shows no date", async () => {
+        const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
 
@@ -242,6 +251,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
     })
 
     it("carries featured_image through in `fields` — the only image field an outlet can bind", async () => {
+        const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
 
@@ -253,6 +263,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
     })
 
     it("surfaces the design pointer, so a post can name a template like any entry", async () => {
+        const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
 
@@ -263,18 +274,31 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
     })
 
     it("throws on a read failure rather than building a site with every post missing", async () => {
+        const { CmsReadError: FreshCmsReadError, fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("socket hang up")))
 
-        await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(CmsReadError)
+        await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(FreshCmsReadError)
     })
 
     it("throws on a 404: posts is a seed collection, so its absence means the wrong CMS", async () => {
+        const { CmsReadError: FreshCmsReadError, fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { message: "not found" } })))
 
         // Deliberately NOT allowMissing (unlike design_template, which does not exist until setup runs).
-        await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(CmsReadError)
+        await expect(settle(fetchPublishedPosts())).rejects.toBeInstanceOf(FreshCmsReadError)
+    })
+
+    it("reads the network once no matter how many times fetchPublishedPosts is called in one build", async () => {
+        const { fetchPublishedPosts } = await freshEmdashApi()
+        withCms()
+        const fetchSpy = vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } }))
+        vi.stubGlobal("fetch", fetchSpy)
+
+        await Promise.all([fetchPublishedPosts(), fetchPublishedPosts()])
+
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
     })
 })
 
@@ -405,5 +429,31 @@ describe("fetchMenu", () => {
         const fetchMenu = await freshFetchMenu()
 
         await expect(fetchMenu("footer")).resolves.toEqual([])
+    })
+
+    it("resolving a page reference reuses [...slug].astro's own fetchPublishedPages read, not a second one", async () => {
+        // [...slug].astro's getStaticPaths calls fetchPublishedPages()/fetchPublishedPosts() directly; every
+        // page's Header/Footer then calls fetchMenu, which (via getPageHrefMap) reads the same collections
+        // again to resolve a page/post reference item. Both call sites must share fetchPublishedPages'/
+        // fetchPublishedPosts' own cache, or a build pays for the pages/posts collections twice.
+        withCms()
+        const fetchSpy = vi.fn(async (url: string) => {
+            if (url.includes("/_emdash/api/menus/footer")) {
+                return json(200, { data: { items: [{ label: "Privacy Policy", type: "page", referenceId: "pg-1" }] } })
+            }
+            if (url.includes("/_emdash/api/content/pages")) {
+                return json(200, { data: { items: [{ id: "pg-1", slug: "privacy-policy", status: "published", data: {} }] } })
+            }
+            if (url.includes("/_emdash/api/content/posts")) return json(200, { data: { items: [] } })
+            return json(404, { error: { message: "not found" } })
+        })
+        vi.stubGlobal("fetch", fetchSpy)
+        const { fetchMenu, fetchPublishedPages, fetchPublishedPosts } = await freshEmdashApi()
+
+        await Promise.all([fetchPublishedPages(), fetchPublishedPosts()])
+        await expect(fetchMenu("footer")).resolves.toEqual([{ label: "Privacy Policy", url: "/privacy-policy" }])
+
+        expect(fetchSpy.mock.calls.filter(([url]) => url.includes("/_emdash/api/content/pages"))).toHaveLength(1)
+        expect(fetchSpy.mock.calls.filter(([url]) => url.includes("/_emdash/api/content/posts"))).toHaveLength(1)
     })
 })

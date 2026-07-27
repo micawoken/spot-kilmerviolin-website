@@ -72,6 +72,16 @@
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
+/* Modifier for a search bar sitting in tight vertical quarters (currently only the header's overlay, see
+ * PublicHeader.astro) — shrinks just the vertical padding, not the horizontal rhythm/border/font the rest of
+ * `.search-form` still supplies. Consolidating every public search form onto this one shared class (see this
+ * file's header) dropped the header's own shorter-than-default padding along with it; this restores that
+ * without re-forking the header's look back into its own stylesheet. */
+.search-form--compact input[type="search"],
+.search-form--compact button {
+	padding-block: 0.3rem;
+}
+
 /* The filter grid on /search/advanced (lib/search/facets.ts's ADVANCED_FIELDS) — the only remaining
  * renderer of it; the Puck component and DatabaseRoot.astro used to duplicate it inline behind a
  * <details> toggle, now they just link to this page instead (catalog.tsx's `advancedLink` option). Fixed
@@ -81,7 +91,10 @@
 .search-advanced__grid {
 	display: grid;
 	grid-template-columns: repeat(1, 1fr);
-	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+	/* Row/column rhythm for the field grid itself — deliberately its own, smaller fallback (not the shared
+	 * control-space fallback used elsewhere on this page) now that every row (including the entity-type
+	 * checkboxes) relies on this alone with no extra per-row margin of its own. */
+	gap: var(--dtk-chrome-horizontal-space-control, 0.5rem);
 	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
 }
 @media (min-width: 30rem) {
@@ -99,6 +112,13 @@
 	flex-direction: column;
 	gap: 0.25rem;
 }
+/* An author `display` declaration on the element itself (the rule above) beats the UA stylesheet's
+ * `[hidden] { display: none }` regardless of selector specificity — origin, not specificity, decides that
+ * cascade — so updateFieldVisibility's `field.hidden = true` (advanced.astro) alone did nothing without
+ * this explicit override: a field not applicable to the checked noun(s) stayed visible. */
+.search-advanced__field[hidden] {
+	display: none;
+}
 .search-advanced__field label {
 	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
 	font-size: var(--dtk-type-label-size, 0.72rem);
@@ -111,6 +131,98 @@
 	min-height: calc(var(--dtk-type-label-size, 0.72rem) * 2 * 1.4);
 	display: flex;
 	align-items: flex-end;
+}
+/* A text/number field's op-select + value(+"to") row. Fixed grid columns (not flex) so every field's value
+ * input is exactly the same width whether or not it has a "to" column — a flex row instead would let a
+ * two-control field's value input grow into the space a three-control field's must share with its "to"
+ * input, which is exactly the "single field is wider than a two-value field" inconsistency this replaces.
+ * The third column is left empty (no DOM element) for a field with no "between"/"alive" operator; an empty
+ * grid track still reserves its width, so that field's value input still lands at the same column edge. */
+.search-advanced__control {
+	display: grid;
+	grid-template-columns: 7rem 1fr 1fr;
+	gap: 0.35rem;
+}
+/* Pins every child to row 1 explicitly — this control is always exactly one row. Needed once
+ * search-advanced__value--full and search-advanced__to's own grid-row/grid-column pin (below) can overlap
+ * in column 3: leaving either side's row to auto-placement makes the grid treat that column as occupied by
+ * whichever one it placed first and bump the other onto a second row, inflating the field's height either
+ * way — pinning only one side just moves the bug to the other. */
+.search-advanced__control > * {
+	grid-row: 1;
+}
+.search-advanced__op,
+.search-advanced__value,
+.search-advanced__to,
+.search-advanced__select {
+	/* Overrides this file's own shared `flex: 1; min-width: 8rem;` input rule above — a grid item's
+	 * intrinsic content width (a <select>'s longest option, in particular) can otherwise exceed its fixed
+	 * column and force the grid wider than the field cell around it. */
+	width: 100%;
+	min-width: 0;
+	/* None of these fields sit inside a `.search-form`-classed ancestor, so they get none of that rule's
+	 * box model — left to plain UA defaults, a <select>'s default padding/border differs from an <input>'s
+	 * (visible as a ~2px height mismatch, e.g. between the Composer field's text input and the Key field's
+	 * select), even though `color-scheme: dark` makes both auto-theme dark and look deceptively consistent
+	 * at a glance. Explicit, matching values here — same tokens as `.search-form`'s own input/select rule —
+	 * fix that instead of relying on two different UA stylesheets to agree. */
+	box-sizing: border-box;
+	/* Flat, tighter values (not `--dtk-chrome-vertical-space-control`, which resolves to 0.75rem here —
+	 * plenty of room in the free-text bar but too tall/wide for a ~60px-wide rating value box sharing a 1fr
+	 * grid track with only two other columns). */
+	padding: 0.35rem 0.4rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	/* Deliberately smaller than `.search-form`'s 1rem: these are secondary filter controls, not the
+	 * primary keyword bar, and matching its size made the whole page read as one undifferentiated block. */
+	font-size: 0.875rem;
+}
+.search-advanced__op,
+.search-advanced__select {
+	/* A <select>'s native dropdown caret renders inside the padding box — the shared 0.4rem right padding
+	 * above left it crowding the border, especially on the 7rem-wide op column. */
+	padding-right: 1.25rem;
+}
+/* A rating field's value box (min=1/max=10 or 1/6) is the tightest column on the page — the native spinner
+ * buttons ate a large share of its ~60px width for a control nobody needs to click-increment through a
+ * 10-step range. min/max are still enforced (browser validation + matchesFacets), just without the arrows. */
+.search-advanced__value[type="number"],
+.search-advanced__to {
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+.search-advanced__value[type="number"]::-webkit-inner-spin-button,
+.search-advanced__value[type="number"]::-webkit-outer-spin-button,
+.search-advanced__to::-webkit-inner-spin-button,
+.search-advanced__to::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+/* Applied whenever the "to" column is unused: composer/country (TEXT_OPERATORS has no "between") never
+ * render a `to` input at all, and a "between"-capable field (year/rating/birth/death) gets this class
+ * too whenever its current operator isn't "between" — see advanced.astro's template/script comments for
+ * how the latter is kept in sync client-side. Either way the value control fills both remaining columns
+ * instead of leaving the third one an empty gap. */
+.search-advanced__value--full {
+	grid-column: 2 / -1;
+}
+/* Pinned to column 3 explicitly (not left to auto-placement) so it still lands there — overlapping, since
+ * it's invisible whenever it's also inactive (see below) — even while search-advanced__value--full spans
+ * columns 2 AND 3 above. Its row is pinned too, by the shared `> *` rule above. */
+.search-advanced__to {
+	grid-column: 3;
+}
+/* Hidden via visibility (not `hidden`/`display: none`, which would pull it out of the grid and change
+ * `.search-advanced__control`'s content-driven height) whenever the chosen operator doesn't need this
+ * control — the "to" input outside "between", or the value input itself under deathYear's "alive" (see
+ * pages/search/advanced.astro). */
+.search-advanced__to.is-inactive,
+.search-advanced__value.is-inactive {
+	visibility: hidden;
 }
 .search-advanced-link {
 	font-size: 0.875rem;

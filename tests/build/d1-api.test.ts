@@ -24,7 +24,16 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-import { BuildTokenReadError, fetchAllContributors, fetchComposers, fetchContributors, fetchCompositions } from "../../src/lib/build/d1-api"
+/**
+ * Fetches a fresh module instance. `fetchComposers`/`fetchAllContributors`/`fetchCompositions` each cache
+ * their read for the life of one build process (see their doc comments in d1-api.ts) — exactly the thing
+ * each of these tests must NOT share, or an earlier test's mocked response (or thrown error) would leak
+ * into a later test's assertions. Mirrors emdash-api.test.ts's `freshFetchMenu` helper for the same reason.
+ */
+async function freshD1Api() {
+    vi.resetModules()
+    return import("../../src/lib/build/d1-api")
+}
 
 /** A GET /api/v1/{composers,contributors,works} response, as the deployed Worker would return it. */
 function apiResponse(status: number, body: unknown): Response {
@@ -68,6 +77,7 @@ afterEach(() => {
 
 describe("build API unconfigured — the bootstrap build", () => {
     it("returns null instead of throwing when any of the four env vars is unset", async () => {
+        const { fetchComposers } = await freshD1Api()
         const fetchSpy = vi.fn()
         vi.stubGlobal("fetch", fetchSpy)
 
@@ -76,6 +86,7 @@ describe("build API unconfigured — the bootstrap build", () => {
     })
 
     it("returns null when BUILD_API_TOKEN alone is missing (Access headers are not enough — D3)", async () => {
+        const { fetchComposers } = await freshD1Api()
         vi.stubEnv("CONTENT_API_BASE", "https://kilmer.example.test")
         vi.stubEnv("CF_ACCESS_CLIENT_ID", "client-1")
         vi.stubEnv("CF_ACCESS_CLIENT_SECRET", "secret-1")
@@ -89,6 +100,7 @@ describe("build API unconfigured — the bootstrap build", () => {
 
 describe("build API configured but failing", () => {
     it("throws BuildTokenReadError instead of returning an empty/partial site", async () => {
+        const { BuildTokenReadError, fetchComposers } = await freshD1Api()
         withConfig()
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("socket hang up")))
 
@@ -96,6 +108,7 @@ describe("build API configured but failing", () => {
     })
 
     it("retries a transient (5xx) failure and succeeds", async () => {
+        const { fetchComposers } = await freshD1Api()
         withConfig()
         const fetchSpy = vi
             .fn()
@@ -108,6 +121,7 @@ describe("build API configured but failing", () => {
     })
 
     it("does not retry an API-level failure (unrecognized token / bad meta), which reads the same every time", async () => {
+        const { fetchComposers } = await freshD1Api()
         withConfig()
         const fetchSpy = vi.fn().mockResolvedValue(apiResponse(200, { success: false, payload: null, comment: "not authorized" }))
         vi.stubGlobal("fetch", fetchSpy)
@@ -117,6 +131,7 @@ describe("build API configured but failing", () => {
     })
 
     it("does not retry a 403 (a standing fact about the credential, not a transient failure)", async () => {
+        const { fetchComposers } = await freshD1Api()
         withConfig()
         const fetchSpy = vi.fn().mockResolvedValue(apiResponse(403, { success: false, payload: null, comment: "Forbidden" }))
         vi.stubGlobal("fetch", fetchSpy)
@@ -128,6 +143,7 @@ describe("build API configured but failing", () => {
 
 describe("outbound request shape", () => {
     it("carries the Access service-token headers, X-Build-Token, and X-MWMSC-Request-Meta full:true", async () => {
+        const { fetchComposers } = await freshD1Api()
         withConfig()
         const fetchSpy = vi.fn().mockResolvedValue(success([]))
         vi.stubGlobal("fetch", fetchSpy)
@@ -146,6 +162,7 @@ describe("outbound request shape", () => {
 
 describe("fetchContributors — public listing", () => {
     it("strips protected/identity columns and excludes inactive contributors", async () => {
+        const { fetchContributors } = await freshD1Api()
         withConfig()
         vi.stubGlobal(
             "fetch",
@@ -196,6 +213,7 @@ describe("fetchContributors — public listing", () => {
 
 describe("fetchAllContributors — unredacted, active or not (entity-records.ts's reference-resolution source)", () => {
     it("includes an inactive contributor and does NOT strip protected columns", async () => {
+        const { fetchAllContributors } = await freshD1Api()
         withConfig()
         vi.stubGlobal(
             "fetch",
@@ -250,6 +268,7 @@ describe("fetchAllContributors — unredacted, active or not (entity-records.ts'
 
 describe("fetchCompositions — flat CompositionRecord shape (unified field-outlet rewrite)", () => {
     it("returns bare CompositionRecords — reference resolution now lives entirely in entity-records.ts", async () => {
+        const { fetchCompositions } = await freshD1Api()
         withConfig()
         const compositionRecord = {
             id: 10,
@@ -296,6 +315,58 @@ describe("fetchCompositions — flat CompositionRecord shape (unified field-outl
         expect(result?.[0].name).toBe("Concerto")
         expect(result?.[0].composer_id).toBe(1)
         expect(result?.[0]).not.toHaveProperty("names")
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe("build-lifetime memoization", () => {
+    it("fetchComposers reads the network once no matter how many pages call it in one build", async () => {
+        const { fetchComposers } = await freshD1Api()
+        withConfig()
+        const fetchSpy = vi.fn().mockResolvedValue(success([{ id: 1, name: "Bach", tags: [] }]))
+        vi.stubGlobal("fetch", fetchSpy)
+
+        const [first, second, third] = await Promise.all([fetchComposers(), fetchComposers(), fetchComposers()])
+        expect(first).toBe(second)
+        expect(second).toBe(third)
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it("fetchAllContributors (and fetchContributors, which reads through it) reads the network once", async () => {
+        const { fetchAllContributors, fetchContributors } = await freshD1Api()
+        withConfig()
+        const fetchSpy = vi.fn().mockResolvedValue(
+            success([
+                {
+                    id: 1,
+                    name: "Ada",
+                    class_year: null,
+                    major: null,
+                    phases: null,
+                    bio: null,
+                    public_email: null,
+                    identity_email: "ada@example.test",
+                    active: true,
+                    roles: [],
+                    admin: false,
+                    image: null,
+                    tags: []
+                }
+            ])
+        )
+        vi.stubGlobal("fetch", fetchSpy)
+
+        await Promise.all([fetchAllContributors(), fetchAllContributors(), fetchContributors(), fetchContributors()])
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it("fetchCompositions reads the network once no matter how many pages call it in one build", async () => {
+        const { fetchCompositions } = await freshD1Api()
+        withConfig()
+        const fetchSpy = vi.fn().mockResolvedValue(success([]))
+        vi.stubGlobal("fetch", fetchSpy)
+
+        await Promise.all([fetchCompositions(), fetchCompositions()])
         expect(fetchSpy).toHaveBeenCalledTimes(1)
     })
 })
