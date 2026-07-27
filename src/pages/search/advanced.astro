@@ -17,7 +17,9 @@
  * Pagefind filters (discrete values only), so they run against the build-time database-facets.json
  * instead. With no keywords, results are the JSON filter alone (Pagefind returns nothing for an empty
  * query, so this is what makes filter-only browsing work); with keywords, Pagefind supplies the ranked
- * matches and their excerpts, intersected against the JSON-matched URL set.
+ * matches and their excerpts, intersected against the JSON-matched URL set. The composer/country text
+ * fields have their own "Regex"/"Fuzzy" operators (facets.ts's TEXT_OPERATORS) — those run entirely inside
+ * matchesFacets against the JSON, independent of whatever the keyword box is doing.
  *
  * Coexists with pages/search.astro — Astro allows a file and a same-named directory (search.astro +
  * search/advanced.astro) to both route.
@@ -394,7 +396,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 </style>
 
 <script>
-    import { matchesFacets, parseFacetParams, type FacetEntry } from "../../lib/search/facets"
+    import { matchesFacets, parseFacetParams, validateFacetCriteria, type FacetEntry } from "../../lib/search/facets"
     import { computePageWindow, withPage, withShowAll, type PageWindow } from "../../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — see pages/search.astro's own copy of this pattern for why the
@@ -419,6 +421,13 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             facetsCache = response.ok ? ((await response.json()) as FacetEntry[]) : []
         }
         return facetsCache
+    }
+
+    // Strips a single trailing slash (except the bare root) so a Pagefind-crawled result URL and a
+    // database-facets.json entry URL can be compared for equality despite differing trailing-slash
+    // conventions — see runSearch's Pagefind branch for why they differ.
+    function normalizeUrl(url: string): string {
+        return url.length > 1 && url.endsWith("/") ? url.slice(0, -1) : url
     }
 
     // "page"/"perPage" are paging state, not search criteria — ignored here so a bare `?page=2` (never
@@ -646,6 +655,17 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             }
             const criteria = parseFacetParams(params)
             const query = (params.get("q") ?? "").trim()
+
+            // Validated up front (before touching facets/Pagefind) so an invalid composer/country regex
+            // pattern gets its own message rather than falling into the generic catch below, which is really
+            // about Pagefind being unavailable (see that catch's comment), or silently matching nothing
+            // (matchesText's own regex-op fallback, meant for a search that's already past this check).
+            const criteriaError = validateFacetCriteria(criteria)
+            if (criteriaError) {
+                statusEl.textContent = criteriaError
+                return
+            }
+
             statusEl.textContent = "Searching…"
 
             try {
@@ -660,15 +680,22 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                     // still costs one `.data()` call per raw Pagefind hit before pagination can slice
                     // anything — unlike search.astro's plain keyword mode, the JSON intersection has to see
                     // every hit's URL to know which survive, so there is no way to slice first here.
-                    const matchedByUrl = new Map(matched.map((entry) => [entry.url, entry]))
+                    //
+                    // Keyed by normalizeUrl, not the raw url string: Pagefind derives a result's URL from the
+                    // prerendered file's on-disk path (always folder/index.html, so always trailing-slash),
+                    // while database-facets.json's url comes from entityHref, which follows this site's
+                    // `trailingSlash: "never"` convention and so never has one — an exact-string join between
+                    // the two silently matched nothing before this normalization, dropping every combined
+                    // keyword+filter result (confirmed against a real build, 2026-07-27).
+                    const matchedByUrl = new Map(matched.map((entry) => [normalizeUrl(entry.url), entry]))
                     const pf = await loadPagefind()
                     const search = await pf.search(query, { filters: { scope: ["database"] } })
                     items = []
                     for (const result of search.results) {
                         const data = await result.data()
-                        const entry = matchedByUrl.get(data.url)
+                        const entry = matchedByUrl.get(normalizeUrl(data.url))
                         if (!entry) continue
-                        items.push({ url: data.url, title: data.meta.title || entry.name, subtitle: entry.composer ?? "", excerptHtml: data.excerpt })
+                        items.push({ url: entry.url, title: data.meta.title || entry.name, subtitle: entry.composer ?? "", excerptHtml: data.excerpt })
                     }
                 }
 

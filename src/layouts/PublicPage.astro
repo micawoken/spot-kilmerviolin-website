@@ -48,9 +48,12 @@ interface Props {
     title?: string
     description?: string
     image?: string
-    /** Pagefind filter value (e.g. "scope:database") applied to <body> via data-pagefind-filter, so a
-     *  scoped search (see pages/search.astro's "scope" param) can restrict results to pages carrying it.
-     *  Omitted entirely (not just empty) for a page with no scope, matching Pagefind's own convention. */
+    /** Pagefind filter value (e.g. "scope:database"), rendered on its own hidden <span> below — NOT
+     *  comma-joined onto the `type:` filter's element. Pagefind only treats an inline `key:value` filter as
+     *  multi-value-safe when it's the last comma item; "type:X, scope:Y" on one attribute silently swallows
+     *  ", scope:Y" into type's own value instead of registering a second filter (confirmed via local
+     *  Pagefind build, 2026-07-27 — see https://pagefind.app/docs/filtering/). Omitted entirely (not just
+     *  empty) for a page with no scope, matching Pagefind's own convention. */
     pagefindFilter?: string
     /** When true, excludes the whole page from the Pagefind index via data-pagefind-ignore on <body> — for
      *  pages with no unique content of their own (e.g. the /entity and /database hub page, which is just a
@@ -74,7 +77,6 @@ interface Props {
 const [site, themeHead] = await Promise.all([getSiteSettings(), getThemeHead(), getNav(), getFooterNav()])
 const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore, contentType = "page" } =
     Astro.props
-const bodyPagefindFilter = [`type:${contentType}`, pagefindFilter].filter(Boolean).join(", ")
 ---
 
 <!doctype html>
@@ -110,7 +112,9 @@ const bodyPagefindFilter = [`type:${contentType}`, pagefindFilter].filter(Boolea
             every other caller simply leaves it empty. */}
         <slot name="head" />
     </head>
-    <body data-pagefind-filter={bodyPagefindFilter} data-pagefind-ignore={pagefindIgnore}>
+    <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>
+        {/* Own element, not comma-joined onto <body>'s type: filter — see pagefindFilter's doc comment above. */}
+        {pagefindFilter && <span hidden data-pagefind-filter={pagefindFilter}></span>}
         <PublicHeader />
         <main>
             <slot />

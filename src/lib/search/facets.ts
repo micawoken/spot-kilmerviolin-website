@@ -8,9 +8,10 @@
  * component and `DatabaseRoot.astro` used to duplicate that form inline, but now just link to that page
  * (catalog.tsx's `advancedLink` option) rather than rendering their own copy of it.
  *
- * Every filterable field follows a `[field][operator][value]` shape: text fields (composer, country,
- * role) choose contains/is; number fields (year, ratings, birth/death year) choose is/before/after/
- * between/around or is/at-least/at-most. `key` and `type` stay plain exact-match selects — there is only
+ * Every filterable field follows a `[field][operator][value]` shape: text fields (composer, country)
+ * choose contains/is exactly/regex/fuzzy (see {@link TEXT_OPERATORS}); number fields (year, ratings,
+ * birth/death year) choose is/before/after/between/around or is/at-least/at-most. `key`, `type`, and
+ * `role` stay plain exact-match selects — there is only
  * one sensible operator for an enum, so no operator control is rendered for them (an operator dropdown
  * with a single, unchangeable option would be UI noise, not the multi-choice behavior the rest of this
  * file is about). Entity type (composer/composition/contributor) is its own multi-select checkbox group
@@ -81,7 +82,7 @@ export interface FacetEntry {
     classYear?: number
 }
 
-export type TextOperator = "contains" | "is"
+export type TextOperator = "contains" | "is" | "regex" | "fuzzy"
 export interface TextCriterion {
     op: TextOperator
     value: string
@@ -211,6 +212,29 @@ export function nounOptions(): AdvancedFieldOption[] {
     return ALL_NOUNS.map((noun) => ({ label: ENTITY_NOUN_LABELS[noun], value: ENTITY_NOUN_SLUGS[noun] }))
 }
 
+/** Lightweight subsequence fuzzy match (the same idea as VS Code's command palette / fzf): `query` matches
+ *  `text` if every one of its characters appears in `text`, in order, not necessarily contiguous —
+ *  e.g. "bch" matches "Bach". Used by matchesText's "fuzzy" operator. */
+function fuzzyMatch(text: string, query: string): boolean {
+    const t = text.toLowerCase()
+    let searchFrom = 0
+    for (const ch of query.toLowerCase()) {
+        const index = t.indexOf(ch, searchFrom)
+        if (index === -1) return false
+        searchFrom = index + 1
+    }
+    return true
+}
+
+function isValidRegex(pattern: string): boolean {
+    try {
+        new RegExp(pattern)
+        return true
+    } catch {
+        return false
+    }
+}
+
 const ANY_OPTION: AdvancedFieldOption = { label: "Any", value: "" }
 
 /** Sentinel option value for "this field is unset on the entry" — distinct from {@link ANY_OPTION}'s empty
@@ -224,7 +248,9 @@ const NONE_OPTION: AdvancedFieldOption = { label: "(None)", value: NONE_VALUE }
 
 const TEXT_OPERATORS: readonly FacetOperatorOption[] = [
     { value: "contains", label: "Contains" },
-    { value: "is", label: "Is exactly" }
+    { value: "is", label: "Is exactly" },
+    { value: "regex", label: "Regex" },
+    { value: "fuzzy", label: "Fuzzy" }
 ]
 
 const YEAR_OPERATORS: readonly FacetOperatorOption[] = [
@@ -271,14 +297,14 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         param: "key",
         label: "Key",
         control: "select",
-        options: [ANY_OPTION, NONE_OPTION, ...KEY_OPTIONS],
+        options: [ANY_OPTION, ...KEY_OPTIONS, NONE_OPTION],
         nouns: ["composition"]
     },
     {
         param: "type",
         label: "Work type",
         control: "select",
-        options: [ANY_OPTION, NONE_OPTION, ...workTypeOptions()],
+        options: [ANY_OPTION, ...workTypeOptions(), NONE_OPTION],
         nouns: ["composition"]
     },
     { param: "year", label: "Publication year", control: "number", operators: YEAR_OPERATORS, nouns: ["composition"] },
@@ -312,7 +338,7 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         param: "role",
         label: "Composer role",
         control: "select",
-        options: [ANY_OPTION, NONE_OPTION, ...authorRoleOptions()],
+        options: [ANY_OPTION, ...authorRoleOptions(), NONE_OPTION],
         nouns: ["composer"]
     },
     {
@@ -344,18 +370,29 @@ function parseNounSlug(value: string): EntityNoun | undefined {
 }
 
 function matchesText(entryValue: string | undefined, criterion: TextCriterion): boolean {
-    const value = (entryValue ?? "").toLowerCase()
-    const query = criterion.value.toLowerCase()
-    return criterion.op === "is" ? value === query : value.includes(query)
+    const value = entryValue ?? ""
+    const query = criterion.value
+    switch (criterion.op) {
+        case "is":
+            return value.toLowerCase() === query.toLowerCase()
+        case "contains":
+            return value.toLowerCase().includes(query.toLowerCase())
+        case "fuzzy":
+            return fuzzyMatch(value, query)
+        case "regex":
+            // Caller validates the pattern up front (validateFacetCriteria) so a search run never reaches an
+            // invalid one; an invalid pattern here just matches nothing rather than throwing mid-filter.
+            return isValidRegex(query) && new RegExp(query, "i").test(value)
+    }
 }
 
 // Composer country matches both the raw ISO code and its resolved display name (e.g. "de" and "Germany"
-// both hit), so this can't reuse matchesText's single-string comparison.
+// both hit), so this tries the criterion against each and takes either match — reuses matchesText's op
+// handling instead of duplicating it per operator.
 function matchesCountry(entry: FacetEntry, criterion: TextCriterion): boolean {
-    const query = criterion.value.toLowerCase()
-    const code = (entry.country ?? "").toLowerCase()
-    const name = entry.country ? countryCodeName(entry.country).toLowerCase() : ""
-    return criterion.op === "is" ? code === query || name === query : code.includes(query) || name.includes(query)
+    const code = entry.country ?? ""
+    const name = entry.country ? countryCodeName(entry.country) : ""
+    return matchesText(code, criterion) || matchesText(name, criterion)
 }
 
 function matchesNumber(entryValue: number | undefined, criterion: NumberCriterion): boolean {
@@ -409,6 +446,20 @@ export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boole
 /** Whether any criterion is set — gates database-mode snapping and JSON-only (keyword-less) filtering. */
 export function hasCriteria(criteria: FacetCriteria): boolean {
     return Object.keys(criteria).length > 0
+}
+
+/** Checks every "regex"-op text criterion's pattern up front, before a search runs matchesFacets over the
+ *  whole dataset — matchesText treats an invalid pattern as a silent non-match, which would otherwise just
+ *  look like "no results" instead of telling the visitor their pattern itself is the problem. Returns the
+ *  first invalid field's caller-facing error message, or undefined if every regex criterion (if any) compiles. */
+export function validateFacetCriteria(criteria: FacetCriteria): string | undefined {
+    if (criteria.composer?.op === "regex" && !isValidRegex(criteria.composer.value)) {
+        return "That composer pattern is not a valid regular expression."
+    }
+    if (criteria.country?.op === "regex" && !isValidRegex(criteria.country.value)) {
+        return "That composer country pattern is not a valid regular expression."
+    }
+    return undefined
 }
 
 function readString(params: URLSearchParams, key: string): string | undefined {
