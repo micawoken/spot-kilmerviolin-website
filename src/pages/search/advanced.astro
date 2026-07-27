@@ -17,7 +17,9 @@
  * Pagefind filters (discrete values only), so they run against the build-time database-facets.json
  * instead. With no keywords, results are the JSON filter alone (Pagefind returns nothing for an empty
  * query, so this is what makes filter-only browsing work); with keywords, Pagefind supplies the ranked
- * matches and their excerpts, intersected against the JSON-matched URL set.
+ * matches and their excerpts, intersected against the JSON-matched URL set. The composer/country text
+ * fields have their own "Regex"/"Fuzzy" operators (facets.ts's TEXT_OPERATORS) — those run entirely inside
+ * matchesFacets against the JSON, independent of whatever the keyword box is doing.
  *
  * Coexists with pages/search.astro — Astro allows a file and a same-named directory (search.astro +
  * search/advanced.astro) to both route.
@@ -394,7 +396,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 </style>
 
 <script>
-    import { matchesFacets, parseFacetParams, type FacetEntry } from "../../lib/search/facets"
+    import { matchesFacets, parseFacetParams, validateFacetCriteria, type FacetEntry } from "../../lib/search/facets"
     import { computePageWindow, withPage, withShowAll, type PageWindow } from "../../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — see pages/search.astro's own copy of this pattern for why the
@@ -653,6 +655,17 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             }
             const criteria = parseFacetParams(params)
             const query = (params.get("q") ?? "").trim()
+
+            // Validated up front (before touching facets/Pagefind) so an invalid composer/country regex
+            // pattern gets its own message rather than falling into the generic catch below, which is really
+            // about Pagefind being unavailable (see that catch's comment), or silently matching nothing
+            // (matchesText's own regex-op fallback, meant for a search that's already past this check).
+            const criteriaError = validateFacetCriteria(criteria)
+            if (criteriaError) {
+                statusEl.textContent = criteriaError
+                return
+            }
+
             statusEl.textContent = "Searching…"
 
             try {
