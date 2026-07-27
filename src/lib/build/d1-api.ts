@@ -200,13 +200,23 @@ async function fetchFullCollection<T>(path: string): Promise<T[] | null> {
 
 /**
  * Fetches every composer record. Composers have no protected columns — the record is returned as-is.
+ * Cached for the life of one build process (see {@link composersCache}).
  *
  * @returns every composer, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails
  */
 export function fetchComposers(): Promise<ComposerRecord[] | null> {
-    return fetchFullCollection<ComposerRecord>("/api/v1/composers")
+    if (!composersCache) composersCache = fetchFullCollection<ComposerRecord>("/api/v1/composers")
+    return composersCache
 }
+
+/**
+ * Build-time cache backing {@link fetchComposers}, same rationale as design-api.ts's `themeCache`/
+ * `pageHrefCache`: `astro build` runs prerendering as one Node process, and DatabaseRoot.astro (rendered
+ * at both /entity and /database), database-facets.json.ts, and every entity route's `getStaticPaths`
+ * each call this — without a cache, one build fires that many redundant reads of the same collection.
+ */
+let composersCache: Promise<ComposerRecord[] | null> | null = null
 
 /**
  * Fetches every contributor record, unredacted, active or not. Exported for `entity-records.ts`'s
@@ -216,12 +226,18 @@ export function fetchComposers(): Promise<ComposerRecord[] | null> {
  * only the resolved `{id, name, href}` reference the normalizer builds from it may reach a render — use
  * {@link fetchContributors} for a contributor's own public page.
  *
+ * Cached for the life of one build process (see {@link allContributorsCache}).
+ *
  * @returns every contributor, unredacted, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails
  */
 export function fetchAllContributors(): Promise<ContributorRecord[] | null> {
-    return fetchFullCollection<ContributorRecord>("/api/v1/contributors")
+    if (!allContributorsCache) allContributorsCache = fetchFullCollection<ContributorRecord>("/api/v1/contributors")
+    return allContributorsCache
 }
+
+/** Build-time cache backing {@link fetchAllContributors} (and, through it, {@link fetchContributors}) — same rationale as {@link composersCache}. */
+let allContributorsCache: Promise<ContributorRecord[] | null> | null = null
 
 /**
  * Fetches the contributor records eligible for their own public page: only `active` contributors, each
@@ -247,9 +263,15 @@ export async function fetchContributors(): Promise<ContributorRecord[] | null> {
  * `entity-records.ts`'s `entityRecords`/`buildReferenceIndex` as part of the unified field-outlet
  * rewrite — this function is a thin mirror of `fetchComposers`/`fetchContributors`.
  *
+ * Cached for the life of one build process (see {@link compositionsCache}).
+ *
  * @returns every composition, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails
  */
 export function fetchCompositions(): Promise<CompositionRecord[] | null> {
-    return fetchFullCollection<CompositionRecord>("/api/v1/works")
+    if (!compositionsCache) compositionsCache = fetchFullCollection<CompositionRecord>("/api/v1/works")
+    return compositionsCache
 }
+
+/** Build-time cache backing {@link fetchCompositions} — same rationale as {@link composersCache}. */
+let compositionsCache: Promise<CompositionRecord[] | null> | null = null

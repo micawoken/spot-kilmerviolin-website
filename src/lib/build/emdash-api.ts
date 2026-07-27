@@ -351,11 +351,20 @@ async function fetchPublishedEntries(collection: string, descriptionField: strin
  * Fetches every published `pages` entry. Field keys (title, description, content, published_at) mirror
  * the `pages` content type defined in the EmDash admin UI.
  *
+ * Cached for the build's lifetime, same rationale as {@link fetchSettings}: `[...slug].astro`'s
+ * `getStaticPaths` reads this directly, and {@link getPageHrefMap} (built lazily the first time a menu
+ * references a page/post — so on most builds, the very first `getNav`/`getFooterNav` call) reads it
+ * again — without a cache, one build fires that read twice.
+ *
  * @returns {Promise<BuildPage[]>} the published pages to prerender, in API order
  */
 export function fetchPublishedPages(): Promise<BuildPage[]> {
-    return fetchPublishedEntries("pages", "description")
+    if (!publishedPagesCache) publishedPagesCache = fetchPublishedEntries("pages", "description")
+    return publishedPagesCache
 }
+
+/** Build-time cache backing {@link fetchPublishedPages}. */
+let publishedPagesCache: Promise<BuildPage[]> | null = null
 
 /**
  * Fetches every published `posts` entry (pivot D8 — posts route through the same pipeline as pages).
@@ -369,11 +378,17 @@ export function fetchPublishedPages(): Promise<BuildPage[]> {
  * an EmDash seed collection that exists in every environment, so a 404 here means the CMS is not the one
  * this build thinks it is, and quietly emitting a site with every post missing is the hazard #32 closed.
  *
+ * Cached for the build's lifetime — same rationale as {@link fetchPublishedPages}.
+ *
  * @returns {Promise<BuildPage[]>} the published posts to prerender, in API order
  */
 export function fetchPublishedPosts(): Promise<BuildPage[]> {
-    return fetchPublishedEntries("posts", "excerpt")
+    if (!publishedPostsCache) publishedPostsCache = fetchPublishedEntries("posts", "excerpt")
+    return publishedPostsCache
 }
+
+/** Build-time cache backing {@link fetchPublishedPosts}. */
+let publishedPostsCache: Promise<BuildPage[]> | null = null
 
 /**
  * Build-time cache of the General Settings read, for the same reason as {@link getPageHrefMap}: every

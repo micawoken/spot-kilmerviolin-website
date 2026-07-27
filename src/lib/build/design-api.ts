@@ -56,8 +56,20 @@ export interface BuildDesignPage {
  *
  * Read failure: returns [] (fail-soft, see module header). Migration failure: throws, names the
  * offending page — published, so it can't be quietly skipped.
+ *
+ * Cached for the build's lifetime, same rationale as {@link fetchPublishedTheme}: both `[...slug].astro`'s
+ * `getStaticPaths` and `pages/404.astro`'s frontmatter call this, so a build would otherwise pay the
+ * cursor-paginated read twice.
  */
-export async function fetchPublishedDesignPages(): Promise<BuildDesignPage[]> {
+export function fetchPublishedDesignPages(): Promise<BuildDesignPage[]> {
+    if (!designPagesCache) designPagesCache = readPublishedDesignPages()
+    return designPagesCache
+}
+
+/** Build-time cache backing {@link fetchPublishedDesignPages}. */
+let designPagesCache: Promise<BuildDesignPage[]> | null = null
+
+async function readPublishedDesignPages(): Promise<BuildDesignPage[]> {
     const designPages: BuildDesignPage[] = []
     let cursor: string | undefined
 
@@ -206,8 +218,21 @@ export interface BuildEntityTemplate {
  *
  * Not exported: callers want `fetchPublishedTemplates` (pages/posts) or
  * `fetchPublishedEntityTemplates` (entity nouns), never the undifferentiated raw list.
+ *
+ * Cached for the build's lifetime, same rationale as {@link fetchPublishedTheme}: `[...slug].astro`,
+ * `DatabaseRoot.astro` (rendered at both /entity and /database), `database-facets.json.ts`, and every
+ * entity route's `getStaticPaths` all resolve templates through this one way or another — without a
+ * cache, one build fires that many redundant cursor-paginated reads of the same collection.
  */
-async function fetchAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
+function fetchAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
+    if (!allTemplatesCache) allTemplatesCache = readAllPublishedTemplates()
+    return allTemplatesCache
+}
+
+/** Build-time cache backing {@link fetchAllPublishedTemplates}. */
+let allTemplatesCache: Promise<RawBuildTemplate[]> | null = null
+
+async function readAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
     const templates: RawBuildTemplate[] = []
     let cursor: string | undefined
 
