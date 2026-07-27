@@ -65,23 +65,16 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 </style>
 
 <!--
-  Cross-document view transitions: crossfades between page navigations instead of the browser's default
-  blank flash. Native CSS, no JS; unsupported browsers (Firefox, Safari) just fall back to a normal
-  navigation with no regression. Admin-only and not theme-controlled (unlike the public site's own copy
-  of this rule, layouts/PublicPage.astro via tokens.ts's viewTransitionCss) — the admin has no design
-  theme of its own to read a toggle from.
+  No @view-transition rule here, deliberately. The UA crossfade's old snapshot paints a flat #ffffff fill
+  across the whole snapshot containing block, flashing white for ~230ms on every admin navigation —
+  measured 3/3 in Trace-20260726T223908.json, under bare UA-default CSS, cause inside Chrome still
+  unknown. Restyling the crossfade does not fix it and makes things worse: overriding mix-blend-mode to
+  normal breaks the UA's alpha-exact (1-t)·old + t·new sum and dims every navigation instead.
 
-  Deliberately does not restyle the UA crossfade. The UA drives it with complementary opacity keyframes
-  under mix-blend-mode: plus-lighter inside an isolation: isolate image pair, so the two snapshots sum to
-  exactly (1-t)·old + t·new at alpha 1 — an exact crossfade. Overriding the blend to normal instead
-  stacks them, dropping content to 0.75 alpha at the midpoint and visibly dimming every navigation; a
-  DevTools trace measured that dip to the decimal. Leave the UA default alone.
+  The public site keeps its own theme-toggled copy (tokens.ts's viewTransitionCss, rendered by
+  layouts/PublicPage.astro); admin has no design theme to read a toggle from, so it opts out outright.
+  Don't reintroduce this without re-tracing a deploy first.
 -->
-<style is:global>
-    @view-transition {
-        navigation: auto;
-    }
-</style>
 
 <!--
   EmDash appends its visual-editing toolbar to the end of the document body on every HTML response for a
