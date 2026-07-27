@@ -17,11 +17,13 @@
  * database root (docs/dev/miscellaneous.txt "/database alias"), so both aliases send a visitor into the
  * canonical namespace rather than /entity's. Individual entries still only exist under /entity/{noun}/{id}.
  *
- * Search box targets /search/advanced (not plain /search), reproducing this bar's former ?scope=database
- * behavior for a keyword-only search with no extra hidden input — that page is inherently database-scoped
- * (docs/dev/plan-prelaunch-features.md §10). The criteria form itself (ADVANCED_FIELDS,
- * lib/search/facets.ts) lives only on that page now; this bar just links to it rather than duplicating it
- * inline, matching the Puck `PagefindSearch` component's own `advancedLink` option (catalog.tsx).
+ * Search box targets plain /search (with a hidden scope=database input), not /search/advanced: a bare
+ * keyword typed here is a simple search, not an implicit request for /search/advanced's criteria form — it
+ * briefly pointed at /search/advanced instead (reusing that page's inherent database scoping to avoid a
+ * hidden input), but that meant every submission ran as an advanced-mode search even with no filter set.
+ * The criteria form itself (ADVANCED_FIELDS, lib/search/facets.ts) lives only on /search/advanced; the
+ * explicit link below is the only path into it, matching the Puck `PagefindSearch` component's own
+ * `advancedLink` option (catalog.tsx).
  *
  * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
  * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
@@ -97,7 +99,8 @@ const availableNouns = resolutions
         <h1>Database</h1>
         <p>What can we help you find?</p>
 
-        <form action="/search/advanced" method="get">
+        <form action="/search" method="get">
+            <input type="hidden" name="scope" value="database" />
             <div class="search-form">
                 <input
                     type="search"
