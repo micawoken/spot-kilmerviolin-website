@@ -129,6 +129,14 @@ export const prerender = true
         padding: 0;
         margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
     }
+    /* An author `display` declaration on the element itself (this file's rule above) beats the UA
+       stylesheet's `[hidden] { display: none }` regardless of selector specificity — origin, not
+       specificity, decides that cascade — so `hidden`/`.hidden = true` alone did nothing here without this
+       explicit override. Without it, the empty "Content type" legend showed on every page load, before any
+       search had run. */
+    .search-type-filters[hidden] {
+        display: none;
+    }
     .search-type-filters legend {
         width: 100%;
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);

@@ -57,11 +57,10 @@ const params = Astro.url.searchParams
 const initialQuery = params.get("q") ?? ""
 const valueFor = (param: string): string => params.get(param) ?? ""
 const selectedNouns = new Set(params.getAll("noun"))
-// No "noun" param at all (a fresh arrival, not a resubmission with every box deliberately unchecked) starts
-// every entity type checked, so a first-time visitor doesn't have to opt into all three by hand — matches
-// updateFieldVisibility's own "no noun checked" == "show every field" default in the client script below.
-const hasNounParam = params.has("noun")
-const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.has(value) : true)
+// None checked by default. matchesFacets (facets.ts) already treats an empty `nouns` criteria as "any noun
+// matches", and updateFieldVisibility below treats "no noun checked" as "show every field" — so leaving every
+// box unchecked is equivalent to every box being checked, with no need to special-case a fresh arrival.
+const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 ---
 
 <PublicPage
@@ -76,14 +75,17 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
         <StaticBreadcrumbs crumbs={[{ label: "Search", href: "/search" }]} current="Advanced Search" />
         <h1>Advanced Search</h1>
         <form id="advanced-search-form" role="search">
-            <label for="search-input" class="search-section-label">Free-text keyword search</label>
+            {/* Visually hidden, not a visible .search-section-label: the placeholder communicates the same
+                thing without pushing "Back to search" down a line, so this bar's link sits at the same
+                vertical position as /search's own "Advanced search →" link (search.astro's .search-form). */}
+            <label for="search-input" class="visually-hidden">Free-text keyword search</label>
             <div class="search-form">
                 <input
                     type="search"
                     id="search-input"
                     name="q"
                     value={initialQuery}
-                    placeholder="Search…"
+                    placeholder="Free-text keyword search…"
                     aria-label="Search query"
                     autocomplete="off"
                 />
@@ -123,7 +125,7 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
                         >
                             <label for={`adv-${field.param}`}>{field.label}</label>
                             {field.control === "select" ? (
-                                <select id={`adv-${field.param}`} name={field.param}>
+                                <select id={`adv-${field.param}`} name={field.param} class="search-advanced__select">
                                     {(field.options ?? []).map((option) => (
                                         <option value={option.value} selected={valueFor(field.param) === option.value}>
                                             {option.label}
@@ -146,16 +148,26 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
                                             ))}
                                         </select>
                                     )}
-                                    {/* Reserved-space column even when nothing renders in it (no `to` input for
-                                        this field) — see search-form.css's fixed-column grid. `is-inactive` hides
-                                        via visibility (not `hidden`/`display`) so the "alive" operator never
-                                        shifts the row's other controls. */}
+                                    {/* A field whose operator list never includes "between" (composer/country's
+                                        TEXT_OPERATORS) never renders a `to` input at all, so its value control
+                                        spans both remaining columns instead of leaving the third one permanently
+                                        empty. A field that DOES support "between" (year/rating/birth/death) keeps
+                                        the reserved third column even when its current operator isn't "between" —
+                                        see search-form.css's fixed-column grid comment for why that reservation
+                                        (not filling it) is what avoids a layout shift on toggling the operator.
+                                        `is-inactive` hides via visibility (not `hidden`/`display`) for the same
+                                        no-shift reason. */}
+                                    {/* "from" pairs with the "to" input below while "between" is the active operator
+                                        (matching its lowercase style exactly); any other operator falls back to the
+                                        field's own placeholder. data-default-placeholder lets updateOperatorControls
+                                        (script below) restore this without hardcoding it client-side. */}
                                     <input
                                         id={`adv-${field.param}`}
-                                        class:list={["search-advanced__value", { "is-inactive": isAlive }]}
+                                        class:list={["search-advanced__value", { "is-inactive": isAlive, "search-advanced__value--full": !hasBetween }]}
                                         type={field.control === "number" ? "number" : "text"}
                                         name={field.param}
-                                        placeholder={field.placeholder}
+                                        placeholder={isBetween ? "from" : field.placeholder}
+                                        data-default-placeholder={field.placeholder ?? ""}
                                         value={valueFor(field.param)}
                                         min={field.min}
                                         max={field.max}
@@ -180,6 +192,13 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
                         </div>
                     )
                 })}
+                {/* Toggled by updateFieldVisibility (script below) — hidden whenever at least one field is
+                    visible, or no noun is checked at all. Contributor is the one noun with no applicable
+                    ADVANCED_FIELDS entry (see facets.ts), so checking only "Contributors" would otherwise
+                    leave a silent empty gap here instead of an explained absence. */}
+                <p id="search-advanced-no-fields" class="search-advanced__no-fields" hidden>
+                    No additional filters are available for the selected entity type.
+                </p>
             </fieldset>
         </form>
         <p id="search-status" role="status" aria-live="polite"></p>
@@ -192,8 +211,21 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
     .search-page {
         max-width: 48rem;
     }
-    /* Visible caption for a control group — the free-text bar's label and the filter fieldset's legend
-       share this so the two are legibly distinguished as different kinds of control. */
+    /* Matches /search's own .visually-hidden (search.astro) — kept as a local copy rather than a shared
+       class since neither page pulls from a common stylesheet for this. */
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    /* Visible caption for the filter fieldset's legend below — the free-text bar's own label is visually
+       hidden now (see above), so only the "Filters" legend still uses this. */
     .search-section-label {
         display: block;
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
@@ -216,11 +248,16 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
         padding: 0;
         width: 100%;
     }
+    /* "FILTERS" (the fieldset legend below) is the umbrella label for this whole grid — entity type AND
+       every individual field are all filters — not a header specifically for the checkbox row. This
+       row's own bottom margin (beyond the grid's shared row `gap`) is what visually separates "entity
+       type" from "the rest of the filters" as two parts of one section, rather than the checkbox row
+       reading as its own thing "FILTERS" happens to sit directly above. */
     .search-advanced__nouns {
         grid-column: 1 / -1;
         border: none;
         padding: 0;
-        margin: 0;
+        margin: 0 0 var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
@@ -230,11 +267,24 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
         flex-wrap: wrap;
         gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
     }
+    /* Matches the field labels below (COMPOSER/KEY/etc., .search-advanced__field label) rather than
+       body text size — at 0.875rem this read as its own section header, same size as "FILTERS" itself,
+       leaving the actual field labels underneath looking orphaned/demoted by comparison. */
     .search-advanced__nouns-options label {
-        font-size: 0.875rem;
+        font-size: var(--dtk-type-label-size, 0.72rem);
         display: inline-flex;
         align-items: center;
-        gap: 0.35em;
+        /* Was 0.35em — checkbox and its own label sat uncomfortably close together. */
+        gap: 0.5em;
+    }
+    /* Shown when the checked noun(s) have no applicable fields at all (contributor — no ADVANCED_FIELDS
+       entry carries "contributor" in its `nouns`, see facets.ts) rather than leaving a silent empty gap
+       where the field grid would otherwise be. */
+    .search-advanced__no-fields {
+        grid-column: 1 / -1;
+        font-size: 0.875rem;
+        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+        margin: 0;
     }
     /* Reused by /search's own "Advanced search →" link (search-form.css) — this margin, matching that
        page's local override, is the only piece not shared. */
@@ -376,7 +426,17 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
             }
             if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLSelectElement)) continue
             if (!element.name) continue
-            element.value = params.get(element.name) ?? ""
+            const value = params.get(element.name)
+            // An absent operator param (e.g. a deep link with `year=1990` but no `year_op`) should fall back
+            // to that field's default operator (its first <option>, matching parseFacetParams/
+            // readNumberCriterion/readTextCriterion's own fallback) rather than an empty string — unlike
+            // key/type/role's select, no operator select has an "Any"-style blank-value option, so forcing ""
+            // just left the dropdown showing nothing selected.
+            if (element instanceof HTMLSelectElement && element.name.endsWith("_op") && value === null) {
+                element.selectedIndex = 0
+                continue
+            }
+            element.value = value ?? ""
         }
     }
 
@@ -420,18 +480,21 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
         const results = document.getElementById("search-results")
         const pagination = document.getElementById("search-pagination")
         const input = document.getElementById("search-input")
+        const noFields = document.getElementById("search-advanced-no-fields")
         if (
             !(form instanceof HTMLFormElement) ||
             !status ||
             !results ||
             !pagination ||
-            !(input instanceof HTMLInputElement)
+            !(input instanceof HTMLInputElement) ||
+            !noFields
         ) {
             return
         }
         const statusEl = status
         const resultsEl = results
         const paginationEl = pagination
+        const noFieldsEl = noFields
         // TS's narrowing of `form` above does not carry into the nested function declarations below (same
         // quirk documented for statusEl/resultsEl/inputEl elsewhere in this codebase) — rebind so those
         // closures see a statically non-null HTMLFormElement instead of `HTMLFormElement | null`.
@@ -449,10 +512,16 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
         // apply to ANY checked noun, and show everything again once no noun (or every noun) is checked.
         function updateFieldVisibility(): void {
             const nouns = selectedNouns()
+            let anyFieldVisible = false
             for (const field of formEl.querySelectorAll<HTMLElement>(".search-advanced__field:not(.search-advanced__nouns)")) {
                 const fieldNouns = (field.dataset.nouns ?? "").split(" ").filter(Boolean)
-                field.hidden = nouns.length > 0 && !fieldNouns.some((noun) => nouns.includes(noun))
+                const hidden = nouns.length > 0 && !fieldNouns.some((noun) => nouns.includes(noun))
+                field.hidden = hidden
+                if (!hidden) anyFieldVisible = true
             }
+            // Only contributor can reach this today (no ADVANCED_FIELDS entry carries "contributor" in its
+            // `nouns` — see facets.ts) — nouns.length === 0 always shows every field, so this never fires then.
+            noFieldsEl.hidden = anyFieldVisible || nouns.length === 0
         }
         for (const checkbox of form.querySelectorAll<HTMLInputElement>('input[name="noun"]')) {
             checkbox.addEventListener("change", updateFieldVisibility)
@@ -482,6 +551,9 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
                 if (valueInput instanceof HTMLInputElement) {
                     valueInput.classList.toggle("is-inactive", isAlive)
                     valueInput.disabled = isAlive
+                    // Only a field with a "to" input (hasBetween in the template above) ever pairs "from"/"to" —
+                    // toInput is null for every other field, so this never touches their placeholder.
+                    if (toInput) valueInput.placeholder = isBetween ? "from" : (valueInput.dataset.defaultPlaceholder ?? "")
                 }
             }
         }
@@ -600,9 +672,16 @@ const isNounChecked = (value: string): boolean => (hasNounParam ? selectedNouns.
             void runSearch(params)
         })
 
-        // deep-linking: an arriving GET (from the Puck component or DatabaseRoot.astro) runs immediately
+        // deep-linking: an arriving GET (from the Puck component or DatabaseRoot.astro) runs immediately. This
+        // page is fully prerendered (see the module comment at the top of this file), so the server-rendered
+        // HTML's form values are always the build-time empty defaults — applyParamsToForm (the same call
+        // popstate uses below) is what actually makes the arriving submission "immediately editable in
+        // place", not just executed, matching this file's own module doc.
         const initialParams = new URLSearchParams(location.search)
         if (initialParams.toString() !== "") {
+            applyParamsToForm(form, initialParams)
+            updateFieldVisibility()
+            updateOperatorControls()
             void runSearch(initialParams)
         } else {
             // Arriving from /search's "Advanced search" link, which carries the typed query as a `#q=`

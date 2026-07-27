@@ -109,6 +109,13 @@
 	flex-direction: column;
 	gap: 0.25rem;
 }
+/* An author `display` declaration on the element itself (the rule above) beats the UA stylesheet's
+ * `[hidden] { display: none }` regardless of selector specificity — origin, not specificity, decides that
+ * cascade — so updateFieldVisibility's `field.hidden = true` (advanced.astro) alone did nothing without
+ * this explicit override: a field not applicable to the checked noun(s) stayed visible. */
+.search-advanced__field[hidden] {
+	display: none;
+}
 .search-advanced__field label {
 	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
 	font-size: var(--dtk-type-label-size, 0.72rem);
@@ -135,12 +142,60 @@
 }
 .search-advanced__op,
 .search-advanced__value,
-.search-advanced__to {
+.search-advanced__to,
+.search-advanced__select {
 	/* Overrides this file's own shared `flex: 1; min-width: 8rem;` input rule above — a grid item's
 	 * intrinsic content width (a <select>'s longest option, in particular) can otherwise exceed its fixed
 	 * column and force the grid wider than the field cell around it. */
 	width: 100%;
 	min-width: 0;
+	/* None of these fields sit inside a `.search-form`-classed ancestor, so they get none of that rule's
+	 * box model — left to plain UA defaults, a <select>'s default padding/border differs from an <input>'s
+	 * (visible as a ~2px height mismatch, e.g. between the Composer field's text input and the Key field's
+	 * select), even though `color-scheme: dark` makes both auto-theme dark and look deceptively consistent
+	 * at a glance. Explicit, matching values here — same tokens as `.search-form`'s own input/select rule —
+	 * fix that instead of relying on two different UA stylesheets to agree. */
+	box-sizing: border-box;
+	/* Flat, tighter values (not `--dtk-chrome-vertical-space-control`, which resolves to 0.75rem here —
+	 * plenty of room in the free-text bar but too tall/wide for a ~60px-wide rating value box sharing a 1fr
+	 * grid track with only two other columns). */
+	padding: 0.35rem 0.4rem;
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: var(--dtk-chrome-page-bg, var(--dtk-color-paper, var(--color-bg)));
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	/* Deliberately smaller than `.search-form`'s 1rem: these are secondary filter controls, not the
+	 * primary keyword bar, and matching its size made the whole page read as one undifferentiated block. */
+	font-size: 0.875rem;
+}
+.search-advanced__op,
+.search-advanced__select {
+	/* A <select>'s native dropdown caret renders inside the padding box — the shared 0.4rem right padding
+	 * above left it crowding the border, especially on the 7rem-wide op column. */
+	padding-right: 1.25rem;
+}
+/* A rating field's value box (min=1/max=10 or 1/6) is the tightest column on the page — the native spinner
+ * buttons ate a large share of its ~60px width for a control nobody needs to click-increment through a
+ * 10-step range. min/max are still enforced (browser validation + matchesFacets), just without the arrows. */
+.search-advanced__value[type="number"],
+.search-advanced__to {
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+.search-advanced__value[type="number"]::-webkit-inner-spin-button,
+.search-advanced__value[type="number"]::-webkit-outer-spin-button,
+.search-advanced__to::-webkit-inner-spin-button,
+.search-advanced__to::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+/* Composer/country (TEXT_OPERATORS has no "between") never render a `to` input, so their value control
+ * fills both remaining columns instead of leaving the third one an empty gap — see advanced.astro's
+ * template comment for why a "between"-capable field keeps that column reserved instead. */
+.search-advanced__value--full {
+	grid-column: 2 / -1;
 }
 /* Reserves its column's space (rather than `hidden`/`display: none`, which would collapse it) whenever the
  * chosen operator doesn't need this control — the "to" input outside "between", or the value input itself

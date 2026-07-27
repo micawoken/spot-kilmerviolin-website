@@ -28,6 +28,7 @@ import {
     keyOptions,
     keyRefLabel,
     matchesFacets,
+    NONE_VALUE,
     nounOptions,
     parseFacetParams,
     parseFacetQuery,
@@ -131,6 +132,17 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { keyRef: "7-major" })).toBe(false)
         expect(matchesFacets(work, { type: "Chamber" })).toBe(true)
         expect(matchesFacets(work, { type: "Solo" })).toBe(false)
+    })
+
+    it("NONE_VALUE matches entries where the field is absent, distinct from any real value", () => {
+        // `work` carries keyRef/type; composer/livingComposer entries never do (composition-only fields).
+        expect(matchesFacets(work, { keyRef: NONE_VALUE })).toBe(false)
+        expect(matchesFacets(composer, { keyRef: NONE_VALUE })).toBe(true)
+        expect(matchesFacets(work, { type: NONE_VALUE })).toBe(false)
+        expect(matchesFacets(composer, { type: NONE_VALUE })).toBe(true)
+        // `composer` has a role set; `livingComposer` doesn't.
+        expect(matchesFacets(composer, { role: NONE_VALUE })).toBe(false)
+        expect(matchesFacets(livingComposer, { role: NONE_VALUE })).toBe(true)
     })
 
     it("number fields support is/before/after/between/around, excluding entries missing the field", () => {
@@ -292,6 +304,13 @@ describe("ADVANCED_FIELDS", () => {
         for (const field of ADVANCED_FIELDS) {
             if (field.control !== "select") continue
             expect(field.options?.[0]).toEqual({ label: "Any", value: "" })
+        }
+    })
+
+    it("every select-control field is backed by a nullable FacetEntry property, so all get a '(None)' entry", () => {
+        for (const field of ADVANCED_FIELDS) {
+            if (field.control !== "select") continue
+            expect(field.options?.[1]).toEqual({ label: "(None)", value: NONE_VALUE })
         }
     })
 

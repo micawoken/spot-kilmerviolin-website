@@ -213,6 +213,15 @@ export function nounOptions(): AdvancedFieldOption[] {
 
 const ANY_OPTION: AdvancedFieldOption = { label: "Any", value: "" }
 
+/** Sentinel option value for "this field is unset on the entry" — distinct from {@link ANY_OPTION}'s empty
+ *  string, which means "no filter applied" (matches every entry regardless of the field). Only meaningful
+ *  for a select field whose underlying data can genuinely be absent (key/type/role — see
+ *  database-facets.json.ts's conditional `if (record.key) …`/`if (record.type) …`/`if (record.role) …`);
+ *  never collides with a real value since it's neither a `Key`/`WorkType`/`AuthorRole` enum member nor a
+ *  `normalizeKeyForSearch` pitch-class reference. */
+export const NONE_VALUE = "none"
+const NONE_OPTION: AdvancedFieldOption = { label: "(None)", value: NONE_VALUE }
+
 const TEXT_OPERATORS: readonly FacetOperatorOption[] = [
     { value: "contains", label: "Contains" },
     { value: "is", label: "Is exactly" }
@@ -258,12 +267,18 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         operators: TEXT_OPERATORS,
         nouns: ["composition"]
     },
-    { param: "key", label: "Key", control: "select", options: [ANY_OPTION, ...KEY_OPTIONS], nouns: ["composition"] },
+    {
+        param: "key",
+        label: "Key",
+        control: "select",
+        options: [ANY_OPTION, NONE_OPTION, ...KEY_OPTIONS],
+        nouns: ["composition"]
+    },
     {
         param: "type",
         label: "Work type",
         control: "select",
-        options: [ANY_OPTION, ...workTypeOptions()],
+        options: [ANY_OPTION, NONE_OPTION, ...workTypeOptions()],
         nouns: ["composition"]
     },
     { param: "year", label: "Publication year", control: "number", operators: YEAR_OPERATORS, nouns: ["composition"] },
@@ -297,7 +312,7 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         param: "role",
         label: "Composer role",
         control: "select",
-        options: [ANY_OPTION, ...authorRoleOptions()],
+        options: [ANY_OPTION, NONE_OPTION, ...authorRoleOptions()],
         nouns: ["composer"]
     },
     {
@@ -367,17 +382,25 @@ function matchesNumber(entryValue: number | undefined, criterion: NumberCriterio
     }
 }
 
+// key/type/role are all optional on FacetEntry (database-facets.json.ts only sets them when the D1 record
+// has a truthy value) — NONE_VALUE (a select option distinct from ANY_OPTION's "no filter" empty string)
+// asks for entries where the field is absent, rather than for a literal value equal to it.
+function matchesNullableSelect(entryValue: string | undefined, criterionValue: string): boolean {
+    if (criterionValue === NONE_VALUE) return entryValue === undefined
+    return entryValue === criterionValue
+}
+
 /** The single predicate every search surface uses to test one facet entry against submitted criteria. */
 export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boolean {
     if (criteria.nouns && criteria.nouns.length > 0 && !criteria.nouns.includes(entry.noun)) return false
     if (criteria.composer && !matchesText(entry.composer, criteria.composer)) return false
-    if (criteria.keyRef && entry.keyRef !== criteria.keyRef) return false
-    if (criteria.type && entry.type !== criteria.type) return false
+    if (criteria.keyRef && !matchesNullableSelect(entry.keyRef, criteria.keyRef)) return false
+    if (criteria.type && !matchesNullableSelect(entry.type, criteria.type)) return false
     if (criteria.year && !matchesNumber(entry.year, criteria.year)) return false
     if (criteria.suzuki && !matchesNumber(entry.suzuki, criteria.suzuki)) return false
     if (criteria.nyssma && !matchesNumber(entry.nyssma, criteria.nyssma)) return false
     if (criteria.country && !matchesCountry(entry, criteria.country)) return false
-    if (criteria.role && entry.role !== criteria.role) return false
+    if (criteria.role && !matchesNullableSelect(entry.role, criteria.role)) return false
     if (criteria.birthYear && !matchesNumber(entry.birthYear, criteria.birthYear)) return false
     if (criteria.deathYear && !matchesNumber(entry.deathYear, criteria.deathYear)) return false
     return true
