@@ -105,8 +105,12 @@ export const prerender = true
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-        /* Stronger separation from the search controls above it than plain whitespace gives. */
+        /* Stronger separation from the search controls above it than plain whitespace gives. Only shown
+           once there's actual status text (see :not(:empty) below) — otherwise this hairline+padding would
+           render as a bare empty line before any search has run. */
         margin-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+    }
+    #search-status:not(:empty) {
         padding-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
         border-top: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
             var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
@@ -317,13 +321,6 @@ export const prerender = true
         }
         inputEl.addEventListener("input", updateAdvancedLink)
 
-        let typeFiltersRequested = false
-        function ensureTypeFilters(): void {
-            if (typeFiltersRequested) return
-            typeFiltersRequested = true
-            void populateTypeFilters()
-        }
-
         function selectedTypes(): string[] {
             return Array.from(typeFiltersEl.querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked")).map(
                 (checkbox) => checkbox.value
@@ -345,39 +342,43 @@ export const prerender = true
             return Object.keys(filters).length > 0 ? { filters } : undefined
         }
 
-        async function populateTypeFilters(): Promise<void> {
-            try {
-                const pf = await loadPagefind()
-                const counts = (await pf.filters()).type ?? {}
-                const entries = Object.entries(counts).filter(([, count]) => count > 0)
-                if (entries.length === 0) return
-                const initialTypes = new Set(new URLSearchParams(location.search).getAll("type"))
-                for (const [type, count] of entries) {
-                    const label = document.createElement("label")
-                    const checkbox = document.createElement("input")
-                    checkbox.type = "checkbox"
-                    checkbox.name = "type"
-                    checkbox.value = type
-                    checkbox.checked = initialTypes.has(type)
-                    checkbox.addEventListener("change", () => {
-                        // A changed filter is a new result set — reflect the now-checked types into the URL
-                        // (so pagination/back-forward/sharing keeps them) and reset back to page one.
-                        const params = currentParams()
-                        params.delete("type")
-                        for (const selected of selectedTypes()) params.append("type", selected)
-                        params.delete("page")
-                        params.delete("perPage")
-                        setUrlParams(params)
-                        void runSearch(inputEl.value.trim(), params)
-                    })
-                    label.appendChild(checkbox)
-                    label.append(` ${TYPE_LABELS[type] ?? type} (${count})`)
-                    typeFiltersEl.appendChild(label)
-                }
-                typeFiltersEl.hidden = false
-            } catch {
-                // Same "not built yet" cause as a failed search below — leave the fieldset hidden.
+        // Rebuilt after every plain-mode search from THAT search's own `.filters` (never a separate
+        // `pf.filters()` call) — Pagefind computes each returned count as "results if this value were also
+        // applied on top of the current filters/query" (docs/js-api-filtering), so a value already checked
+        // doesn't drop its siblings' counts to zero and hide them; the numbers are also specific to the
+        // current query rather than the whole site. Nothing renders (fieldset stays hidden) until a search
+        // has actually produced these — see runSearch's early-return on an empty query.
+        function updateTypeFilters(counts: Record<string, number>): void {
+            typeFiltersEl.replaceChildren()
+            const entries = Object.entries(counts).filter(([, count]) => count > 0)
+            if (entries.length === 0) {
+                typeFiltersEl.hidden = true
+                return
             }
+            const initialTypes = new Set(new URLSearchParams(location.search).getAll("type"))
+            for (const [type, count] of entries) {
+                const label = document.createElement("label")
+                const checkbox = document.createElement("input")
+                checkbox.type = "checkbox"
+                checkbox.name = "type"
+                checkbox.value = type
+                checkbox.checked = initialTypes.has(type)
+                checkbox.addEventListener("change", () => {
+                    // A changed filter is a new result set — reflect the now-checked types into the URL
+                    // (so pagination/back-forward/sharing keeps them) and reset back to page one.
+                    const params = currentParams()
+                    params.delete("type")
+                    for (const selected of selectedTypes()) params.append("type", selected)
+                    params.delete("page")
+                    params.delete("perPage")
+                    setUrlParams(params)
+                    void runSearch(inputEl.value.trim(), params)
+                })
+                label.appendChild(checkbox)
+                label.append(` ${TYPE_LABELS[type] ?? type} (${count})`)
+                typeFiltersEl.appendChild(label)
+            }
+            typeFiltersEl.hidden = false
         }
 
         function renderResult(url: string, title: string, excerptHtml?: string): void {
@@ -448,6 +449,10 @@ export const prerender = true
             criteria: ReturnType<typeof parseFacetQuery>["criteria"],
             params: URLSearchParams
         ): Promise<void> {
+            // Database mode never consults the content-type checkboxes (its scope:database restriction is
+            // hardcoded below), so leaving a prior plain search's checkboxes on screen here would be inert
+            // and misleading — hide them, matching the empty-query state.
+            typeFiltersEl.hidden = true
             const facets = await loadFacets()
             const matched = facets.filter((entry) => matchesFacets(entry, criteria))
             if (text === "") {
@@ -473,6 +478,7 @@ export const prerender = true
         async function runPlainSearch(query: string, params: URLSearchParams): Promise<void> {
             const pf = await loadPagefind()
             const search = await pf.search(query, buildSearchOptions())
+            updateTypeFilters(search.filters.type ?? {})
             if (search.results.length === 0) {
                 statusEl.textContent = "No results found."
                 return
@@ -495,9 +501,9 @@ export const prerender = true
             paginationEl.replaceChildren()
             if (query === "") {
                 statusEl.textContent = ""
+                typeFiltersEl.hidden = true
                 return
             }
-            ensureTypeFilters()
             statusEl.textContent = "Searching…"
             try {
                 const { text, criteria, hasCriteria } = parseFacetQuery(query)
