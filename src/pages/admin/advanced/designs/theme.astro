@@ -34,8 +34,20 @@ import AdminHeader from "../../../../components/AdminHeader.astro"
 import AdminFooter from "../../../../components/AdminFooter.astro"
 import ReactRefreshPreamble from "../../../../components/compositor/ReactRefreshPreamble.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../../consts"
+import { guardPage } from "../../../../lib/api/page_auth"
 
 export const prerender = false
+
+// design_editor is required, matching ADMIN_PAGE_STRUCTURE (middleware/identity.ts). Repeated here so
+// the page carries its own gate: a directory move once left the map entry stale and these pages
+// reachable by any active contributor, with nothing to catch it.
+const denied = guardPage(Astro.request, Astro.locals.identity, {
+    kind: "permission",
+    permissions: ["design_editor"]
+})
+if (denied) {
+    return denied
+}
 ---
 
 <!doctype html>

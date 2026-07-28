@@ -26,6 +26,8 @@
  *
  */
 
+import { PRODUCTION_HOSTS } from "../../consts"
+
 export type RuntimeEnvironment = "development" | "staging" | "production"
 
 /**
@@ -44,7 +46,8 @@ export function setActiveRequestUrl(url: string): void {
 }
 
 /**
- * Detects the runtime environment from a request hostname
+ * Detects the runtime environment from a request hostname. Fail-closed: an unrecognized hostname is a
+ * preview ("staging"), never production.
  *
  * @param {string} hostname - the request hostname
  * @returns {RuntimeEnvironment} the detected environment
@@ -52,11 +55,13 @@ export function setActiveRequestUrl(url: string): void {
  */
 function detectEnvironmentFromHostname(hostname: string): RuntimeEnvironment {
     if (import.meta.env.PROD) {
-        // staging is served from the "staging" preview-alias URL: staging-<worker>.<subdomain>.workers.dev
-        if (hostname.endsWith("workers.dev") && hostname.startsWith("staging-")) {
-            return "staging"
-        }
-        return "production"
+        // Only a configured production hostname is production; every other hostname the worker can be
+        // reached on is a preview and gets the reduced surface. That covers the "staging" preview alias
+        // (staging-<worker>.<subdomain>.workers.dev), the bare workers.dev hostname, and the per-version
+        // preview URLs `preview_urls: true` mints — the last of which carry a random hex prefix, so a rule
+        // keyed on a "staging-" prefix classified them as production and served /admin, /api and /_emdash
+        // against the production bindings, with writes enabled and no Access in front.
+        return PRODUCTION_HOSTS.includes(hostname) ? "production" : "staging"
     }
     if (hostname === "localhost" || hostname === "127.0.0.1") {
         return "development"

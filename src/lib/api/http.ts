@@ -264,6 +264,12 @@ const http_codes = {
         comment: "The uploaded file exceeds the maximum permitted size",
         body: true
     },
+    415: {
+        success: false,
+        statusText: "Unsupported Media Type",
+        comment: "The uploaded file's content type is not accepted",
+        body: true
+    },
     429: {
         success: false,
         statusText: "Too Many Requests",

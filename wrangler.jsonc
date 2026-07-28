@@ -8,7 +8,7 @@
 	// account_id is intentionally omitted: wrangler reads it from the CLOUDFLARE_ACCOUNT_ID env var at
 	// deploy/dev time instead, so this AGPL-covered file doesn't have to carry it. See DEPLOY.md.
 	// the current website route
-	"workers_dev": true,
+	"workers_dev": false,
 	"routes": [
 		{ "pattern": "kilmer.nrnnet.xyz", "custom_domain": true }
 	],

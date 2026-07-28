@@ -8,14 +8,17 @@
  * adapter still authenticates the request separately; this is an additional in-app gate on top, not a
  * replacement.
  *
- * Two permissions reach /_emdash, NOT equal:
+ * Three credentials reach /_emdash, NOT equal:
  *
  *   cms_editor    the whole CMS — admin UI, every collection, settings, media, users.
  *   design_editor ONLY the paths the visual design system calls (lib/api/emdash_design_access.ts).
+ *   service       ONLY the paths the build and setup tooling call (lib/api/emdash_service_access.ts),
+ *                 bounded in identity.ts before this middleware runs.
  *
  * Complete chokepoint: EmDash is mounted INSIDE this worker, every request to it passes through this
- * middleware. Also the only thing bounding a design_editor — see that module's header before changing
- * an allowlist rule.
+ * middleware. Also the only thing bounding a design_editor or a service credential — EmDash's own gate
+ * exempts its anonymous routes from the bearer check, so it cannot be relied on as the backstop. Read
+ * both allowlist modules' headers before widening a rule.
  *
  *
  * Copyright (C) 2026 Michael Wong.

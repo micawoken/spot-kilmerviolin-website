@@ -36,7 +36,7 @@
 
 import { ENTITY_NOUNS, isEntityNoun, type EntityNoun } from "../compositor/entity-fields"
 import { migrateDesign } from "../compositor/migrations"
-import { isTokenCatalog, lintTokenCatalog, type TokenCatalog } from "../compositor/tokens"
+import { isTokenCatalog, lintTokenCatalog, lintTokenValues, type TokenCatalog } from "../compositor/tokens"
 import { cmsBoolean, isTemplateCollection, TEMPLATE_COLLECTIONS, type DesignDoc, type TemplateCollection } from "../compositor/types"
 import { emdashGet, normalizeSlug, type ApiListResult } from "./emdash-api"
 
@@ -399,6 +399,16 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
         console.warn(
             `[build/design-api] button variant "${finding.variant}" ${finding.field} references ` +
                 `${finding.kind} token "${finding.ref}", which is not in the theme — it will render its CSS fallback.`
+        )
+    }
+
+    // A value the emitter refuses (tokens.ts's isSafeTokenValue) is dropped silently, so the theme owner
+    // would otherwise see a styling change with no cause. Warn rather than throw: dropping the one token
+    // is already the safe outcome, and failing the build over it would let a bad value block every deploy.
+    for (const finding of lintTokenValues(tokens)) {
+        console.warn(
+            `[build/design-api] ${finding.kind} token "${finding.name}" has an unusable ${finding.field} — ` +
+                "it will not be emitted, and its consumers fall back. Values may not contain < > ; { } @ or \\."
         )
     }
 

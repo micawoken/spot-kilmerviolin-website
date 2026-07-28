@@ -82,10 +82,19 @@
 	padding-block: 0.3rem;
 }
 
-/* The filter grid on /search/advanced (lib/search/facets.ts's ADVANCED_FIELDS) — the only remaining
- * renderer of it; the Puck component and DatabaseRoot.astro used to duplicate it inline behind a
- * <details> toggle, now they just link to this page instead (catalog.tsx's `advancedLink` option). Fixed
- * column counts at each breakpoint (not `auto-fit`/`minmax`): auto-fit's column count is driven by
+/* The advanced form (/search/advanced) is a query container for everything below, so its filter grid sizes
+ * itself against the width it actually has rather than against the viewport. That distinction is load-
+ * bearing here, not stylistic: this form renders inside `.static-page-body`, whose horizontal padding is
+ * `--dtk-chrome-horizontal-space-inset` + `--dtk-chrome-horizontal-space-static` (public-chrome.css) —
+ * both owner-authored theme tokens. On the deployed theme that is 4.5rem per side, so a viewport-keyed
+ * breakpoint fired ~9rem earlier than the grid could afford: the 3-column rule tripped at a 48rem viewport
+ * while the grid held only 38rem, splitting it three ways and leaving a "between" field's two inputs about
+ * 35px each. A theme edit moves that error by an arbitrary amount, which no fixed viewport number can
+ * track. Container widths below are therefore real widths this grid has, not viewport sizes. */
+.search-advanced {
+	container: search-advanced / inline-size;
+}
+/* Fixed column counts per breakpoint (not `auto-fit`/`minmax`): auto-fit's column count is driven by
  * content width, so it can seat a different number of cells per row depending on exactly how wide the
  * container is — fixed counts keep every row the same shape. */
 .search-advanced__grid {
@@ -97,12 +106,17 @@
 	gap: var(--dtk-chrome-horizontal-space-control, 0.5rem);
 	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
 }
-@media (min-width: 30rem) {
+@container search-advanced (min-width: 30rem) {
 	.search-advanced__grid {
 		grid-template-columns: repeat(2, 1fr);
 	}
 }
-@media (min-width: 48rem) {
+/* 46rem, not the 48rem that `.search-page`'s own max-width caps this container at: asking for exactly the
+ * cap makes the third column depend on an equality holding to the pixel, so any rounding or any theme that
+ * widens the page inset by even 1px silently drops the grid to two columns forever. 2rem of headroom keeps
+ * three columns stable at the cap, and still degrades to two — which gives each cell MORE room, not less —
+ * if a theme ever squeezes the page harder than that. */
+@container search-advanced (min-width: 46rem) {
 	.search-advanced__grid {
 		grid-template-columns: repeat(3, 1fr);
 	}
@@ -111,6 +125,12 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
+	/* Each field is itself a container, so the op+value row below can ask the one question that actually
+	 * decides its layout: "is my own cell too narrow for three columns?" Cell width depends on the grid's
+	 * column count as well as the container width, so neither the viewport nor the form container can
+	 * answer it. Also zeroes these grid items' min-content contribution, which is the same thing the
+	 * controls' `min-width: 0` below is for. */
+	container: search-advanced-field / inline-size;
 }
 /* An author `display` declaration on the element itself (the rule above) beats the UA stylesheet's
  * `[hidden] { display: none }` regardless of selector specificity — origin, not specificity, decides that
@@ -125,12 +145,35 @@
 	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
 	text-transform: uppercase;
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-	/* Reserves 2 lines' worth of height regardless of whether this particular label wraps, and bottom-aligns
-	 * the text within it — so every field's input lines up with its row's tallest (wrapped) label instead of
-	 * sitting high under a short one-line label. */
-	min-height: calc(var(--dtk-type-label-size, 0.72rem) * 2 * 1.4);
 	display: flex;
+	/* Bottom-aligned within whatever height this label ends up with, so a one-line label still sits on the
+	 * same baseline as a wrapped neighbour's second line. */
 	align-items: flex-end;
+}
+/* Reserves 2 lines' worth of height whether or not this particular label wraps, so every field's input
+ * lines up with its row's tallest (wrapped) label instead of sitting high under a short one-line label.
+ * Scoped to the 3-column layout, keyed off the same container width that turns the third column on. Below
+ * that the reservation is ~1 line of dead space above every field — all of it in the 1-column grid, which
+ * has no neighbour in the row to line up against at all, and most of it in the 2-column grid, whose cells
+ * (≥14.5rem) are wide enough that a label has to be far longer than any of these before it wraps. That
+ * dead space is what read as over-generous spacing between filters on anything narrower than a desktop.
+ *
+ * Kept unconditional at 3 columns rather than dropped everywhere, even though no label wraps at the current
+ * label type scale (the widest, "PUBLICATION YEAR", measures 146px against a 216px worst-case cell): the
+ * label size and letter-spacing are both theme-authored, the 3-column cell is the narrowest any multi-column
+ * layout produces, and that combination is exactly where a wrap would first appear and the alignment start
+ * to matter.
+ *
+ * `2lh` is exactly two of this label's own line boxes. The `calc()` above it is the fallback for engines
+ * without `lh` and reproduces the same intent through the font size, at 1.2 rather than the 1.4 this rule
+ * used to hardcode: nothing sets a `line-height` here, so these labels lay out at `normal` (~1.18 for the
+ * label face), and reserving 1.4 padded every 3-column field with ~5px that no second line would ever
+ * occupy. Two real lines is the whole requirement. */
+@container search-advanced (min-width: 46rem) {
+	.search-advanced__field label {
+		min-height: calc(var(--dtk-type-label-size, 0.72rem) * 2 * 1.2);
+		min-height: 2lh;
+	}
 }
 /* A text/number field's op-select + value(+"to") row. Fixed grid columns (not flex) so every field's value
  * input is exactly the same width whether or not it has a "to" column — a flex row instead would let a
@@ -224,7 +267,108 @@
 .search-advanced__value.is-inactive {
 	visibility: hidden;
 }
+/* A cell too narrow to seat three columns: the fixed 7rem op column leaves the value input only what
+ * remains, and past this point that is too little to read a value in — a "between" field's two inputs are
+ * splitting it further still. Stack instead, with every control spanning the cell's full width: operator
+ * select on row 1, value on row 2, and a "between" pair splitting row 2 so the two of them together (gap
+ * included) still measure the same as the select above. Filling the cell rather than sizing to the op
+ * column is what keeps these the same width as the plain `.search-advanced__select` fields (Key/Work
+ * type/Composer role), which have no operator select and so are cell-width in every layout — the whole
+ * grid reads as one column width here.
+ *
+ * 14rem is set just under the narrowest cell any multi-column layout produces (the 3-column grid's ~14.7rem
+ * at the page's cap), so stacking is what a 1-column grid does once the page itself gets narrow, and never
+ * something a wider viewport flips into and out of as the column count changes under it.
+ *
+ * The base rules above pin every child to row 1 and place `to`/`--full` by column number; each is restated
+ * here rather than made conditional up there, so the primary layout stays readable on its own. Row stays
+ * pinned on both sides for the reason the `> *` rule documents: auto-placement plus the intentional
+ * `--full`/`to` column overlap silently spills one of them onto an extra row. The sibling combinator moves
+ * the value down only when there is an operator select above it to move below — `operators` is optional on
+ * an ADVANCED_FIELDS entry (facets.ts), and a field without one would otherwise reserve an empty row 1. */
+@container search-advanced-field (max-width: 14rem) {
+	.search-advanced__control {
+		grid-template-columns: 1fr 1fr;
+	}
+	.search-advanced__op {
+		grid-column: 1 / -1;
+	}
+	.search-advanced__op ~ .search-advanced__value {
+		grid-row: 2;
+		grid-column: 1;
+	}
+	.search-advanced__op ~ .search-advanced__value--full {
+		grid-column: 1 / -1;
+	}
+	.search-advanced__op ~ .search-advanced__to {
+		grid-row: 2;
+		grid-column: 2;
+	}
+}
 .search-advanced-link {
 	font-size: 0.875rem;
 	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+}
+
+/* "Jump to N results" summary, rendered under the search bar on /search and /search/advanced once a
+ * search completes (lib/search/jump.ts). Lives here rather than in either page's scoped <style> for the
+ * usual two reasons: both pages need it identically, and its inner control is created by the client
+ * script at runtime, where Astro's scoping class is never applied. */
+.search-jump {
+	font-size: 0.875rem;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+	margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+}
+/* Belt-and-braces against the cascade trap this codebase has hit twice (see search.astro's
+ * .search-type-filters[hidden] comment): an author `display` on the element beats the UA stylesheet's
+ * `[hidden] { display: none }` by origin, not specificity. No `display` is declared above today, so
+ * `hidden` works on its own — this keeps it working if one is ever added. */
+.search-jump[hidden] {
+	display: none;
+}
+/* A button, not an anchor: it scrolls the page rather than navigating, so it must not add a history
+ * entry or put a bare "#search-status" in the address bar. Styled as a link so it still reads as one. */
+.search-jump__link {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+	text-decoration: underline;
+	cursor: pointer;
+}
+.search-jump__link:hover {
+	color: var(--dtk-chrome-link-hover, var(--dtk-color-slate, var(--color-link-hover)));
+}
+
+/* One row: the page-switch link ("Advanced search →" / "← Back to search") on the left, the jump summary
+ * pushed right. Stacked, the two read as a pair of identical links with no cue that they do different
+ * things — one navigates away, the other moves you down the page you are already on.
+ *
+ * The row carries the vertical margin and its children carry none, deliberately. Each page sets its own
+ * top margin on this container (see their scoped styles for the collapse reasoning): on /search that
+ * margin still collapses with #search-form's larger section-space bottom margin, which is what puts the
+ * link where it is. Leaving the margins on the children instead would break that — a flex item's margin
+ * never collapses with anything, so the two would add up and push the row down. */
+.search-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+}
+.search-actions > * {
+	margin: 0;
+}
+/* Keeps the jump summary against the right edge on the line it ends up on, not just while it shares one
+ * with the page-switch link. `justify-content: space-between` only separates items that sit on the SAME
+ * flex line: once the row wraps (narrow screens — the two together need ~27rem, so anything under about a
+ * 440px container), the summary is alone on line 2 and space-between leaves it at the start, landing it
+ * left-aligned directly beneath the link and reading as the stacked pair of look-alike links this row
+ * exists to avoid. Right-aligning it keeps the two visually distinct once they no longer fit side by side.
+ *
+ * Higher specificity than `.search-actions > *` above on purpose — that rule zeroes margins to protect
+ * vertical margin collapsing (see its comment), which an inline-axis `auto` does not participate in. */
+.search-actions .search-jump {
+	margin-left: auto;
 }

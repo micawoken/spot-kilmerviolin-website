@@ -1,3 +1,43 @@
+# Response headers for statically served assets. Workers Static Assets serves prerendered pages straight
+# from the ASSETS binding without invoking the worker, so the public site never passes through
+# src/middleware/headers.ts — everything below is the public site's only source of security headers, and
+# the middleware covers the SSR surface (/admin, /api, /_emdash) alone. Keep the two in step.
+#
+# Strict-Transport-Security is deliberately absent: it is set zone-wide at Cloudflare, and repeating it
+# here would emit the header twice.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com/beacon.min.js; connect-src 'self' https://cloudflareinsights.com
+
+# The public policy above, directive by directive. It is stricter than the admin policy in
+# middleware/headers.ts on connect-src and looser on script-src, so the two are kept separate rather than
+# shared.
+#
+#  - default-src 'self'        covers font-src (theme fonts are localized to /fonts at build), worker-src
+#                              (Pagefind loads /pagefind/pagefind-worker.js by same-origin URL, not a blob)
+#                              and manifest-src
+#  - script-src                'self' for Astro's hashed page modules and the dynamic import of
+#                              /pagefind/pagefind.js; 'wasm-unsafe-eval' because Pagefind compiles its
+#                              index with WebAssembly.instantiate in both the page and the worker (the
+#                              worker inherits this header, since its script is an asset too); the
+#                              Cloudflare Web Analytics beacon is pinned to its exact URL. NO
+#                              'unsafe-inline' — integrations/csp-guard.mjs enforces that no page emits
+#                              an inline script, and vite.build.assetsInlineLimit stops Astro creating one
+#  - style-src 'unsafe-inline' unavoidable: the compositor emits theme tokens through <style set:html> and
+#                              Astro inlines small scoped stylesheets. CSS injection is instead blocked at
+#                              the source, in lib/compositor/tokens.ts
+#  - img-src 'self' https:     record and CMS images come from R2 custom domains (db-img/store) and theme
+#                              values may name others; data: covers inline SVG placeholders
+#  - connect-src               'self' for Pagefind's index fetches; cloudflareinsights.com for the beacon,
+#                              which reports off-origin under a manual (non-auto-injected) embed
+#  - frame-ancestors 'none'    nothing frames the public site — the Puck canvas iframe lives inside /admin
+#                              and renders srcdoc, which inherits rather than fetches a policy
+#  - base-uri/object-src 'none' and form-action 'self' close <base> hijacking, plugins, and repointing the
+#                              search forms at a third-party collector
+
 # Workers Static Assets applies "Cache-Control: public, max-age=0, must-revalidate" to everything by
 # default, which forces a revalidation round trip on every request. That's fine for HTML, but it breaks
 # self-hosted web fonts loaded via <link rel="preload"> + font-display: optional (theme-fonts.ts,

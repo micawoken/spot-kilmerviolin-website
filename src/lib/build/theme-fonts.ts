@@ -53,7 +53,7 @@ import { createHash } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 
-import { webFontsHref, type WebFont } from "../compositor/tokens"
+import { fontFaceKey, webFontsHref, type WebFont } from "../compositor/tokens"
 
 // Google serves woff/ttf to an unrecognized User-Agent and only serves woff2 (what we want to
 // self-host) to a modern browser UA — Node's default fetch UA gets the legacy format.
@@ -65,14 +65,48 @@ const GOOGLE_FONTS_FETCH_UA =
 // not. Every other subset (cyrillic, greek, vietnamese, …) still self-hosts, via swap, no preload.
 const PRELOADED_SUBSETS = new Set(["latin", "latin-ext"])
 
+/** Whether this face is one the theme's typography tokens actually reference (`referencedFontFaces`).
+ *  An empty set means the caller supplied none — preload every Latin face, the historical behavior. */
+function isReferenced(referencedFaces: ReadonlySet<string>, block: ParsedFontFaceBlock): boolean {
+    return referencedFaces.size === 0 || referencedFaces.has(fontFaceKey(block.family, block.weight))
+}
+
 const FONT_DIR_SEGMENTS = ["fonts", "theme"] as const
 
 export interface LocalizedFonts {
     /** inline `@font-face` rules, one per (family, weight, style, subset) Google block, rewritten to
      *  point at the locally self-hosted file. */
     fontFaceCss: string
-    /** local `/fonts/theme/<hash>.woff2` paths to `<link rel="preload">`, one per preloaded subset. */
+    /** local `/fonts/theme/<hash>.woff2` paths to `<link rel="preload">`, one per preloaded subset of a
+     *  face the theme's typography tokens reference. */
     preloadHrefs: string[]
+}
+
+/**
+ * Font URLs declared `font-display: optional` that carry no matching preload — always empty for a
+ * well-formed manifest.
+ *
+ * `optional` tells the browser it may skip the face entirely rather than delay or swap text, so a face
+ * the browser was never told to fetch early routinely goes unrendered on a cold load: the page silently
+ * falls back to the local stack while still claiming the web font in `--dtk-type-*-family`. The preload
+ * and the `optional` display must therefore always be decided together.
+ *
+ * Re-derived from the emitted CSS rather than the flag that produced it (`localizeThemeFonts`'s
+ * `preload`), so this still catches a later refactor that splits the two decisions apart — checking the
+ * flag against itself would prove nothing.
+ *
+ * @param {LocalizedFonts} fonts - a resolved manifest
+ * @returns {string[]} offending font URLs, empty when the invariant holds
+ */
+export function unpreloadedOptionalFaces(fonts: LocalizedFonts): string[] {
+    const preloaded = new Set(fonts.preloadHrefs)
+    const offenders: string[] = []
+    for (const [, body] of fonts.fontFaceCss.matchAll(/@font-face\{([^}]*)\}/g)) {
+        if (!/font-display:\s*optional/.test(body)) continue
+        const url = body.match(/url\("([^"]+)"\)/)?.[1]
+        if (url && !preloaded.has(url)) offenders.push(url)
+    }
+    return offenders
 }
 
 /**
@@ -83,8 +117,18 @@ export interface LocalizedFonts {
  * Fails soft: fetch/parse/download problem resolves to `null` (+ console warning), never throws — the
  * theme font is skipped for this build rather than breaking every public page, matching
  * `fetchPublishedTheme`'s contract.
+ *
+ * Every authored weight still self-hosts; `referencedFaces` only narrows which ones are *preloaded*
+ * (and so get `font-display: optional` — the two must stay in lockstep, or an optional face with no
+ * preload can go unrendered on a cold first load). Pass `referencedFontFaces(catalog)`.
+ *
+ * @param {WebFont[]} fonts - the theme's authored web fonts
+ * @param {ReadonlySet<string>} referencedFaces - `fontFaceKey` values worth preloading; empty preloads all
  */
-export async function localizeThemeFonts(fonts: WebFont[]): Promise<LocalizedFonts | null> {
+export async function localizeThemeFonts(
+    fonts: WebFont[],
+    referencedFaces: ReadonlySet<string> = new Set()
+): Promise<LocalizedFonts | null> {
     const href = webFontsHref(fonts)
     if (!href) return null
 
@@ -119,7 +163,7 @@ export async function localizeThemeFonts(fonts: WebFont[]): Promise<LocalizedFon
             )
             continue
         }
-        const preload = PRELOADED_SUBSETS.has(block.subset)
+        const preload = PRELOADED_SUBSETS.has(block.subset) && isReferenced(referencedFaces, block)
         if (preload) preloadHrefs.push(localHref)
         cssParts.push(
             `@font-face{font-family:"${block.family}";src:url("${localHref}") format("woff2");` +

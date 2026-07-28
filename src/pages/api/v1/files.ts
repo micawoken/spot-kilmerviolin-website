@@ -26,12 +26,12 @@
  */
 
 import type { APIRoute } from "astro"
-import { addFile, deriveFileKey, listFiles } from "../../../lib/api/files"
+import { addFile, listFiles, newFileKey, normalizeUploadContentType } from "../../../lib/api/files"
 import { parseCropFromForm } from "../../../lib/api/images"
 import { maxUploadBytes, R2CapacityError } from "../../../lib/api/r2"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
-import { constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
+import { constructResponse, constructResponseErrorHook, INLINE_SAFE_CONTENT_TYPES } from "../../../lib/api/http"
 import { validateAltText } from "../../../lib/api/validation"
 
 /**
@@ -124,9 +124,21 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (file.size > maxUploadBytes()) {
         return constructResponse(request, null, 413)
     }
+    // the client's declared type is allowlisted, not trusted: the stored object is served unmediated from
+    // the public R2 domain, so an accepted type must be one the optimizer will re-encode
+    const content_type = normalizeUploadContentType(file.type)
+    if (content_type === null) {
+        return constructResponse(
+            request,
+            null,
+            415,
+            `Unsupported file type: uploads must be one of ${INLINE_SAFE_CONTENT_TYPES.join(", ")}`
+        )
+    }
     const provided_name = form.get("name")
     const raw_name = typeof provided_name === "string" && provided_name.trim() !== "" ? provided_name : file.name
-    const key = deriveFileKey(raw_name)
+    // random prefix: the bucket is public, so a key derived purely from the filename is guessable
+    const key = newFileKey(raw_name)
     if (key === "") {
         return constructResponse(
             request,
@@ -135,7 +147,6 @@ export const POST: APIRoute = async (context): Promise<Response> => {
             "Invalid file name: no usable characters remain after sanitization"
         )
     }
-    const content_type = file.type || "application/octet-stream"
     const uploader = locals.identity ? String(locals.identity.id) : null
     // optional crop instruction carried in the multipart fields (absent = centered portrait)
     const crop = parseCropFromForm(form)

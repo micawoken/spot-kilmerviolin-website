@@ -303,9 +303,43 @@ export function isValidTokenName(name: string): boolean {
     return TOKEN_NAME_PATTERN.test(name)
 }
 
+/**
+ * Characters a token VALUE may never contain, because `tokensToCss`'s output is injected with `set:html`
+ * into a `<style>` in the head of every public page (PublicPage.astro) — unescaped, as `<style>` content
+ * must be. `<` and `>` are what close the element and open a `<script>`; `;`, `{` and `}` are what append
+ * a declaration or open a new rule (attribute-selector exfiltration, defacement); `@` opens an at-rule;
+ * `\` opens a CSS escape sequence, which exists only to obscure the rest.
+ *
+ * None of these appear in a legitimate value — the emitter supplies the `;` itself, and real values are
+ * colors, lengths, `calc()`/`clamp()` expressions, font stacks and shadow lists.
+ */
+const UNSAFE_CSS_VALUE_PATTERN = /[<>;{}@\\]/
+
+/** Upper bound on a token value, so a pathological theme cannot bloat every page's head. */
+const MAX_TOKEN_VALUE_LENGTH = 512
+
+/**
+ * Whether a theme-authored value is safe to interpolate into emitted CSS. Values are validated at
+ * EMISSION, where every authoring path converges — the theme editor is not the only writer, since a
+ * `design_editor` may PUT the `design_theme` item over the API directly.
+ */
+export function isSafeTokenValue(value: unknown): value is string {
+    return typeof value === "string" && value.length <= MAX_TOKEN_VALUE_LENGTH && !UNSAFE_CSS_VALUE_PATTERN.test(value)
+}
+
+/** A custom property that is deliberately never defined, so an invalid reference resolves to unset —
+ * the same fail-soft a dangling (but well-formed) reference already gets. */
+const INVALID_REF_VAR = "--dtk-invalid-ref"
+
 /** CSS custom-property name for a token, e.g. `--dtk-color-accent`, `--dtk-type-body-size`. `sub`
- * names a typography/border sub-value. */
+ * names a typography/border sub-value.
+ *
+ * A malformed `name` collapses to {@link INVALID_REF_VAR} rather than being interpolated: names reach
+ * here from theme-authored REFERENCES too (a border's `colorRef`, a button variant's `background`, a
+ * site-chrome role), not just from a token's own pre-validated name, and those land in the value half of
+ * an emitted declaration — the same `<style set:html>` sink the value guard above covers. */
 export function tokenVarName(kind: TokenKind, name: string, sub?: string): string {
+    if (!isValidTokenName(name)) return INVALID_REF_VAR
     const base = `--dtk-${KIND_SEGMENT[kind]}-${name}`
     return sub ? `${base}-${sub}` : base
 }
@@ -347,58 +381,62 @@ function textDecorationLine(token: TypographyToken): string {
 export function tokensToCss(catalog: TokenCatalog): string {
     const lines: string[] = []
 
+    /** Emits one declaration, dropping it when the value is unsafe — matching how a malformed NAME is
+     * already dropped. Omission is the only safe rejection here: a substituted placeholder would be a
+     * silent, invisible restyle, whereas a missing custom property falls back to the consuming CSS's own
+     * `var(…, <fallback>)` and lint reports the value (see lintTokenCatalog). */
+    function emit(property: string, value: string): void {
+        if (isSafeTokenValue(value)) lines.push(`${property}: ${value};`)
+    }
+
     for (const token of catalog.colors) {
-        if (isValidTokenName(token.name)) lines.push(`${tokenVarName("colors", token.name)}: ${token.value};`)
+        if (isValidTokenName(token.name)) emit(tokenVarName("colors", token.name), token.value)
     }
     for (const token of catalog.typography) {
         if (!isValidTokenName(token.name)) continue
-        lines.push(`${tokenVarName("typography", token.name, "family")}: ${token.family};`)
-        lines.push(`${tokenVarName("typography", token.name, "size")}: ${token.size};`)
+        emit(tokenVarName("typography", token.name, "family"), token.family)
+        emit(tokenVarName("typography", token.name, "size"), token.size)
         // `bold` overrides the emitted weight only; `weight` itself is untouched, so unchecking restores it.
-        lines.push(`${tokenVarName("typography", token.name, "weight")}: ${token.bold ? "bold" : token.weight};`)
-        lines.push(`${tokenVarName("typography", token.name, "line-height")}: ${token.lineHeight};`)
+        emit(tokenVarName("typography", token.name, "weight"), token.bold ? "bold" : token.weight)
+        emit(tokenVarName("typography", token.name, "line-height"), token.lineHeight)
         if (token.letterSpacing !== undefined) {
-            lines.push(`${tokenVarName("typography", token.name, "letter-spacing")}: ${token.letterSpacing};`)
+            emit(tokenVarName("typography", token.name, "letter-spacing"), token.letterSpacing)
         }
-        lines.push(`${tokenVarName("typography", token.name, "style")}: ${token.italic ? "italic" : "normal"};`)
-        lines.push(`${tokenVarName("typography", token.name, "decoration")}: ${textDecorationLine(token)};`)
-        lines.push(`${tokenVarName("typography", token.name, "transform")}: ${token.textTransform ?? "none"};`)
+        // style/decoration/transform are chosen from fixed keyword sets, never free text
+        emit(tokenVarName("typography", token.name, "style"), token.italic ? "italic" : "normal")
+        emit(tokenVarName("typography", token.name, "decoration"), textDecorationLine(token))
+        emit(tokenVarName("typography", token.name, "transform"), token.textTransform ?? "none")
     }
     for (const token of catalog.space) {
-        if (isValidTokenName(token.name)) lines.push(`${tokenVarName("space", token.name)}: ${token.value};`)
+        if (isValidTokenName(token.name)) emit(tokenVarName("space", token.name), token.value)
     }
     for (const token of catalog.radius) {
-        if (isValidTokenName(token.name)) lines.push(`${tokenVarName("radius", token.name)}: ${token.value};`)
+        if (isValidTokenName(token.name)) emit(tokenVarName("radius", token.name), token.value)
     }
     for (const token of catalog.shadows) {
-        if (isValidTokenName(token.name)) lines.push(`${tokenVarName("shadows", token.name)}: ${token.value};`)
+        if (isValidTokenName(token.name)) emit(tokenVarName("shadows", token.name), token.value)
     }
     for (const token of catalog.borders) {
         if (!isValidTokenName(token.name)) continue
-        lines.push(`${tokenVarName("borders", token.name, "width")}: ${token.width};`)
-        lines.push(`${tokenVarName("borders", token.name, "style")}: ${token.style};`)
+        emit(tokenVarName("borders", token.name, "width"), token.width)
+        emit(tokenVarName("borders", token.name, "style"), token.style)
         // colorRef resolves to the color token's own property; a dangling ref yields an unset var.
-        lines.push(`${tokenVarName("borders", token.name, "color")}: ${tokenVar("colors", token.colorRef)};`)
+        emit(tokenVarName("borders", token.name, "color"), tokenVar("colors", token.colorRef))
     }
     // Each variant field is a var() to another token's property (like borders' colorRef) — a dangling
     // ref yields an unset var, not a crash. Border sub-values emit only when `border` names a token.
     for (const variant of catalog.buttonVariants ?? []) {
         if (!isValidTokenName(variant.name)) continue
-        lines.push(`${tokenVarName("buttonVariants", variant.name, "bg")}: ${tokenVar("colors", variant.background)};`)
-        lines.push(`${tokenVarName("buttonVariants", variant.name, "text")}: ${tokenVar("colors", variant.text)};`)
-        lines.push(`${tokenVarName("buttonVariants", variant.name, "radius")}: ${tokenVar("radius", variant.radius)};`)
-        lines.push(`${tokenVarName("buttonVariants", variant.name, "pad-x")}: ${tokenVar("space", variant.paddingX)};`)
-        lines.push(`${tokenVarName("buttonVariants", variant.name, "pad-y")}: ${tokenVar("space", variant.paddingY)};`)
+        emit(tokenVarName("buttonVariants", variant.name, "bg"), tokenVar("colors", variant.background))
+        emit(tokenVarName("buttonVariants", variant.name, "text"), tokenVar("colors", variant.text))
+        emit(tokenVarName("buttonVariants", variant.name, "radius"), tokenVar("radius", variant.radius))
+        emit(tokenVarName("buttonVariants", variant.name, "pad-x"), tokenVar("space", variant.paddingX))
+        emit(tokenVarName("buttonVariants", variant.name, "pad-y"), tokenVar("space", variant.paddingY))
         if (variant.border !== undefined && variant.border !== "") {
-            lines.push(
-                `${tokenVarName("buttonVariants", variant.name, "border-width")}: ${tokenVar("borders", variant.border, "width")};`
-            )
-            lines.push(
-                `${tokenVarName("buttonVariants", variant.name, "border-style")}: ${tokenVar("borders", variant.border, "style")};`
-            )
-            lines.push(
-                `${tokenVarName("buttonVariants", variant.name, "border-color")}: ${tokenVar("borders", variant.border, "color")};`
-            )
+            const border = variant.border
+            emit(tokenVarName("buttonVariants", variant.name, "border-width"), tokenVar("borders", border, "width"))
+            emit(tokenVarName("buttonVariants", variant.name, "border-style"), tokenVar("borders", border, "style"))
+            emit(tokenVarName("buttonVariants", variant.name, "border-color"), tokenVar("borders", border, "color"))
         }
     }
     // Site Chrome roles: emitted only when set, as `--dtk-chrome-<role>` pointing at the chosen
@@ -416,13 +454,13 @@ export function tokensToCss(catalog: TokenCatalog): string {
             ["footer-bg", chrome.footerBackground]
         ]
         for (const [segment, name] of colorRoles) {
-            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("colors", name)};`)
+            if (name) emit(`--dtk-chrome-${segment}`, tokenVar("colors", name))
         }
         if (chrome.hairlineBorder) {
             const name = chrome.hairlineBorder
-            lines.push(`--dtk-chrome-hairline-width: ${tokenVar("borders", name, "width")};`)
-            lines.push(`--dtk-chrome-hairline-style: ${tokenVar("borders", name, "style")};`)
-            lines.push(`--dtk-chrome-hairline-color: ${tokenVar("borders", name, "color")};`)
+            emit("--dtk-chrome-hairline-width", tokenVar("borders", name, "width"))
+            emit("--dtk-chrome-hairline-style", tokenVar("borders", name, "style"))
+            emit("--dtk-chrome-hairline-color", tokenVar("borders", name, "color"))
         }
         // Each split role falls back to the deprecated singular `horizontalSpace` when unset, so a
         // pre-split catalog keeps rendering identically until its owner adjusts the roles independently.
@@ -434,7 +472,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
             ["horizontal-space-static", chrome.horizontalSpaceStatic]
         ]
         for (const [segment, name] of horizontalSpaceRoles) {
-            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
+            if (name) emit(`--dtk-chrome-${segment}`, tokenVar("space", name))
         }
         // Vertical counterpart: independently settable, no legacy singular fallback — unlike
         // horizontalSpace, ships split from the start. Header/footer split from verticalSpaceSection so
@@ -448,7 +486,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
             ["vertical-space-static", chrome.verticalSpaceStatic]
         ]
         for (const [segment, name] of verticalSpaceRoles) {
-            if (name) lines.push(`--dtk-chrome-${segment}: ${tokenVar("space", name)};`)
+            if (name) emit(`--dtk-chrome-${segment}`, tokenVar("space", name))
         }
     }
 
@@ -459,14 +497,24 @@ export function tokensToCss(catalog: TokenCatalog): string {
  *  `layoutStackBreakpoint`, so an unmigrated/untouched theme keeps this exact prior behavior. */
 const DEFAULT_COLUMNS_STACK_MAX_WIDTH = "767.98px"
 
+/** A CSS length this may safely place in an `@media` prelude: a number and a known unit, nothing else. */
+const BREAKPOINT_LENGTH_PATTERN = /^(-?\d+(?:\.\d+)?)(px|rem|em|ch|ex|vw|vh|vmin|vmax|pt|pc|cm|mm|in|Q)$/
+
 /**
  * Just below a breakpoint token's own `minWidth`, matching the historical 767.98-for-768 idiom (a
- * `minWidth` of `N`px stacks below it, not at-or-above it). A `minWidth` this can't confidently do
- * arithmetic on (a non-`px` unit, `calc()`, …) is used as-is rather than risk an invalid media condition.
+ * `minWidth` of `N`px stacks below it, not at-or-above it). A non-`px` unit is used as-is, since the
+ * 0.02 nudge is meaningful only in pixels.
+ *
+ * The pattern is a VALIDATION GATE, not a formatting convenience: the result is interpolated into an
+ * `@media` prelude that `columnsStackBreakpointCss` emits into a `<style set:html>` on every public page,
+ * so anything that is not a plain length — `calc()`, or a payload closing the `<style>` element — falls
+ * back to the historical cutoff rather than reaching the page. Returning unmatched input verbatim was the
+ * same defect as an unvalidated token value, through a different function.
  */
 function stackCutoff(minWidth: string): string {
-    const match = /^(-?\d+(?:\.\d+)?)px$/.exec(minWidth.trim())
-    if (!match) return minWidth.trim()
+    const match = BREAKPOINT_LENGTH_PATTERN.exec(minWidth.trim())
+    if (!match) return DEFAULT_COLUMNS_STACK_MAX_WIDTH
+    if (match[2] !== "px") return `${match[1]}${match[2]}`
     return `${Number(match[1]) - 0.02}px`
 }
 
@@ -641,6 +689,40 @@ export function webFontsHref(fonts: WebFont[]): string | null {
     return `https://fonts.googleapis.com/css2?${families.join("&")}`
 }
 
+/** Maps a CSS `font-weight` value to the numeric form Google's `@font-face` blocks use. */
+function numericFontWeight(weight: string): string {
+    const trimmed = weight.trim().toLowerCase()
+    if (trimmed === "bold") return "700"
+    if (trimmed === "normal") return "400"
+    return trimmed
+}
+
+/** Stable `family|weight` key for one font face. Family is the first entry of a CSS font stack (the web
+ *  font itself; the rest are local fallbacks, never fetched), compared case-insensitively. */
+export function fontFaceKey(family: string, weight: string): string {
+    const primary = family.split(",")[0].trim().replace(/^["']|["']$/g, "")
+    return `${primary.toLowerCase()}|${numericFontWeight(weight)}`
+}
+
+/** Every (family, weight) face some typography token actually asks for — the set worth preloading.
+ *
+ * A theme authors a font's weights independently of the tokens that use them, so a catalog routinely
+ * self-hosts faces nothing references; preloading those spends first-paint bandwidth on a file that is
+ * never painted. `bold` requests 700 in place of the token's own weight, not alongside it (see
+ * {@link TypographyToken}).
+ *
+ * @param {TokenCatalog} catalog - the published theme
+ * @returns {Set<string>} `fontFaceKey` values; empty when the theme has no typography tokens
+ */
+export function referencedFontFaces(catalog: TokenCatalog): Set<string> {
+    const faces = new Set<string>()
+    for (const token of catalog.typography ?? []) {
+        if (typeof token?.family !== "string" || typeof token.weight !== "string") continue
+        faces.add(fontFaceKey(token.family, token.bold ? "700" : token.weight))
+    }
+    return faces
+}
+
 /** One dangling reference from a button variant to a token that is not in the catalog. */
 export interface TokenCatalogFinding {
     variant: string
@@ -669,6 +751,51 @@ export function lintTokenCatalog(catalog: TokenCatalog): TokenCatalogFinding[] {
         if (variant.border !== undefined && variant.border !== "") refs.push(["border", variant.border, "borders"])
         for (const [field, ref, kind] of refs) {
             if (!hasToken(catalog, kind, ref)) findings.push({ variant: variant.name, field, ref, kind })
+        }
+    }
+    return findings
+}
+
+/** One token whose value `tokensToCss` will refuse to emit (see {@link isSafeTokenValue}). */
+export interface TokenValueFinding {
+    /** the token kind the value belongs to */
+    kind: TokenKind
+    /** the token's name */
+    name: string
+    /** the field carrying the value (e.g. "value", "family", "minWidth") */
+    field: string
+}
+
+/**
+ * Reports every theme value `tokensToCss` (or `columnsStackBreakpointCss`) will drop as unsafe.
+ *
+ * Emission-time rejection is silent by design — a dropped custom property simply falls back — so without
+ * this a theme owner would see a styling change with no explanation. Pairs with the emitter rather than
+ * replacing it: this is the report, the guard in `tokensToCss` is the control.
+ */
+export function lintTokenValues(catalog: TokenCatalog): TokenValueFinding[] {
+    const findings: TokenValueFinding[] = []
+    const check = (kind: TokenKind, name: string, field: string, value: string | undefined): void => {
+        if (value !== undefined && !isSafeTokenValue(value)) findings.push({ kind, name, field })
+    }
+    for (const kind of ["colors", "space", "radius", "shadows"] as const) {
+        for (const token of catalog[kind]) check(kind, token.name, "value", token.value)
+    }
+    for (const token of catalog.typography) {
+        check("typography", token.name, "family", token.family)
+        check("typography", token.name, "size", token.size)
+        check("typography", token.name, "weight", token.weight)
+        check("typography", token.name, "lineHeight", token.lineHeight)
+        check("typography", token.name, "letterSpacing", token.letterSpacing)
+    }
+    for (const token of catalog.borders) {
+        check("borders", token.name, "width", token.width)
+        check("borders", token.name, "style", token.style)
+    }
+    // A breakpoint's minWidth reaches CSS through stackCutoff, which falls back rather than emitting it.
+    for (const token of catalog.breakpoints) {
+        if (!BREAKPOINT_LENGTH_PATTERN.test(token.minWidth.trim())) {
+            findings.push({ kind: "breakpoints", name: token.name, field: "minWidth" })
         }
     }
     return findings

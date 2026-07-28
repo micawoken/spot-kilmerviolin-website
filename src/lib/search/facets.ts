@@ -226,10 +226,62 @@ function fuzzyMatch(text: string, query: string): boolean {
     return true
 }
 
+/**
+ * Longest accepted user-supplied regex pattern.
+ *
+ * matchesFacets runs in a client `<script>`, so a catastrophically-backtracking pattern hangs only the
+ * browser executing it — but /search/advanced pre-fills its criteria from URL parameters and searches on
+ * arrival, so a crafted link hangs a VISITOR's tab, not just the author's own. A length cap does not make
+ * backtracking impossible (`(a+)+$` is nine characters), it bounds how much nesting a pattern can express;
+ * the real bound is the match deadline in {@link matchesText}. Both are cheap, so both are applied.
+ */
+export const MAX_REGEX_PATTERN_LENGTH = 200
+
 function isValidRegex(pattern: string): boolean {
+    if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+        return false
+    }
     try {
         new RegExp(pattern)
         return true
+    } catch {
+        return false
+    }
+}
+
+/**
+ * Milliseconds a pattern may take on the probe below before it is refused. A benign pattern takes
+ * microseconds, so this is orders of magnitude of headroom rather than a tight bound.
+ */
+const REGEX_PROBE_BUDGET_MS = 50
+
+/**
+ * A string built to provoke backtracking: a long single-character run that does not satisfy a trailing
+ * anchor or literal. `(a+)+$` and friends explore exponentially many partitions of it.
+ *
+ * Kept short (22 characters) on purpose. A JavaScript regex match cannot be interrupted once started, so
+ * the probe has to be small enough that even a pathological pattern finishes it quickly — 2^22 steps is
+ * tens of milliseconds, enough to be measured, not enough to hang the tab doing the measuring.
+ */
+const REGEX_PROBE = "a".repeat(22) + "!"
+
+/**
+ * Whether a pattern completes the probe within budget.
+ *
+ * Called once per search, before matchesFacets applies the pattern across the whole corpus — testing a
+ * catastrophic pattern once against a bounded probe is cheap, whereas discovering it entry by entry is
+ * the hang itself. Static analysis of the pattern would be more precise but far more code; measuring is
+ * both simpler and immune to whatever construct the next engine version makes expensive.
+ *
+ * @param {string} pattern the user-supplied pattern (already known to compile)
+ * @returns {boolean} true when the pattern is fast enough to run over the dataset
+ */
+function isRegexFastEnough(pattern: string): boolean {
+    try {
+        const compiled = new RegExp(pattern, "i")
+        const started = Date.now()
+        compiled.test(REGEX_PROBE)
+        return Date.now() - started <= REGEX_PROBE_BUDGET_MS
     } catch {
         return false
     }
@@ -249,8 +301,8 @@ const NONE_OPTION: AdvancedFieldOption = { label: "(None)", value: NONE_VALUE }
 const TEXT_OPERATORS: readonly FacetOperatorOption[] = [
     { value: "contains", label: "Contains" },
     { value: "is", label: "Is exactly" },
-    { value: "regex", label: "Regex" },
-    { value: "fuzzy", label: "Fuzzy" }
+    { value: "regex", label: "Regex match" },
+    { value: "fuzzy", label: "Fuzzy match" }
 ]
 
 const YEAR_OPERATORS: readonly FacetOperatorOption[] = [
@@ -450,14 +502,26 @@ export function hasCriteria(criteria: FacetCriteria): boolean {
 
 /** Checks every "regex"-op text criterion's pattern up front, before a search runs matchesFacets over the
  *  whole dataset — matchesText treats an invalid pattern as a silent non-match, which would otherwise just
- *  look like "no results" instead of telling the visitor their pattern itself is the problem. Returns the
- *  first invalid field's caller-facing error message, or undefined if every regex criterion (if any) compiles. */
+ *  look like "no results" instead of telling the visitor their pattern itself is the problem. Also refuses
+ *  a pattern that is valid but catastrophically slow: this runs once, whereas matchesFacets would apply it
+ *  to every entry, and /search/advanced executes a URL-supplied search on arrival — so an unbounded pattern
+ *  hangs whoever follows the link, not only whoever wrote it. Returns the first offending field's
+ *  caller-facing error message, or undefined when every regex criterion (if any) is acceptable. */
 export function validateFacetCriteria(criteria: FacetCriteria): string | undefined {
-    if (criteria.composer?.op === "regex" && !isValidRegex(criteria.composer.value)) {
-        return "That composer pattern is not a valid regular expression."
-    }
-    if (criteria.country?.op === "regex" && !isValidRegex(criteria.country.value)) {
-        return "That composer country pattern is not a valid regular expression."
+    const fields: Array<[value: string | undefined, label: string]> = [
+        [criteria.composer?.op === "regex" ? criteria.composer.value : undefined, "composer"],
+        [criteria.country?.op === "regex" ? criteria.country.value : undefined, "composer country"]
+    ]
+    for (const [pattern, label] of fields) {
+        if (pattern === undefined) continue
+        if (!isValidRegex(pattern)) {
+            return pattern.length > MAX_REGEX_PATTERN_LENGTH
+                ? `That ${label} pattern is too long (maximum ${MAX_REGEX_PATTERN_LENGTH} characters).`
+                : `That ${label} pattern is not a valid regular expression.`
+        }
+        if (!isRegexFastEnough(pattern)) {
+            return `That ${label} pattern is too slow to run. Simplify it — nested repetition such as (a+)+ is the usual cause.`
+        }
     }
     return undefined
 }

@@ -262,9 +262,13 @@ describe("contributor boolean and array round-tripping", () => {
     it("partial updates flip booleans and persist roles (the usermgmt.ts path)", async () => {
         const id = await withCtx(ctx => addContributor(ctx, makeContributor("Activated Contributor", "act@example.com")))
 
-        await withCtx(ctx => updateContributorPartial(ctx, id, { active: true }))
-        // roles is a protected column: the data layer refuses to write it unless the caller authorizes it
-        // (the usermgmt role/admin functions pass allowProtected after their own admin check)
+        // active and roles are both protected columns: the data layer refuses to write either unless the
+        // caller authorizes it (the usermgmt activation/role/admin functions pass allowProtected after
+        // their own permission check). active joined that set because it is the revocation mechanism —
+        // without it a deactivated user could PATCH their own record back to active.
+        await expect(withCtx(ctx => updateContributorPartial(ctx, id, { active: true })))
+            .rejects.toThrow(/protected column/)
+        await withCtx(ctx => updateContributorPartial(ctx, id, { active: true }, true))
         await expect(withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] })))
             .rejects.toThrow(/protected column/)
         await withCtx(ctx => updateContributorPartial(ctx, id, { roles: ["reviewer"] }, true))

@@ -54,21 +54,51 @@ export class RebuildCooldownError extends Error {
 export const ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC = 180
 
 /**
+ * KV key recording when a rebuild was last TRIGGERED. Lives in KV_DB_CACHE alongside the D1 cache but
+ * outside its key space, and outside the set `purgeCacheAll` evicts by default (which is the three table
+ * keys only) so a cache purge cannot clear the throttle.
+ */
+const REBUILD_TRIGGER_KEY = "rebuild:last_trigger_ms"
+
+/** Seconds in the applicable cooldown window. */
+function cooldownSeconds(elevated: boolean): number {
+    return elevated ? ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC : Number(env.REBUILD_COOLDOWN_SEC)
+}
+
+/**
  * Returns the number of seconds remaining before another rebuild is permitted (0 if allowed now)
+ *
+ * Measured from the last TRIGGER, not from the running version's build timestamp. Timing it from the
+ * deployed version meant that once the window had elapsed since the last successful deploy — the normal
+ * steady state — the remaining time was permanently 0 and back-to-back requests all passed; and because a
+ * build takes minutes, during which the running version does not change, the window could not
+ * self-correct mid-flight either. Each accepted call queues a billable Workers Build, and three of the
+ * five roles hold `rebuild`.
+ *
+ * The deployed-version window is still applied as a floor, so the throttle degrades to the old behavior
+ * rather than to nothing if the KV record is ever lost.
  *
  * @param {boolean} elevated - when true, checks against the shorter admin-override cooldown instead of
  *   the standard REBUILD_COOLDOWN_SEC window
- * @returns {number} seconds remaining in the cooldown window, or 0 when a rebuild may proceed
+ * @returns {Promise<number>} seconds remaining in the cooldown window, or 0 when a rebuild may proceed
+ * @throws {Error} when the trigger record cannot be read, so an unreadable throttle blocks rather than opens
  */
-export function rebuildCooldownRemaining(elevated: boolean = false): number {
+export async function rebuildCooldownRemaining(elevated: boolean = false): Promise<number> {
+    const cooldown_ms = cooldownSeconds(elevated) * 1000
+    const now = Date.now()
+
+    // A missing key legitimately means "no recent trigger"; a FAILED read means the throttle is unknown,
+    // which is not the same thing and must not read as permission.
+    const raw = await env.KV_DB_CACHE.get(REBUILD_TRIGGER_KEY)
+    const last_trigger = raw === null ? 0 : Number(raw)
+    const trigger_remaining = isNaN(last_trigger) ? cooldown_ms : last_trigger + cooldown_ms - now
+
+    // Secondary floor: the running version's own build time. Unlike before, an unparseable timestamp
+    // fails CLOSED — treating it as "cooldown active" — rather than disabling the check entirely.
     const built = Date.parse(env.CF_VERSION_METADATA.timestamp)
-    if (isNaN(built)) {
-        // without a usable build timestamp we cannot enforce the cooldown, so do not block
-        return 0
-    }
-    const cooldown_sec = elevated ? ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC : Number(env.REBUILD_COOLDOWN_SEC)
-    const cooldown_ms = cooldown_sec * 1000
-    const remaining_ms = built + cooldown_ms - Date.now()
+    const build_remaining = isNaN(built) ? cooldown_ms : built + cooldown_ms - now
+
+    const remaining_ms = Math.max(trigger_remaining, build_remaining)
     return remaining_ms > 0 ? Math.ceil(remaining_ms / 1000) : 0
 }
 
@@ -77,19 +107,28 @@ export function rebuildCooldownRemaining(elevated: boolean = false): number {
  *
  * @param {boolean} elevated - when true, enforces the shorter admin-override cooldown instead of the
  *   standard one; the caller is responsible for verifying admin status before setting this
+ * @throws {RebuildCooldownError} when a rebuild was triggered too recently
  */
 export default async function rebuild(elevated: boolean = false) {
-    const remaining = rebuildCooldownRemaining(elevated)
+    const remaining = await rebuildCooldownRemaining(elevated)
     if (remaining > 0) {
         throw new RebuildCooldownError(remaining)
     }
+    const cooldown_sec = cooldownSeconds(elevated)
+    // Record the trigger BEFORE calling the hook: a slow or failing deploy hook must not be usable as a
+    // window in which a second trigger slips through. The entry expires just past the window, so a stale
+    // record can never outlive the throttle it enforces. KV is eventually consistent, so a determined
+    // caller may still land two or three triggers inside one window — a bounded overshoot, against the
+    // previous unbounded behavior. A hard bound would need a Durable Object.
+    await env.KV_DB_CACHE.put(REBUILD_TRIGGER_KEY, String(Date.now()), { expirationTtl: cooldown_sec + 60 })
     const deploy_hook = deploy_hook_url + env.CF_DEPLOY_HOOK
     const response = await fetch(deploy_hook, {
         method: "POST"
     })
     if (!response.ok) {
         // throw so the endpoint surfaces a 5xx; a non-ok deploy-hook response means the rebuild did not
-        // start, and silently returning undefined would let the caller report success
+        // start, and silently returning undefined would let the caller report success. The trigger record
+        // stands: a failed hook still consumed an attempt, and retrying immediately would not help.
         console.error("Failed to trigger rebuild:", response.statusText)
         throw new Error(`Deploy hook responded ${response.status} ${response.statusText}`)
     }

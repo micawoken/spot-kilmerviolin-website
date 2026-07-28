@@ -33,19 +33,24 @@ import { preflight } from "./preflight"
 import { identity } from "./identity"
 import { emdashAccess } from "./emdash_access"
 import { emdashMediaCapacity } from "./emdash_media_capacity"
-import { rateLimit } from "./ratelimit"
+import { rateLimitIp, rateLimitUser } from "./ratelimit"
 import { securityHeaders } from "./headers"
 
 // securityHeaders runs first so it wraps the chain and can stamp its headers onto the final response —
-// including the auth error pages identity returns — for admin routes. emdashAccess runs right after
-// identity so it can authorize against the identity that identity.ts just constructed. emdashMediaCapacity
-// runs right after emdashAccess so an unauthorized caller never triggers its R2 usage scan.
+// including the auth error pages identity returns. rateLimitIp runs BEFORE identity: every rejection path
+// in identity.ts returns a response rather than calling next(), so a limiter placed after it never saw a
+// request that failed authentication, leaving unauthenticated flooding unmetered. Its scopes are keyed by
+// IP or global, so they need no identity. emdashAccess runs right after identity so it can authorize
+// against the identity that identity.ts just constructed. emdashMediaCapacity runs right after
+// emdashAccess so an unauthorized caller never triggers its R2 usage scan. rateLimitUser runs last, where
+// an identity exists for the user-keyed scopes to meter against.
 export const onRequest = sequence(
     securityHeaders,
     requestContext,
     preflight,
+    rateLimitIp,
     identity,
     emdashAccess,
     emdashMediaCapacity,
-    rateLimit
+    rateLimitUser
 )

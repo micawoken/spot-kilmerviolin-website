@@ -27,10 +27,14 @@ import { describe, it, expect } from "vitest"
 import {
     columnsStackBreakpointCss,
     EMPTY_TOKEN_CATALOG,
+    fontFaceKey,
     hasToken,
     isTokenCatalog,
+    isSafeTokenValue,
     isValidTokenName,
     lintTokenCatalog,
+    lintTokenValues,
+    referencedFontFaces,
     tokenSelectOptions,
     tokensToCss,
     tokenVar,
@@ -376,6 +380,120 @@ describe("isTokenCatalog — site chrome vertical spacing roles", () => {
     })
 })
 
+/**
+ * The emitters' output is injected with `set:html` into `<style>` elements in the head of EVERY public
+ * page (layouts/PublicPage.astro), unescaped — as `<style>` content must be. A theme is authored by a
+ * `design_editor`, the least-privileged CMS role, who can also publish and trigger the rebuild that bakes
+ * it into `dist/`. So a value that closes the `<style>` element is stored XSS against every anonymous
+ * visitor, self-serviceable end to end.
+ *
+ * This asserts the property that actually matters — no emitter may put `<` or `>` into its output — rather
+ * than the specific payloads below, so a new sink or a new payload shape is still caught.
+ */
+describe("emitted CSS cannot break out of its <style> element", () => {
+    const BREAKOUT = 'red; } </style><script>alert(1)</script><style> :root { --x: y'
+
+    /** Every theme-authored string that reaches an emitter, each carrying the same breakout payload. */
+    const poisoned: TokenCatalog = {
+        schemaVersion: 1,
+        colors: [{ name: "accent", value: BREAKOUT }],
+        typography: [
+            {
+                name: "body",
+                family: BREAKOUT,
+                size: BREAKOUT,
+                weight: BREAKOUT,
+                lineHeight: BREAKOUT,
+                letterSpacing: BREAKOUT
+            }
+        ],
+        space: [{ name: "md", value: BREAKOUT }],
+        radius: [{ name: "md", value: BREAKOUT }],
+        shadows: [{ name: "md", value: BREAKOUT }],
+        borders: [{ name: "default", width: BREAKOUT, style: BREAKOUT, colorRef: BREAKOUT }],
+        breakpoints: [{ name: "md", minWidth: `0px) {} </style><script>alert(1)</script><style> @media (max-width: 0px` }],
+        buttonVariants: [
+            {
+                name: "primary",
+                background: BREAKOUT,
+                text: BREAKOUT,
+                radius: BREAKOUT,
+                paddingX: BREAKOUT,
+                paddingY: BREAKOUT,
+                border: BREAKOUT
+            }
+        ],
+        siteChrome: {
+            pageBackground: BREAKOUT,
+            bodyText: BREAKOUT,
+            hairlineBorder: BREAKOUT,
+            horizontalSpaceInset: BREAKOUT,
+            verticalSpaceSection: BREAKOUT
+        },
+        layoutStackBreakpoint: "md"
+    }
+
+    it("drops poisoned token values instead of emitting them", () => {
+        const css = tokensToCss(poisoned)
+        expect(css).not.toContain("<")
+        expect(css).not.toContain(">")
+        expect(css).not.toContain("script")
+    })
+
+    it("drops poisoned REFERENCE names too — they land in the value half of a declaration", () => {
+        // A border's colorRef, a button variant's field refs and the site-chrome roles are theme-authored
+        // names that were interpolated straight into an emitted var(), not just the token's own name.
+        const css = tokensToCss(poisoned)
+        expect(css).not.toContain("alert(1)")
+        expect(css).not.toContain("</style")
+    })
+
+    it("falls back rather than passing an unusable breakpoint through to the @media prelude", () => {
+        const css = columnsStackBreakpointCss(poisoned)
+        expect(css).not.toContain("<")
+        expect(css).not.toContain(">")
+        expect(css).toBe(columnsStackBreakpointCss({ ...poisoned, layoutStackBreakpoint: undefined }))
+    })
+
+    it("still emits a well-formed :root block, so a poisoned theme degrades rather than breaking", () => {
+        const css = tokensToCss(poisoned)
+        expect(css.startsWith(":root {")).toBe(true)
+        expect(css.endsWith("}")).toBe(true)
+    })
+
+    it("reports every dropped value so the omission is not silent", () => {
+        const findings = lintTokenValues(poisoned)
+        expect(findings.length).toBeGreaterThan(0)
+        expect(findings).toContainEqual({ kind: "colors", name: "accent", field: "value" })
+        expect(findings).toContainEqual({ kind: "typography", name: "body", field: "family" })
+        expect(findings).toContainEqual({ kind: "breakpoints", name: "md", field: "minWidth" })
+    })
+
+    it("reports nothing for a clean catalog", () => {
+        expect(lintTokenValues(catalog)).toEqual([])
+    })
+})
+
+describe("isSafeTokenValue", () => {
+    it("accepts the value shapes real themes use", () => {
+        expect(isSafeTokenValue("#2337ff")).toBe(true)
+        expect(isSafeTokenValue("light-dark(#ffffff, #1a1a1a)")).toBe(true)
+        expect(isSafeTokenValue("0 1px 3px rgba(0,0,0,0.12)")).toBe(true)
+        expect(isSafeTokenValue("clamp(1rem, 2vw, 2rem)")).toBe(true)
+        expect(isSafeTokenValue('"Inter", system-ui, sans-serif')).toBe(true)
+    })
+    it("rejects every character that can escape a declaration", () => {
+        for (const bad of ["a<b", "a>b", "a;b", "a{b", "a}b", "a@b", "a\\b"]) {
+            expect(isSafeTokenValue(bad)).toBe(false)
+        }
+    })
+    it("rejects a non-string and an absurdly long value", () => {
+        expect(isSafeTokenValue(undefined)).toBe(false)
+        expect(isSafeTokenValue(42)).toBe(false)
+        expect(isSafeTokenValue("a".repeat(513))).toBe(false)
+    })
+})
+
 describe("lintTokenCatalog", () => {
     it("returns no findings when every variant ref resolves", () => {
         expect(lintTokenCatalog(withVariants)).toEqual([])
@@ -504,5 +622,52 @@ describe("viewTransitionCss", () => {
     })
     it("emits nothing when viewTransitions is explicitly false", () => {
         expect(viewTransitionCss({ ...catalog, viewTransitions: false })).toBe("")
+    })
+})
+
+describe("fontFaceKey", () => {
+    it("keys on the first family of a CSS stack, ignoring the local fallbacks", () => {
+        expect(fontFaceKey('"Spectral", Georgia, serif', "400")).toBe(fontFaceKey("Spectral", "400"))
+    })
+    it("is case-insensitive on the family", () => {
+        expect(fontFaceKey("IBM Plex Mono", "600")).toBe(fontFaceKey("ibm plex mono", "600"))
+    })
+    it("normalizes the bold/normal keywords to the numeric weights Google's @font-face blocks use", () => {
+        expect(fontFaceKey("Spectral", "bold")).toBe(fontFaceKey("Spectral", "700"))
+        expect(fontFaceKey("Spectral", "normal")).toBe(fontFaceKey("Spectral", "400"))
+    })
+    it("distinguishes weights of the same family", () => {
+        expect(fontFaceKey("Spectral", "400")).not.toBe(fontFaceKey("Spectral", "600"))
+    })
+})
+
+describe("referencedFontFaces", () => {
+    it("returns only the faces a typography token actually names", () => {
+        // The fixture catalog authors system-ui at 400 (body) and 700 (display) — a weight nothing
+        // references (500, the case this whole cull exists for) must not appear.
+        const faces = referencedFontFaces(catalog)
+        expect(faces).toEqual(new Set([fontFaceKey("system-ui", "400"), fontFaceKey("system-ui", "700")]))
+        expect(faces.has(fontFaceKey("system-ui", "500"))).toBe(false)
+    })
+
+    it("treats `bold` as requesting 700 INSTEAD OF the token's own weight, not alongside it", () => {
+        const bolded: TokenCatalog = {
+            ...catalog,
+            typography: [{ name: "label", family: "Spectral", size: "1rem", weight: "400", lineHeight: "1.5", bold: true }]
+        }
+        expect(referencedFontFaces(bolded)).toEqual(new Set([fontFaceKey("Spectral", "700")]))
+    })
+
+    it("is empty for a catalog with no typography tokens — the signal to preload everything", () => {
+        expect(referencedFontFaces(EMPTY_TOKEN_CATALOG).size).toBe(0)
+    })
+
+    it("skips a malformed token rather than throwing", () => {
+        const malformed = {
+            ...catalog,
+            typography: [...catalog.typography, { name: "broken", size: "1rem", lineHeight: "1.5" }]
+        } as TokenCatalog
+        expect(() => referencedFontFaces(malformed)).not.toThrow()
+        expect(referencedFontFaces(malformed).size).toBe(2)
     })
 })

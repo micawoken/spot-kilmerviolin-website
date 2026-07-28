@@ -56,6 +56,26 @@ import { authEnabled } from "../../../lib/api/environment"
 import { resolveIdentityEmail } from "../../../lib/api/fallback"
 
 /**
+ * The redaction applied to a build token's read of this collection.
+ *
+ * A build token is a CI credential with no identity behind it, so it previously received the same
+ * complete, unredacted set as an elevated administrator: `identity_email`, `roles` and `admin` for every
+ * contributor — every enrolled user's sign-in address and the organisation's whole authorization map.
+ * Redaction happened only in the build client (lib/build/d1-api.ts's fetchContributors), which is after
+ * the data has crossed the wire, so a leaked build token was a full PII disclosure. Doing it here makes
+ * the credential match its description; the client-side pass stays as defense in depth.
+ *
+ * `active` is deliberately KEPT: the build reads it to decide which contributors get a public page
+ * (fetchContributors filters on it, and entity-records.ts resolves references through the all-contributors
+ * list), so stripping it here would silently produce a site with no contributor pages at all. It is
+ * derived from the schema so a protected column added later is redacted here without a second edit.
+ */
+const BUILD_TOKEN_SCHEMA = {
+    ...CONTRIBUTOR,
+    protected: (CONTRIBUTOR.protected ?? []).filter((column) => column !== "active")
+}
+
+/**
  * GET /api/v1/contributors
  * Returns a list of contributor IDs, or the complete records if requested
  *
@@ -77,8 +97,8 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
     // build tokens (plan-prelaunch-features.md §2 D9) resolve no identity, so auth_check below would 401
     // them; middleware/identity.ts has already confined a build-token request to exactly this route with
-    // GET, so here it only needs the "full" signal enforced before returning the SAME complete, unredacted,
-    // inactive-included set the identity.admin branch below returns (no new query, no new redaction rule)
+    // GET, so here it only needs the "full" signal enforced before returning the inactive-included set
+    // (the build selects which contributors get a public page itself — see BUILD_TOKEN_REDACTED)
     if (locals.buildTokenAuth) {
         const build_request = await parseAPIRequest(request, [])
         if (build_request instanceof Error) {
@@ -92,7 +112,9 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             if (data === null) {
                 return constructResponse(request, null, 500, "Unknown state: list contributor operation returned null")
             }
-            return constructResponse(request, data, 200, undefined, { ...lastModifiedHeader(data), ...createdAtHeader(data) })
+            const timing_headers = { ...lastModifiedHeader(data), ...createdAtHeader(data) }
+            const redacted = data.map((record) => redactProtected(BUILD_TOKEN_SCHEMA, record))
+            return constructResponse(request, redacted, 200, undefined, timing_headers)
         } catch (error) {
             console.error(error)
             return constructResponseErrorHook(request, error, 500, "Unknown error")

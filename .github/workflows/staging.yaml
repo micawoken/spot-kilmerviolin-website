@@ -9,6 +9,12 @@ on:
     branches:
       - main
 
+# The job only reads the repository and uploads to Cloudflare; it never writes back to git, comments, or
+# publishes packages. Declared explicitly so the run does not inherit whatever the repository default
+# GITHUB_TOKEN scope happens to be.
+permissions:
+  contents: read
+
 # One preview build per PR; cancel a superseded run when new commits arrive so redundant
 # uploads do not stack up.
 concurrency:
@@ -18,14 +24,21 @@ concurrency:
 jobs:
   staging-preview:
     runs-on: ubuntu-latest
+    # A PR from a branch in THIS repository runs with CLOUDFLARE_API_TOKEN available and with the workflow
+    # file taken from the PR head, so anyone with push access could otherwise rewrite the steps below to
+    # exfiltrate it. The `staging` GitHub Environment must keep required reviewers configured: that is what
+    # holds the secret back until a human approves the run. Fork PRs receive no secrets either way.
     environment: staging
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      # Actions are pinned to full commit SHAs, not mutable major tags: a tag can be repointed at new code,
+      # which would execute in a job that holds CLOUDFLARE_API_TOKEN. The trailing comment records the
+      # release each SHA is, and .github/dependabot.yml opens the PRs that move them forward.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -37,7 +50,7 @@ jobs:
         run: pnpm run build
 
       - name: Upload staging preview version to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           packageManager: pnpm
@@ -45,6 +58,9 @@ jobs:
           # staging-<worker>.<subdomain>.workers.dev without taking production traffic. No secrets
           # are set here: they are only used by the API, which is disabled on staging, and putting
           # secrets would create a live deployment.
+          #
+          # CLOUDFLARE_API_TOKEN must be scoped to Workers Scripts:Edit on this one Worker, not an
+          # account-wide token — that is the whole blast radius of a compromised action above.
           command: versions upload --preview-alias staging
           preCommands: echo "Uploading staging preview version..."
           postCommands: echo "Staging preview upload complete."

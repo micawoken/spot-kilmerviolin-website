@@ -42,6 +42,7 @@ import {
     deactivateUser,
     assignRole,
     removeRole,
+    getUserInfo,
     _changeLoginEmail
 } from "../../../lib/public/usermgmt"
 
@@ -636,13 +637,31 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
             "Bad request: payload must be a list containing exactly one email string"
         )
     }
+    const target_email = api_request.payload[0]
     try {
+        // Removing a user rewrites the Access policy with their include rule deleted, so this endpoint —
+        // delegated to user_addition, not admin — can revoke authentication for the whole application.
+        // Two targets are therefore off limits to a non-administrator holding that permission:
+        //
+        //  - an administrator, who would otherwise be locked out of /admin, /api and /_emdash alike (all
+        //    behind Access on the custom domain) with recovery only through the Cloudflare dashboard. This
+        //    also realigns the route with DELETE /api/v1/identity/activation, which is deliberately
+        //    admin-only ("deactivation revokes an active user's access; not delegated") yet reaches the
+        //    same deactivation through removeUser's autodeactivation.
+        //  - themselves, mirroring the self-deletion guard on DELETE /api/v1/contributors/[id].
+        const [target] = await getUserInfo(target_email)
+        if (target !== null && target.admin && locals.identity?.admin !== true) {
+            return constructResponse(request, null, 403, "Only an administrator may remove another administrator")
+        }
+        if (target !== null && locals.identity?.id === target.id) {
+            return constructResponse(request, null, 403, "Self-removal is not permitted")
+        }
         if (api_request.meta?.autodeactivation === true || api_request.meta?.autodeactivation === undefined) {
             // from lib/public/usermgmt.ts, deactivates contributor record
-            await removeUser(context.locals.cfContext, api_request.payload[0])
+            await removeUser(context.locals.cfContext, target_email)
         } else {
             // from lib/api/access_iam_mgmt.ts, removes user from Access policy without changing contributor record
-            await remove_user(api_request.payload[0])
+            await remove_user(target_email)
         }
         return constructResponse(request, null, 200)
     } catch (error) {

@@ -178,13 +178,18 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
  * DELETE /api/v1/composers/[id]
  * Deletes the composer record with the specified ID
  *
- * Permissions required: none
+ * Permissions required: none — DELIBERATE, not an oversight. The composer catalogue is a shared reference
+ * list that every active contributor curates, so composers carry no ownership model of their own (unlike
+ * compositions, which have canModify/canAct/canCreate and the primary-contributor lockout). If that trust
+ * model ever changes, this route and DELETE /api/v1/files/{id} are the two that need a permission.
  *
  * Meta: none
  * Body: none
  *
  * Note: composer IDs and names are used as foreign keys in composition records; attempting
- * to delete a composer record referenced by at least one composition record will fail
+ * to delete a composer record referenced by at least one composition record will fail. That is an
+ * integrity constraint, not an authorization one — it stops a composer in use from vanishing, but it does
+ * not stop an unreferenced one from being removed by any contributor.
  *
  * @param context - the Astro API context
  * @returns a Response object with status of the delete operation

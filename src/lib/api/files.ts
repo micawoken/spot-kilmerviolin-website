@@ -37,7 +37,7 @@
 
 import { env } from "cloudflare:workers"
 import { deleteObject, emdashMediaUsageBytes, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
-import { optimizeImage, type CropInstruction } from "./images.ts"
+import { isOptimizableImage, optimizeImage, type CropInstruction } from "./images.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 import { getKey, setKey, deleteKey } from "./kv.ts"
 
@@ -74,6 +74,59 @@ export function deriveFileKey(name: string): string {
         .replace(/[^A-Za-z0-9._-]/g, "")
         .replace(/^\.+/, "")
         .slice(0, 255)
+}
+
+/** Random prefix length for a new object key. 12 hex characters (48 bits) is far beyond guessing for a
+ * bucket of this size, and short enough to keep keys readable. */
+const KEY_PREFIX_BYTES = 6
+
+/**
+ * Derives the object key for a NEW upload: a random prefix followed by the sanitized name.
+ *
+ * `deriveFileKey` alone produced a key derived entirely from the uploaded filename, and R2_FILES is
+ * served from a public custom domain (FILES_PUBLIC_URL) so prerendered pages can load images without
+ * passing Access. Every object was therefore retrievable by anyone who guessed its filename —
+ * "portrait.jpg", "smith-headshot.png" — bypassing the Access gate, the auth_check on
+ * GET /api/v1/files/{id}, and the RL_API_FILES_READ limiter that exists to bound R2 Class B volume.
+ * EmDash's media bucket already keys by ULID for the same reason.
+ *
+ * Only for creation. Lookups must keep using {@link deriveFileKey} on the key from the URL, which leaves
+ * an already-prefixed key untouched (the prefix uses only characters that function preserves).
+ *
+ * @param {string} name - the raw file name
+ * @returns {string} the sanitized key behind a random prefix, or an empty string if nothing usable remains
+ */
+export function newFileKey(name: string): string {
+    const derived = deriveFileKey(name)
+    if (derived === "") {
+        return ""
+    }
+    const bytes = new Uint8Array(KEY_PREFIX_BYTES)
+    crypto.getRandomValues(bytes)
+    const prefix = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("")
+    return `${prefix}-${derived}`.slice(0, 255)
+}
+
+/**
+ * Normalizes and allowlists an upload's declared content type, or null when it is not accepted.
+ *
+ * The type was previously taken straight from the client (`file.type || "application/octet-stream"`) with
+ * no allowlist. A non-image passed through `optimizeImage` unmodified and was stored with whatever type
+ * the client declared — and the public R2 custom domain serves that type back with no
+ * Content-Disposition and no CSP, because the Worker is not in that request path. An active contributor
+ * could therefore host `text/html` (or a scripted SVG) on a subdomain of the project's own domain.
+ *
+ * The allowlist is exactly the set `isOptimizableImage` accepts, which is what makes this structural
+ * rather than advisory: every accepted upload is re-encoded by the IMAGES binding, so the stored bytes
+ * and the stored content type both come from the optimizer rather than from the caller. The admin UI
+ * already restricts its file inputs to `image/*`, so this refuses nothing it offers.
+ *
+ * @param {string} raw - the client-declared content type, possibly with parameters or casing
+ * @returns {string | null} the normalized bare MIME type, or null when it is not an accepted upload type
+ */
+export function normalizeUploadContentType(raw: string): string | null {
+    const type = raw.split(";")[0].trim().toLowerCase()
+    return isOptimizableImage(type) ? type : null
 }
 
 /**
