@@ -76,7 +76,9 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
     <div class="search-page static-page-body">
         <StaticBreadcrumbs crumbs={[{ label: "Search", href: "/search" }]} current="Advanced Search" />
         <h1>Advanced Search</h1>
-        <form id="advanced-search-form" role="search">
+        {/* `search-advanced` is the query container every filter-grid breakpoint below resolves against
+            (search-form.css) — this form's own width, not the viewport's. */}
+        <form id="advanced-search-form" class="search-advanced" role="search">
             {/* Visually hidden, not a visible .search-section-label: the placeholder communicates the same
                 thing without pushing "Back to search" down a line, so this bar's link sits at the same
                 vertical position as /search's own "Advanced search →" link (search.astro's .search-form). */}
