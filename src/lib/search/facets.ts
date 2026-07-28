@@ -301,8 +301,8 @@ const NONE_OPTION: AdvancedFieldOption = { label: "(None)", value: NONE_VALUE }
 const TEXT_OPERATORS: readonly FacetOperatorOption[] = [
     { value: "contains", label: "Contains" },
     { value: "is", label: "Is exactly" },
-    { value: "regex", label: "Regex matches" },
-    { value: "fuzzy", label: "Fuzzy matches" }
+    { value: "regex", label: "Regex match" },
+    { value: "fuzzy", label: "Fuzzy match" }
 ]
 
 const YEAR_OPERATORS: readonly FacetOperatorOption[] = [
