@@ -1,0 +1,17 @@
+# Keeps the SHA-pinned actions in .github/workflows moving. Pinning without this would freeze them at
+# whatever commit they were pinned to and silently miss upstream security fixes; Dependabot rewrites both
+# the SHA and its trailing version comment.
+#
+# Scoped to github-actions only. The npm tree is deliberately left out: pnpm-workspace.yaml's build
+# allowlist and .npmrc's min-release-age=7 quarantine are the controls there, and an automated bumper
+# would fight the quarantine.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
