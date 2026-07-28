@@ -47,7 +47,13 @@ export function expiryWindowMs(days: ExpiryWindowDays): number {
 /** A build token's lifetime: one of the day-count windows, or "never" for a token that does not expire.
  * Build tokens hold no identity and no write access (see buildTokenRouteAllowed), so an indefinite lifetime
  * only ever grants the same three read-only, full-list routes any other build token grants — it removes
- * rotation, not risk ceiling. User-scoped API tokens deliberately keep a mandatory expiry. */
+ * rotation, not risk ceiling. User-scoped API tokens deliberately keep a mandatory expiry.
+ *
+ * That "removes rotation, not risk ceiling" claim did NOT hold while GET /api/v1/contributors served this
+ * credential the unredacted table: the ceiling was every enrolled user's sign-in email plus the whole
+ * authorization map, which is not a thing to hand out with an indefinite lifetime. The endpoint now
+ * redacts server-side for the build-token branch (see BUILD_TOKEN_SCHEMA in pages/api/v1/contributors.ts),
+ * which is what makes the rationale above true. If that redaction is ever removed, remove "never" too. */
 export type BuildTokenExpiry = ExpiryWindowDays | "never"
 
 export function isValidBuildTokenExpiry(value: unknown): value is BuildTokenExpiry {

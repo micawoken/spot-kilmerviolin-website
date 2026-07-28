@@ -28,8 +28,16 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { guardPage } from "../../../lib/api/page_auth"
 
 export const prerender = false
+
+// matches DELETE /api/v1/site, which this page calls: purging forces every subsequent read back to D1,
+// so it is gated on rebuild rather than being open to any active contributor
+const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "permission", permissions: ["rebuild"] })
+if (denied) {
+    return denied
+}
 ---
 
 <!doctype html>

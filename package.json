@@ -1,7 +1,7 @@
 {
   "name": "spot-kilmer-violin-website",
   "description": "The website for the project, data here later",
-  "license": "LicenseRef-proprietary",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "imports": {
     "#emdash/converters": "./node_modules/emdash/src/content/converters/index.ts"

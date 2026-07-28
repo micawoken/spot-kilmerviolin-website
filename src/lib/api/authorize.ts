@@ -375,10 +375,18 @@ export function requiresAllOf(
 /**
  * Shared role/permission check for {@link requiresOneOf} and {@link requiresAllOf}. With an empty
  * permission set the result depends on fail_closed (admins only when closed, everyone when open).
- * Otherwise the identity passes if at least one of its roles satisfies the permissions under `match`:
- * "some" requires any one permission, "every" requires all of them within a single role.
+ * Otherwise the identity passes if its AGGREGATE permissions satisfy the request under `match`: "some"
+ * requires any one of them, "every" requires all of them.
  *
- * @param match - whether a role must grant some or every requested permission
+ * Evaluated against identity.permissions — the flattened set permissionsFromRoles ORs together across
+ * every role held — rather than role by role. Requiring all permissions to come from a SINGLE role
+ * rejected a user whose two roles covered the set between them, which contradicts the aggregate model
+ * used everywhere else: permissionsFromRoles unions across roles, and satisfiesAccess (the page gate)
+ * reads that flattened set. So the API and the page gate disagreed on the same question. No current call
+ * site passes more than one permission, so nothing behaved differently in practice — but the next
+ * multi-permission check would have behaved one way on a page and another on its endpoint.
+ *
+ * @param match - whether the identity must hold some or every requested permission
  */
 function _requiresMatch(
     permissions: (keyof RoleProfile)[],
@@ -390,13 +398,10 @@ function _requiresMatch(
         if (fail_closed) return identity.admin
         else return true
     }
-    const user_roles = identity.roles
-    return user_roles.some((role) => {
-        const profile = roles[role]
-        // an unknown role string (stale/typo data) has no profile; treat it as granting nothing rather than throwing
-        if (!profile) return false
-        return permissions[match]((permission) => profile[permission] === true)
-    })
+    // permissionsFromRoles starts all-false and ORs in only KNOWN roles, so an unknown role string
+    // (stale/typo data) contributes nothing here, exactly as it did in the per-role walk
+    const held = identity.permissions
+    return permissions[match]((permission) => held[permission] === true)
 }
 
 /**

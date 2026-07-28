@@ -34,6 +34,7 @@ import authorize from "../lib/api/authorize"
 import { isFallbackEmail } from "../lib/api/fallback"
 import { type AdminAccess, satisfiesAccess, comment_401, comment_403 } from "../lib/api/page_auth"
 import { resolveApiTokenIdentity, verifyBuildToken, buildTokenRouteAllowed } from "../lib/api/tokens"
+import { isEmdashApiToken, isEmdashServiceRequest } from "../lib/api/emdash_service_access"
 
 /**
  * A node in the admin page structure. A node may carry an access requirement (gating itself and, by
@@ -61,17 +62,19 @@ interface AdminPageNode {
  * inherits that section's requirement (fail closed), and an unlisted page elsewhere falls back to the
  * "active" default.
  */
-const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
+export const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
     advanced: {
         children: {
             // the database terminal maps to POST /api/v1/command, which requires admin
             command: { access: { kind: "admin" } },
             // the self-enrollment flow must be reachable by a not-yet-enrolled (inactive) caller
             selfenroll: { access: { kind: "any" } },
-            // user-scoped API tokens (plan-prelaunch-features.md §2) are self-service: any active,
-            // enrolled contributor manages their own. Build tokens (§2 D9) are admin-only — they have no
-            // owning contributor to self-manage.
-            tokens: { access: { kind: "active" }, children: { build: { access: { kind: "admin" } } } }
+            // the visual-compositor pages (design list, editor, templates, theme) are gated on
+            // design_editor. They read and write EmDash design collections from the BROWSER, so this page
+            // gate alone is not sufficient — the same permission also admits the caller to the design
+            // system's /_emdash paths, and only those (emdash_access.ts). cms_editor is the superset and
+            // is not required here.
+            designs: { access: { kind: "permission", permissions: ["design_editor"] } }
         }
     },
     user: {
@@ -82,7 +85,11 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             deactivate: { access: { kind: "admin" } },
             // promotion/demotion (PUT/DELETE /api/v1/identity/admin) require admin
             elevate: { access: { kind: "admin" } },
-            demote: { access: { kind: "admin" } }
+            demote: { access: { kind: "admin" } },
+            // user-scoped API tokens (plan-prelaunch-features.md §2) are self-service: any active,
+            // enrolled contributor manages their own. Build tokens (§2 D9) are admin-only — they have no
+            // owning contributor to self-manage.
+            tokens: { access: { kind: "active" }, children: { build: { access: { kind: "admin" } } } }
         }
     },
     iam: {
@@ -99,16 +106,20 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
             whoami: { access: { kind: "any" } }
         }
     },
+    site: {
+        children: {
+            // both trigger work that re-materialises the site: a rebuild queues a billable Workers Build,
+            // and a cache purge drops every subsequent read back to D1. Each page also carries its own
+            // guardPage on the same permission — this entry makes the middleware refuse first.
+            rebuild: { access: { kind: "permission", permissions: ["rebuild"] } },
+            purge_cache: { access: { kind: "permission", permissions: ["rebuild"] } }
+        }
+    },
     // the CSV bulk-import pages perform non-self assignment (e.g. naming contributors on compositions) and
     // commit many records at once, so they are admin-only regardless of the underlying endpoint's default
     composers: { children: { import: { access: { kind: "admin" } } } },
     contributors: { children: { import: { access: { kind: "admin" } } } },
     works: { children: { import: { access: { kind: "admin" } } } },
-    // the visual-compositor pages (design list, editor, theme) are gated on design_editor. They read and
-    // write EmDash design collections from the BROWSER, so this page gate alone is not sufficient — the
-    // same permission also admits the caller to the design system's /_emdash paths, and only those
-    // (emdash_access.ts). cms_editor is the superset and is not required here.
-    designs: { access: { kind: "permission", permissions: ["design_editor"] } },
     // the profile pages (view, edit, change sign-in email) are self-service and target only the caller's
     // own record, so they remain reachable by an inactive (but enrolled) caller
     profile: { access: { kind: "any" } },
@@ -125,10 +136,14 @@ const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
  * page starts from the "active" default and is narrowed by the most specific node encountered. An
  * unlisted segment stops the walk but keeps the inherited requirement (fail closed).
  *
+ * Exported for tests/admin-page-gating.test.ts, which binds this map to the on-disk page tree in both
+ * directions — a page that moves without its entry, and an entry naming a page that no longer exists.
+ * That is how the design pages silently lost their design_editor gate through a directory move.
+ *
  * @param {string[]} path_components - the non-empty path segments of the request URL
  * @returns {AdminAccess} the access requirement that applies to the resolved page
  */
-function adminPageAccess(path_components: string[]): AdminAccess {
+export function adminPageAccess(path_components: string[]): AdminAccess {
     let access: AdminAccess = path_components.length === 1 ? { kind: "any" } : { kind: "active" }
     let children: Record<string, AdminPageNode> | undefined = ADMIN_PAGE_STRUCTURE
     for (let i = 1; i < path_components.length; i++) {
@@ -210,11 +225,20 @@ export const identity: MiddlewareHandler = async (context, next) => {
     // retrieveCredential's priority. Skipping the cookie CSRF origin check here is safe for the same
     // reason: only a verified service-token JWT (never a user session) is delegated. Build-time reads
     // (lib/build/emdash-api.ts) and the design-collection setup tooling depend on this delegation.
+    // The delegation is bounded on both axes — credential SHAPE and request PATH — because EmDash's own
+    // gate does not cover the routes it publishes as anonymous (lib/api/emdash_service_access.ts).
     if (isEmDash) {
-        if (
-            credential_data[0] === "Auth-Header" ||
-            (await isServiceTokenJWT(credential_data[1], env.CF_ACCESS_AUD))
-        ) {
+        // The Auth-Header arm must confirm the token is shaped like an EmDash credential rather than
+        // trusting the header's presence: retrieveCredential returns "Auth-Header" for ANY `Bearer
+        // <anything>`, and delegating on that alone let an unauthenticated caller past this gate entirely.
+        const isEmdashToken = credential_data[0] === "Auth-Header" && isEmdashApiToken(credential_data[1])
+        if (isEmdashToken || (await isServiceTokenJWT(credential_data[1], env.CF_ACCESS_AUD))) {
+            // Delegation is bounded by path, not open-ended: EmDash checks isPublicEmDashRoute BEFORE its
+            // bearer check, so its anonymous routes (setup, auth, oauth, comments, search) would never
+            // reach a token check. Only the paths the build and setup tooling actually call are delegated.
+            if (!isEmdashServiceRequest(context.request.method, path_components.slice(1))) {
+                return middlewareErrorResponder(context.request, 403, comment_403)
+            }
             context.locals.emdashServiceAuth = true
             return next()
         }

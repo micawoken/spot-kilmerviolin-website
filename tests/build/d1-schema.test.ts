@@ -56,7 +56,9 @@ describe("CONTRIBUTOR_SCHEMA", () => {
     })
 
     it("marks identity/admin columns protected, matching d1.ts's redaction contract", () => {
-        expect(CONTRIBUTOR_SCHEMA.protected).toEqual(["roles", "admin", "identity_email"])
+        // "active" is authorization state, not a profile field: it is the revocation mechanism, so a
+        // non-elevated caller must not be able to write it (see CONTRIBUTOR_TABLE in lib/api/tables.ts).
+        expect(CONTRIBUTOR_SCHEMA.protected).toEqual(["roles", "admin", "identity_email", "active"])
     })
 })
 
@@ -84,8 +86,7 @@ describe("redactProtected", () => {
         }
         expect(redactProtected(CONTRIBUTOR_SCHEMA, record)).toEqual({
             contributor_id: 1,
-            name: "Ada",
-            active: 1
+            name: "Ada"
         })
     })
 

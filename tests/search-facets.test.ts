@@ -310,7 +310,9 @@ describe("ADVANCED_FIELDS", () => {
     it("every select-control field is backed by a nullable FacetEntry property, so all get a '(None)' entry", () => {
         for (const field of ADVANCED_FIELDS) {
             if (field.control !== "select") continue
-            expect(field.options?.[1]).toEqual({ label: "(None)", value: NONE_VALUE })
+            // (None) sits LAST, below the real values — it moved there from position 1 when the dropdowns
+            // were reordered; the invariant is that it is present, not where it sits among the values
+            expect(field.options?.[field.options.length - 1]).toEqual({ label: "(None)", value: NONE_VALUE })
         }
     })
 

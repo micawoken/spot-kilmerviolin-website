@@ -32,6 +32,7 @@ import { describe, it, expect } from "vitest"
 import { permissionsFromRoles } from "../src/lib/api/authorize.ts"
 import { isServicePrincipalClaims } from "../src/lib/api/authenticate.ts"
 import { isDesignSystemRequest } from "../src/lib/api/emdash_design_access.ts"
+import { isEmdashApiToken, isEmdashServiceRequest } from "../src/lib/api/emdash_service_access.ts"
 import { satisfiesAccess, type AdminAccess } from "../src/lib/api/page_auth.ts"
 
 const EMDASH_ACCESS: AdminAccess = { kind: "permission", permissions: ["cms_editor"] }
@@ -91,6 +92,14 @@ function segments(path: string): string[] {
     return path.split("/").filter((component) => component.length > 0).slice(1)
 }
 
+/** A real EmDash content id (ULID), the shape the collection rules match an entry read against. */
+const ENTRY_ID = "01KWYPRX1NYFRDWNGENG5KHYEC"
+
+/** Applies identity.ts's service-credential branch: the delegated path allowlist. */
+function serviceMayReach(method: string, path: string): boolean {
+    return isEmdashServiceRequest(method, segments(path.split("?")[0]))
+}
+
 /** Applies the middleware's design_editor branch: the permission AND the path allowlist, together. */
 function designEditorMayReach(method: string, path: string): boolean {
     const identity = designOnlyIdentity()
@@ -144,7 +153,7 @@ describe("/_emdash design_editor allowlist — what the design system needs", ()
 
     it("admits the preview-entry picker (read-only) and the outlet field pickers", () => {
         expect(designEditorMayReach("GET", "/_emdash/api/content/pages")).toBe(true)
-        expect(designEditorMayReach("GET", "/_emdash/api/content/pages/pg-1")).toBe(true)
+        expect(designEditorMayReach("GET", `/_emdash/api/content/pages/${ENTRY_ID}`)).toBe(true)
         expect(designEditorMayReach("GET", "/_emdash/api/schema/collections/pages/fields")).toBe(true)
         expect(designEditorMayReach("GET", "/_emdash/api/schema/collections/posts/fields")).toBe(true)
     })
@@ -164,11 +173,23 @@ describe("/_emdash design_editor allowlist — what it must REFUSE", () => {
 
     it("refuses every WRITE to a content collection that is not its own", () => {
         expect(designEditorMayReach("POST", "/_emdash/api/content/pages")).toBe(false)
-        expect(designEditorMayReach("PUT", "/_emdash/api/content/pages/pg-1")).toBe(false)
-        expect(designEditorMayReach("PATCH", "/_emdash/api/content/pages/pg-1")).toBe(false)
-        expect(designEditorMayReach("DELETE", "/_emdash/api/content/pages/pg-1")).toBe(false)
+        expect(designEditorMayReach("PUT", `/_emdash/api/content/pages/${ENTRY_ID}`)).toBe(false)
+        expect(designEditorMayReach("PATCH", `/_emdash/api/content/pages/${ENTRY_ID}`)).toBe(false)
+        expect(designEditorMayReach("DELETE", `/_emdash/api/content/pages/${ENTRY_ID}`)).toBe(false)
         // publishing an ENTRY is a content decision, not a design one
-        expect(designEditorMayReach("POST", "/_emdash/api/content/pages/pg-1/publish")).toBe(false)
+        expect(designEditorMayReach("POST", `/_emdash/api/content/pages/${ENTRY_ID}/publish`)).toBe(false)
+    })
+
+    it("refuses the static sub-routes that sit beside an entry id", () => {
+        // /authors carries author emails and reveals the authors of unpublished entries; /trash carries
+        // deleted content. Both are 4-segment GETs under a template collection, which is why the rule
+        // matches an id SHAPE rather than a segment count.
+        expect(designEditorMayReach("GET", "/_emdash/api/content/pages/authors")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/api/content/pages/trash")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/api/content/posts/authors")).toBe(false)
+        expect(designEditorMayReach("GET", "/_emdash/api/content/posts/trash")).toBe(false)
+        // an entry's sub-resources are deeper than the picker's single read
+        expect(designEditorMayReach("GET", `/_emdash/api/content/pages/${ENTRY_ID}/revisions`)).toBe(false)
     })
 
     it("refuses collections no template renders, even for a read", () => {
@@ -252,5 +273,95 @@ describe("isServicePrincipalClaims (/_emdash service-credential delegation)", ()
     it("rejects non-string or empty common_name", () => {
         expect(isServicePrincipalClaims({ common_name: "" })).toBe(false)
         expect(isServicePrincipalClaims({ common_name: 42 })).toBe(false)
+    })
+})
+
+/**
+ * The credential-SHAPE half of the /_emdash service delegation (identity.ts). retrieveCredential labels
+ * ANY `Authorization: Bearer <anything>` as "Auth-Header", so delegating on that label alone let an
+ * unauthenticated caller past the gate. This is the cheap early-out; isEmdashServiceRequest is the bound.
+ */
+describe("isEmdashApiToken (/_emdash Bearer shape)", () => {
+    it("accepts EmDash personal and OAuth access tokens", () => {
+        expect(isEmdashApiToken("ec_pat_AbCdEf0123456789")).toBe(true)
+        expect(isEmdashApiToken("ec_oat_AbCdEf0123456789")).toBe(true)
+    })
+
+    it("rejects the arbitrary Bearer values the bypass turned on", () => {
+        expect(isEmdashApiToken("x")).toBe(false)
+        expect(isEmdashApiToken("")).toBe(false)
+        expect(isEmdashApiToken("Bearer ec_pat_x")).toBe(false)
+        // refresh tokens are not API credentials, and a bare prefix carries no secret
+        expect(isEmdashApiToken("ec_ort_AbCdEf")).toBe(false)
+        expect(isEmdashApiToken("ec_pat_")).toBe(false)
+    })
+})
+
+/**
+ * The PATH half of the delegation (lib/api/emdash_service_access.ts). The bypass mattered because EmDash
+ * evaluates isPublicEmDashRoute BEFORE its bearer check, so its anonymous routes never reach a token
+ * check at all. This allowlist is what keeps them unreachable — the DENY block is the whole point.
+ */
+describe("/_emdash service allowlist — what the build and setup tooling call", () => {
+    it("admits the build's chrome and content reads", () => {
+        expect(serviceMayReach("GET", "/_emdash/api/settings")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/menus/primary")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/menus/footer")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/content/pages")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/content/posts")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/content/design_page")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/content/design_theme")).toBe(true)
+        expect(serviceMayReach("GET", "/_emdash/api/schema/collections/pages/fields")).toBe(true)
+    })
+
+    it("admits the setup tooling's schema and seed writes", () => {
+        expect(serviceMayReach("GET", "/_emdash/api/schema/collections")).toBe(true)
+        expect(serviceMayReach("POST", "/_emdash/api/schema/collections")).toBe(true)
+        expect(serviceMayReach("POST", "/_emdash/api/schema/collections/design_page/fields")).toBe(true)
+        expect(serviceMayReach("POST", "/_emdash/api/content/design_template")).toBe(true)
+        expect(serviceMayReach("POST", `/_emdash/api/content/design_theme/${ENTRY_ID}/publish`)).toBe(true)
+    })
+})
+
+describe("/_emdash service allowlist — what it must REFUSE", () => {
+    it("refuses EmDash's anonymous-by-design routes, which its own bearer check never sees", () => {
+        expect(serviceMayReach("GET", "/_emdash/api/auth/mode")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/setup/status")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/setup/dev-bypass")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/search?q=a")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/snapshot")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/.well-known/oauth-authorization-server")).toBe(false)
+    })
+
+    it("refuses the anonymous POSTs that write to EMDASH_DB", () => {
+        // CSRF-exempt by design in EmDash (RFC-defined endpoints), so nothing else stops them
+        expect(serviceMayReach("POST", "/_emdash/api/oauth/register")).toBe(false)
+        expect(serviceMayReach("POST", "/_emdash/api/oauth/device/code")).toBe(false)
+        expect(serviceMayReach("POST", "/_emdash/api/oauth/token")).toBe(false)
+        expect(serviceMayReach("POST", "/_emdash/api/comments/")).toBe(false)
+    })
+
+    it("refuses the CMS admin UI and the surfaces the build never reads", () => {
+        expect(serviceMayReach("GET", "/_emdash/admin")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/users")).toBe(false)
+        expect(serviceMayReach("PUT", "/_emdash/api/settings")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/media")).toBe(false)
+        expect(serviceMayReach("POST", "/_emdash/api/media")).toBe(false)
+    })
+
+    it("refuses writes to content collections the site publishes from", () => {
+        expect(serviceMayReach("POST", "/_emdash/api/content/pages")).toBe(false)
+        expect(serviceMayReach("PUT", `/_emdash/api/content/pages/${ENTRY_ID}`)).toBe(false)
+        expect(serviceMayReach("DELETE", `/_emdash/api/content/design_page/${ENTRY_ID}`)).toBe(false)
+        expect(serviceMayReach("POST", `/_emdash/api/content/pages/${ENTRY_ID}/publish`)).toBe(false)
+    })
+
+    it("refuses the PII and deleted-content sub-routes, as the design allowlist does", () => {
+        expect(serviceMayReach("GET", "/_emdash/api/content/pages/authors")).toBe(false)
+        expect(serviceMayReach("GET", "/_emdash/api/content/pages/trash")).toBe(false)
+    })
+
+    it("refuses an unknown endpoint: default-deny keeps new EmDash routes closed", () => {
+        expect(serviceMayReach("GET", "/_emdash/api/whatever-ships-next")).toBe(false)
     })
 })

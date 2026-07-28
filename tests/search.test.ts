@@ -34,7 +34,7 @@
  */
 
 import { describe, it, expect } from "vitest"
-import { searchComposers, searchCompositions, searchContributors } from "../src/lib/api/search.ts"
+import { MAX_QUERY_LENGTH, searchComposers, searchCompositions, searchContributors } from "../src/lib/api/search.ts"
 
 // minimal record factories — only the columns the search reads need to be present; the rest are
 // filled loosely and cast, since the search functions never touch them
@@ -125,5 +125,67 @@ describe("searchCompositions", () => {
     it("falls back to the bare composition name when the composer is unknown", () => {
         const hits = searchCompositions(records, new Map(), "African Suite")
         expect(hits.find(h => h.id === 101)?.name).toBe("African Suite")
+    })
+})
+
+/**
+ * The per-isolate index cache (search.ts's indexCache). runSearch used to build a fresh MiniSearch index
+ * on every call — O(rows x indexed fields) per request, three times over for an all-tables search, on an
+ * endpoint any active contributor may hit. Caching it introduces the one failure mode a rebuild-always
+ * design cannot have: serving results from a stale corpus. These pin that it does not.
+ */
+describe("index caching", () => {
+    it("reflects an edit to an existing record (change_date moves the version)", () => {
+        const before = [composer(1, { name: "Florence Price", bio: "American composer", change_date: 1 })]
+        expect(searchComposers(before, "Arkansas")).toEqual([])
+        const after = [composer(1, { name: "Florence Price", bio: "Arkansas born", change_date: 2 })]
+        expect(searchComposers(after, "Arkansas").map((h) => h.id)).toEqual([1])
+    })
+
+    it("reflects an added record", () => {
+        const before = [composer(1, { name: "Florence Price", change_date: 5 })]
+        expect(searchComposers(before, "Dvorak")).toEqual([])
+        const after = [...before, composer(2, { name: "Dvorak", change_date: 5 })]
+        expect(searchComposers(after, "Dvorak").map((h) => h.id)).toEqual([2])
+    })
+
+    it("reflects a removed record", () => {
+        const both = [composer(1, { name: "Florence Price", change_date: 9 }), composer(2, { name: "Dvorak", change_date: 9 })]
+        expect(searchComposers(both, "Dvorak").map((h) => h.id)).toEqual([2])
+        const fewer = [both[0]]
+        expect(searchComposers(fewer, "Dvorak")).toEqual([])
+    })
+
+    it("reflects a composer RENAME on the compositions index", () => {
+        // the composition rows are byte-identical across these two calls; only the resolved name map
+        // differs, which is why the compositions version has to include that map
+        const records = [composition(100, { name: "Violin Concerto", composer_id: 1 })]
+        const first = searchCompositions(records, new Map([[1, "Florence Price"]]), "Violin Concerto")
+        expect(first[0].name).toBe("Florence Price: Violin Concerto")
+        const second = searchCompositions(records, new Map([[1, "F. B. Price"]]), "Violin Concerto")
+        expect(second[0].name).toBe("F. B. Price: Violin Concerto")
+    })
+
+    it("keeps distinct tables in distinct cache entries", () => {
+        const composers = [composer(1, { name: "Shared Name", change_date: 3 })]
+        const contributors = [contributor(1, { name: "Shared Name" })]
+        expect(searchComposers(composers, "Shared").map((h) => h.database)).toEqual(["composers"])
+        expect(searchContributors(contributors, "Shared").map((h) => h.database)).toEqual(["contributors"])
+    })
+})
+
+describe("query length bounds", () => {
+    const records = [composer(1, { name: "Florence Price", change_date: 42 })]
+
+    it("rejects a query below the minimum", () => {
+        expect(() => searchComposers(records, "ab")).toThrow(/at least 3/)
+    })
+
+    it("rejects an unbounded query — SEARCH_RESULT_CAP bounds the response, not the work", () => {
+        expect(() => searchComposers(records, "a".repeat(MAX_QUERY_LENGTH + 1))).toThrow(/at most/)
+    })
+
+    it("accepts a query at the maximum", () => {
+        expect(() => searchComposers(records, "a".repeat(MAX_QUERY_LENGTH))).not.toThrow()
     })
 })

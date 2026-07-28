@@ -110,12 +110,16 @@ const is_admin = Astro.locals.identity?.admin === true
                     return hostname === "localhost" || hostname === "127.0.0.1"
                 }
 
-                // The earliest time (epoch ms) at which a standard rebuild is permitted, derived from the current
-                // build's timestamp plus the standard cooldown.
+                // ADVISORY ONLY. These are derived from the running build's timestamp, which is a LOWER bound
+                // on the server's window: the server measures its cooldown from the last rebuild TRIGGER
+                // (lib/api/rebuild.ts), so a request can still be refused while these read as elapsed. The
+                // refusal arrives as a 429 whose message carries the exact remaining wait, which is what the
+                // click handler surfaces. Do not treat a pre-gate that has expired as permission to rebuild.
+                //
+                // The earliest time (epoch ms) at which a standard rebuild is permitted.
                 let allowedAt = 0
-                // The earliest time (epoch ms) at which an admin-override rebuild is permitted, derived from the
-                // same build timestamp plus the shorter override cooldown. Only ever consulted when the override
-                // checkbox is present and checked; the server enforces the same window on meta.elevate.
+                // The same, for an admin-override rebuild (the shorter window). Only ever consulted when the
+                // override checkbox is present and checked; the server enforces its own window on meta.elevate.
                 let overrideAllowedAt = 0
 
                 /**

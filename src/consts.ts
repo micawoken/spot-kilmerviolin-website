@@ -41,10 +41,24 @@ export const NOT_PROVIDED = "(not provided)"
 // text for consistency, since no distinct limit was specified for that case)
 export const MAX_ALT_TEXT_LENGTH = 256
 
+// The hostnames that serve the real site. Everything else a request can arrive on — the bare
+// workers.dev hostname, a per-version preview URL, an unanticipated alias — is treated as a preview and
+// gets the reduced surface (see detectEnvironmentFromHostname in lib/api/environment.ts). This is the
+// fail-closed direction: a hostname nobody anticipated must not serve /admin, /api and /_emdash against
+// the production bindings, which is what an allowlist of *staging* prefixes got wrong.
+//
+// Keep in sync with astro.config.mjs's `site` and `security.allowedDomains`: the static build derives its
+// prerender request origin from `site`, so a hostname listed there but missing here would make every
+// prerendered page classify as a preview.
+export const PRODUCTION_HOSTS: string[] = ["kilmer.nrnnet.xyz"]
+
 // origins permitted to make credentialed cross-origin requests. Because the API sends
 // Access-Control-Allow-Credentials: true, the Access-Control-Allow-Origin value must be restricted to
 // a known allowlist rather than reflecting an arbitrary request Origin. Entries are full origins
 // (scheme://host[:port]) so the scheme and port are constrained, not just the hostname — an
 // http:// or alternate-port variant of an allowed host is not accepted. Add future production
 // domains here as they come online.
-export const ALLOWED_ORIGINS: string[] = ["https://kilmer.nrnnet.xyz", "https://spot-kilmerviolin.nrnnetint.workers.dev"]
+//
+// The workers.dev origin is deliberately absent: it sits outside Cloudflare Access, so trusting it as a
+// CSRF/CORS origin extended that trust to a host the Access policy does not cover.
+export const ALLOWED_ORIGINS: string[] = ["https://kilmer.nrnnet.xyz"]

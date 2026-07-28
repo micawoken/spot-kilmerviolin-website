@@ -51,6 +51,11 @@ export enum RLScope {
      */
     ENDPOINT_PAGERENDER_ADMIN,
     /**
+     * Aggregate backstop across all callers, applied before authentication resolves an identity — so it
+     * covers requests that are about to be REJECTED as well as those that succeed
+     */
+    ENDPOINT_API_PUBLIC,
+    /**
      * Applies to file reads (GET /api/v1/files/{id}), limited by IP against the dedicated
      * RL_API_FILES_READ binding to keep R2 Class B operation volume within the free plan
      */
@@ -62,21 +67,51 @@ export enum RLScope {
     ENDPOINT_API_FILES_WRITE
 }
 
+/** How a scope's bucket is keyed: per client IP, per authenticated user, or one bucket for everyone. */
+export type RLKeyType = "ip" | "user" | "global"
+
+/** The single bucket every "global" scope shares — an aggregate cap, not a per-caller one. */
+const GLOBAL_KEY = "key:global"
+
 /**
- * Per-scope rate-limit configuration. Most scopes share RL_FREQ (keyed per scope) and only differ in
- * whether they meter by IP or by user; the file scopes route to their own bindings so file traffic is
- * metered independently of the other API limits. Bindings are resolved lazily so env access happens at
- * call time rather than module load. An unmapped scope falls back to RL_FREQ for the binding (matching
- * the previous switch default) and throws when its key type is requested.
+ * Per-scope rate-limit configuration. Each scope routes to the binding declared for it in wrangler.jsonc
+ * so the configured budgets are actually in force: previously every scope but the two file ones pointed
+ * at RL_FREQ (20 per 10s), which left RL_API_PUBLIC, RL_API_ADMIN_GLOBAL, RL_API_ADMIN_USER and
+ * RL_ADMIN_RENDER declared but unreferenced — and made the effective admin-API allowance ~120/min rather
+ * than the intended 50/min. Bindings are resolved lazily so env access happens at call time rather than
+ * module load. An unmapped scope falls back to RL_FREQ for the binding and throws when its key type is
+ * requested.
  */
-const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit; keyType: "ip" | "user" }> = {
+const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit; keyType: RLKeyType }> = {
     [RLScope.IP_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "ip" },
-    [RLScope.ENDPOINT_API_ADMIN_GLOBAL]: { binding: () => env.RL_FREQ, keyType: "user" },
-    [RLScope.ENDPOINT_API_ADMIN_USER]: { binding: () => env.RL_FREQ, keyType: "user" },
-    [RLScope.ENDPOINT_PAGERENDER_ADMIN]: { binding: () => env.RL_FREQ, keyType: "user" },
+    // "global" in the name means one aggregate bucket, so it must not be keyed per user — that made it a
+    // duplicate of the per-user scope beside it and left nothing bounding total API volume.
+    [RLScope.ENDPOINT_API_ADMIN_GLOBAL]: { binding: () => env.RL_API_ADMIN_GLOBAL, keyType: "global" },
+    [RLScope.ENDPOINT_API_ADMIN_USER]: { binding: () => env.RL_API_ADMIN_USER, keyType: "user" },
+    [RLScope.ENDPOINT_PAGERENDER_ADMIN]: { binding: () => env.RL_ADMIN_RENDER, keyType: "user" },
+    // the aggregate backstop for callers with no identity yet (see the pre-identity pass in
+    // middleware/ratelimit.ts), which is where unmetered anonymous volume used to land
+    [RLScope.ENDPOINT_API_PUBLIC]: { binding: () => env.RL_API_PUBLIC, keyType: "global" },
     // file reads are metered by IP (mirroring the global frequency limit); file writes by user
     [RLScope.ENDPOINT_API_FILES_READ]: { binding: () => env.RL_API_FILES_READ, keyType: "ip" },
     [RLScope.ENDPOINT_API_FILES_WRITE]: { binding: () => env.RL_API_FILES_WRITE, keyType: "user" }
+}
+
+/**
+ * How a scope is keyed, so the middleware can split scopes across its pre-identity and post-identity
+ * passes: an IP- or globally-keyed scope needs no identity and runs before authentication, a user-keyed
+ * one cannot run until an identity exists.
+ *
+ * @param {RLScope} scope - the scope to classify
+ * @returns {RLKeyType} the scope's key type
+ * @throws {Error} when the scope has no configuration entry
+ */
+export function scopeKeyType(scope: RLScope): RLKeyType {
+    const config = RL_SCOPE_CONFIG[scope]
+    if (!config) {
+        throw new Error("Invalid RLScope")
+    }
+    return config.keyType
 }
 
 /**
@@ -100,11 +135,15 @@ function _unpackKey(key_pair: { ip: string; user: string } | string, rl_key: RLS
     if (typeof key_pair === "string") {
         return key_pair
     }
-    const config = RL_SCOPE_CONFIG[rl_key]
-    if (!config) {
-        throw new Error("Invalid RLScope")
+    switch (scopeKeyType(rl_key)) {
+        case "ip":
+            return key_pair.ip
+        case "user":
+            return key_pair.user
+        // one shared bucket, so the key is a constant rather than anything caller-derived
+        case "global":
+            return GLOBAL_KEY
     }
-    return config.keyType === "ip" ? key_pair.ip : key_pair.user
 }
 
 async function _call_RL(
@@ -156,11 +195,27 @@ async function _call_RLs(
     return true
 }
 
-export async function ratelimit(request: Request, scope: RLScope | RLScope[], identity?: Identity): Promise<boolean> {
+/**
+ * Applies the given rate-limit scopes to a request, returning false when any of them is exceeded.
+ *
+ * @param {Request} request - the request being metered
+ * @param {RLScope | RLScope[]} scope - the scope(s) to apply
+ * @param {Identity} [identity] - the authenticated identity, required for user-keyed scopes
+ * @param {boolean} [auto_global] - whether to additionally apply the shared per-IP frequency limit
+ *   (RL_FREQ). Set false on a second pass over the same request so one request is not counted twice
+ *   against it.
+ * @returns {Promise<boolean>} true when the request may proceed
+ */
+export async function ratelimit(
+    request: Request,
+    scope: RLScope | RLScope[],
+    identity?: Identity,
+    auto_global: boolean = true
+): Promise<boolean> {
     const rl_value = generateRLValue(request, identity)
     if (Array.isArray(scope)) {
-        return await _call_RLs(scope, rl_value)
+        return await _call_RLs(scope, rl_value, auto_global)
     } else {
-        return await _call_RL(scope, rl_value)
+        return await _call_RL(scope, rl_value, auto_global)
     }
 }

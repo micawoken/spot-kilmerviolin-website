@@ -137,7 +137,12 @@ export const CONTRIBUTOR_TABLE: D1SchemaPrimitive = {
         entry_date: "number",
         change_date: "number"
     },
-    protected: ["roles", "admin", "identity_email"]
+    // "active" belongs here with the other authorization columns: it is the system's revocation
+    // mechanism short of removing the user from Access, and PATCH /api/v1/contributors/[id] runs in
+    // selfmgmt mode — which admits an INACTIVE caller — so without it a deactivated user could PATCH
+    // their own record back to active and regain every permission their roles carry. Self-deactivation
+    // is unaffected: it has its own route (DELETE /api/v1/identity/self), which does not consult this list.
+    protected: ["roles", "admin", "identity_email", "active"]
 }
 
 /**

@@ -114,7 +114,10 @@ export const POST: APIRoute = async (context): Promise<Response> => {
  * DELETE /api/v1/site
  * Purge the database cache for the site
  *
- * Permissions required: none
+ * Permissions required: rebuild — the closest existing semantic ("may cause the site to re-materialise").
+ * Purging drops every subsequent page build and API read back to D1, at a measured ~8.7s per page
+ * cold-cache, so an unrestricted purge is a cheap way to inflate D1 row-read billing and degrade the site.
+ * It was previously open to any active contributor.
  *
  * Meta: none
  * Body: none
@@ -125,7 +128,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
     // validate identity
-    const auth_response = auth_check(request, locals.identity, [], false)
+    const auth_response = auth_check(request, locals.identity, ["rebuild"], false)
     if (auth_response !== null) {
         return auth_response
     }

@@ -46,6 +46,19 @@ import { isTemplateCollection } from "../compositor/types"
 /** The design system's own collections. It owns these outright — read and write, including publish. */
 const DESIGN_COLLECTIONS = ["design_page", "design_template", "design_theme"]
 
+/**
+ * An EmDash content item id: a ULID (`ulidx`, used everywhere EmDash mints a content row) — 26 characters
+ * of Crockford base32, which excludes I, L, O and U. Distinguishing an id from a static sub-route name is
+ * what lets the collection rules stay default-deny; see rule 2. If EmDash ever changes its id format this
+ * fails CLOSED — the preview-entry picker 403s visibly rather than the allowlist quietly widening.
+ */
+const CONTENT_ID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/
+
+/** Whether a path segment is an EmDash content id rather than a sub-route name (see CONTENT_ID_PATTERN). */
+function isContentId(segment: string): boolean {
+    return CONTENT_ID_PATTERN.test(segment)
+}
+
 /** An /_emdash request reduced to what the rules match on. */
 interface EmdashRequest {
     /** the uppercase HTTP method */
@@ -81,13 +94,18 @@ const DESIGN_SYSTEM_RULES: readonly DesignSystemRule[] = [
     },
     {
         why: "the preview-entry picker — list a template's collection, then load one entry to render through it",
-        // GET /api/content/<template collection>[/<id>]: READ-ONLY, and only a collection a template targets.
+        // GET /api/content/<template collection> or /<id>: READ-ONLY, only a collection a template targets.
+        // The id must be ID-SHAPED, not merely present: EmDash defines sibling static routes at this depth
+        // (authors.ts, trash.ts) that a bare `length <= 4` bound admitted — /authors returns author emails
+        // and reveals the authors of unpublished entries, /trash returns deleted content. Neither is a call
+        // the design system makes. Matching the id format instead of naming those two routes keeps the rule
+        // default-deny, so a static sub-route EmDash adds later is closed too.
         allows: ({ method, segments }) =>
             method === "GET" &&
             segments[0] === "api" &&
             segments[1] === "content" &&
             isTemplateCollection(segments[2] ?? "") &&
-            segments.length <= 4
+            (segments.length === 3 || (segments.length === 4 && isContentId(segments[3])))
     },
     {
         why: "the outlet field pickers — the live field schema of the collection a template renders",
@@ -104,7 +122,13 @@ const DESIGN_SYSTEM_RULES: readonly DesignSystemRule[] = [
     {
         why: "the Image component's media picker — list the library and load a file",
         // GET /api/media and GET /api/media/file/<id>: read-only; a design editor cannot UPLOAD media.
-        allows: ({ method, segments }) => method === "GET" && segments[0] === "api" && segments[1] === "media"
+        // Bounded to those two shapes — an unbounded /api/media/* also handed over sibling routes the
+        // picker never calls (/providers discloses storage configuration, /upload-url is an upload path).
+        allows: ({ method, segments }) =>
+            method === "GET" &&
+            segments[0] === "api" &&
+            segments[1] === "media" &&
+            (segments.length === 2 || segments[2] === "file")
     }
 ]
 

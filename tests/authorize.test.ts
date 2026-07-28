@@ -170,11 +170,16 @@ describe("requiresOneOf", () => {
 })
 
 describe("requiresAllOf", () => {
-    it("is satisfied only when a single role carries every permission", () => {
+    it("aggregates permissions across every role held, not within one role", () => {
         // userenroll carries both user_addition and user_activation
         expect(requiresAllOf(["user_addition", "user_activation"], makeIdentity({ roles: ["userenroll"] }))).toBe(true)
-        // no single held role carries both of these
-        expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll", "reviewer"] }))).toBe(false)
+        // No single held role carries both of these — userenroll grants user_addition, reviewer grants
+        // overrides_lockout — but the caller holds both roles and therefore both permissions. Requiring
+        // them to come from one role contradicted permissionsFromRoles, which ORs across all roles, and
+        // satisfiesAccess, which reads that flattened set: the API and the page gate disagreed.
+        expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll", "reviewer"] }))).toBe(true)
+        // still false when the permission is genuinely absent from every role held
+        expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll"] }))).toBe(false)
     })
 
     it("does not throw on unknown role strings", () => {

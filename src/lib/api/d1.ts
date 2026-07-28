@@ -120,6 +120,36 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
 }
 
 /**
+ * Verbs that modify the database, matched at the start of a statement after any leading whitespace or
+ * comments. `WITH` is included because a CTE can front an INSERT/UPDATE/DELETE.
+ */
+const WRITE_VERB_PATTERN = /^(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE|WITH|VACUUM|ATTACH)\b/i
+
+/**
+ * Applies the staging write gate to a raw SQL string.
+ *
+ * `exec_stmt`/`exec_stmt_batch` get this for free — a SQLStatement carries its verb — but the raw-string
+ * paths (the admin SQL terminal via POST /api/v1/command, and tokens.ts's INSERT/UPDATE) went straight to
+ * _exec with no check, so the environment's write gate simply did not cover them. Not currently
+ * exploitable, because identity.ts 404s all of /api on staging before a handler runs; this closes the gap
+ * so that remains a second line of defence rather than the only one.
+ *
+ * The verb match is a heuristic over opaque SQL, deliberately erring toward refusal: `WITH` is treated as
+ * a write even though `WITH … SELECT` is a read, since the only cost is that a read-only CTE cannot be run
+ * from the terminal on staging — where the terminal is unreachable anyway.
+ *
+ * @param command the raw SQL string about to be executed
+ * @throws an error when the statement writes and writes are disabled in this environment
+ */
+function _assertRawWriteAllowed(command: string): void {
+    // strip leading whitespace and SQL comments so a comment cannot hide the verb
+    const stripped = command.replace(/^(?:\s|--[^\n]*\n|\/\*[\s\S]*?\*\/)+/, "")
+    if (WRITE_VERB_PATTERN.test(stripped) && !dbWriteEnabled()) {
+        throw new Error("Database writes are disabled in this environment")
+    }
+}
+
+/**
  * Execute a SQLStatement object using _exec()
  *
  * @param stmt the SQLStatement object to execute
@@ -160,6 +190,7 @@ export async function exec_stmt(stmt: SQLStatement): Promise<D1Result> {
  * @throws an error if preparation or execution fails, or if execution does not succeed
  */
 export async function exec_string(command: string, params: unknown[] = []): Promise<D1Result> {
+    _assertRawWriteAllowed(command)
     const result = await _exec(command, params)
     if (!result) {
         throw new Error("Failed to execute SQL statement")
@@ -183,6 +214,7 @@ export async function exec_string_batch(commands: string[]): Promise<D1Result[]>
     if (commands.length === 0) {
         throw new Error("No SQL commands supplied for batch execution")
     }
+    commands.forEach(_assertRawWriteAllowed)
     const prepared: D1PreparedStatement[] = []
     for (const command of commands) {
         try {
@@ -295,6 +327,9 @@ export async function exec_string_sequential(commands: string[]): Promise<D1Resu
     if (commands.length === 0) {
         throw new Error("No SQL commands supplied for execution")
     }
+    // checked up front rather than per statement: this path is not transactional, so refusing halfway
+    // would leave the earlier statements applied
+    commands.forEach(_assertRawWriteAllowed)
     const results: D1Result[] = []
     for (const command of commands) {
         results.push(await _exec(command, []))

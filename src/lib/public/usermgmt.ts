@@ -201,7 +201,10 @@ export async function finishUser(
  * @param {number} id The id of the user to be activated
  */
 export async function activateUser(ctx: ExecutionContext, id: number): Promise<void> {
-    await updateContributorPartial(ctx, id, { active: true })
+    // allowProtected: "active" is a protected column (it is authorization state, not a profile field), and
+    // this function is the deliberate, permission-checked path for writing it — PUT /api/v1/identity/activation
+    // gates on user_activation. Same contract as elevateUser/demoteUser below.
+    await updateContributorPartial(ctx, id, { active: true }, true)
 }
 
 /**
@@ -212,7 +215,9 @@ export async function activateUser(ctx: ExecutionContext, id: number): Promise<v
  * @param {number} id The id of the user to be deactivated
  */
 export async function deactivateUser(ctx: ExecutionContext, id: number): Promise<void> {
-    await updateContributorPartial(ctx, id, { active: false })
+    // allowProtected: see activateUser. Callers are the admin-only DELETE /api/v1/identity/activation, the
+    // self-service DELETE /api/v1/identity/self, and removeUser's autodeactivation — each authorized upstream.
+    await updateContributorPartial(ctx, id, { active: false }, true)
 }
 
 /**
@@ -345,17 +350,17 @@ export async function setRoles(ctx: ExecutionContext, id: number, roles: string[
 }
 
 /**
- * Reports whether a Contributor property may be written through changeProperty (not primary key, not hidden, not protected, and not "active")
+ * Reports whether a Contributor property may be written through changeProperty (not primary key, not hidden, not protected)
  *
  * @param {string} property the candidate Contributor property name
  * @returns {boolean} true if the property is a writable, non-auth column
  */
 function isChangeableProperty(property: string): boolean {
+    // "active" needed listing separately until it joined CONTRIBUTOR.protected; the schema now carries it
     const reserved = new Set<string>([
         CONTRIBUTOR.primary_key,
         ...CONTRIBUTOR.repr_exclude,
-        ...(CONTRIBUTOR.protected ?? []),
-        "active"
+        ...(CONTRIBUTOR.protected ?? [])
     ])
     return CONTRIBUTOR.columns.includes(property) && !reserved.has(property)
 }
@@ -432,8 +437,11 @@ export async function removeUser(ctx: ExecutionContext, identity_email: string):
         if (contrib_data === null) {
             return
         }
-        // no need to type convert it, since contributor_id exists
-        await updateContributorPartial(ctx, contrib_data.contributor_id as number, { active: false })
+        // no need to type convert it, since contributor_id exists. allowProtected: "active" is a protected
+        // column and this is the authorized deactivation path (DELETE /api/v1/identity, gated on
+        // user_addition with an admin-target guard). Without it the write would throw into the catch below
+        // and be swallowed as "user not in D1", silently leaving the record active after Access removal.
+        await updateContributorPartial(ctx, contrib_data.contributor_id as number, { active: false }, true)
     } catch (error) {
         // User not in D1, that's okay - just remove from Access
         return

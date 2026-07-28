@@ -152,19 +152,21 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
         // claim here, at the single point identities are minted, so every downstream lookup and
         // comparison against the stored identity_email matches regardless of the casing in the JWT
         const email: string | null = payload.email ? String(payload.email).toLowerCase() : null // Access JWT's include an email claim
-        const nbf_time: number = payload.nbf ? payload.nbf : 0 // not before time, in seconds since epoch; if not specified, it is epoch 0
-        const exp_time: number = payload.exp ? payload.exp : Infinity // expiration time, in seconds since epoch; if not specified, it is infinite
-
         /**
-         * BaseIdentity includes an nbf and exp time, but it is unlikely that these times will be used because:
-         * 1. Zero Trust is assumed, so the JWT is re-validated after every request; and
-         * 2. Time in Cloudflare Workers is frozen unless there is I/O.
+         * An absent `nbf` defaults to epoch 0 — "valid from the beginning of time", which can only ever
+         * narrow nothing and extend nothing, so it is safe to default.
          *
-         * For these reasons, if a JWT does not include an nbf and/or an exp claim, it fails open - there is
-         * no practical use for these claims, and the absence of the claims does not invalidate the authenticated identity.
-         *
-         * However, if an nbf and/or an exp claim is provided, it may be checked before certain security-sensitive operations.
+         * An absent `exp` must NOT default to Infinity. "No expiry claim means never expires" is the wrong
+         * default for the app's outermost authentication check: a validly signed token with no `exp` would
+         * be accepted forever. jose's jwtVerify enforces `exp` when it is present, so the fail-open only
+         * bit when the claim was missing entirely — which is exactly the case that should be refused.
+         * Cloudflare Access always issues `exp`, so requiring it rejects no token Access actually mints.
          */
+        const nbf_time: number = typeof payload.nbf === "number" ? payload.nbf : 0
+        if (typeof payload.exp !== "number") {
+            return null
+        }
+        const exp_time: number = payload.exp
 
         if (!sub || !email) {
             return null
@@ -218,9 +220,13 @@ export async function isServiceTokenJWT(token: string, aud: string): Promise<boo
             issuer: env.TEAM_DOMAIN,
             audience: aud
         })
-        // apply the same nbf/exp policy as parseJWT: absent claims fail open, present claims are checked
+        // same nbf/exp policy as parseJWT: an absent nbf defaults to 0 (extends nothing), but an absent
+        // exp is refused rather than treated as "never expires"
+        if (typeof payload.exp !== "number") {
+            return false
+        }
         const current_time = Math.floor(Date.now() / 1000)
-        if (current_time < (payload.nbf ?? 0) || current_time > (payload.exp ?? Infinity)) {
+        if (current_time < (payload.nbf ?? 0) || current_time > payload.exp) {
             return false
         }
         return isServicePrincipalClaims(payload)

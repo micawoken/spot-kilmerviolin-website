@@ -1,14 +1,22 @@
 /**
  * middleware/headers.ts
  *
- * Applies security response headers to the admin UI. The admin pages emit dynamic record data through a
- * number of HTML sinks (set:html / innerHTML, all routed through escapeHtml), so a Content-Security-Policy
- * is added as defense-in-depth: if a single escape were ever missed, the policy keeps injected markup from
- * executing as script. The policy is paired with frame/sniff/referrer hardening.
+ * Applies security response headers.
  *
- * Scoped to /admin only — the public site is left untouched so its (separately reviewed) resource loading
- * is not disturbed — and skipped in local development, where the Astro dev server injects the inline HMR
- * client that a strict script-src would block.
+ * Two tiers. Site-wide: HSTS, nosniff and Referrer-Policy — none of which affect resource loading, so
+ * there is no reason to withhold them from the public site. Admin-only: a Content-Security-Policy and
+ * frame protection, because the admin pages emit dynamic record data through a number of HTML sinks
+ * (set:html / innerHTML, all routed through escapeHtml) and the policy keeps injected markup from
+ * executing as script if a single escape were ever missed. The public site's resource loading is
+ * separately reviewed and a public CSP is still owed; the compositor's emitted markup and the Pagefind
+ * search bundle need verifying against one first.
+ *
+ * Skipped entirely in local development, where the Astro dev server injects the inline HMR client that a
+ * strict script-src would block, and where an HSTS pin on localhost would break other local projects.
+ *
+ * CAVEAT: prerendered public pages may be served straight from the ASSETS binding without passing through
+ * Astro middleware at all. Confirm with a live request against a static page after deploying; if they
+ * bypass this, the site-wide three need a Cloudflare Transform Rule instead.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -71,19 +79,38 @@ const ADMIN_CSP = [
 export const securityHeaders: MiddlewareHandler = async (context, next) => {
     const response = await next()
     const path = new URL(context.request.url).pathname
-    // only the admin UI is hardened here; skip local development so the dev server's inline HMR client runs
+    // skip local development so the dev server's inline HMR client runs, and so HSTS is never pinned
+    // against http://localhost (a browser that caches it there breaks every other local project)
+    let isDevelopment = false
+    try {
+        isDevelopment = detectEnvironment(context.request) === "development"
+    } catch {
+        // detectEnvironment throws only on an invalid dev hostname; fail closed and apply the headers
+    }
+    if (isDevelopment) {
+        return response
+    }
+
+    // Applied site-wide, not just to /admin. Scoping the whole set to the admin UI left the public site
+    // with no security headers at all; these three are behaviour-neutral for a static prerendered site,
+    // so withholding them bought nothing.
+    //
+    // HSTS is the consequential one, and its absence applied to /admin too: without it a first visit can
+    // be downgraded to http://, exposing the CF_Authorization cookie to an active network attacker on
+    // that request. `preload` is deliberately NOT set — it is effectively irreversible, and
+    // includeSubDomains binds every subdomain including the public R2 media domains.
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    response.headers.set("X-Content-Type-Options", "nosniff")
+    // strict-origin-when-cross-origin, not the admin's same-origin: it keeps full referrers within the
+    // site (which analytics and internal navigation want) while sending only the origin off-site
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+
+    // the admin UI additionally gets the CSP and frame protection; its record-data HTML sinks are the
+    // reason that policy exists (see the module header)
     if (path === "/admin" || path.startsWith("/admin/")) {
-        try {
-            if (detectEnvironment(context.request) === "development") {
-                return response
-            }
-        } catch {
-            // detectEnvironment throws only on an invalid dev hostname; fail closed and apply the headers
-        }
         response.headers.set("Content-Security-Policy", ADMIN_CSP)
         // frame-ancestors covers modern browsers; X-Frame-Options backstops older ones
         response.headers.set("X-Frame-Options", "DENY")
-        response.headers.set("X-Content-Type-Options", "nosniff")
         response.headers.set("Referrer-Policy", "same-origin")
     }
     return response
