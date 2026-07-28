@@ -1,33 +1,50 @@
 # Diversifying the Violin Curriculum for Violin Teaching
 Vanessa Cruz, Kenny Hoang, Emma Kuegel, Cam Schwind, Alyssa Spina, Michael Wong
 
-Last updated (date tbd)
+Last updated July 28, 2026
 
 ## Summary
-This repository contains an Astro framework website deployable to Cloudflare Workers representing the research products of this project. The project is deployed to Michael Wong's personal Cloudflare account, and it uses bindings and tokens from his account to access the website's databases and authentication/authorization system for administrator pages.
+This repository contains an Astro framework website deployable to Cloudflare Workers 
+representing the research products of this project. The project is deployed to Michael 
+Wong's personal Cloudflare account; configuration information is mostly stored as 
+environment variables instead of in wrangler.jsonc (see License for more info).
 
-Guides to modify the website are available in docs/guides. For a video version, visit URL. To modify database information, such as information on a composer or composition, use the administrator page at URL and follow the instructions in docs/guides/admin.md or in this video.
-
-Instructions provided in the guides and videos referenced earlier provide instructions on how to modify the website's content. If you have experience programming in TypeScript and want to modify the back-end API and/or the DevOps system, notes from the sysadmin are available in docs/dev. If you don't have a background in programming and/or software development, you can contact the sysadmin at contact@michaelwongmusic.com to request changes.
+This program is intended for use by this project, and changes are targeted to improve 
+its suitability for it. However, you may use the source code of this program for your 
+own purpose, subject to the License and its additional terms.
 
 ## Contributors
-This project benefits from the contributions from many different individuals. A complete list is in CONTRIBUTORS.md.
+This project benefits from the contributions from many different individuals. A complete 
+list is in CONTRIBUTORS.md.
 
-## License
+## Copyright and License
 This source code is &copy; 2026 Michael Wong, and later contributors.
 
-This project is licensed under the GNU Affero General Public License, version 3 or later. For more information about the GNU AGPLv3, visit <https://www.gnu.org/licenses/agpl-3.0.html> or LICENSE.md.
+This project is licensed under the GNU Affero General Public License, version 3 or 
+later. For more information about the GNU AGPLv3, visit 
+<https://www.gnu.org/licenses/agpl-3.0.html> or LICENSE.md.
 
 The following additional terms apply to the license:
-1. All conveyed copies must include the license and the additional terms verbatim;
-2. All conveyed copies must properly attribute licensors and authors;
-3. All conveyed modified copies must not pretend to be the original;
-4. All conveyed modified copies must clearly identify if changes were made, and if so, where, when, and in what manner;
-5. All conveyed modified copies must clearly identify that changes were made in its legal notices;
-6. All conveyed modified copies must not use the names of licensors and/or authors publicly to imply endorsement of the modification; and
-7. All conveyed modified copies must not use trademarks or servicemarks to imply endorsement of the modification.
+- You shall include and preserve this License (the GNU Affero General Public License, 
+version 3 or later) and these additional terms verbatim as a specific legal notice, 
+including (but not limited to) in the Appropriate Legal Notices.
+- You shall preserve the copyright notices, author attribution notices, and contributor 
+attribution notices contained in README.md and CONTRIBUTORS.md.
+- You shall not represent any modified works as the original unmodified work.
+- You shall clearly identify, if modifications were made, that modifications were made, 
+in the Appropriate Legal Notices.
+- No rights under rights of publicity, personality, or similar rights in the identities 
+of the authors and contributors are granted by this License.
+- This License grants no rights to use the following trademarks: "Diversifying the Violin 
+Curriculum for Private Teaching", "mwmsc.net" (and its variants, such as "go.mwmsc.net"), 
+"michaelwongmusic.com", and "Michael Wong Music".
 
-This license does not apply to any data not packaged with this source code distribution. This includes (but is not limited to) any project data, such as rankings, biographies, commentary, and other general information, which, if added interactively, is subject to the website Terms of Use and whose copyright is retained by their respective authors.
+This license does not apply to any data not packaged with this source code distribution. 
+This includes (but is not limited to) any project data, such as rankings, biographies, 
+commentary, and other general information, which, if added interactively, is subject to 
+the website Terms of Use and whose copyright is retained by their respective authors.
 
 ### Dependencies
-This source code is dependent on several software packages, each licensed under open-source software licenses. To view a list of the dependencies and their respective licenses, view LICENSE.md.
+This source code is dependent on several software packages, each licensed under 
+open-source software licenses. To view a list of the dependencies and their respective 
+licenses, view LICENSE.md.

@@ -1,6 +1,6 @@
 {
-  "name": "spot-kilmer-violin-website",
-  "description": "The website for the project, data here later",
+  "name": "spot-kilmerviolin-website",
+  "description": "An Astro website on Cloudflare Workers, with EmDash CMS",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "imports": {
