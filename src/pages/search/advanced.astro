@@ -93,7 +93,13 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                 />
                 <button type="submit">Search</button>
             </div>
-            <p class="search-advanced-link"><a href="/search">← Back to search</a></p>
+            {/* The jump summary sits opposite the back link, above the filter grid rather than below it:
+                on a short viewport the grid alone can fill the screen, which is the whole reason this
+                exists — see lib/search/jump.ts and search-form.css's .search-actions. */}
+            <div class="search-actions">
+                <p class="search-advanced-link"><a href="/search" id="search-back-link">← Back to search</a></p>
+                <p id="search-jump" class="search-jump" hidden></p>
+            </div>
             {/* A real, visible fieldset/legend (not the bar's free-text input): makes explicit that
                 everything below is a set of filters narrowing which composers/works/contributors match,
                 distinct in kind from the keyword search above it. */}
@@ -306,15 +312,15 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         margin: 0;
     }
-    /* This page's own override of search-form.css's shared `.search-advanced-link` (font-size/color only) —
-       deliberately NOT the same margin value as /search's own override (search.astro), even though both
-       links should land at the same vertical position. There, `#search-form` (the section-space
-       margin-block below) IS the free-text row itself, so its section-space bottom margin collapses with
-       the link <p>'s own (smaller) top margin and wins — the link ends up section-space below the row
-       either way. Here the free-text row is a plain <div> inside `#advanced-search-form` with no margin of
-       its own, so nothing section-space-sized exists for this link's margin to collapse with; it has to be
-       section-space itself to land "← Back to search" at that same spot. */
-    .search-advanced-link {
+    /* This page's own top margin for the shared action row (search-form.css's .search-actions) —
+       deliberately NOT the same value as /search's own override (search.astro), even though both rows
+       should land at the same vertical position. There, `#search-form` (the section-space margin-block
+       below) IS the free-text row itself, so its section-space bottom margin collapses with the row's own
+       (smaller) top margin and wins — the row ends up section-space below the bar either way. Here the
+       free-text row is a plain <div> inside `#advanced-search-form` with no margin of its own, so nothing
+       section-space-sized exists to collapse with; this has to be section-space itself to land
+       "← Back to search" at that same spot. */
+    .search-actions {
         margin: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) 0 0;
     }
     #search-status {
@@ -397,6 +403,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 
 <script>
     import { matchesFacets, parseFacetParams, validateFacetCriteria, type FacetEntry } from "../../lib/search/facets"
+    import { clearJumpLink, renderJumpLink } from "../../lib/search/jump"
     import { computePageWindow, withPage, withShowAll, type PageWindow } from "../../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — see pages/search.astro's own copy of this pattern for why the
@@ -514,13 +521,17 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         const pagination = document.getElementById("search-pagination")
         const input = document.getElementById("search-input")
         const noFields = document.getElementById("search-advanced-no-fields")
+        const jump = document.getElementById("search-jump")
+        const backLink = document.getElementById("search-back-link")
         if (
             !(form instanceof HTMLFormElement) ||
             !status ||
             !results ||
             !pagination ||
             !(input instanceof HTMLInputElement) ||
-            !noFields
+            !noFields ||
+            !jump ||
+            !(backLink instanceof HTMLAnchorElement)
         ) {
             return
         }
@@ -528,6 +539,20 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         const resultsEl = results
         const paginationEl = pagination
         const noFieldsEl = noFields
+        const jumpEl = jump
+        const inputEl = input
+        const backLinkEl = backLink
+
+        // The mirror of pages/search.astro's updateAdvancedLink: carry whatever is typed here back to
+        // /search as a `#q=` hash fragment, which that page prefills from without auto-running it. A hash
+        // (not `?q=`) specifically because /search DOES auto-run a `?q=`, and crossing between the two
+        // pages should hand over the query for editing, not re-execute it.
+        function updateBackLink(): void {
+            const query = inputEl.value.trim()
+            backLinkEl.href = query ? `/search#q=${encodeURIComponent(query)}` : "/search"
+        }
+        inputEl.addEventListener("input", updateBackLink)
+        updateBackLink()
         // TS's narrowing of `form` above does not carry into the nested function declarations below (same
         // quirk documented for statusEl/resultsEl/inputEl elsewhere in this codebase) — rebind so those
         // closures see a statically non-null HTMLFormElement instead of `HTMLFormElement | null`.
@@ -646,6 +671,9 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         async function runSearch(params: URLSearchParams): Promise<void> {
             resultsEl.replaceChildren()
             paginationEl.replaceChildren()
+            // Cleared up front, then re-rendered only once a search actually produces a count — otherwise
+            // the previous search's total would sit there claiming to describe this one.
+            clearJumpLink(jumpEl)
             // Reject a fully empty submission (no keyword, no filter) rather than running it — with no
             // criteria set, matchesFacets treats every entry as a match, so this would otherwise "search"
             // for and render the entire database.
@@ -699,6 +727,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                     }
                 }
 
+                renderJumpLink(jumpEl, statusEl, items.length)
                 if (items.length === 0) {
                     statusEl.textContent = "No results found."
                     return
@@ -725,6 +754,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             applyParamsToForm(form, params)
             updateFieldVisibility()
             updateOperatorControls()
+            updateBackLink()
             void runSearch(params)
         })
 
@@ -738,6 +768,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             applyParamsToForm(form, initialParams)
             updateFieldVisibility()
             updateOperatorControls()
+            updateBackLink()
             void runSearch(initialParams)
         } else {
             // Arriving from /search's "Advanced search" link, which carries the typed query as a `#q=`
@@ -745,7 +776,10 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             // see that page's updateAdvancedLink for why.
             const hashParams = new URLSearchParams(location.hash.replace(/^#/, ""))
             const prefill = hashParams.get("q")
-            if (prefill) input.value = prefill
+            if (prefill) {
+                input.value = prefill
+                updateBackLink()
+            }
         }
     }
 

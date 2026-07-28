@@ -228,3 +228,54 @@
 	font-size: 0.875rem;
 	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
 }
+
+/* "Jump to N results" summary, rendered under the search bar on /search and /search/advanced once a
+ * search completes (lib/search/jump.ts). Lives here rather than in either page's scoped <style> for the
+ * usual two reasons: both pages need it identically, and its inner control is created by the client
+ * script at runtime, where Astro's scoping class is never applied. */
+.search-jump {
+	font-size: 0.875rem;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+	margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
+}
+/* Belt-and-braces against the cascade trap this codebase has hit twice (see search.astro's
+ * .search-type-filters[hidden] comment): an author `display` on the element beats the UA stylesheet's
+ * `[hidden] { display: none }` by origin, not specificity. No `display` is declared above today, so
+ * `hidden` works on its own — this keeps it working if one is ever added. */
+.search-jump[hidden] {
+	display: none;
+}
+/* A button, not an anchor: it scrolls the page rather than navigating, so it must not add a history
+ * entry or put a bare "#search-status" in the address bar. Styled as a link so it still reads as one. */
+.search-jump__link {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+	text-decoration: underline;
+	cursor: pointer;
+}
+.search-jump__link:hover {
+	color: var(--dtk-chrome-link-hover, var(--dtk-color-slate, var(--color-link-hover)));
+}
+
+/* One row: the page-switch link ("Advanced search →" / "← Back to search") on the left, the jump summary
+ * pushed right. Stacked, the two read as a pair of identical links with no cue that they do different
+ * things — one navigates away, the other moves you down the page you are already on.
+ *
+ * The row carries the vertical margin and its children carry none, deliberately. Each page sets its own
+ * top margin on this container (see their scoped styles for the collapse reasoning): on /search that
+ * margin still collapses with #search-form's larger section-space bottom margin, which is what puts the
+ * link where it is. Leaving the margins on the children instead would break that — a flex item's margin
+ * never collapses with anything, so the two would add up and push the row down. */
+.search-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+}
+.search-actions > * {
+	margin: 0;
+}
