@@ -30,6 +30,7 @@ import cloudflare from "@astrojs/cloudflare"
 
 import optimizeFiles from "./integrations/optimize-files.mjs"
 import themeFonts from "./integrations/theme-fonts.mjs"
+import cspGuard from "./integrations/csp-guard.mjs"
 
 import react from "@astrojs/react"
 import markdoc from "@astrojs/markdoc"
@@ -54,6 +55,8 @@ export default defineConfig({
         themeFonts(),
         react(),
         markdoc(),
+        // Fails the build if a prerendered page emits markup the public CSP in public/_headers blocks.
+        cspGuard(),
         // EmDash runs alongside the existing flat-file content readers during the staged migration; it does
         // not manage any route we render ourselves. Auth is delegated to Cloudflare Access (the same policy
         // the worker manages via src/lib/api/access_iam_mgmt.ts) — passkeys are disabled. audienceEnvVar
@@ -102,5 +105,20 @@ export default defineConfig({
             }
         ],
         checkOrigin: import.meta.env.PROD
+    },
+    vite: {
+        build: {
+            // Astro inlines a page <script> straight into the HTML when its bundled chunk imports nothing
+            // and falls under this limit (astro/core/build/plugins/plugin-scripts.js). The public site's
+            // CSP is a static header in public/_headers, so it can carry no per-build hash and an inline
+            // script is simply blocked — which is how the header search toggle was shipping. Refusing to
+            // inline JS keeps every script an external same-origin module that `script-src 'self'` admits.
+            //
+            // The `.length < 4096` branch restates Vite's own DEFAULT_ASSETS_INLINE_LIMIT: returning
+            // undefined would make Astro's stylesheet path compare against `Number(fn)` — NaN — and stop
+            // inlining every small stylesheet as a side effect.
+            assetsInlineLimit: (filePath, content) =>
+                filePath.endsWith(".js") ? false : content.length < 4096
+        }
     }
 })
