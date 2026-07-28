@@ -360,3 +360,15 @@
 .search-actions > * {
 	margin: 0;
 }
+/* Keeps the jump summary against the right edge on the line it ends up on, not just while it shares one
+ * with the page-switch link. `justify-content: space-between` only separates items that sit on the SAME
+ * flex line: once the row wraps (narrow screens — the two together need ~27rem, so anything under about a
+ * 440px container), the summary is alone on line 2 and space-between leaves it at the start, landing it
+ * left-aligned directly beneath the link and reading as the stacked pair of look-alike links this row
+ * exists to avoid. Right-aligning it keeps the two visually distinct once they no longer fit side by side.
+ *
+ * Higher specificity than `.search-actions > *` above on purpose — that rule zeroes margins to protect
+ * vertical margin collapsing (see its comment), which an inline-axis `auto` does not participate in. */
+.search-actions .search-jump {
+	margin-left: auto;
+}
