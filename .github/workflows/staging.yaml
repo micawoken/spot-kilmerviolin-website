@@ -50,6 +50,12 @@ jobs:
         run: pnpm run build
 
       - name: Upload staging preview version to Cloudflare Workers
+        # Dependabot PRs resolve secrets against the Dependabot store, never the Actions store, so
+        # CLOUDFLARE_API_TOKEN would be empty here and wrangler would fail. Skip rather than grant it:
+        # the action bumps are exactly the code that must not meet the deploy token, and the checkout,
+        # install and build above are what actually verify a bump. Any other author still uploads, so a
+        # genuinely missing token fails the gate loudly instead of quietly passing it.
+        if: github.actor != 'dependabot[bot]'
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
