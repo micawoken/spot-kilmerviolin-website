@@ -689,6 +689,40 @@ export function webFontsHref(fonts: WebFont[]): string | null {
     return `https://fonts.googleapis.com/css2?${families.join("&")}`
 }
 
+/** Maps a CSS `font-weight` value to the numeric form Google's `@font-face` blocks use. */
+function numericFontWeight(weight: string): string {
+    const trimmed = weight.trim().toLowerCase()
+    if (trimmed === "bold") return "700"
+    if (trimmed === "normal") return "400"
+    return trimmed
+}
+
+/** Stable `family|weight` key for one font face. Family is the first entry of a CSS font stack (the web
+ *  font itself; the rest are local fallbacks, never fetched), compared case-insensitively. */
+export function fontFaceKey(family: string, weight: string): string {
+    const primary = family.split(",")[0].trim().replace(/^["']|["']$/g, "")
+    return `${primary.toLowerCase()}|${numericFontWeight(weight)}`
+}
+
+/** Every (family, weight) face some typography token actually asks for — the set worth preloading.
+ *
+ * A theme authors a font's weights independently of the tokens that use them, so a catalog routinely
+ * self-hosts faces nothing references; preloading those spends first-paint bandwidth on a file that is
+ * never painted. `bold` requests 700 in place of the token's own weight, not alongside it (see
+ * {@link TypographyToken}).
+ *
+ * @param {TokenCatalog} catalog - the published theme
+ * @returns {Set<string>} `fontFaceKey` values; empty when the theme has no typography tokens
+ */
+export function referencedFontFaces(catalog: TokenCatalog): Set<string> {
+    const faces = new Set<string>()
+    for (const token of catalog.typography ?? []) {
+        if (typeof token?.family !== "string" || typeof token.weight !== "string") continue
+        faces.add(fontFaceKey(token.family, token.bold ? "700" : token.weight))
+    }
+    return faces
+}
+
 /** One dangling reference from a button variant to a token that is not in the catalog. */
 export interface TokenCatalogFinding {
     variant: string

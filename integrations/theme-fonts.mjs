@@ -65,8 +65,8 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { emdashGet } from "../src/lib/build/emdash-api.ts"
-import { isTokenCatalog } from "../src/lib/compositor/tokens.ts"
-import { localizeThemeFonts } from "../src/lib/build/theme-fonts.ts"
+import { isTokenCatalog, referencedFontFaces } from "../src/lib/compositor/tokens.ts"
+import { localizeThemeFonts, unpreloadedOptionalFaces } from "../src/lib/build/theme-fonts.ts"
 
 const MANIFEST_PATH = fileURLToPath(new URL("../src/lib/build/theme-fonts-manifest.generated.json", import.meta.url))
 
@@ -110,12 +110,26 @@ async function resolveAndWrite(logger) {
     try {
         const result = await emdashGet("/_emdash/api/content/design_theme?status=published&limit=1")
         const tokens = result?.items?.[0]?.data?.tokens
-        const localized = isTokenCatalog(tokens) ? await localizeThemeFonts(tokens.fonts ?? []) : null
+        const localized = isTokenCatalog(tokens)
+            ? await localizeThemeFonts(tokens.fonts ?? [], referencedFontFaces(tokens))
+            : null
         if (localized) manifest = localized
     } catch (error) {
         logger.warn(
             `[theme-fonts] could not resolve the theme's web fonts (${error instanceof Error ? error.message : String(error)}) — continuing without one.`
         )
     }
+    // Deliberately outside the catch above, and fatal: a violation here is our own bug, not the
+    // environmental failure that block absorbs, and its symptom (a face that silently never renders on a
+    // cold load) is invisible in a green build. See unpreloadedOptionalFaces for the invariant.
+    const unpreloaded = unpreloadedOptionalFaces(manifest)
+    if (unpreloaded.length > 0) {
+        throw new Error(
+            `[theme-fonts] ${unpreloaded.length} @font-face block(s) declare font-display: optional with no ` +
+                `matching preload: ${unpreloaded.join(", ")}. An optional face the browser was not told to ` +
+                "fetch early can go unrendered entirely on a cold load — preload and optional are one decision."
+        )
+    }
+
     await writeFile(MANIFEST_PATH, JSON.stringify(manifest, null, 2))
 }

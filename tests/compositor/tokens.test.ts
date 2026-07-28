@@ -27,12 +27,14 @@ import { describe, it, expect } from "vitest"
 import {
     columnsStackBreakpointCss,
     EMPTY_TOKEN_CATALOG,
+    fontFaceKey,
     hasToken,
     isTokenCatalog,
     isSafeTokenValue,
     isValidTokenName,
     lintTokenCatalog,
     lintTokenValues,
+    referencedFontFaces,
     tokenSelectOptions,
     tokensToCss,
     tokenVar,
@@ -620,5 +622,52 @@ describe("viewTransitionCss", () => {
     })
     it("emits nothing when viewTransitions is explicitly false", () => {
         expect(viewTransitionCss({ ...catalog, viewTransitions: false })).toBe("")
+    })
+})
+
+describe("fontFaceKey", () => {
+    it("keys on the first family of a CSS stack, ignoring the local fallbacks", () => {
+        expect(fontFaceKey('"Spectral", Georgia, serif', "400")).toBe(fontFaceKey("Spectral", "400"))
+    })
+    it("is case-insensitive on the family", () => {
+        expect(fontFaceKey("IBM Plex Mono", "600")).toBe(fontFaceKey("ibm plex mono", "600"))
+    })
+    it("normalizes the bold/normal keywords to the numeric weights Google's @font-face blocks use", () => {
+        expect(fontFaceKey("Spectral", "bold")).toBe(fontFaceKey("Spectral", "700"))
+        expect(fontFaceKey("Spectral", "normal")).toBe(fontFaceKey("Spectral", "400"))
+    })
+    it("distinguishes weights of the same family", () => {
+        expect(fontFaceKey("Spectral", "400")).not.toBe(fontFaceKey("Spectral", "600"))
+    })
+})
+
+describe("referencedFontFaces", () => {
+    it("returns only the faces a typography token actually names", () => {
+        // The fixture catalog authors system-ui at 400 (body) and 700 (display) — a weight nothing
+        // references (500, the case this whole cull exists for) must not appear.
+        const faces = referencedFontFaces(catalog)
+        expect(faces).toEqual(new Set([fontFaceKey("system-ui", "400"), fontFaceKey("system-ui", "700")]))
+        expect(faces.has(fontFaceKey("system-ui", "500"))).toBe(false)
+    })
+
+    it("treats `bold` as requesting 700 INSTEAD OF the token's own weight, not alongside it", () => {
+        const bolded: TokenCatalog = {
+            ...catalog,
+            typography: [{ name: "label", family: "Spectral", size: "1rem", weight: "400", lineHeight: "1.5", bold: true }]
+        }
+        expect(referencedFontFaces(bolded)).toEqual(new Set([fontFaceKey("Spectral", "700")]))
+    })
+
+    it("is empty for a catalog with no typography tokens — the signal to preload everything", () => {
+        expect(referencedFontFaces(EMPTY_TOKEN_CATALOG).size).toBe(0)
+    })
+
+    it("skips a malformed token rather than throwing", () => {
+        const malformed = {
+            ...catalog,
+            typography: [...catalog.typography, { name: "broken", size: "1rem", lineHeight: "1.5" }]
+        } as TokenCatalog
+        expect(() => referencedFontFaces(malformed)).not.toThrow()
+        expect(referencedFontFaces(malformed).size).toBe(2)
     })
 })
