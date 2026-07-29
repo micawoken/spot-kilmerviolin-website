@@ -188,13 +188,13 @@ export interface SiteChromeRoles {
     /**
      * names a `space` token; the vertical gap between repeated/stacked items — header nav's title/toggle
      * row vs. its nav row (below the header breakpoint), the footer's own link-row/copy stack, the
-     * NavTiles/entity-list grids' row gap, and the search-results list gap.
+     * and the NavTiles/entity-list grids' row gap.
      */
     verticalSpaceItemGap?: string
     /**
      * names a `space` token; vertical padding inside interactive controls, and small margins tied to a
      * control's own content — the header/search-page search boxes, NavTiles tiles, entity list-result
-     * cards (and their corner ID badge), and the search page's scope note / result excerpts.
+     * cards (and their corner ID badge), and the search pages' scope note / result rows / result excerpts.
      */
     verticalSpaceControl?: string
     /** names a `space` token; extra vertical nudge ADDED on top of `verticalSpaceSection`, same
