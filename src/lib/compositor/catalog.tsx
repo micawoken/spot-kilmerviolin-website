@@ -64,7 +64,7 @@ import type { Config, CustomFieldRender } from "@puckeditor/core"
 import type { PortableTextBlock } from "emdash"
 
 import { isEmptyFieldValue } from "./entity-fields"
-import { RichTextView, sanitizeHref } from "./richtext"
+import { RichTextView, opensInNewTab, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
 import {
@@ -491,6 +491,9 @@ interface ButtonProps {
     variant: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default) — variants don't carry one. */
     shadow: string
+    /** "_self"/"_blank" to force where this opens, or "" to follow the href's scheme (richtext.tsx's
+     *  `opensInNewTab`, the same rule in-prose links use). Trap A: absent means "". */
+    target: string
 }
 interface SpacerProps {
     size: string
@@ -642,11 +645,15 @@ function renderImageTag(
 
 /** The Button markup. Exported so the theme editor's live preview (`ThemePreview.tsx`) renders a
  * button variant with the exact same class/var wiring as the real component, never a hand-rolled copy. */
-export function renderButtonTag(label: string, href: string, variant: string, shadow = "") {
+export function renderButtonTag(label: string, href: string, variant: string, shadow = "", target = "") {
+    const safeHref = sanitizeHref(href)
+    const newTab = opensInNewTab(safeHref, target)
     return (
         <a
             className="cmp-button"
-            href={sanitizeHref(href)}
+            href={safeHref}
+            target={newTab ? "_blank" : undefined}
+            rel={newTab ? "noopener noreferrer" : undefined}
             style={vars({
                 "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
                 "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
@@ -1047,14 +1054,27 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             fields: {
                 label: { type: "text" as const, label: "Label" },
                 href: { type: "text" as const, label: "Link URL" },
+                // Same three-way choice a rich-text link resolves through, surfaced as a field because a
+                // Button has nowhere else to express it. "Automatic" keeps a button consistent with the
+                // same URL written in prose.
+                target: {
+                    type: "select" as const,
+                    label: "Opens in",
+                    options: [
+                        { label: "Automatic (new tab if external)", value: "" },
+                        { label: "Same tab", value: "_self" },
+                        { label: "New tab", value: "_blank" }
+                    ]
+                },
                 variant: tokenSelect(theme, "buttonVariants", "Variant"),
                 shadow: tokenSelect(theme, "shadows", "Shadow", true)
             },
             // "primary" is a seeded variant name (theme is authored before this code deploys), so the
             // default resolves. The render stays pure — it maps a variant name into `--cmp-button-*`
             // locals and never sees the theme, exactly like Spacer/Divider (catalog purity rule).
-            defaultProps: { label: "Button", href: "#", variant: "primary", shadow: "" },
-            render: ({ label, href, variant, shadow }: ButtonProps) => renderButtonTag(label, href, variant, shadow)
+            defaultProps: { label: "Button", href: "#", target: "", variant: "primary", shadow: "" },
+            render: ({ label, href, variant, shadow, target }: ButtonProps) =>
+                renderButtonTag(label, href, variant, shadow, target)
         },
         Spacer: {
             label: "Spacer",

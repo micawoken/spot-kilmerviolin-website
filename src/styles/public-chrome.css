@@ -39,9 +39,9 @@
  *   - vertical `-header`       header nav's own top/bottom padding, independent of the footer's
  *   - vertical `-footer`       footer's own top/bottom padding and the margin above it, independent of the header's
  *   - vertical `-item-gap`     gaps between repeated stacked items (header nav's stacked rows, footer's
- *                              link-row/copy stack, grid row-gaps, search-results gap)
+ *                              link-row/copy stack, grid row-gaps)
  *   - vertical `-control`      vertical padding inside controls, and small margins tied to a control's own
- *                              content (search box padding, list-result cards, search page captions)
+ *                              content (search box padding, list-result cards, search result rows and captions)
  *   - vertical `-static`       extra top/bottom padding ADDED on top of `-section`, the vertical
  *                              counterpart to horizontal `-static`
  * Each role's own middle-link name and literal are chosen per role (not per declaration), so an unthemed

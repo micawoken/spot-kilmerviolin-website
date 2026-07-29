@@ -1,7 +1,8 @@
 /**
  * styles/search-form.css
  *
- * Single source for every public search form's look (docs/dev/plan-prelaunch-features.md §10) —
+ * Single source for every public search form's look, and for the results list both search pages render
+ * below theirs (see the `#search-results` block) (docs/dev/plan-prelaunch-features.md §10) —
  * replaces four independently hand-synced copies: the Puck `PagefindSearch` component's `.cmp-search`
  * (formerly in compositor.css), `DatabaseRoot.astro`'s `.entity-search-form`, `pages/search.astro`'s
  * `#search-form`, and `PublicHeader.astro`'s `#header-search-form` (which keeps its own header-specific
@@ -339,6 +340,87 @@
 }
 .search-jump__link:hover {
 	color: var(--dtk-chrome-link-hover, var(--dtk-color-slate, var(--color-link-hover)));
+}
+
+/* Results list and its pagination, rendered by /search and /search/advanced. Shared here for the same two
+ * reasons `.search-jump` above is: both pages render an identical list from identical client code, and
+ * every node inside it (<li>/<a>/<p>/<mark>, and the pagination controls) is created at runtime, where
+ * Astro's scoping class is never applied — so a page-scoped rule would silently never match. */
+#search-results {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+/* A hairline under each result, replacing the plain flex gap the list used to carry. Whitespace alone
+ * left a result and its excerpt reading as one block with the neighbour below it, worst when a title
+ * wrapped; the rule also closes the list off from the pagination controls under it. Same hairline as
+ * `#search-status`'s, so this reads as page structure rather than as a card. */
+#search-results li {
+	padding-block: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+	border-bottom: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+}
+#search-results li a {
+	font-weight: 600;
+	text-decoration: none;
+}
+#search-results li a:hover {
+	text-decoration: underline;
+}
+/* Muted and a step down from the title, so the two lines of a result read as heading-then-supporting-text
+ * rather than as two equal lines. 0.875rem is the same secondary-text size the rest of the search pages
+ * use (the advanced form's controls, `.search-jump`, the pagination row). */
+#search-results li p {
+	margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem)) 0 0;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+/* Pagefind's match highlight. It must not read as a link: it used to be link-coloured at weight 600, which
+ * is exactly the result title's own treatment, so a highlighted word inside an excerpt looked like a second,
+ * clickable link that went nowhere. Full body text against the excerpt's muted grey, plus a flat tint, marks
+ * it as "matched" without borrowing the link colour.
+ *
+ * The tint is mixed from `currentColor` — this rule's own `color`, i.e. the theme's body text — rather than
+ * from a surface token: `--dtk-chrome-footer-bg`'s unthemed fallback is `--shade-1` (#fafafa on a #ffffff
+ * page), which is invisible, and any surface token can legitimately be authored to equal the page colour.
+ * Deriving it from the text colour instead guarantees a visible band against the page in both colour schemes,
+ * whatever the theme sets. */
+#search-results mark {
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	background: color-mix(in srgb, currentColor 14%, transparent);
+	font-weight: 600;
+	padding: 0 0.15em;
+	border-radius: var(--dtk-radius-sm, 0);
+}
+#search-pagination {
+	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
+}
+.search-pagination {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
+	font-size: 0.875rem;
+}
+.search-pagination button {
+	padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.35rem))
+		var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.6rem));
+	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
+		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
+		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
+	border-radius: var(--dtk-radius-sm, 0);
+	background: transparent;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	cursor: pointer;
+}
+.search-pagination button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+.search-pagination button:not(:disabled):hover {
+	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
 /* One row: the page-switch link ("Advanced search →" / "← Back to search") on the left, the jump summary

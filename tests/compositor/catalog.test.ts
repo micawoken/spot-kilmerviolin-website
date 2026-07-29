@@ -275,6 +275,46 @@ describe("buildConfig — Button drives theme-authored variants through --cmp-bu
         expect(html).toContain('class="cmp-button"')
         expect(html).toContain("--cmp-button-bg:var(--dtk-btn-does-not-exist-bg)")
     })
+
+    describe("target", () => {
+        // Absent `target` is what every Button stored before the field existed carries (trap A), so these
+        // pin the automatic rule specifically against a stored design, not just against an explicit "".
+        it("opens an internal href in the same tab", () => {
+            const html = render(config, "Button", { label: "Go", href: "/database", variant: "primary" })
+            expect(html).not.toContain("target=")
+            expect(html).not.toContain("rel=")
+        })
+
+        it("opens an external href in a new tab, with rel", () => {
+            const html = render(config, "Button", { label: "Go", href: "https://imslp.org", variant: "primary" })
+            expect(html).toContain('target="_blank"')
+            expect(html).toContain('rel="noopener noreferrer"')
+        })
+
+        it('forces a new tab for an internal href when target is "_blank"', () => {
+            const html = render(config, "Button", { label: "Go", href: "/database", target: "_blank", variant: "primary" })
+            expect(html).toContain('target="_blank"')
+            expect(html).toContain('rel="noopener noreferrer"')
+        })
+
+        it('forces the same tab for an external href when target is "_self"', () => {
+            const html = render(config, "Button", {
+                label: "Go",
+                href: "https://imslp.org",
+                target: "_self",
+                variant: "primary"
+            })
+            expect(html).not.toContain("target=")
+        })
+
+        // A rejected scheme renders as "#", so it must be judged as the fragment it becomes — never as the
+        // external URL it was written as, which would hand a blocked link a new tab.
+        it("keeps an unsafe href in the same tab once sanitized to #", () => {
+            const html = render(config, "Button", { label: "Go", href: "javascript:alert(1)", variant: "primary" })
+            expect(html).toContain('href="#"')
+            expect(html).not.toContain("target=")
+        })
+    })
 })
 
 describe("buildConfig — PagefindSearch renders a plain GET form to /search", () => {

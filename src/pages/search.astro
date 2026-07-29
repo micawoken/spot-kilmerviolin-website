@@ -165,65 +165,9 @@ export const prerender = true
     .search-actions {
         margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
     }
-    #search-results {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        gap: var(--dtk-chrome-vertical-space-item-gap, var(--dtk-space-sm, 1rem));
-    }
-    #search-pagination {
-        margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
-    }
-</style>
-
-<!-- Astro's default scoped styling only rewrites markup present in this file's own template at build time;
-     the <li>/<a>/<p>/<mark> a search result renders, and the pagination controls, are created by the client
-     script below, so those rules must be global or they silently never match (Astro adds no scoping class
-     to runtime-created nodes). -->
-<style is:global>
-    #search-results li a {
-        font-weight: 600;
-        text-decoration: none;
-    }
-    #search-results li a:hover {
-        text-decoration: underline;
-    }
-    #search-results li p {
-        margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem)) 0 0;
-        color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-    }
-    #search-results mark {
-        background: none;
-        color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
-        font-weight: 600;
-    }
-    .search-pagination {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-sm, 0.75rem));
-        font-size: 0.875rem;
-    }
-    .search-pagination button {
-        padding: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.35rem))
-            var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.6rem));
-        border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
-            var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
-            var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-4)));
-        border-radius: var(--dtk-radius-sm, 0);
-        background: transparent;
-        color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
-        cursor: pointer;
-    }
-    .search-pagination button:disabled {
-        opacity: 0.5;
-        cursor: default;
-    }
-    .search-pagination button:not(:disabled):hover {
-        background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
-    }
+    /* The results list, its items and its pagination live in styles/search-form.css — identical on both
+       search pages, and every node inside them is created by the client script at runtime, where Astro
+       applies no scoping class. */
 </style>
 
 <script>

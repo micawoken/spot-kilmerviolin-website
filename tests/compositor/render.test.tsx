@@ -36,6 +36,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, it, expect } from "vitest"
 
 import { buildConfig } from "../../src/lib/compositor/catalog"
+import { RichTextView } from "../../src/lib/compositor/richtext"
 import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../src/lib/compositor/tokens"
 
 const theme: TokenCatalog = {
@@ -127,5 +128,59 @@ describe("build render path", () => {
         const html = render(EMPTY_TOKEN_CATALOG)
         expect(html).toContain("Hello from Portable Text")
         expect(html).toMatch(/<h1[^>]*>Recitals<\/h1>/)
+    })
+})
+
+describe("rich text link targets", () => {
+    /** One block whose whole text carries a link mark with the given markDef fields. */
+    function renderLink(markDef: Record<string, unknown>): string {
+        const value = [
+            {
+                _type: "block",
+                _key: "b1",
+                style: "normal",
+                children: [{ _type: "span", _key: "s1", text: "source", marks: ["l1"] }],
+                markDefs: [{ _type: "link", _key: "l1", ...markDef }]
+            }
+        ]
+        return renderToStaticMarkup(<RichTextView value={value as never} />)
+    }
+
+    it("opens a site-relative link in the same tab", () => {
+        const html = renderLink({ href: "/composers/maier" })
+        expect(html).toContain('href="/composers/maier"')
+        expect(html).not.toContain("target=")
+    })
+
+    it("opens a fragment link in the same tab", () => {
+        expect(renderLink({ href: "#sources" })).not.toContain("target=")
+    })
+
+    it("opens an off-site link in a new tab, with rel", () => {
+        const html = renderLink({ href: "https://imslp.org" })
+        expect(html).toContain('target="_blank"')
+        expect(html).toContain('rel="noopener noreferrer"')
+    })
+
+    it.each(["mailto:info@example.com", "tel:+15551234567"])("opens %s in a new tab", (href) => {
+        expect(renderLink({ href })).toContain('target="_blank"')
+    })
+
+    // The regression this rule exists for. Both editors stamp target="_blank" on every link they produce
+    // (Tiptap's Link default, which neither overrides), so honouring `blank` opened internal links in a
+    // new tab — see richtext.tsx's opensInNewTab.
+    it("ignores blank: true on an internal link", () => {
+        expect(renderLink({ href: "/database", blank: true })).not.toContain("target=")
+    })
+
+    it("honours an explicit target over the scheme, both ways", () => {
+        expect(renderLink({ href: "/database", target: "_blank" })).toContain('target="_blank"')
+        expect(renderLink({ href: "https://imslp.org", target: "_self" })).not.toContain("target=")
+    })
+
+    it("keeps an unsafe href in the same tab once sanitized to #", () => {
+        const html = renderLink({ href: "javascript:alert(1)" })
+        expect(html).toContain('href="#"')
+        expect(html).not.toContain("target=")
     })
 })
