@@ -4,7 +4,8 @@
  * React Portable Text renderer for the compositor's RichText component (impl §6.4). Output-parity
  * target: the existing `pages` rendering (emdash/ui `PortableText` → astro-portabletext). Rendering
  * pure Portable Text through a whitelist of components — no raw-HTML path — is the sanitization
- * boundary; link hrefs are scheme-checked here and in lint (§6.7). Used by the build renderer and,
+ * boundary; link hrefs are scheme-checked here and in lint (§6.7), and their target resolved by
+ * `opensInNewTab`. Used by the build renderer and,
  * for already-Portable-Text values, the editor canvas.
  *
  * Parity notes (kept current as differences are found; drives the Phase 2 `pages` retirement gate):
@@ -56,6 +57,30 @@ export function sanitizeHref(url: string | undefined | null): string {
     return url && SAFE_URL_SCHEME_RE.test(url) ? url : "#"
 }
 
+/** Hrefs that leave the site. Within SAFE_URL_SCHEME_RE the complement is site-relative and fragment. */
+const EXTERNAL_URL_SCHEME_RE = /^(https?:|mailto:|tel:)/i
+
+/**
+ * Whether a link opens in a new tab. An explicit `target` ("_self"/"_blank") wins; otherwise links that
+ * leave the site do and links within it don't. Pass an href already through `sanitizeHref`, so a rejected
+ * URL ("#") is judged as the fragment it renders as. Shared by the catalog Button.
+ *
+ * The scheme rule is the default rather than the stored `blank` flag because `blank` records no author
+ * intent anywhere. Tiptap's Link extension defaults `HTMLAttributes.target` to "_blank", and neither
+ * editor overrides it: Puck exposes no link control at all, and emdash's link dialog sets only `href`
+ * (its `Link.configure` merges with that default rather than replacing it — `configure` is a deep merge).
+ * Every link either editor has ever produced therefore arrives here with `blank: true`, so honouring it
+ * opens every internal link in a new tab.
+ *
+ * `target` is the seam for a link dialog we don't have yet: no content carries one today, and it wins
+ * wherever one appears, so explicit per-link choices can start landing with no migration.
+ */
+export function opensInNewTab(href: string, target?: string): boolean {
+    if (target === "_blank") return true
+    if (target === "_self") return false
+    return EXTERNAL_URL_SCHEME_RE.test(href)
+}
+
 /**
  * Maps a block's `textAlign` to emdash's WordPress-style class, or undefined for the default. Only
  * center/right/justify produce a class; `left`, missing, and unknown values render without one.
@@ -95,14 +120,12 @@ const components: PortableTextComponents = {
         superscript: (props) => <sup>{props.children as ReactNode}</sup>,
         subscript: (props) => <sub>{props.children as ReactNode}</sub>,
         link: (props) => {
-            const markDef = props.value as { href?: string; blank?: boolean } | undefined
-            const blank = markDef?.blank
+            // `blank` is deliberately not read — see opensInNewTab for why it carries no author intent.
+            const markDef = props.value as { href?: string; target?: string } | undefined
+            const href = sanitizeHref(markDef?.href)
+            const newTab = opensInNewTab(href, markDef?.target)
             return (
-                <a
-                    href={sanitizeHref(markDef?.href)}
-                    target={blank ? "_blank" : undefined}
-                    rel={blank ? "noopener noreferrer" : undefined}
-                >
+                <a href={href} target={newTab ? "_blank" : undefined} rel={newTab ? "noopener noreferrer" : undefined}>
                     {props.children as ReactNode}
                 </a>
             )
