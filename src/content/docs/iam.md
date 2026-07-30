@@ -1,65 +1,57 @@
 ---
 title: Identity & Access Management
-description: How to manage administrator identities, access, and account status
+description: Manage administrator identities, access, and account status
 author: Michael Wong
 ---
 
 ## Overview
 
-The Identity & Access Management section controls who may access the administrative services and
-what they may do. The following actions are available from the [IAM home](/admin/iam):
+The Identity & Access Management section controls who may access the administrative services and what they may do. The following actions are available from the [IAM menu](/admin/iam):
 
-- **Add** — grant a new identity access.
-- **Edit** — change an identity's details or permissions.
-- **Activate / Deactivate** — enable or suspend an identity's access.
-- **Remove** — revoke an identity's access entirely.
-- **List** — browse all identities currently registered.
+- **My authorization info** - view your authorization info
+- **Add new user** - add a new user for login
+- **List users** - show all users who can log in
+- **Add or remove roles** - self-explanatory
+- **Change sign-in email** - change a user's login email
+- **Delete user** - remove a user from login
 
-## Video Guide
-
-(YouTube embed)
-
-## What is Identity & Access Management (IAM)?
+## IAM Functions
 Identity & Access Management (IAM) manages how the administrative services:
 1. Prove who you are (authentication) so you can access the service; and
 2. Give you the appropriate permissions (authorization) on the service.
 
 As such, IAM services affect whether you can log onto the administrative services and what you will be able to do once you log on.
 
-### Data model
-(you can skip this section, but it may help with understanding how security works on this site)
-IAM is implemented in two parts:
- - Authentication is managed by Cloudflare Access: a common Access policy is used to protect /admin and /api.
- - Authorization is managed in contributor records using the admin, roles, and active properties.
+### Overlap with contributor records
+**IAM add/remove user controls only control whether they can log into the system; they do not control what they do if they can login.** If you delete a user from IAM, but do not deactivate their record, *someone else could re-add them, and they could come back with full permissions.*
 
-These parts are connected using a contributor record's identity_email property. Once authentication passes, administrative services extracts the user's email, which is encoded in base64 and cryptographically verified in the Cloudflare Access JavaScript Web Token passed in via cookies. The identity middleware will perform a lookup of the extracted email, and the system will build an Identity object using the matched contributor record.
+Similarly, if you deactivate a contributor record, *the user can still sign in.* (What they can do when deactivated depends on whether they are an administrator.)
 
-The Identity object contains three boolean values:
-1. Allowed - whether the identity has successfully linked with a contributor record.
-2. Active - whether the contributor record indicates the record is active; and
-3. Enrollable - whether there is no record, and the system allows self-enrollment.
+## My Info
+You can view your user authorization information using **My authorization info**. It shows your:
+- Login email,
+- User account type (standard or administrator),
+- Roles, and
+- Three yes/no values:
+  - Allowed: whether the system has connected your login email to a contributor record (by login email);
+  - Active: whether your account is active according to your contributor record; and
+  - Enrollable: whether your account is eligible for self-enrollment.
 
-Most services require that a user be both allowed and active. Some pages related to profile management only require allowed, and the self-enrollment flow requires enrollable.
+## Adding/Removing Users
+### Add user
+Use **Add new user** to add a new user with their login email.
 
-## How do I add a user who can log onto the system?
-Use **Add user**. By default, unless the email you provide is associated with a contributor's sign-in email, they will not be able to modify the database until they perform the self-enrollment process.
+You may optionally use *auto-enrollment*: this creates their contributor record automatically, with a name and optional major and class year. Auto-enrollment exists to:
+1. Bypass self-enrollment; and
+2. For permissions conferral (see below).
 
-If you prefer, you can create a contributor record for them by using auto-enrollment during the **Add user** process to provide their name (and optionally their major and class year) so they can log on immediately.
+#### Confer permissions
+In auto-enrollment, you can give the new user the roles you have that are conferrable. For example, if you have the reviewer role, you can enable confer to give them the reviewer role. *Not all roles are conferrable.*
 
-By default, when you create a new user (with self-enrollment or auto-enrollment), they cannot make contributions. An administrator must activate their account using **IAM > Activate user**
+### Remove user
+Use **Delete user** to remove a user with their login email.
 
-To perform this operation, you must either be an Administrator, or you must possess the userenroll role.
+By default, auto-deactivation is enabled: the system will automatically deactivate their contributor record, preventing them from editing the database. (If they are an administrator, deactivation does not work; see [User Management](/admin/user).)
 
-## How do I activate/deactivate a user?
-Use **Activate user** or **Deactivate user**! To perform this operation, you must be an Administrator.
-
-## How do I edit a user?
-You can edit a user's roles using **Edit user**. You must be an Administrator to do this.
-
-### Extended operations using the API
-If you are comfortable writing an API call, you can send an HTTP PATCH request to /api/v1/identity to perform multiple transactions related to identity emails, role modifications, user additions, and user deletions. Review the API doc for more information.
-
-## How do I delete a user?
-Use **Delete user**. You must be an Administrator to do this.
-
-Please note that deleting a user does **not** delete their associated contributor record.
+## Role and Email Management
+Use the relevant links to perform these operations.

@@ -212,7 +212,12 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     { key: "mutedText", label: "Muted text (nav / footer)", kind: "colors" },
     { key: "footerBackground", label: "Footer background", kind: "colors" },
     { key: "hairlineBorder", label: "Hairline border", kind: "borders" },
-    { key: "horizontalSpaceInset", label: "Page edge inset (header, main content, footer)", kind: "space" },
+    { key: "horizontalSpaceInset", label: "Page edge inset (header, footer)", kind: "space" },
+    {
+        key: "horizontalSpaceContentInset",
+        label: "Main content inset (article body, cmp-section, static pages — independent of the page edge inset above)",
+        kind: "space"
+    },
     {
         key: "horizontalSpaceItemGap",
         label: "List & grid item gap (nav links, footer links, tile / card grids)",
@@ -283,6 +288,8 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     // No legacy magic name for these: an old singular `horizontalSpace` value is handled separately in
     // toEditable (seeds all three), not via this candidate list.
     horizontalSpaceInset: [],
+    // Brand new role, split out from horizontalSpaceInset — no prior dial of any kind to migrate from.
+    horizontalSpaceContentInset: [],
     horizontalSpaceItemGap: [],
     horizontalSpaceControl: [],
     // The static-page nudge is brand new (no prior dial of any kind to migrate from).

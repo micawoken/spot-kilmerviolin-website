@@ -156,10 +156,25 @@ export interface SiteChromeRoles {
      * Never written by a save going forward. */
     horizontalSpace?: string
     /**
-     * names a `space` token; how far static site-chrome content sits from the viewport edge — header
-     * nav, `main > article`, unwrapped `main` content, the footer, and NavTiles' outer padding-inline.
+     * names a `space` token; how far the header nav and footer sit from the viewport edge. Main
+     * content's own inset is the separate {@link horizontalSpaceContentInset} role below — split out so
+     * a theme can shrink the content column on phones without also collapsing the header/footer gutter.
      */
     horizontalSpaceInset?: string
+    /**
+     * names a `space` token; how far MAIN CONTENT sits from the viewport edge — `main > article`,
+     * unwrapped `main` content (including NavTiles' outer padding-inline), `.cmp-section`, and static
+     * pages' base inset (before the `-static` nudge below). Independent of `horizontalSpaceInset`
+     * (header/footer): unset falls back to that role in the header/footer-shared rules (`main > article`,
+     * unwrapped `main`, static pages), so an already-configured theme doesn't lose main-content theming
+     * the moment this role ships — but `.cmp-section` falls back straight to the built-in `--dtk-space-md`
+     * default instead, since it never read `horizontalSpaceInset` in the first place (it hardcoded
+     * `--dtk-space-md` directly). No legacy singular (`horizontalSpace`) fallback: this role didn't exist
+     * before the split either. Author the referenced space token's value as a `clamp()`/`calc()`
+     * expression (e.g. `clamp(0px, 4vw, 1.5rem)`) to shrink the content inset toward zero on phones —
+     * token values are arbitrary CSS length expressions, so no separate breakpoint mechanism is needed.
+     */
+    horizontalSpaceContentInset?: string
     /**
      * names a `space` token; the horizontal gap between repeated items in a row — nav links, footer
      * links, header nav's title/toggle grid columns, and the NavTiles/entity-list grids.
@@ -466,6 +481,11 @@ export function tokensToCss(catalog: TokenCatalog): string {
         // pre-split catalog keeps rendering identically until its owner adjusts the roles independently.
         const horizontalSpaceRoles: Array<[string, string | undefined]> = [
             ["horizontal-space-inset", chrome.horizontalSpaceInset ?? chrome.horizontalSpace],
+            // No legacy singular fallback: this role didn't exist before the split either. The
+            // header/footer-shared consuming rules add their own CSS-level fallback to
+            // --dtk-chrome-horizontal-space-inset when this is unset (see public-chrome.css); .cmp-section
+            // (compositor.css) falls back straight to --dtk-space-md instead, matching its prior behavior.
+            ["horizontal-space-content-inset", chrome.horizontalSpaceContentInset],
             ["horizontal-space-item-gap", chrome.horizontalSpaceItemGap ?? chrome.horizontalSpace],
             ["horizontal-space-control", chrome.horizontalSpaceControl ?? chrome.horizontalSpace],
             // No legacy singular fallback: this nudge role didn't exist before the split either.
@@ -617,6 +637,7 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string") &&
         (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string") &&
         (value.horizontalSpaceInset === undefined || typeof value.horizontalSpaceInset === "string") &&
+        (value.horizontalSpaceContentInset === undefined || typeof value.horizontalSpaceContentInset === "string") &&
         (value.horizontalSpaceItemGap === undefined || typeof value.horizontalSpaceItemGap === "string") &&
         (value.horizontalSpaceControl === undefined || typeof value.horizontalSpaceControl === "string") &&
         (value.horizontalSpaceStatic === undefined || typeof value.horizontalSpaceStatic === "string") &&

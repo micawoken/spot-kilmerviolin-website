@@ -1,32 +1,29 @@
 ---
-title: Database Management - Composers
-description: How to add, view, edit, delete, and list composers
+title: Composers
+description: View composers documentation
 author: Michael Wong
 ---
 
 ## Overview
 
-The Composers section lets you maintain the people credited as composers of the works in the
-database. The following actions are available from the [Composers home](/admin/composers):
+The Composers section lets you maintain the people credited as composers of the works in the database. The following actions are available from the [Composers menu](/admin/composers):
 
-- **Add new composer** — create a new composer record.
-- **View composer info** — look up an existing composer.
-- **Edit existing composer** — change a composer's details.
-- **Delete composer** — permanently remove a composer.
-- **List composers** — browse all composers currently stored.
+- **Add new composer** - create a new composer record
+- **View composer info** - look up an existing composer
+- **Edit existing composer** - change a composer's details
+- **Delete composer** - permanently remove a composer
+- **List composers** - browse all composers currently stored
+- **Import composers** - import composers to the database
 
-## Video Guide
-
-(YouTube embed here)
-
-## What is a composer (to the system)?
+## Composer Records
 A composer is a database record containing an individual's:
- - name,
- - birth year,
- - death year (or still alive),
- - country,
- - biography, and
- - tags.
+- name,
+- birth year,
+- death year (or still alive),
+- country,
+- biography,
+- citations, and
+- tags.
 
 ### Name
 Use their preferred name, if possible. If not possible, you may use an English or romanized version.
@@ -42,23 +39,24 @@ The country they are associated with
 A bit of nuance: "country" is not clearly defined since it could mean many different things. In general, use the country they were most strongly associated with, in your opinion.
 
 ### Biography
-A written biography from one of you guys!
+A written biography from one of you guys :)
+
+### Citations
+Citations using HTTPS URLs, ISBNs, or DOI numbers can be added.
 
 ### Tags
-Any common tags you want to associate with the composer. Currently, there is no system to use the tags, but one may be written in the future.
+Any common tags you want to associate with the composer.
 
-## How do I create a composer?
-Create a composer using the **Add new composer** link! You may do so if you have an active contributor record.
+## Create/Read/Update/Delete Composers
+To do these operations, access the relevant link.
 
-## How to I edit a composer?
-Edit a composer using the **Edit existing composer** link! Unlike compositions, composers are not associated with any contributor, so you can edit any composer so long as you have an active contributor record.
+## Import Composers
+To import a composer, you need to upload a CSV file in the following format:
+- header row: (all column names comma-separated; citations are not imported)
+- remaining rows: composers to import
 
-## How do I view a composer?
-You have three options:
-1. List all of the composers using **List composers**, and pick out the one you want;
-2. Look up the composer by ID number using **View composer info**, or
-3. Search for the composer using **View composer info**.
+Once uploaded, click "Load" to process the file. Fix any errors the system reports.
 
-## How do I delete a composer?
-Use **Delete composer**. Please note that if any compositions reference the composer you want to delete, you will not be allowed to delete the composer.
+Once errors are fixed, run server validation: the system will tell you what other problems there are.
 
+Once you fix the server-detected errors, you can complete import.
