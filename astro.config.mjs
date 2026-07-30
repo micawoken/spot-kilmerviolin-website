@@ -78,7 +78,7 @@ export default defineConfig({
             // KV_DB_CACHE namespace — EmDash namespaces its own keys; preview/visual-edit requests bypass it.
             objectCache: kvCache({ binding: "KV_DB_CACHE" }),
             auth: access({
-                teamDomain: "nrnnetint.cloudflareaccess.com",
+                teamDomain: "nrnnet.cloudflareaccess.com",
                 audienceEnvVar: "CF_ACCESS_AUD",
                 // EmDash Role.EDITOR. Must be set explicitly: the adapter's default is 30, which its own
                 // doc comment mislabels as "Editor" — 30 is AUTHOR, and EDITOR is 40. At 30 a CMS editor
