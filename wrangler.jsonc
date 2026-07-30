@@ -48,7 +48,7 @@
 		// domain for cache keys) and as the CORS fallback origin (see cors_fallback_origin in
 		// lib/api/http.ts) when a request has no allowlisted Origin. Should match one of the entries in
 		// ALLOWED_ORIGINS (src/consts.ts) for the current deployment's actual workers.dev/custom domain.
-		"WORKER_ORIGIN": "https://spot-kilmerviolin.nrnnetint.workers.dev",
+		"WORKER_ORIGIN": "https://spot-kilmerviolin.nrnnet.workers.dev",
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"REBUILD_COOLDOWN_SEC": 1800, // 30 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
 		// DB write gating is now determined dynamically by the runtime environment (see dbWriteEnabled in src/lib/api/environment.ts)
