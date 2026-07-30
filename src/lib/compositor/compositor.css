@@ -54,14 +54,17 @@
 	gap: var(--dtk-space-md, 1rem);
 }
 
-/* Section — full-width band; also a stacking container for its own content slot. */
+/* Section — full-width band; also a stacking container for its own content slot. Horizontal inset reads
+ * the theme's main-content role (tokens.ts SiteChromeRoles.horizontalSpaceContentInset), independent of
+ * the header/footer's own inset role — falls back to --dtk-space-md, unchanged from before that role
+ * existed, when the theme hasn't set it. */
 .cmp-section {
 	display: flex;
 	flex-direction: column;
 	gap: var(--dtk-space-md, 1rem);
 	background: var(--cmp-section-bg, transparent);
 	padding-block: var(--cmp-section-py, 0);
-	padding-inline: var(--dtk-space-md, 1rem);
+	padding-inline: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-space-md, 1rem));
 	border-radius: var(--cmp-section-radius, 0);
 	border-width: var(--cmp-section-border-width, 0);
 	border-style: var(--cmp-section-border-style, none);

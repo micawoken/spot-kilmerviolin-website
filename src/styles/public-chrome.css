@@ -19,20 +19,33 @@
  * built-in look, and a theme authored before Site Chrome existed (using only the magic names) keeps
  * rendering exactly as before until its owner opens the editor and sets the roles explicitly.
  *
- * The horizontal inset is `--dtk-space-md`: the compositor has no content container and hardwires every
- * Section's inset to that token (compositor.css .cmp-section), so matching it here aligns the header,
- * footer, and untemplated article content to the same reading column the design pages use.
+ * The horizontal inset defaults to `--dtk-space-md`: the compositor has no content container, so
+ * `.cmp-section` (compositor.css) and the main-content rules below (`main > article`, unwrapped `main`,
+ * static pages) fall back to that token when the theme hasn't set an inset role, aligning the header,
+ * footer, and untemplated article content to the same reading column the design pages use by default.
  *
- * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain: `var(--dtk-chrome-<axis>-space-
- * <role>, var(--dtk-space-<name>, <literal>))`. Ten `--dtk-chrome-*-space-*` roles total (tokens.ts
+ * Header/footer and main content read SEPARATE inset roles so a theme can shrink the content column on
+ * phones (e.g. authoring its space token's value as `clamp(0px, 4vw, 1.5rem)`) without also collapsing
+ * the header/footer gutter: `-inset` (header nav, footer) vs. `-content-inset` (main/article, `.cmp-
+ * section`, static pages). The main-content rules below fall back to `-inset` when `-content-inset` is
+ * unset, so an already-configured theme's main-content spacing doesn't change until its owner splits the
+ * two roles apart explicitly; `.cmp-section` falls back straight to `--dtk-space-md` instead (see
+ * compositor.css), since it never read `-inset` in the first place.
+ *
+ * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain (main content's inset is a
+ * five-deep chain, with the extra `-inset` middle fallback above): `var(--dtk-chrome-<axis>-space-<role>,
+ * var(--dtk-space-<name>, <literal>))`. Eleven `--dtk-chrome-*-space-*` roles total (tokens.ts
  * SiteChromeRoles, the theme editor's "Site Chrome" → "Horizontal spacing"/"Vertical spacing" tables) let
  * the owner scale this chrome's rhythm by category, per axis, instead of one dial for everything or
  * hand-picking a named space token per declaration:
- *   - horizontal `-inset`      page edge padding (header nav, main/article, footer)
+ *   - horizontal `-inset`         header/footer edge padding
+ *   - horizontal `-content-inset` main-content edge padding (main/article, `.cmp-section`, static pages),
+ *                                 independent of the header/footer inset above
  *   - horizontal `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
  *   - horizontal `-control`    padding inside, and gaps between, interactive controls (the search box)
- *   - horizontal `-static`     extra inset ADDED on top of `-inset`, scoped only to the pre-generated
- *                              "static" pages below via their own `.static-page-body` marker class (never
+ *   - horizontal `-static`     extra inset ADDED on top of `-content-inset` (falling back to `-inset`),
+ *                              scoped only to the pre-generated "static" pages below via their own
+ *                              `.static-page-body` marker class (never
  *                              the header/footer/design pages, which don't carry that class — see the note
  *                              below on why this can't be inferred from `.cmp-section`'s absence instead)
  *   - vertical `-section`      rhythm separating major page blocks (article/unwrapped-content padding, grid/form margins)
@@ -138,7 +151,7 @@ header nav {
 	padding-block: var(--dtk-chrome-vertical-space-header, var(--dtk-space-section, 2.5rem));
 	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
 }
-@media (min-width: 720px) {
+@media (min-width: 850px) {
 	header nav {
 		grid-template-columns: auto 1fr auto;
 		grid-template-areas: "title nav toggle";
@@ -302,12 +315,16 @@ header .nav-links a:hover {
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 
+ul.nav-links {
+	flex-wrap: nowrap;
+}
+
 /* ---- Main / untemplated content ----
  * Only the Portable-Text branch wraps content in <article>; design pages render Puck Sections directly
  * and those own their inset, so scoping to `main > article` gives plain pages the same gutter and reading
  * column without double-insetting design pages. */
 main > article {
-	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)));
 	padding-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
@@ -325,7 +342,7 @@ main > article {
  * repeat, matches `main > article`); padding-block is restricted to :first-child/:last-child so consecutive
  * unwrapped elements only get outer-edge spacing, not doubled gaps between them. */
 main > :not(.cmp-section, article, .static-page-body) {
-	padding-inline: var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem));
+	padding-inline: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)));
 }
 main > :not(.cmp-section, article, .static-page-body):first-child {
 	padding-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
@@ -344,7 +361,7 @@ main > :not(.cmp-section, article, .static-page-body):last-child {
  * rule left that matches it — no specificity or source-order tie-break needed for either axis. */
 main > .static-page-body {
 	padding-inline: calc(
-		var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)) +
+		var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem))) +
 		var(--dtk-chrome-horizontal-space-static, 0px)
 	);
 	padding-top: calc(
