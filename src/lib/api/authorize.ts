@@ -65,7 +65,7 @@ export const roles: Record<string, RoleProfile> = {
         design_editor: true,
         rebuild: true
     },
-    designonly: {
+    designer: {
         overrides_lockout: false,
         lockout_ignore_admin: false,
         user_activation: false,
@@ -75,7 +75,7 @@ export const roles: Record<string, RoleProfile> = {
         design_editor: true,
         rebuild: true
     },
-    contentonly: {
+    pagewriter: {
         overrides_lockout: false,
         lockout_ignore_admin: false,
         user_activation: false,

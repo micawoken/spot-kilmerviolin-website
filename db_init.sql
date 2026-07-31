@@ -14,6 +14,29 @@ DROP TABLE IF EXISTS build_tokens;
 DROP TABLE IF EXISTS contributors;
 DROP TABLE IF EXISTS repertoire;
 
+-- WARNING: no contributors are enrolled; either use self-enrollment with the following command, or run the command documented later to enroll the first contributor
+-- UPDATE contributors SET admin=1 WHERE contributor_id=1;
+
+/*
+INSERT INTO contributors VALUES (
+    NULL,
+    "Your Name",
+    NULL,
+    NULL,
+    NULL,
+    "",
+    NULL,
+    "youremail@example.com",
+    1,
+    "",
+    1,
+    NULL,
+    "",
+    1704067200000,
+    1704067200000
+)
+*/
+
 CREATE TABLE contributors (
 contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT UNIQUE NOT NULL,
