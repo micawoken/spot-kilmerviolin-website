@@ -145,6 +145,26 @@
             z-index: 1;
         }
     </style>
+
+    <!--
+      Suppress EmDash's injected visual-editing toolbar. EmDash's request-context middleware injects it
+      into every SSR HTML response for an authenticated editor, with no path or environment gate, so it
+      also lands on this fallback page (middlewareErrorResponder / constructErrorPage in
+      src/lib/api/http.ts serve it for any 401/403/etc. that middleware/identity.ts raises before an Astro
+      page renders). Mirrors the same rule in AdminHead.astro/BaseHead.astro.
+    -->
+    <style>
+        #emdash-toolbar {
+            display: none !important;
+        }
+    </style>
+
+    <!--
+      Same-origin static file, not an inline script: this page's CSP (error_headers, stamped by
+      middleware/headers.ts's ADMIN_CSP for /admin paths) is script-src 'self' with no inline-script
+      allowance. See public/js/emdash-toolbar-strip.js and AdminHead.astro for the same pattern.
+    -->
+    <script src="/js/emdash-toolbar-strip.js"></script>
 </head>
 <body>
     <a class="skip-link" href="#error-main">Skip to content</a>
