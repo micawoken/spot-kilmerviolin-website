@@ -5,12 +5,55 @@
 
 import type { ContentBylineCredit, TaxonomyTerm, PortableTextBlock } from "emdash";
 
+export interface DesignPage {
+  id: string;
+  slug: string | null;
+  status: string;
+  title: string;
+  description?: string;
+  design: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  bylines?: ContentBylineCredit[];
+  terms?: Record<string, TaxonomyTerm[]>;
+}
+
+export interface DesignTemplate {
+  id: string;
+  slug: string | null;
+  status: string;
+  title: string;
+  collection: "pages" | "posts" | "composer" | "composition" | "contributor";
+  is_default?: boolean;
+  design: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  bylines?: ContentBylineCredit[];
+  terms?: Record<string, TaxonomyTerm[]>;
+}
+
+export interface DesignTheme {
+  id: string;
+  slug: string | null;
+  status: string;
+  tokens: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  bylines?: ContentBylineCredit[];
+  terms?: Record<string, TaxonomyTerm[]>;
+}
+
 export interface Page {
   id: string;
   slug: string | null;
   status: string;
   title: string;
   content?: PortableTextBlock[];
+  design?: string;
+  featured_image?: { id: string; src?: string; alt?: string; width?: number; height?: number; provider?: string; previewUrl?: string; meta?: Record<string, unknown> };
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
@@ -26,6 +69,7 @@ export interface Post {
   featured_image?: { id: string; src?: string; alt?: string; width?: number; height?: number; provider?: string; previewUrl?: string; meta?: Record<string, unknown> };
   content?: PortableTextBlock[];
   excerpt?: string;
+  design?: string;
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
@@ -35,6 +79,9 @@ export interface Post {
 
 declare module "emdash" {
   interface EmDashCollections {
+    design_page: DesignPage;
+    design_template: DesignTemplate;
+    design_theme: DesignTheme;
     pages: Page;
     posts: Post;
   }
