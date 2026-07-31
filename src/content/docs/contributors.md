@@ -1,5 +1,5 @@
 ---
-title: Database Management - Contributors
+title: Contributors
 description: View contributor documentation
 author: Michael Wong
 ---
