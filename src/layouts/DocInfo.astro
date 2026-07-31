@@ -56,11 +56,9 @@ const identity = Astro.locals.identity ?? null
     <body>
         <AdminHeader identity={identity} welcome={false} />
         <main>
-            <article>
-                <h1>{title}</h1>
-                <p>{description}</p>
-                <slot />
-            </article>
+            <h1>{title}</h1>
+            <p>{description}</p>
+            <slot />
         </main>
         <AdminFooter />
     </body>
