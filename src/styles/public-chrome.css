@@ -20,34 +20,32 @@
  * rendering exactly as before until its owner opens the editor and sets the roles explicitly.
  *
  * The horizontal inset defaults to `--dtk-space-md`: the compositor has no content container, so
- * `.cmp-section` (compositor.css) and the main-content rules below (`main > article`, unwrapped `main`,
- * static pages) fall back to that token when the theme hasn't set an inset role, aligning the header,
- * footer, and untemplated article content to the same reading column the design pages use by default.
+ * `.cmp-section` (compositor.css) and the main-content rules below (`main > article`, unwrapped `main` —
+ * which now covers the pre-generated "static" pages' own wrapper div too, see that rule's comment) fall
+ * back to that token when the theme hasn't set an inset role, aligning the header, footer, and untemplated
+ * article content to the same reading column the design pages use by default.
  *
  * Header/footer and main content read SEPARATE inset roles so a theme can shrink the content column on
  * phones (e.g. authoring its space token's value as `clamp(0px, 4vw, 1.5rem)`) without also collapsing
  * the header/footer gutter: `-inset` (header nav, footer) vs. `-content-inset` (main/article, `.cmp-
- * section`, static pages). The main-content rules below fall back to `-inset` when `-content-inset` is
- * unset, so an already-configured theme's main-content spacing doesn't change until its owner splits the
- * two roles apart explicitly; `.cmp-section` falls back straight to `--dtk-space-md` instead (see
- * compositor.css), since it never read `-inset` in the first place.
+ * section`, and every other unwrapped `main` child — including static pages, see below). The main-content
+ * rules below fall back to `-inset` when `-content-inset` is unset, so an already-configured theme's
+ * main-content spacing doesn't change until its owner splits the two roles apart explicitly; `.cmp-section`
+ * falls back straight to `--dtk-space-md` instead (see compositor.css), since it never read `-inset` in
+ * the first place.
  *
  * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain (main content's inset is a
  * five-deep chain, with the extra `-inset` middle fallback above): `var(--dtk-chrome-<axis>-space-<role>,
- * var(--dtk-space-<name>, <literal>))`. Eleven `--dtk-chrome-*-space-*` roles total (tokens.ts
+ * var(--dtk-space-<name>, <literal>))`. Nine `--dtk-chrome-*-space-*` roles total (tokens.ts
  * SiteChromeRoles, the theme editor's "Site Chrome" → "Horizontal spacing"/"Vertical spacing" tables) let
  * the owner scale this chrome's rhythm by category, per axis, instead of one dial for everything or
  * hand-picking a named space token per declaration:
  *   - horizontal `-inset`         header/footer edge padding
- *   - horizontal `-content-inset` main-content edge padding (main/article, `.cmp-section`, static pages),
- *                                 independent of the header/footer inset above
+ *   - horizontal `-content-inset` main-content edge padding (main/article, `.cmp-section`, and every other
+ *                                 unwrapped `main` child, including static pages), independent of the
+ *                                 header/footer inset above
  *   - horizontal `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
  *   - horizontal `-control`    padding inside, and gaps between, interactive controls (the search box)
- *   - horizontal `-static`     extra inset ADDED on top of `-content-inset` (falling back to `-inset`),
- *                              scoped only to the pre-generated "static" pages below via their own
- *                              `.static-page-body` marker class (never
- *                              the header/footer/design pages, which don't carry that class — see the note
- *                              below on why this can't be inferred from `.cmp-section`'s absence instead)
  *   - vertical `-section`      rhythm separating major page blocks (article/unwrapped-content padding, grid/form margins)
  *   - vertical `-header`       header nav's own top/bottom padding, independent of the footer's
  *   - vertical `-footer`       footer's own top/bottom padding and the margin above it, independent of the header's
@@ -55,25 +53,22 @@
  *                              link-row/copy stack, grid row-gaps)
  *   - vertical `-control`      vertical padding inside controls, and small margins tied to a control's own
  *                              content (search box padding, list-result cards, search result rows and captions)
- *   - vertical `-static`       extra top/bottom padding ADDED on top of `-section`, the vertical
- *                              counterpart to horizontal `-static`
  * Each role's own middle-link name and literal are chosen per role (not per declaration), so an unthemed
  * site renders one consistent value per role rather than the ad hoc per-declaration values this replaced —
  * see tokens.ts SiteChromeRoles for the exact declarations each role covers. A theme that authors one of
  * those `--dtk-space-*` names directly, or sets a spacing role, controls this chrome's rhythm too, not
  * just the design pages' (docs/dev/miscellaneous.txt "design tokens on static pages").
  *
- * The `-static` roles exist because the pre-generated pages below hardcode their own structure instead of
- * reading it from a design/entity template: nothing keeps them automatically in step with wherever an
- * EmDash-authored page's own inset/rhythm ends up, so unlike every other role here (a straight rename of
- * an already-shared value) these two are an owner-operated correction, additive and unset (0) by default.
- *
- * These pages are marked with their own `.static-page-body` class rather than matched by excluding
- * `.cmp-section`/`article`: Puck's `Render` wraps EVERY template's output — entity detail pages
- * (pages/entity/[noun]/[id].astro) and EmDash design pages ([...slug].astro) alike — in a plain
- * `.cmp-root` div (catalog.tsx's `root.render`), which is itself neither `.cmp-section` nor `article`. A
- * selector that only excludes those two would match `.cmp-root` too, silently applying the static-only
- * nudge to every templated page in the site the moment an owner sets it to a nonzero value.
+ * There used to be a second pair of roles here (`-static`, horizontal and vertical): the pre-generated
+ * "static" pages below hardcode their own structure instead of reading it from a design/entity template,
+ * and used to carry their own `.static-page-body` marker class with a dedicated CSS rule, so nothing kept
+ * that structure automatically in step with wherever a Puck-templated page's own inset/rhythm ended up —
+ * `-static` was an owner-operated, additive correction for whatever drift resulted. The main-content rule
+ * below now reads identically for `.cmp-root` (Puck's mandatory wrapper, catalog.tsx's `root.render`) and a
+ * static page's own wrapper div, and a separate rule fixes the one real structural bug that was causing
+ * drift in the first place (a top-level `Section`'s inset stacking with `.cmp-root`'s own — see the
+ * `.cmp-section` breakout rule below) — so there is no more drift left for a hand-tuned nudge to correct,
+ * and the roles were removed rather than left as a now-inert dial.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -328,50 +323,55 @@ main > article {
 	padding-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
-/* Baseline inset for design/template content placed directly under <main> with no Section wrapping it
- * (a template's outlets, or a design page authored without a Section — the compositor has no content
- * container of its own, so unwrapped output otherwise sits flush against the viewport; this also covers
- * every Puck-rendered page's `.cmp-root` wrapper itself, per catalog.tsx's `root.render`). `.cmp-section`
- * is excluded: it supplies its own inset and its background is meant to bleed edge-to-edge, so padding
- * `main` itself would shrink that bleed. `article` is excluded — already handled above. `.static-page-body`
- * is excluded too: it gets its own dedicated rule below, and it must not also match here — the
- * `:first-child`/`:last-child` qualifiers below give this rule higher specificity than the `.static-page-body`
- * rule's single class, so without this exclusion this baseline would always win on every static page (every
- * one of them renders `.static-page-body` as `main`'s only child, matching both pseudo-classes), permanently
- * overriding the `-static` nudge regardless of its value. Padding-inline applies per element (safe to
- * repeat, matches `main > article`); padding-block is restricted to :first-child/:last-child so consecutive
- * unwrapped elements only get outer-edge spacing, not doubled gaps between them. */
-main > :not(.cmp-section, article, .static-page-body) {
-	padding-inline: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)));
+/* Baseline inset for EVERY other direct child of <main> with no Section wrapping it — a template's
+ * outlets, a design page authored without a Section, and the pre-generated "static" pages' own
+ * hand-authored wrapper div (entity/index.astro + DatabaseRoot, entity/[noun]/index.astro, search.astro,
+ * search/advanced.astro) alike. One rule now covers both structures: Puck's `Render` always inserts exactly
+ * one `.cmp-root` wrapper as `main`'s only child (catalog.tsx's `root.render`), and each static page
+ * likewise renders exactly one wrapper div as `main`'s only child — neither needs a distinguishing marker
+ * class, because there is nothing left to distinguish: both get the identical inset, computed once against
+ * the body's own font size (a relative-unit token — e.g. a `clamp()` reading-width expression — would
+ * otherwise resolve differently per differently-sized child if applied to each piece of content
+ * individually). This replaces the pre-generated pages' old separate `.static-page-body` rule and its
+ * additive "-static" nudge roles: those existed only to hand-correct drift between two structures that
+ * independently computed their own inset, which this shared rule now makes structurally impossible.
+ *
+ * `--pc-content-inset` is read by the `.cmp-section` breakout rule just below, so the two stay in lockstep
+ * by construction rather than by a second, hand-copied reference to the same fallback chain.
+ *
+ * `.cmp-section` is excluded here: as a design page's TOP-LEVEL component it supplies its own inset via
+ * `--dtk-chrome-horizontal-space-content-inset` (compositor.css) and its background is meant to bleed to
+ * the true viewport edge — see the breakout rule below for how that happens now that `.cmp-root` sits
+ * between it and `main`. `article` is excluded — already handled above. Padding-inline applies per element
+ * (safe to repeat, matches `main > article`); padding-block is restricted to :first-child/:last-child so
+ * consecutive unwrapped elements only get outer-edge spacing, not doubled gaps between them — irrelevant
+ * for `.cmp-root` or a static page's wrapper (always `main`'s ONLY child, so always both), but still
+ * correct for a template with several bare, Section-free outlets in a row. */
+main > :not(.cmp-section, article) {
+	--pc-content-inset: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)));
+	padding-inline: var(--pc-content-inset);
 }
-main > :not(.cmp-section, article, .static-page-body):first-child {
+main > :not(.cmp-section, article):first-child {
 	padding-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
-main > :not(.cmp-section, article, .static-page-body):last-child {
+main > :not(.cmp-section, article):last-child {
 	padding-bottom: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
-/* The pre-generated "static" pages (entity/index.astro + DatabaseRoot, entity/[noun]/index.astro,
- * search.astro) each render exactly one marked `.static-page-body` wrapper as `main`'s only child, so the
- * `-static` nudge is scoped to that positive marker rather than folded into the exclusion rule above: a
- * Puck-rendered template page's `.cmp-root` wrapper also matches `:not(.cmp-section, article)` (it is
- * neither), so relying on that exclusion alone (without also naming `.static-page-body` there) would apply
- * this nudge to every templated page too, including entity detail pages, the moment an owner sets it to a
- * nonzero value. The rule above now excludes `.static-page-body` explicitly, so this is simply the only
- * rule left that matches it — no specificity or source-order tie-break needed for either axis. */
-main > .static-page-body {
-	padding-inline: calc(
-		var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem))) +
-		var(--dtk-chrome-horizontal-space-static, 0px)
-	);
-	padding-top: calc(
-		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
-		var(--dtk-chrome-vertical-space-static, 0px)
-	);
-	padding-bottom: calc(
-		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
-		var(--dtk-chrome-vertical-space-static, 0px)
-	);
+/* A top-level `Section` breaks back OUT of `.cmp-root`'s own inset (the rule above) instead of sitting
+ * doubly-inset inside it: `.cmp-root` is always `main`'s direct child, so it matches the rule above and
+ * carries `--pc-content-inset` (inherited down to this rule via ordinary custom-property inheritance) —
+ * but `.cmp-section` (compositor.css) ALSO applies that same inset unconditionally to itself regardless of
+ * nesting, so the two would otherwise stack into a doubled inset with no edge-to-edge bleed, contradicting
+ * `.cmp-section`'s own doc comment (compositor.css) and the exclusion above. Canceling `.cmp-root`'s
+ * padding here with an equal negative margin — on exactly its own direct-child `.cmp-section`s, NOT a
+ * Section nested deeper inside a Columns slot, which correctly keeps sitting inside its column's own width
+ * — restores both a single content inset and a true edge-to-edge background. Never reaches the Puck editor
+ * canvas: DesignEditor/ThemeEditor's preview iframe loads `compositor.css` directly and never this file, so
+ * `.cmp-root` has no ambient inset there for a Section to break out of — the editor already rendered a
+ * Section's inset correctly (singly) before this rule existed. */
+main > .cmp-root > .cmp-section {
+	margin-inline: calc(-1 * var(--pc-content-inset));
 }
 
 /* ---- Footer ---- */

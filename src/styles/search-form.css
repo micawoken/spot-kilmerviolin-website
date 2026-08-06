@@ -85,13 +85,13 @@
 
 /* The advanced form (/search/advanced) is a query container for everything below, so its filter grid sizes
  * itself against the width it actually has rather than against the viewport. That distinction is load-
- * bearing here, not stylistic: this form renders inside `.static-page-body`, whose horizontal padding is
- * `--dtk-chrome-horizontal-space-inset` + `--dtk-chrome-horizontal-space-static` (public-chrome.css) —
- * both owner-authored theme tokens. On the deployed theme that is 4.5rem per side, so a viewport-keyed
- * breakpoint fired ~9rem earlier than the grid could afford: the 3-column rule tripped at a 48rem viewport
- * while the grid held only 38rem, splitting it three ways and leaving a "between" field's two inputs about
- * 35px each. A theme edit moves that error by an arbitrary amount, which no fixed viewport number can
- * track. Container widths below are therefore real widths this grid has, not viewport sizes. */
+ * bearing here, not stylistic: this form's page wrapper is horizontally padded by
+ * `--dtk-chrome-horizontal-space-content-inset` (falling back to `-inset`, public-chrome.css) — an
+ * owner-authored theme token, which may itself be a `clamp()`/`vw` expression rather than a fixed length.
+ * A viewport-keyed breakpoint here previously fired far earlier than the grid could actually afford once
+ * that inset grew (a 3-column rule tripping while the grid held less width than it assumed), and a theme
+ * edit moves that error by an arbitrary amount, which no fixed viewport number can track. Container widths
+ * below are therefore real widths this grid has, not viewport sizes. */
 .search-advanced {
 	container: search-advanced / inline-size;
 }
