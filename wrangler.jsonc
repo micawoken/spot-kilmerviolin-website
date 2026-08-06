@@ -37,7 +37,7 @@
 		// & Logs > Web Analytics > Add a site > your site > Manage site > the "siteTag", NOT the beacon
 		// token used in the public <script> snippet — see CF_WEB_ANALYTICS_TOKEN in .env.example and DEPLOY.md).
 		// Left blank disables the admin analytics view (it renders a "not configured" message instead).
-		"CF_ANALYTICS_SITE_TAG": "",
+		"CF_ANALYTICS_SITE_TAG": "5dc8ad0bb3c74cbb8fe7a434edcbac97",
 		// the reserved domain used to generate placeholder sign-in emails for contributors with no real
 		// sign-in email (see FALLBACK_EMAIL_DOMAIN in src/lib/api/fallback.ts); change this when forking
 		// the project for a different deployment so generated fallback addresses don't collide with a
