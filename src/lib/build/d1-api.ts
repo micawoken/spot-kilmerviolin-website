@@ -46,7 +46,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { CONTRIBUTOR_SCHEMA, redactProtected } from "./d1-schema"
+import { CONTRIBUTOR_SCHEMA, isHiddenContributor, redactProtected } from "./d1-schema"
 
 /** Resolved build-time API configuration; null when any of the four env vars is unset. */
 interface BuildApiConfig {
@@ -219,12 +219,12 @@ export function fetchComposers(): Promise<ComposerRecord[] | null> {
 let composersCache: Promise<ComposerRecord[] | null> | null = null
 
 /**
- * Fetches every contributor record, unredacted, active or not. Exported for `entity-records.ts`'s
- * `buildReferenceIndex`, which needs `id`/`name`/`active` for EVERY contributor a composition might
- * reference — a composition may legitimately reference an inactive or otherwise non-public contributor,
- * and `name` alone is not a protected column. Never pass this array's rows to a public page directly;
- * only the resolved `{id, name, href}` reference the normalizer builds from it may reach a render — use
- * {@link fetchContributors} for a contributor's own public page.
+ * Fetches every contributor record, unredacted, hidden or not. Exported for `entity-records.ts`'s
+ * `buildReferenceIndex`, which needs `id`/`name`/`tags` for EVERY contributor a composition might
+ * reference — a composition may legitimately reference a hidden (or otherwise inactive-but-public)
+ * contributor, and `name` alone is not a protected column. Never pass this array's rows to a public page
+ * directly; only the resolved `{id, name, href}` reference the normalizer builds from it may reach a
+ * render — use {@link fetchContributors} for a contributor's own public page.
  *
  * Cached for the life of one build process (see {@link allContributorsCache}).
  *
@@ -240,20 +240,22 @@ export function fetchAllContributors(): Promise<ContributorRecord[] | null> {
 let allContributorsCache: Promise<ContributorRecord[] | null> | null = null
 
 /**
- * Fetches the contributor records eligible for their own public page: only `active` contributors, each
- * with its protected/identity columns (`roles`, `admin`, `identity_email`) stripped. The build-token
+ * Fetches the contributor records eligible for their own public page: every contributor NOT tagged
+ * `hidden` (see {@link isHiddenContributor}) — `active` no longer gates page existence, only
+ * authorization (CONTRIBUTOR_TABLE's `protected` comment, src/lib/api/tables.ts) — each with its
+ * protected/identity columns (`roles`, `admin`, `identity_email`, `active`) stripped. The build-token
  * endpoint branch returns the complete, unredacted set (same as the identity.admin branch) with no
- * active-filter, so this reader still redacts and filters itself — there is no server-side chokepoint
+ * hidden-filter, so this reader still redacts and filters itself — there is no server-side chokepoint
  * scoped to "public build reader" specifically.
  *
- * @returns active, redacted contributors, or null when the build API is unconfigured
+ * @returns redacted, non-hidden contributors, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails
  */
 export async function fetchContributors(): Promise<ContributorRecord[] | null> {
     const all = await fetchAllContributors()
     if (!all) return null
     return all
-        .filter((contributor) => contributor.active)
+        .filter((contributor) => !isHiddenContributor(contributor))
         .map((contributor) => redactProtected(CONTRIBUTOR_SCHEMA, contributor) as unknown as ContributorRecord)
 }
 

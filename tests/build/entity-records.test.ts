@@ -75,12 +75,19 @@ const inactiveContributor: D1Contributor = {
     active: 0
 }
 
+const hiddenContributor: D1Contributor = {
+    ...activeContributor,
+    contributor_id: 4,
+    name: "Hidden Hank",
+    tags: "hidden"
+}
+
 const composition: D1Composition = {
     composition_id: 10,
     name: "Concerto",
     composer_id: 1,
     contrib_primary_1: 2,
-    contrib_primary_2: 3, // references the INACTIVE contributor — the reference-fold regression case
+    contrib_primary_2: 3,
     contrib_addl: "3",
     author_secondary: "",
     type: "Chamber",
@@ -124,17 +131,23 @@ describe("buildReferenceIndex", () => {
         expect(refs.composer.get(1)?.hasPage).toBe(false)
     })
 
-    it("REGRESSION GUARD: hasPage is false for an inactive contributor even when the noun has a template — an inactive contributor never gets its own public page regardless of the composition template's status", () => {
+    it("hasPage is true for an INACTIVE contributor when the noun has a template — active no longer gates page existence, only a `hidden` tag does", () => {
         const contributorRecord = formatContribFromD1(inactiveContributor)
         const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES)
-        expect(refs.contributor.get(3)).toEqual({ name: "Retired Ray", hasPage: false })
+        expect(refs.contributor.get(3)).toEqual({ name: "Retired Ray", hasPage: true })
     })
 
-    it("REGRESSION GUARD: resolves an inactive contributor's NAME at all — must be built from the unredacted all-contributors list, not the active-only public list", () => {
-        // The whole point of buildReferenceIndex taking `allContributors`: an active-only caller would
-        // never see contributor 3 in its input at all, and every reference to it would resolve blank.
-        const refs = buildReferenceIndex([], [formatContribFromD1(inactiveContributor)], ALL_PAGES)
-        expect(refs.contributor.get(3)?.name).toBe("Retired Ray")
+    it("REGRESSION GUARD: hasPage is false for a contributor tagged `hidden` even when the noun has a template", () => {
+        const contributorRecord = formatContribFromD1(hiddenContributor)
+        const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES)
+        expect(refs.contributor.get(4)).toEqual({ name: "Hidden Hank", hasPage: false })
+    })
+
+    it("REGRESSION GUARD: resolves a hidden contributor's NAME at all — must be built from the unredacted all-contributors list, not fetchContributors' filtered public list", () => {
+        // The whole point of buildReferenceIndex taking `allContributors`: a filtered-list caller would
+        // never see contributor 4 in its input at all, and every reference to it would resolve blank.
+        const refs = buildReferenceIndex([], [formatContribFromD1(hiddenContributor)], ALL_PAGES)
+        expect(refs.contributor.get(4)?.name).toBe("Hidden Hank")
     })
 })
 
@@ -164,9 +177,11 @@ describe("entityRecords — composition (the reference-fold linchpin)", () => {
     it("flattens rating/publication_info back to flat columns and resolves every foreign key", () => {
         const composerRecord = formatCompFromD1(composer)
         const activeRecord = formatContribFromD1(activeContributor)
-        const inactiveRecord = formatContribFromD1(inactiveContributor)
-        const object = formatWorkFromD1(composition)
-        const refs = buildReferenceIndex([composerRecord], [activeRecord, inactiveRecord], ALL_PAGES)
+        const hiddenRecord = formatContribFromD1(hiddenContributor)
+        // References the HIDDEN contributor (id 4) — a local override, not the shared `composition`
+        // fixture, which buildRelatedWorksIndex's tests below also depend on referencing contributor 3.
+        const object = formatWorkFromD1({ ...composition, contrib_primary_2: 4, contrib_addl: "4" })
+        const refs = buildReferenceIndex([composerRecord], [activeRecord, hiddenRecord], ALL_PAGES)
 
         const [result] = entityRecords("composition", null, null, [object], refs)
 
@@ -181,10 +196,10 @@ describe("entityRecords — composition (the reference-fold linchpin)", () => {
 
         expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: "/entity/composer/1" })
         expect(result.entry.contrib_primary_1).toEqual({ id: 2, name: "Ada", href: "/entity/contributor/2" })
-        // REGRESSION GUARD: contrib_primary_2 references the INACTIVE contributor. Its name still
-        // resolves (unredacted map), but href is null — an inactive contributor has no public page.
-        expect(result.entry.contrib_primary_2).toEqual({ id: 3, name: "Retired Ray", href: null })
-        expect(result.entry.contrib_addl).toEqual([{ id: 3, name: "Retired Ray", href: null }])
+        // REGRESSION GUARD: contrib_primary_2 references the HIDDEN contributor. Its name still
+        // resolves (unredacted map), but href is null — a hidden contributor has no public page.
+        expect(result.entry.contrib_primary_2).toEqual({ id: 4, name: "Hidden Hank", href: null })
+        expect(result.entry.contrib_addl).toEqual([{ id: 4, name: "Hidden Hank", href: null }])
         expect(result.entry.author_secondary).toEqual([])
     })
 
