@@ -58,6 +58,9 @@ import {
 
 export type { ImportType }
 
+/** Either a plain server-reported message (BulkDryRunReport.rows[].issues) or a client BuildIssue. */
+type RowIssue = string | BuildIssue
+
 /** One preview row: the editable raw CSV cells plus the DOM handles used to update its status in place. */
 interface RowState {
     /** editable raw cell values keyed by CSV column name */
@@ -68,6 +71,12 @@ interface RowState {
     issueCell: HTMLTableCellElement
     /** the per-column editable inputs, so a specific field can be highlighted when it causes an issue */
     inputs: Record<string, HTMLInputElement>
+    /**
+     * Issues from the last server dry-run that named this row, kept until the row itself is edited. Server
+     * checks (FK/business rules) can catch things the client build never does, so a client-only recompute
+     * must not silently drop them from a row that hasn't changed — only editing that row invalidates them.
+     */
+    serverIssues: RowIssue[]
 }
 
 /** Requires an element by id, throwing a clear error if the page markup is missing it. */
@@ -130,9 +139,6 @@ export function initImport(type: ImportType): void {
         }
         return columns.includes(token) ? [token] : []
     }
-
-    /** Either a plain server-reported message (BulkDryRunReport.rows[].issues) or a client BuildIssue. */
-    type RowIssue = string | BuildIssue
 
     function issueMessage(issue: RowIssue): string {
         return typeof issue === "string" ? issue : issue.message
@@ -209,18 +215,28 @@ export function initImport(type: ImportType): void {
         return built
     }
 
-    /** Recomputes every row's issues, updates the summary, and gates the validate/commit buttons. */
-    function recompute(): void {
+    /**
+     * Repaints every row from its live client-computed issues merged with any still-relevant server issues
+     * (cleared per-row as soon as that row is edited — see the grid input handler), and returns how many rows
+     * are currently clean. Does not touch the validated/button-gating state; callers decide that separately.
+     */
+    function repaintRows(): number {
         const built = buildAll()
         let clean = 0
         built.forEach((result, index) => {
             const row = rows[index]
-            if (result.issues.length === 0) {
+            const issues: RowIssue[] = [...row.serverIssues, ...result.issues]
+            if (issues.length === 0) {
                 clean++
             }
-            markRow(row, result.issues)
+            markRow(row, issues)
         })
+        return clean
+    }
 
+    /** Recomputes every row's issues, updates the summary, and gates the validate/commit buttons. */
+    function recompute(): void {
+        const clean = repaintRows()
         const hasIssues = clean !== rows.length
         summaryBox.textContent =
             rows.length === 0
@@ -327,6 +343,9 @@ export function initImport(type: ImportType): void {
                 input.value = row.cells[column] ?? ""
                 input.addEventListener("input", () => {
                     row.cells[column] = input.value
+                    // this row's data changed, so its last server verdict no longer applies; other untouched
+                    // rows keep theirs (see repaintRows) until they are edited or the file is re-validated
+                    row.serverIssues = []
                     // editing a period may introduce/remove a distinct period, so refresh the phase-map UI
                     if (type === "works" && column === "contribution_period") {
                         renderPhaseMap()
@@ -413,7 +432,7 @@ export function initImport(type: ImportType): void {
                     cells[column] = record[column] ?? ""
                 }
                 const issueCell = document.createElement("td")
-                return { cells, tr: document.createElement("tr"), issueCell, inputs: {} }
+                return { cells, tr: document.createElement("tr"), issueCell, inputs: {}, serverIssues: [] }
             })
             renderPhaseMap()
             renderGrid()
@@ -431,27 +450,32 @@ export function initImport(type: ImportType): void {
         validateButton.disabled = true
         try {
             const report: BulkDryRunReport = await bulkDryRun(type, currentRecords())
+            // a fresh dry-run supersedes whatever server issues were previously attached to any row
+            for (const row of rows) {
+                row.serverIssues = []
+            }
             if (report.ok) {
                 validated = true
                 commitButton.disabled = false
-                // clear any stale highlights from a previous failed validation
-                for (const row of rows) {
-                    markRow(row, [])
-                }
+                repaintRows()
                 statusBox.textContent = `Server validation passed for all ${report.count} row(s). You may now import.`
             } else {
                 validated = false
                 commitButton.disabled = true
-                // push each row's server issues onto that row (status cell + row/field highlight) instead of
-                // dumping them all at the bottom, then point the admin at the first affected row
-                let firstFailing: RowState | null = null
+                // attach each row's server issues (status cell + row/field highlight) instead of dumping them
+                // all at the bottom; they persist across unrelated edits until that specific row is touched
                 for (const entry of report.rows) {
                     const row = rows[entry.index]
                     if (row === undefined) {
                         continue
                     }
-                    markRow(row, entry.issues)
-                    if (!entry.ok && firstFailing === null) {
+                    row.serverIssues = entry.issues
+                }
+                repaintRows()
+                let firstFailing: RowState | null = null
+                for (const entry of report.rows) {
+                    const row = rows[entry.index]
+                    if (row !== undefined && !entry.ok && firstFailing === null) {
                         firstFailing = row
                     }
                 }
