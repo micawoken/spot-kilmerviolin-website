@@ -89,10 +89,8 @@ const availableNouns = resolutions
 >
     {/* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
         font-relative expression) is computed once instead of once per differently-sized child — see the
-        matching comment in entity/[noun]/index.astro for the full reasoning. `static-page-body` is the
-        marker public-chrome.css's horizontal/vertical `-static` nudge targets (see that file), since this
-        page hardcodes its own structure rather than reading it from a design/entity template. */}
-    <div class="entity-index-body static-page-body">
+        matching comment in entity/[noun]/index.astro for the full reasoning. */}
+    <div class="entity-index-body">
         {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
             not a Puck design, so the component can never be placed here. */}
         <StaticBreadcrumbs current="Database" />

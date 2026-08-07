@@ -229,11 +229,6 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
         kind: "space"
     },
     {
-        key: "horizontalSpaceStatic",
-        label: "Static-page nudge (extra inset for /entity, /database, /search — on top of the page edge inset above)",
-        kind: "space"
-    },
-    {
         key: "verticalSpaceSection",
         label: "Section rhythm (main content, grid/form margins)",
         kind: "space"
@@ -256,11 +251,6 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     {
         key: "verticalSpaceControl",
         label: "Control padding & gap (search boxes, tiles, list-result cards, small captions)",
-        kind: "space"
-    },
-    {
-        key: "verticalSpaceStatic",
-        label: "Static-page nudge (extra top/bottom padding for /entity, /database, /search — on top of the section rhythm above)",
         kind: "space"
     }
 ]
@@ -292,15 +282,12 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     horizontalSpaceContentInset: [],
     horizontalSpaceItemGap: [],
     horizontalSpaceControl: [],
-    // The static-page nudge is brand new (no prior dial of any kind to migrate from).
-    horizontalSpaceStatic: [],
     // No legacy name or prior singular dial for vertical roles either — ship split from the start.
     verticalSpaceSection: [],
     verticalSpaceHeader: [],
     verticalSpaceFooter: [],
     verticalSpaceItemGap: [],
-    verticalSpaceControl: [],
-    verticalSpaceStatic: []
+    verticalSpaceControl: []
 }
 
 /** Converts a validated catalog into the string-row form the editor mutates. */

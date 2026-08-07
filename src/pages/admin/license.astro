@@ -1,72 +1,59 @@
 ---
-import BaseHead from "../../components/BaseHead.astro"
-import AdminHead from "../../components/AdminHead.astro"
-import AdminFooter from "../../components/AdminFooter.astro"
-import { ADMIN_PAGE_TITLE_PRFX } from "../../consts"
+import AdminDocument from "../../layouts/AdminDocument.astro"
 
 const date = new Date()
 ---
 
-<!doctype html>
-<html lang="en">
-    <head>
-        <BaseHead title={`${ADMIN_PAGE_TITLE_PRFX}Project License`} description="View project license information" />
-        <AdminHead />
-    </head>
-    <body>
-        <main class="admin-main" role="main">
-            <h1>Project License</h1>
-            <p>Thank you for using "Diversifying the Violin Curriculum for Private Teaching" administrative services. The following licenses describe who is responsible for this service and what rights, if any, you may have.</p>
-            <h2>Content License</h2>
-            <p>&copy; {date.getFullYear()} by the following contributors:</p>
-            <ul>
-                <li>Vanessa Cruz,</li>
-                <li>Cam Schwind,</li>
-                <li>Alyssa Spina,</li>
-                <li>Michael Wong,</li>
-                <li>Emma Kuegel,</li>
-                <li>Kenny Hoang, and</li>
-                <li>additional later contributors.</li>
-            </ul>
-            <p>All rights reserved by the respective copyright holders. Content contributed through the administrative services is licensed under the <a href="/terms-of-use">Terms of Use</a>. This license applies to any database entries or other content or designs they save to the website.</p>
-            <h2>Program License</h2>
-            <p>&copy; {date.getFullYear()} Michael Wong.</p>
-            <p>The program that generates and runs the administrative services is © 2026 Michael Wong. It is licensed under the <a
-                    href="https://www.gnu.org/licenses/agpl-3.0.html"
-                    target="_blank"
-                    rel="noopener noreferrer">GNU Affero General Public License, version 3 or later</a
-                >, and additional terms as specified below.</p>
-            <p>To view a copy of the complete license text that applies to this program, you can visit <a href="/license.txt" target="_blank" rel="noopener noreferrer">license.txt</a>. (This site's content management system may generate a <a href="/license">License</a> page as well.)</p>
-            <p>To obtain a copy of the source code, visit the program's <a href="https://github.com/micawoken/spot-kilmerviolin-website" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
-            <h3>AGPL Additional Terms</h3>
-            <p>
-                The following additional terms apply to this License, as incorporated under section 7 of the AGPL:
-            </p>
-            <ul>
-                <li>
-                    You shall include and preserve this License (the GNU Affero General Public License, version 3 or later) and these additional terms verbatim as a specific legal notice, including (but not limited to) in the Appropriate Legal Notices.
-                </li>
-                <li>
-                    You shall preserve the copyright notices, author attribution notices, and contributor attribution notices contained in README.md and CONTRIBUTORS.md.
-                </li>
-                <li>
-                    You shall not represent any modified works as the original unmodified work.
-                </li>
-                <li>
-                    You shall clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices.
-                </li>
-                <li>
-                    No rights under rights of publicity, personality, or similar rights in the identities of the authors and contributors are granted by this License.
-                </li>
-                <li>
-                    This License grants no rights to use the following trademarks: "Diversifying the Violin Curriculum for Private Teaching", "mwmsc.net" (and its variants, such as "go.mwmsc.net"), "michaelwongmusic.com", and "Michael Wong Music".
-                </li>
-            </ul>
-            <h3>Disclaimer</h3>
-            <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>
-            <h2>Contact</h2>
-            <p>For questions about the license, please contact <a href="mailto:kilmer@mwmsc.net">kilmer@mwmsc.net</a>. For security concerns, please contact <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>.</p>
-        </main>
-        <AdminFooter />
-    </body>
-</html>
+<AdminDocument title="Project License" description="View project license information">
+    <h2>Project License</h2>
+    <p>Thank you for using "Diversifying the Violin Curriculum for Private Teaching" administrative services. The following licenses describe who is responsible for this service and what rights, if any, you may have.</p>
+    <h3>Content License</h3>
+    <p>&copy; {date.getFullYear()} by the following contributors:</p>
+    <ul>
+        <li>Vanessa Cruz,</li>
+        <li>Cam Schwind,</li>
+        <li>Alyssa Spina,</li>
+        <li>Michael Wong,</li>
+        <li>Emma Kuegel,</li>
+        <li>Kenny Hoang, and</li>
+        <li>additional later contributors.</li>
+    </ul>
+    <p>All rights reserved by the respective copyright holders. Content contributed through the administrative services is licensed under the <a href="/terms-of-use">Terms of Use</a>. This license applies to any database entries or other content or designs they save to the website.</p>
+    <h3>Program License</h3>
+    <p>&copy; {date.getFullYear()} Michael Wong.</p>
+    <p>The program that generates and runs the administrative services is © 2026 Michael Wong. It is licensed under the <a
+            href="https://www.gnu.org/licenses/agpl-3.0.html"
+            target="_blank"
+            rel="noopener noreferrer">GNU Affero General Public License, version 3 or later</a
+        >, and additional terms as specified below.</p>
+    <p>To view a copy of the complete license text that applies to this program, you can visit <a href="/license.txt" target="_blank" rel="noopener noreferrer">license.txt</a>. (This site's content management system may generate a <a href="/license">License</a> page as well.)</p>
+    <p>To obtain a copy of the source code, visit the program's <a href="https://github.com/micawoken/spot-kilmerviolin-website" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
+    <h4>AGPL Additional Terms</h4>
+    <p>
+        The following additional terms apply to this License, as incorporated under section 7 of the AGPL:
+    </p>
+    <ul>
+        <li>
+            You shall include and preserve this License (the GNU Affero General Public License, version 3 or later) and these additional terms verbatim as a specific legal notice, including (but not limited to) in the Appropriate Legal Notices.
+        </li>
+        <li>
+            You shall preserve the copyright notices, author attribution notices, and contributor attribution notices contained in README.md and CONTRIBUTORS.md.
+        </li>
+        <li>
+            You shall not represent any modified works as the original unmodified work.
+        </li>
+        <li>
+            You shall clearly identify, if modifications were made, that modifications were made, in the Appropriate Legal Notices.
+        </li>
+        <li>
+            No rights under rights of publicity, personality, or similar rights in the identities of the authors and contributors are granted by this License.
+        </li>
+        <li>
+            This License grants no rights to use the following trademarks: "Diversifying the Violin Curriculum for Private Teaching", "mwmsc.net" (and its variants, such as "go.mwmsc.net"), "michaelwongmusic.com", and "Michael Wong Music".
+        </li>
+    </ul>
+    <h4>Disclaimer</h4>
+    <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>
+    <h3>Contact</h3>
+    <p>For questions about the license, please contact <a href="mailto:kilmer@mwmsc.net">kilmer@mwmsc.net</a>. For security concerns, please contact <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>.</p>
+</AdminDocument>

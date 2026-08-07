@@ -9,8 +9,10 @@
  * "dedicated block" noun. A foreign key (composer_id, contrib_primary_1, contrib_addl, …) is never
  * exposed as its raw id — declared here as "reference"/"referenceList", resolved to name+link by
  * `entity-records.ts`'s normalizer before render. Audit-only columns omitted (raw `*_id` PKs, `active`
- * — every rendered contributor is active by definition). `entry_date`/`change_date` exposed as "date"
- * for created/last-modified headers (owner decision).
+ * — an authorization-only column, stripped before a contributor record ever reaches this catalog; a
+ * rendered contributor's page existence depends on its `hidden` tag, not `active` — see
+ * `d1-schema.ts`'s `isHiddenContributor`). `entry_date`/`change_date` exposed as "date" for
+ * created/last-modified headers (owner decision).
  *
  * Public-page labels here are NOT shared with the admin's `composition-fields.ts` — that module keeps
  * its own ID-oriented labels ("Composer ID", "Secondary Author IDs") for `CompositionInfo.astro`;

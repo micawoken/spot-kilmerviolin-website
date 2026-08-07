@@ -163,10 +163,11 @@ export interface SiteChromeRoles {
     horizontalSpaceInset?: string
     /**
      * names a `space` token; how far MAIN CONTENT sits from the viewport edge — `main > article`,
-     * unwrapped `main` content (including NavTiles' outer padding-inline), `.cmp-section`, and static
-     * pages' base inset (before the `-static` nudge below). Independent of `horizontalSpaceInset`
+     * unwrapped `main` content (including NavTiles' outer padding-inline, and static pages' own wrapper
+     * — both share the same `main > :not(.cmp-section, article)` rule, so there is no separate static-page
+     * inset to author), and `.cmp-section`. Independent of `horizontalSpaceInset`
      * (header/footer): unset falls back to that role in the header/footer-shared rules (`main > article`,
-     * unwrapped `main`, static pages), so an already-configured theme doesn't lose main-content theming
+     * unwrapped `main`), so an already-configured theme doesn't lose main-content theming
      * the moment this role ships — but `.cmp-section` falls back straight to the built-in `--dtk-space-md`
      * default instead, since it never read `horizontalSpaceInset` in the first place (it hardcoded
      * `--dtk-space-md` directly). No legacy singular (`horizontalSpace`) fallback: this role didn't exist
@@ -185,13 +186,6 @@ export interface SiteChromeRoles {
      * header and search-page search boxes, and entity list-result cards.
      */
     horizontalSpaceControl?: string
-    /** names a `space` token; extra horizontal nudge ADDED on top of `horizontalSpaceInset`, scoped
-     * only to pre-generated, non-Puck "static" pages via their `main > .static-page-body` marker
-     * (entity index/list, `/entity`+`/database` root, `/search`) — NOT `main > :not(.cmp-section,
-     * article)`, which would also match every Puck-rendered template's `.cmp-root` wrapper and apply
-     * the nudge there too. Static pages hardcode their structure with no template to sync from — this
-     * is a manual dial to re-align them when they drift. Unset means no nudge (0). */
-    horizontalSpaceStatic?: string
     /** names a `space` token; vertical rhythm separating major page blocks — `main > article`/unwrapped
      * `main` top/bottom padding, NavTiles/entity-list grid margins, search-page form margin. Header/
      * footer have their own split-out roles below rather than sharing this one. */
@@ -212,9 +206,6 @@ export interface SiteChromeRoles {
      * cards (and their corner ID badge), and the search pages' scope note / result rows / result excerpts.
      */
     verticalSpaceControl?: string
-    /** names a `space` token; extra vertical nudge ADDED on top of `verticalSpaceSection`, same
-     * static-page scope `horizontalSpaceStatic` nudges horizontally (see that field). Unset = no nudge. */
-    verticalSpaceStatic?: string
 }
 
 export interface TokenCatalog {
@@ -487,9 +478,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
             // (compositor.css) falls back straight to --dtk-space-md instead, matching its prior behavior.
             ["horizontal-space-content-inset", chrome.horizontalSpaceContentInset],
             ["horizontal-space-item-gap", chrome.horizontalSpaceItemGap ?? chrome.horizontalSpace],
-            ["horizontal-space-control", chrome.horizontalSpaceControl ?? chrome.horizontalSpace],
-            // No legacy singular fallback: this nudge role didn't exist before the split either.
-            ["horizontal-space-static", chrome.horizontalSpaceStatic]
+            ["horizontal-space-control", chrome.horizontalSpaceControl ?? chrome.horizontalSpace]
         ]
         for (const [segment, name] of horizontalSpaceRoles) {
             if (name) emit(`--dtk-chrome-${segment}`, tokenVar("space", name))
@@ -502,8 +491,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
             ["vertical-space-header", chrome.verticalSpaceHeader],
             ["vertical-space-footer", chrome.verticalSpaceFooter],
             ["vertical-space-item-gap", chrome.verticalSpaceItemGap],
-            ["vertical-space-control", chrome.verticalSpaceControl],
-            ["vertical-space-static", chrome.verticalSpaceStatic]
+            ["vertical-space-control", chrome.verticalSpaceControl]
         ]
         for (const [segment, name] of verticalSpaceRoles) {
             if (name) emit(`--dtk-chrome-${segment}`, tokenVar("space", name))
@@ -640,13 +628,11 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.horizontalSpaceContentInset === undefined || typeof value.horizontalSpaceContentInset === "string") &&
         (value.horizontalSpaceItemGap === undefined || typeof value.horizontalSpaceItemGap === "string") &&
         (value.horizontalSpaceControl === undefined || typeof value.horizontalSpaceControl === "string") &&
-        (value.horizontalSpaceStatic === undefined || typeof value.horizontalSpaceStatic === "string") &&
         (value.verticalSpaceSection === undefined || typeof value.verticalSpaceSection === "string") &&
         (value.verticalSpaceHeader === undefined || typeof value.verticalSpaceHeader === "string") &&
         (value.verticalSpaceFooter === undefined || typeof value.verticalSpaceFooter === "string") &&
         (value.verticalSpaceItemGap === undefined || typeof value.verticalSpaceItemGap === "string") &&
-        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string") &&
-        (value.verticalSpaceStatic === undefined || typeof value.verticalSpaceStatic === "string")
+        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string")
     )
 }
 

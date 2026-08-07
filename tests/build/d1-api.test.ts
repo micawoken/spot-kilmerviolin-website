@@ -161,7 +161,7 @@ describe("outbound request shape", () => {
 })
 
 describe("fetchContributors — public listing", () => {
-    it("strips protected/identity columns and excludes inactive contributors", async () => {
+    it("strips protected/identity columns and excludes contributors tagged `hidden`, but keeps inactive ones", async () => {
         const { fetchContributors } = await freshD1Api()
         withConfig()
         vi.stubGlobal(
@@ -184,30 +184,47 @@ describe("fetchContributors — public listing", () => {
                         tags: []
                     },
                     {
+                        // REGRESSION GUARD: inactive, but not hidden — active no longer gates page
+                        // existence, so this record must still come through (redacted).
                         id: 2,
-                        name: "Grace",
+                        name: "Retired Ray",
                         class_year: null,
                         major: null,
                         phases: null,
                         bio: null,
                         public_email: null,
-                        identity_email: "grace@example.test",
+                        identity_email: "ray@example.test",
                         active: false,
                         roles: [],
                         admin: false,
                         image: null,
                         tags: []
+                    },
+                    {
+                        id: 3,
+                        name: "Hidden Hank",
+                        class_year: null,
+                        major: null,
+                        phases: null,
+                        bio: null,
+                        public_email: null,
+                        identity_email: "hank@example.test",
+                        active: true,
+                        roles: [],
+                        admin: false,
+                        image: null,
+                        tags: ["hidden"]
                     }
                 ])
             )
         )
 
         const result = await fetchContributors()
-        expect(result).toHaveLength(1)
+        expect(result?.map((c) => c.name).sort()).toEqual(["Ada", "Retired Ray"])
         expect(result?.[0]).not.toHaveProperty("identity_email")
         expect(result?.[0]).not.toHaveProperty("roles")
         expect(result?.[0]).not.toHaveProperty("admin")
-        expect(result?.[0].name).toBe("Ada")
+        expect(result?.[0]).not.toHaveProperty("active")
     })
 })
 

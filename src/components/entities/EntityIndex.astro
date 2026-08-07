@@ -78,10 +78,9 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         would each compute a different actual inset, drifting out of alignment with each other and with
         the header at some viewport widths. Applying the inset once, on one wrapper that inherits the
         body's own font size, keeps this page's whole content column aligned with the header at every
-        width. `static-page-body` is the marker public-chrome.css's horizontal/vertical `-static` nudge
-        targets (see that file), since this page hardcodes its own structure rather than reading it from a
-        design/entity template. */}
-    <div class="entity-index-body static-page-body">
+        width — the same reasoning, and the same `main > :not(.cmp-section, article)` rule, that a
+        Puck-rendered page's `.cmp-root` wrapper (catalog.tsx) relies on. */}
+    <div class="entity-index-body">
         <div class="entity-index-listing">
             {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
                 not a Puck design, so the component can never be placed here. Follows the same

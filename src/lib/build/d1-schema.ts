@@ -65,3 +65,16 @@ export function redactProtected(schema: BuildD1Schema, record: object): Record<s
     }
     return Object.fromEntries(Object.entries(record).filter(([key]) => !protectedKeys.includes(key)))
 }
+
+/**
+ * Tag value that excludes an otherwise-valid contributor record from prerendering. This is the ONLY
+ * page-existence exclusion for contributors — `active` (see CONTRIBUTOR_TABLE's `protected` comment in
+ * src/lib/api/tables.ts) gates authorization/permissions only, not whether a public page renders; a
+ * deactivated contributor still gets a page unless also tagged `hidden`.
+ */
+export const CONTRIBUTOR_HIDDEN_TAG = "hidden"
+
+/** Whether a contributor record is tagged to be excluded from prerendering (see {@link CONTRIBUTOR_HIDDEN_TAG}). */
+export function isHiddenContributor(record: ContributorRecord): boolean {
+    return record.tags.includes(CONTRIBUTOR_HIDDEN_TAG)
+}

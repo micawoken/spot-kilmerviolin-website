@@ -34,6 +34,7 @@
 import { entityHref } from "../compositor/composition-fields"
 import type { EntityNoun } from "../compositor/entity-fields"
 import { formatLifespan } from "../../scripts/format"
+import { isHiddenContributor } from "./d1-schema"
 
 /** One entity record, normalized to a flat `entry` every noun's render/listing reads uniformly. */
 export interface EntityRecord {
@@ -77,12 +78,15 @@ export interface EntityReferenceIndex {
 
 /**
  * Builds the reference index a composition's foreign keys resolve against. `allContributors` MUST be
- * the unredacted, all-contributors list (`fetchAllContributors` in d1-api.ts), NOT the active-only
- * public list — a composition may legitimately reference an inactive contributor; deriving the map
- * from the active-only list would silently blank every such reference (see d1-api.ts's
- * `fetchContributors` header). Only `id`/`name`/`active` read off it — nothing else from an inactive
- * contributor's record reaches a public page through this index. `nounHasPage`: whether each noun has
- * a resolved default template this build — a reference to a noun with no template has nowhere to link.
+ * the unredacted, all-contributors list (`fetchAllContributors` in d1-api.ts), NOT the
+ * `fetchContributors` public list — deriving the map from the filtered list would silently blank a
+ * reference to any hidden contributor (see d1-api.ts's `fetchContributors` header). Only `id`/`name`/
+ * `tags` read off it — nothing else from a hidden contributor's record reaches a public page through
+ * this index. `hasPage` for a contributor mirrors `fetchContributors`' own filter exactly
+ * (`!isHiddenContributor`), so a reference links if and only if that contributor's own page exists;
+ * `active` plays no part — a deactivated contributor still gets a page and a working hyperlink unless
+ * also tagged `hidden`. `nounHasPage`: whether each noun has a resolved default template this build — a
+ * reference to a noun with no template has nowhere to link.
  */
 export function buildReferenceIndex(
     composers: ComposerRecord[] | null,
@@ -96,7 +100,7 @@ export function buildReferenceIndex(
 
     const contributor = new Map<number, ReferenceTarget>()
     for (const record of allContributors ?? []) {
-        contributor.set(record.id, { name: record.name, hasPage: nounHasPage.contributor && record.active })
+        contributor.set(record.id, { name: record.name, hasPage: nounHasPage.contributor && !isHiddenContributor(record) })
     }
 
     return { composer, contributor }
