@@ -49,24 +49,25 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 // cookies/localStorage to track visitors), satisfying the analytics requirement in
 // docs/dev/miscellaneous.txt. Omitted entirely when unset, so a site with no token configured yet renders
 // with no beacon rather than a broken one.
+//
+// No integrity= hash on the beacon script below: Cloudflare updates beacon.min.js's contents server-side
+// without notice (it is not a versioned release), so pinning our own SRI hash would go stale and silently
+// block the script on their next update rather than protect against anything.
 const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.CF_WEB_ANALYTICS_TOKEN
+
+// Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
+// cross-document view transitions (theme-authored; see layouts/PublicPage.astro) never reveal a flash of
+// the wrong scheme. The color-scheme meta tag below is parsed synchronously with the rest of <head> and
+// tells the browser which UA default to use for anything not yet styled (scrollbars, form controls); the
+// inline <style> paints the exact --color-bg value from global.css (not just the UA's approximate dark
+// canvas) since it also parses synchronously, with no network round-trip. Keep the hex values in sync with
+// --color-bg in global.css (also duplicated in lib/templates/error.html for the same reason).
 ---
 
-<!-- Global Metadata -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-<!--
-  Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
-  cross-document view transitions (theme-authored; see layouts/PublicPage.astro) never reveal a flash of
-  the wrong scheme. The
-  color-scheme meta tag is parsed synchronously with the rest of <head> and tells the browser which UA
-  default to use for anything not yet styled (scrollbars, form controls); the inline <style> paints the
-  exact --color-bg value from global.css (not just the UA's approximate dark canvas) since it also
-  parses synchronously, with no network round-trip. Keep the hex values below in sync with --color-bg
-  in global.css (also duplicated in lib/templates/error.html for the same reason).
--->
 <meta name="color-scheme" content="light dark" />
 <style>
     html { background: #ffffff; }
@@ -75,35 +76,23 @@ const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.
     }
 </style>
 
-<!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
 
-<!-- Primary Meta Tags -->
 <title>{title}</title>
 <meta name="title" content={title} />
 <meta name="description" content={description} />
 
-<!-- Open Graph / Facebook -->
 <meta property="og:type" content="website" />
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 <meta property="og:image" content={new URL(image, Astro.url)} />
 
-<!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:url" content={Astro.url} />
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
 <meta property="twitter:image" content={new URL(image, Astro.url)} />
-
-<!--
-  Cloudflare Web Analytics: cookieless, no consent banner required (see the frontmatter comment above).
-  No integrity= hash: Cloudflare updates beacon.min.js's contents server-side without notice (it is not a
-  versioned release), so pinning our own SRI hash here would go stale and silently block the script on
-  their next update rather than protect against anything — that only applies to their own automatic
-  proxy-injected snippet, which manages its own hash, not this manually embedded one.
--->
 
 {
     webAnalyticsToken && (
