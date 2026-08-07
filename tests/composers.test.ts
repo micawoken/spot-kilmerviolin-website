@@ -128,3 +128,60 @@ describe("composer citations validation", () => {
         ).toBeTypeOf("string")
     })
 })
+
+// write-time sanitization (lib/api/sanitize.ts, wired in via sanitizeComposerFields): general hygiene
+// applied to every composer write, not just the CSV import pipeline (see the "both layers" decision)
+describe("composer write-time sanitization", () => {
+    it("trims and strips control characters from name/bio before validation", () => {
+        const nullByte = String.fromCharCode(0)
+        const record = makeComposer({ name: "  Sanitized Composer  ", bio: `  A ${nullByte}bio.  ` })
+        _stateTypeAssertCompleteComposer(record, false)
+        expect(record.name).toBe("Sanitized Composer")
+        expect(record.bio).toBe("A bio.")
+    })
+
+    it("case-unifies role against the AuthorRole enum", () => {
+        const record = makeComposer({ role: "ARRANGER" })
+        _stateTypeAssertCompleteComposer(record, false)
+        expect(record.role).toBe("arranger")
+    })
+
+    it("leaves a non-AuthorRole role as-is (just trimmed) rather than rejecting it", () => {
+        const record = makeComposer({ role: "  Ghostwriter  " })
+        expect(_stateTypeAssertCompleteComposer(record, false)).not.toBeTypeOf("string")
+        expect(record.role).toBe("Ghostwriter")
+    })
+
+    it("dedupes tags case-insensitively and trims each one", () => {
+        const record = makeComposer({ tags: [" Violin ", "violin", "Advanced"] })
+        _stateTypeAssertCompleteComposer(record, false)
+        expect(record.tags).toEqual(["Violin", "Advanced"])
+    })
+
+    it("a complete create with no tags key still passes (tags is optional)", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer(), false)).not.toBeTypeOf("string")
+    })
+
+    it("rejects a composer with too many distinct tags", () => {
+        const tags = Array.from({ length: 26 }, (_, i) => `tag${i}`)
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ tags }), false)).toBeTypeOf("string")
+    })
+
+    it("rejects a bio exceeding the max length", () => {
+        expect(_stateTypeAssertCompleteComposer(makeComposer({ bio: "x".repeat(5001) }), false)).toBeTypeOf("string")
+    })
+
+    it("prefers ISBN-13 in citations", () => {
+        const record = makeComposer({ citations: { Ref: "0-306-40615-2" } })
+        _stateTypeAssertCompleteComposer(record, false)
+        expect(record.citations).toEqual({ Ref: "9780306406157" })
+    })
+
+    it("normalizes name to NFC so a decomposed spelling is stored in its precomposed form", () => {
+        const combiningAcuteAccent = String.fromCharCode(0x0301)
+        const eAcutePrecomposed = String.fromCharCode(0xe9)
+        const record = makeComposer({ name: "Andre" + combiningAcuteAccent }) // decomposed "e" + combining accent
+        _stateTypeAssertCompleteComposer(record, false)
+        expect(record.name).toBe("Andr" + eAcutePrecomposed)
+    })
+})

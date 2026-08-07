@@ -29,7 +29,7 @@
  */
 
 import { env } from "cloudflare:workers"
-import { Key, WorkType } from "./common.ts"
+import { AuthorRole, Key, WorkType } from "./common.ts"
 import { SQLStatement } from "./sql.ts"
 import { dbWriteEnabled } from "./environment.ts"
 import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE } from "./tables.ts"
@@ -45,6 +45,8 @@ import {
     validateCitations,
     validateURIForType
 } from "./validation.ts"
+import { cleanText, canonicalEnumValue, normalizeUnicodeForm, preferIsbn13, sanitizeTags } from "./sanitize.ts"
+import { MAX_NAME_LENGTH, MAX_LONG_TEXT_LENGTH, MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD } from "../../consts.ts"
 
 /**
  * Schema for contributors table
@@ -581,14 +583,138 @@ const _allPositiveIntegers = (v: any[]) =>
 // wrongly test the enum's keys); used to enforce the closed option sets for a composition's type and key
 const _isEnumValue = (v: any, members: Record<string, string>) =>
     typeof v === "string" && (Object.values(members) as string[]).includes(v)
+// a required string field additionally bounded by a max length (block, not silently truncate, on overflow)
+const _invalidStringMaxLen = (maxLen: number) => (v: any) => typeof v !== "string" || v.length > maxLen
+// a nullable string field additionally bounded by a max length
+const _invalidNullableStringMaxLen = (maxLen: number) => (v: any) =>
+    (typeof v !== "string" && v !== null) || (typeof v === "string" && v.length > maxLen)
+// tags is optional (mirrors citations/_invalidOptionalObject — every existing caller either omits it or
+// supplies []) and, when present, must be an array of strings; length/count hygiene is enforced in
+// elementCheck. The array itself is already deduplicated/trimmed by the sanitize* functions below before
+// validation runs, so a violation reported here reflects the post-hygiene (deduplicated) list.
+const _tagsRule: FieldRule = {
+    invalid: (v) => v !== undefined && v !== null && !(v instanceof Array),
+    elementCheck: (v) => {
+        if (v === undefined || v === null) {
+            return null
+        }
+        if (!v.every((tag: any) => typeof tag === "string")) {
+            return "Record has invalid type for tags parameter"
+        }
+        const overLong = v.find((tag: string) => tag.length > MAX_TAG_LENGTH)
+        if (overLong !== undefined) {
+            return `Record has a tag exceeding ${MAX_TAG_LENGTH} characters`
+        }
+        if (v.length > MAX_TAGS_PER_RECORD) {
+            return `Record has too many tags (${v.length}); at most ${MAX_TAGS_PER_RECORD} are allowed`
+        }
+        return null
+    }
+}
+
+/** Trims and control-character-strips a present string field in place; an absent or non-string value is
+ *  left untouched so the field's own base type check still reports it accurately. */
+function cleanStringField(record: Record<string, any>, field: string): void {
+    if (typeof record[field] === "string") {
+        record[field] = cleanText(record[field])
+    }
+}
+
+const isPlainObject = (v: unknown): v is Record<string, any> => typeof v === "object" && v !== null && !Array.isArray(v)
+
+/**
+ * Applies the general sanitization rules (control-character/whitespace cleanup, name Unicode
+ * normalization, tag-list hygiene, role case-unification) to a composer record in place before it is
+ * validated. A value's own type is left alone (e.g. a non-string `name` still fails COMPOSER_SPEC's own
+ * type check afterwards), so this never changes the accept/reject decision for a structurally wrong value
+ * — only cleans up a well-typed one. Runs on both complete and partial records; an absent (undefined) field
+ * is a no-op for each step below, so partial mode only touches the fields actually present.
+ */
+function sanitizeComposerFields(record: Record<string, any>): void {
+    if (typeof record.name === "string") {
+        record.name = normalizeUnicodeForm(cleanText(record.name))
+    }
+    cleanStringField(record, "role")
+    if (typeof record.role === "string") {
+        record.role = canonicalEnumValue(record.role, Object.values(AuthorRole)) ?? record.role
+    }
+    cleanStringField(record, "bio")
+    cleanStringField(record, "image")
+    if (record.tags instanceof Array) {
+        record.tags = sanitizeTags(record.tags, MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD).tags
+    }
+    if (isPlainObject(record.citations)) {
+        for (const key of Object.keys(record.citations)) {
+            if (typeof record.citations[key] === "string") {
+                record.citations[key] = preferIsbn13(record.citations[key])
+            }
+        }
+    }
+}
+
+/** Same purpose as {@link sanitizeComposerFields}, for a contributor record. `roles` is a
+ *  permission-adjacent field (see database.ts's authorization note), so only whitespace/control-character
+ *  cleanup is applied to it — no dedup or case change, to avoid altering its semantics. */
+function sanitizeContributorFields(record: Record<string, any>): void {
+    if (typeof record.name === "string") {
+        record.name = normalizeUnicodeForm(cleanText(record.name))
+    }
+    cleanStringField(record, "major")
+    cleanStringField(record, "bio")
+    cleanStringField(record, "public_email")
+    cleanStringField(record, "identity_email")
+    cleanStringField(record, "image")
+    if (record.tags instanceof Array) {
+        record.tags = sanitizeTags(record.tags, MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD).tags
+    }
+    if (record.roles instanceof Array) {
+        record.roles = record.roles.map((role: any) => (typeof role === "string" ? cleanText(role) : role))
+    }
+}
+
+/** Same purpose as {@link sanitizeComposerFields}, for a composition record: also case-unifies `type`/`key`
+ *  against their closed option sets and prefers ISBN-13 in `publication_info.uri` and `citations`. */
+function sanitizeCompositionFields(record: Record<string, any>): void {
+    cleanStringField(record, "name")
+    cleanStringField(record, "part")
+    cleanStringField(record, "notes_pedagogical")
+    cleanStringField(record, "notes_historical")
+    cleanStringField(record, "notes_other")
+    cleanStringField(record, "image")
+    if (typeof record.type === "string") {
+        const trimmed = cleanText(record.type)
+        record.type = canonicalEnumValue(trimmed, Object.values(WorkType)) ?? trimmed
+    }
+    if (typeof record.key === "string") {
+        const trimmed = cleanText(record.key)
+        record.key = trimmed === "" ? trimmed : (canonicalEnumValue(trimmed, Object.values(Key)) ?? trimmed)
+    }
+    if (record.tags instanceof Array) {
+        record.tags = sanitizeTags(record.tags, MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD).tags
+    }
+    if (isPlainObject(record.publication_info)) {
+        cleanStringField(record.publication_info, "name")
+        cleanStringField(record.publication_info, "location")
+        if (typeof record.publication_info.uri === "string") {
+            record.publication_info.uri = preferIsbn13(record.publication_info.uri.trim())
+        }
+    }
+    if (isPlainObject(record.citations)) {
+        for (const key of Object.keys(record.citations)) {
+            if (typeof record.citations[key] === "string") {
+                record.citations[key] = preferIsbn13(record.citations[key])
+            }
+        }
+    }
+}
 
 /** Field spec for Contributor records. */
 const CONTRIBUTOR_SPEC: RecordSpec = {
-    name: { invalid: _invalidString },
+    name: { invalid: _invalidStringMaxLen(MAX_NAME_LENGTH) },
     // class_year, major, and phases are nullable columns, so null is accepted alongside their base types
     // class_year, when present, is a positive (4-digit) year
     class_year: { invalid: (v) => v !== null && (typeof v !== "number" || !isValidYear(v)) },
-    major: { invalid: _invalidNullableString },
+    major: { invalid: _invalidNullableStringMaxLen(MAX_NAME_LENGTH) },
     phases: {
         invalid: (v) => !(v instanceof Array) && v !== null,
         // phase numbers must be positive integers
@@ -597,7 +723,7 @@ const CONTRIBUTOR_SPEC: RecordSpec = {
                 ? "Record has invalid value for phases parameter (expected positive integers)"
                 : null
     },
-    bio: { invalid: _invalidNullableString },
+    bio: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
     public_email: { invalid: _invalidNullableEmail },
     // identity_email is filled with a generated fallback address before validation when blank, so by the
     // time it reaches here it is always a present, non-blank string and must be a valid email
@@ -611,26 +737,28 @@ const CONTRIBUTOR_SPEC: RecordSpec = {
                 : null
     },
     admin: { invalid: _invalidBoolean },
-    image: { invalid: _invalidNullableImage }
+    image: { invalid: _invalidNullableImage },
+    tags: _tagsRule
 }
 
 /** Field spec for Composer records. */
 const COMPOSER_SPEC: RecordSpec = {
-    name: { invalid: _invalidString },
-    role: { invalid: _invalidString },
+    name: { invalid: _invalidStringMaxLen(MAX_NAME_LENGTH) },
+    role: { invalid: _invalidStringMaxLen(MAX_NAME_LENGTH) },
     // birth_year is a positive (4-digit) year; death_year additionally permits the -1 "living" sentinel
     birth_year: { invalid: (v) => typeof v !== "number" || !isValidYear(v) },
     death_year: { invalid: (v) => typeof v !== "number" || !isValidYear(v, true) },
     // country is standardized to an ISO 3166-1 alpha-2 code (mirrors the client-side argParse check)
     country: { invalid: (v) => typeof v !== "string" || !isValidCountryCode(v) },
     image: { invalid: _invalidNullableImage },
-    bio: { invalid: _invalidNullableString },
+    bio: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
     // citations is optional (docs/dev/miscellaneous.txt); when present, every entry must be a non-blank
     // source name mapped to an https link, DOI, or ISBN (validateCitations)
     citations: {
         invalid: _invalidOptionalObject,
         elementCheck: (v) => (v === undefined || v === null ? null : validateCitations(v))
-    }
+    },
+    tags: _tagsRule
 }
 
 /**
@@ -640,6 +768,9 @@ const COMPOSER_SPEC: RecordSpec = {
  * @returns the record as a Contributor type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertCompleteContributor(record: unknown, expect_id: boolean = true): Contributor | string {
+    if (isPlainObject(record)) {
+        sanitizeContributorFields(record)
+    }
     const result = assertRecordBySpec(record, CONTRIBUTOR_SPEC, false, expect_id)
     return result === true ? (record as Contributor) : result
 }
@@ -654,6 +785,9 @@ export function _stateTypeAssertPartialContributor(
     record: unknown,
     expect_id: boolean = true
 ): Partial<Contributor> | string {
+    if (isPlainObject(record)) {
+        sanitizeContributorFields(record)
+    }
     const result = assertRecordBySpec(record, CONTRIBUTOR_SPEC, true, expect_id)
     return result === true ? (record as Partial<Contributor>) : result
 }
@@ -683,6 +817,9 @@ function composerYearsConsistent(record: { [key: string]: any }): true | string 
  * @returns the record as a Composer type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boolean = true): Composer | string {
+    if (isPlainObject(record)) {
+        sanitizeComposerFields(record)
+    }
     const result = assertRecordBySpec(record, COMPOSER_SPEC, false, expect_id)
     if (result !== true) {
         return result
@@ -701,6 +838,9 @@ export function _stateTypeAssertPartialComposer(
     record: unknown,
     expect_id: boolean = true
 ): Partial<Composer> | string {
+    if (isPlainObject(record)) {
+        sanitizeComposerFields(record)
+    }
     const result = assertRecordBySpec(record, COMPOSER_SPEC, true, expect_id)
     if (result !== true) {
         return result
@@ -759,8 +899,8 @@ function validatePubInfo(record: unknown, partial: boolean = false): boolean {
     }
     const r = record as { [key: string]: any }
     const tests: boolean[] = [
-        "location" in r ? typeof r.location === "string" : false,
-        "name" in r ? typeof r.name === "string" : false,
+        "location" in r ? typeof r.location === "string" && r.location.length <= MAX_NAME_LENGTH : false,
+        "name" in r ? typeof r.name === "string" && r.name.length <= MAX_NAME_LENGTH : false,
         // the publication year must be a positive integer (a 4-digit year is the expected form)
         "year" in r ? isValidYear(r.year) : false,
         "uri_type" in r ? typeof r.uri_type === "string" : false,
@@ -800,11 +940,11 @@ function validatePubInfoDetail(record: unknown, partial: boolean): string | null
     }
     const r = record as { [key: string]: any }
     // present-but-malformed subproperty (including the uri_type authority checks); report the first one
-    if ("location" in r && typeof r.location !== "string") {
-        return "Record has invalid value for publish_location (expected text)"
+    if ("location" in r && (typeof r.location !== "string" || r.location.length > MAX_NAME_LENGTH)) {
+        return `Record has invalid value for publish_location (expected text, ${MAX_NAME_LENGTH} characters or fewer)`
     }
-    if ("name" in r && typeof r.name !== "string") {
-        return "Record has invalid value for publish_name (expected text)"
+    if ("name" in r && (typeof r.name !== "string" || r.name.length > MAX_NAME_LENGTH)) {
+        return `Record has invalid value for publish_name (expected text, ${MAX_NAME_LENGTH} characters or fewer)`
     }
     if ("year" in r && !isValidYear(r.year)) {
         return "Record has invalid value for publish_year (expected a valid year)"
@@ -863,7 +1003,7 @@ function validateCompRatingDetail(record: unknown, partial: boolean): string | n
 
 /** Field spec for Composition records. */
 const COMPOSITION_SPEC: RecordSpec = {
-    name: { invalid: _invalidString },
+    name: { invalid: _invalidStringMaxLen(MAX_NAME_LENGTH) },
     // id references must be positive integers (1-based record ids)
     composer_id: { invalid: (v) => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
     contrib_primary_1: { invalid: (v) => typeof v !== "number" || !Number.isInteger(v) || v < 1 },
@@ -891,7 +1031,7 @@ const COMPOSITION_SPEC: RecordSpec = {
     },
     // type is a required, closed option set: the value must be one of the WorkType enum values
     type: { invalid: (v) => !_isEnumValue(v, WorkType) },
-    part: { invalid: _invalidNullableString },
+    part: { invalid: _invalidNullableStringMaxLen(MAX_NAME_LENGTH) },
     // key is nullable and a blank string is tolerated (mapped to a cleared value); a non-blank value must
     // be one of the Key enum values
     key: { invalid: (v) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !_isEnumValue(v, Key))) },
@@ -901,9 +1041,9 @@ const COMPOSITION_SPEC: RecordSpec = {
     position_highest: {
         invalid: (v) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidPosition(v)))
     },
-    notes_pedagogical: { invalid: _invalidNullableString },
-    notes_historical: { invalid: _invalidNullableString },
-    notes_other: { invalid: _invalidNullableString },
+    notes_pedagogical: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
+    notes_historical: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
+    notes_other: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
     image: { invalid: _invalidNullableImage },
     // rating is nullable only in complete mode; in partial mode a present rating must validate. The base
     // check only rejects the hard cases (a non-object, or a null where null is not allowed); the granular
@@ -924,7 +1064,8 @@ const COMPOSITION_SPEC: RecordSpec = {
     citations: {
         invalid: _invalidOptionalObject,
         elementCheck: (v) => (v === undefined || v === null ? null : validateCitations(v))
-    }
+    },
+    tags: _tagsRule
 }
 
 /**
@@ -934,6 +1075,9 @@ const COMPOSITION_SPEC: RecordSpec = {
  * @returns the record as a Composition type if valid, or a string error message if invalid
  */
 export function _stateTypeAssertCompleteComposition(record: unknown, expect_id: boolean = true): Composition | string {
+    if (isPlainObject(record)) {
+        sanitizeCompositionFields(record)
+    }
     const result = assertRecordBySpec(record, COMPOSITION_SPEC, false, expect_id)
     return result === true ? (record as Composition) : result
 }
@@ -948,6 +1092,9 @@ export function _stateTypeAssertPartialComposition(
     record: unknown,
     expect_id: boolean = true
 ): Partial<Composition> | string {
+    if (isPlainObject(record)) {
+        sanitizeCompositionFields(record)
+    }
     const result = assertRecordBySpec(record, COMPOSITION_SPEC, true, expect_id)
     return result === true ? (record as Partial<Composition>) : result
 }
