@@ -43,6 +43,7 @@ import {
     compositionKey,
     normalizeName,
     indexByName,
+    indexByNameRole,
     buildRecord,
     flagCompositionDuplicates,
     flagNameDuplicates
@@ -177,18 +178,29 @@ export function initImport(type: ImportType): void {
         return columnsFromIssue(issueMessage(issue))
     }
 
-    /** Renders a row's issues in place: updates its status cell, row highlight, and per-field input highlights. */
-    function markRow(row: RowState, issues: RowIssue[]): void {
+    /**
+     * Renders a row's issues/warnings in place: updates its status cell, row highlight, and per-field input
+     * highlights. Warnings (e.g. "uri_type was inferred") never block the row — they are informational only,
+     * so a warning-only row still reads "ok" for row/input highlighting purposes but keeps its message
+     * visible in the status cell.
+     */
+    function markRow(row: RowState, issues: RowIssue[], warnings: BuildIssue[]): void {
         for (const input of Object.values(row.inputs)) {
             input.classList.remove("import-input-error")
         }
         if (issues.length === 0) {
-            row.issueCell.textContent = "ok"
-            row.issueCell.className = "import-issue import-issue-ok"
+            if (warnings.length === 0) {
+                row.issueCell.textContent = "ok"
+                row.issueCell.className = "import-issue import-issue-ok"
+            } else {
+                row.issueCell.textContent = warnings.map(issueMessage).join("; ")
+                row.issueCell.className = "import-issue import-issue-warning"
+            }
             row.tr.classList.remove("import-row-error")
             return
         }
-        row.issueCell.textContent = issues.map(issueMessage).join("; ")
+        const parts = [...issues.map(issueMessage), ...warnings.map((warning) => `note: ${issueMessage(warning)}`)]
+        row.issueCell.textContent = parts.join("; ")
         row.issueCell.className = "import-issue import-issue-error"
         row.tr.classList.add("import-row-error")
         const columnsToFlag = new Set<string>()
@@ -216,9 +228,10 @@ export function initImport(type: ImportType): void {
     }
 
     /**
-     * Repaints every row from its live client-computed issues merged with any still-relevant server issues
-     * (cleared per-row as soon as that row is edited — see the grid input handler), and returns how many rows
-     * are currently clean. Does not touch the validated/button-gating state; callers decide that separately.
+     * Repaints every row from its live client-computed issues/warnings merged with any still-relevant server
+     * issues (cleared per-row as soon as that row is edited — see the grid input handler), and returns how
+     * many rows are currently clean (warning-only rows count as clean). Does not touch the
+     * validated/button-gating state; callers decide that separately.
      */
     function repaintRows(): number {
         const built = buildAll()
@@ -229,7 +242,7 @@ export function initImport(type: ImportType): void {
             if (issues.length === 0) {
                 clean++
             }
-            markRow(row, issues)
+            markRow(row, issues, result.warnings)
         })
         return clean
     }
@@ -378,6 +391,11 @@ export function initImport(type: ImportType): void {
             listWork(true) as Promise<Array<{ composer_id: number; name: string; part: string | null }> | null>
         ])
         const composerIndex = indexByName((composers ?? []).map((record) => ({ id: record.id, name: record.name })))
+        const composerByNameRole = indexByNameRole(
+            (composers ?? [])
+                .filter((record): record is NamedRecordLike & { role: string } => typeof record.role === "string")
+                .map((record) => ({ id: record.id, name: record.name, role: record.role }))
+        )
         const contributorIndex = indexByName(
             (contributors ?? []).map((record) => ({ id: record.id, name: record.name }))
         )
@@ -387,6 +405,7 @@ export function initImport(type: ImportType): void {
         }
         return {
             composerByName: composerIndex.byName,
+            composerByNameRole,
             contributorByName: contributorIndex.byName,
             composerNames: composerIndex.names,
             contributorNames: contributorIndex.names,

@@ -38,6 +38,7 @@ import {
     flagCompositionDuplicates,
     flagNameDuplicates,
     indexByName,
+    indexByNameRole,
     parsePhases,
     compositionKey,
     normalizeName,
@@ -45,6 +46,9 @@ import {
     type BuildIssue
 } from "../src/scripts/import_build.ts"
 import { composer_csv_columns, composition_csv_columns } from "../src/scripts/types.ts"
+
+/** Plain message text for warnings, for assertions that don't care about column tagging. */
+const warningMessages = (warnings: BuildIssue[]): string[] => warnings.map((warning) => warning.message)
 
 /** Plain message text for issues, for assertions that don't care about column tagging. */
 const messages = (issues: BuildIssue[]): string[] => issues.map((issue) => issue.message)
@@ -151,7 +155,13 @@ function compositionCells(overrides: Record<string, string> = {}): Record<string
 describe("buildComposer", () => {
     it("normalizes the country, splits tags, and nulls blank optional fields", () => {
         const { record, issues } = buildComposer(
-            composerCells({ name: "Amy Beach", country: " us ", tags: "romantic; american", birth_year: "1867" })
+            composerCells({
+                name: "Amy Beach",
+                role: "composer",
+                country: " us ",
+                tags: "romantic; american",
+                birth_year: "1867"
+            })
         )
         expect(issues).toEqual([])
         expect(record.country).toBe("US")
@@ -162,9 +172,61 @@ describe("buildComposer", () => {
     })
 
     it("flags a blank name", () => {
-        const { issues } = buildComposer(composerCells({ name: "  " }))
+        const { issues } = buildComposer(composerCells({ name: "  ", role: "composer" }))
         expect(messages(issues)).toContain("name is required")
         expect(issues[0].column).toBe("name")
+    })
+
+    it("flags a blank role", () => {
+        const { issues } = buildComposer(composerCells({ name: "Amy Beach", role: "  " }))
+        expect(messages(issues)).toContain("role is required")
+        expect(issues.find((issue) => issue.message === "role is required")?.column).toBe("role")
+    })
+
+    it("case-unifies role against the AuthorRole enum", () => {
+        const { record } = buildComposer(composerCells({ name: "Amy Beach", role: "ARRANGER" }))
+        expect(record.role).toBe("arranger")
+    })
+
+    it("leaves a non-AuthorRole role as-is (just trimmed)", () => {
+        const { record, issues } = buildComposer(composerCells({ name: "Amy Beach", role: "  Ghostwriter  " }))
+        expect(issues).toEqual([])
+        expect(record.role).toBe("Ghostwriter")
+    })
+
+    it("strips control characters and trims whitespace from name/bio", () => {
+        const nullByte = String.fromCharCode(0)
+        const { record } = buildComposer(
+            composerCells({ name: "  Amy Beach  ", role: "composer", bio: `  A ${nullByte}bio.  ` })
+        )
+        expect(record.name).toBe("Amy Beach")
+        expect(record.bio).toBe("A bio.")
+    })
+
+    it("accepts a valid image URL/path", () => {
+        const { issues } = buildComposer(
+            composerCells({ name: "Amy Beach", role: "composer", image: "https://example.com/pic.jpg" })
+        )
+        expect(issues).toEqual([])
+    })
+
+    it("flags an invalid image value", () => {
+        const { issues } = buildComposer(composerCells({ name: "Amy Beach", role: "composer", image: "not a url" }))
+        expect(messages(issues)).toContain("image is not a valid URL or internal path")
+        expect(issues.find((issue) => issue.column === "image")).toBeDefined()
+    })
+
+    it("dedupes tags case-insensitively and trims each one", () => {
+        const { record } = buildComposer(
+            composerCells({ name: "Amy Beach", role: "composer", tags: " Romantic ; romantic; American" })
+        )
+        expect(record.tags).toEqual(["Romantic", "American"])
+    })
+
+    it("flags too many distinct tags", () => {
+        const tags = Array.from({ length: 26 }, (_, i) => `tag${i}`).join(";")
+        const { issues } = buildComposer(composerCells({ name: "Amy Beach", role: "composer", tags }))
+        expect(issues.some((issue) => /too many tags/.test(issue.message) && issue.column === "tags")).toBe(true)
     })
 })
 
@@ -188,18 +250,23 @@ describe("buildContributor", () => {
     })
 })
 
-// a resolution context with two composers and two contributors, no existing works, empty phase map
+// a resolution context with two composers (Bach also appears as an "arranger" under a second id, so
+// secondary-author role matching has something real to disambiguate) and two contributors, no existing
+// works, empty phase map
 function makeCtx(): WorksContext {
-    const composers = indexByName([
-        { id: 10, name: "Johann Sebastian Bach" },
-        { id: 11, name: "Amy Beach" }
-    ])
+    const composerRecords = [
+        { id: 10, name: "Johann Sebastian Bach", role: "composer" },
+        { id: 11, name: "Amy Beach", role: "composer" },
+        { id: 12, name: "Johann Sebastian Bach", role: "arranger" }
+    ]
+    const composers = indexByName(composerRecords)
     const contributors = indexByName([
         { id: 20, name: "Ada Lovelace" },
         { id: 21, name: "Grace Hopper" }
     ])
     return {
         composerByName: composers.byName,
+        composerByNameRole: indexByNameRole(composerRecords),
         contributorByName: contributors.byName,
         composerNames: composers.names,
         contributorNames: contributors.names,
@@ -218,7 +285,7 @@ describe("buildComposition", () => {
                 composer: "johann sebastian bach",
                 contrib_primary_1: "Ada Lovelace",
                 contrib_addl: "Grace Hopper",
-                author_secondary: "Amy Beach",
+                author_secondary: "Amy Beach (composer)",
                 type: "solo",
                 contribution_period: "Early years"
             }),
@@ -298,6 +365,223 @@ describe("buildComposition", () => {
     })
 })
 
+// base cells shared by the sanitization-focused buildComposition tests below: a minimally valid row with
+// every field an individual test doesn't care about left blank
+function baseCompositionCells(overrides: Record<string, string> = {}): Record<string, string> {
+    return compositionCells({
+        name: "Study",
+        composer: "Amy Beach",
+        contrib_primary_1: "Ada Lovelace",
+        type: "Chamber",
+        ...overrides
+    })
+}
+
+describe("buildComposition: secondary-author (name, role) matching", () => {
+    it("resolves an explicit role annotation to the matching role variant", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ author_secondary: "Johann Sebastian Bach (arranger)" }),
+            makeCtx()
+        )
+        expect(issues).toEqual([])
+        expect(record.author_secondary).toEqual([12]) // the "arranger" id, not the "composer" id (10)
+    })
+
+    it("defaults to the arranger role when no role annotation is given", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ author_secondary: "Johann Sebastian Bach" }),
+            makeCtx()
+        )
+        expect(issues).toEqual([])
+        expect(record.author_secondary).toEqual([12])
+    })
+
+    it("reports an unresolved (name, role) pairing, naming the assumed/given role", () => {
+        // Amy Beach exists only as "composer" — an unannotated secondary-author entry assumes "arranger",
+        // which does not exist for her, so this must be reported rather than silently resolving to id 11
+        const { issues } = buildComposition(baseCompositionCells({ author_secondary: "Amy Beach" }), makeCtx())
+        expect(issues.some((issue) => /unknown composer "Amy Beach" with role "arranger"/.test(issue.message))).toBe(
+            true
+        )
+    })
+
+    it("case-unifies an explicit role against AuthorRole before matching", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ author_secondary: "Johann Sebastian Bach (ARRANGER)" }),
+            makeCtx()
+        )
+        expect(issues).toEqual([])
+        expect(record.author_secondary).toEqual([12])
+    })
+})
+
+describe("buildComposition: type/key/image/tags", () => {
+    it("flags a blank type", () => {
+        const { issues } = buildComposition(baseCompositionCells({ type: "" }), makeCtx())
+        expect(issues.some((issue) => issue.message === "type is required" && issue.column === "type")).toBe(true)
+    })
+
+    it("case-unifies type against the WorkType enum", () => {
+        const { record } = buildComposition(baseCompositionCells({ type: "chamber" }), makeCtx())
+        expect(record.type).toBe("Chamber")
+    })
+
+    it("case-unifies key against the Key enum", () => {
+        const { record, warnings } = buildComposition(baseCompositionCells({ key: "c major" }), makeCtx())
+        expect(record.key).toBe("C Major")
+        expect(warnings).toEqual([])
+    })
+
+    it("takes the first of several semicolon-delimited keys and warns", () => {
+        const { record, warnings } = buildComposition(
+            baseCompositionCells({ key: "G Major; D Major" }),
+            makeCtx()
+        )
+        expect(record.key).toBe("G Major")
+        expect(warningMessages(warnings).some((message) => /multiple keys given/.test(message))).toBe(true)
+    })
+
+    it("accepts a valid image URL", () => {
+        const { issues } = buildComposition(
+            baseCompositionCells({ image: "https://example.com/pic.jpg" }),
+            makeCtx()
+        )
+        expect(issues).toEqual([])
+    })
+
+    it("flags an invalid image value", () => {
+        const { issues } = buildComposition(baseCompositionCells({ image: "not a url" }), makeCtx())
+        expect(issues.some((issue) => issue.column === "image")).toBe(true)
+    })
+
+    it("dedupes tags case-insensitively and flags too many", () => {
+        const { record } = buildComposition(
+            baseCompositionCells({ tags: " Fun ; fun; Recital" }),
+            makeCtx()
+        )
+        expect(record.tags).toEqual(["Fun", "Recital"])
+
+        const tooMany = Array.from({ length: 26 }, (_, i) => `tag${i}`).join(";")
+        const { issues } = buildComposition(baseCompositionCells({ tags: tooMany }), makeCtx())
+        expect(issues.some((issue) => /too many tags/.test(issue.message) && issue.column === "tags")).toBe(true)
+    })
+})
+
+describe("buildComposition: range cleanup", () => {
+    it("trims whitespace and title-cases each component", () => {
+        const { record } = buildComposition(baseCompositionCells({ range: " g3 - a5 " }), makeCtx())
+        expect(record.range).toBe("G3-A5")
+    })
+
+    it("respells a double-accidental component to its enharmonic equivalent", () => {
+        const { record } = buildComposition(baseCompositionCells({ range: "Fx3-A5" }), makeCtx())
+        expect(record.range).toBe("G3-A5")
+    })
+})
+
+describe("buildComposition: position_highest extraction", () => {
+    it("passes through an already-valid value unchanged, without a warning", () => {
+        const { record, warnings } = buildComposition(
+            baseCompositionCells({ position_highest: "III" }),
+            makeCtx()
+        )
+        expect(record.position_highest).toBe("III")
+        expect(warnings).toEqual([])
+    })
+
+    it("extracts a valid token from a messy value and warns", () => {
+        const { record, warnings } = buildComposition(
+            baseCompositionCells({ position_highest: "Position III (approx.)" }),
+            makeCtx()
+        )
+        expect(record.position_highest).toBe("III")
+        expect(
+            warningMessages(warnings).some((message) => /position_highest .* was interpreted as "III"/.test(message))
+        ).toBe(true)
+    })
+
+    it("leaves an unextractable value as-is (no client-side issue; the server dry-run reports it)", () => {
+        const { record, issues, warnings } = buildComposition(
+            baseCompositionCells({ position_highest: "unclear" }),
+            makeCtx()
+        )
+        expect(record.position_highest).toBe("unclear")
+        expect(issues).toEqual([])
+        expect(warnings).toEqual([])
+    })
+})
+
+describe("buildComposition: rating and publish_year digit extraction", () => {
+    it("extracts a rating from surrounding prose", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ rating_suzuki: "Level 5 stars" }),
+            makeCtx()
+        )
+        expect(issues).toEqual([])
+        expect(record.rating).toEqual({ suzuki: 5, nyssma: null })
+    })
+
+    it("extracts a publish_year from surrounding punctuation/prose", () => {
+        const { record } = buildComposition(
+            baseCompositionCells({
+                publish_name: "Test Press",
+                publish_location: "Boston",
+                publish_year: "c. 1923",
+                uri_type: "https",
+                uri: "https://example.com"
+            }),
+            makeCtx()
+        )
+        expect((record.publication_info as { year: number }).year).toBe(1923)
+    })
+})
+
+describe("buildComposition: uri_type inference and ISBN-13 preference", () => {
+    it("infers https from the uri's shape and warns", () => {
+        const { record, warnings } = buildComposition(
+            baseCompositionCells({
+                publish_name: "Test Press",
+                publish_location: "Boston",
+                publish_year: "2000",
+                uri: "https://example.com"
+            }),
+            makeCtx()
+        )
+        expect((record.publication_info as { uri_type: string }).uri_type).toBe("https")
+        expect(warningMessages(warnings).some((message) => /uri_type was not specified.*inferred "https"/.test(message))).toBe(
+            true
+        )
+    })
+
+    it("does not warn when uri_type was explicitly given", () => {
+        const { warnings } = buildComposition(
+            baseCompositionCells({
+                publish_name: "Test Press",
+                publish_location: "Boston",
+                publish_year: "2000",
+                uri_type: "https",
+                uri: "https://example.com"
+            }),
+            makeCtx()
+        )
+        expect(warningMessages(warnings).some((message) => /uri_type/.test(message))).toBe(false)
+    })
+
+    it("prefers ISBN-13 when the uri is a checksum-valid ISBN-10", () => {
+        const { record } = buildComposition(
+            baseCompositionCells({
+                publish_name: "Test Press",
+                publish_location: "Boston",
+                publish_year: "2000",
+                uri_type: "isbn",
+                uri: "0-306-40615-2"
+            }),
+            makeCtx()
+        )
+        expect((record.publication_info as { uri: string }).uri).toBe("9780306406157")
+    })
+})
+
 describe("parsePhases", () => {
     it("parses comma- and semicolon-separated phases, de-duplicating and sorting", () => {
         expect(parsePhases("2, 1; 2")).toEqual([1, 2])
@@ -312,7 +596,7 @@ describe("parsePhases", () => {
 describe("flagCompositionDuplicates", () => {
     it("flags a duplicate against the existing database", () => {
         const existing = new Set<string>([compositionKey(10, "Invention No. 1", null)])
-        const results = [{ record: { composer_id: 10, name: "Invention No. 1", part: null }, issues: [] as BuildIssue[] }]
+        const results = [{ record: { composer_id: 10, name: "Invention No. 1", part: null }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagCompositionDuplicates(results, existing)
         expect(messages(results[0].issues)).toContain(
             "a composition with this name and part already exists for this composer"
@@ -321,8 +605,8 @@ describe("flagCompositionDuplicates", () => {
 
     it("flags two rows with the same composer, name, and part within the file", () => {
         const results = [
-            { record: { composer_id: 10, name: "Prelude", part: "Violin I" }, issues: [] as BuildIssue[] },
-            { record: { composer_id: 10, name: "prelude", part: "violin i" }, issues: [] as BuildIssue[] }
+            { record: { composer_id: 10, name: "Prelude", part: "Violin I" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] },
+            { record: { composer_id: 10, name: "prelude", part: "violin i" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
         // second occurrence is flagged as a within-file duplicate (name and part compared case-insensitively)
@@ -333,8 +617,8 @@ describe("flagCompositionDuplicates", () => {
 
     it("does not flag same-name works by different composers", () => {
         const results = [
-            { record: { composer_id: 10, name: "Prelude", part: null }, issues: [] as BuildIssue[] },
-            { record: { composer_id: 11, name: "Prelude", part: null }, issues: [] as BuildIssue[] }
+            { record: { composer_id: 10, name: "Prelude", part: null }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] },
+            { record: { composer_id: 11, name: "Prelude", part: null }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
         expect(results[0].issues).toEqual([])
@@ -343,8 +627,8 @@ describe("flagCompositionDuplicates", () => {
 
     it("does not flag same-name works by the same composer with different parts", () => {
         const results = [
-            { record: { composer_id: 10, name: "Sonata", part: "Violin I" }, issues: [] as BuildIssue[] },
-            { record: { composer_id: 10, name: "Sonata", part: "Violin II" }, issues: [] as BuildIssue[] }
+            { record: { composer_id: 10, name: "Sonata", part: "Violin I" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] },
+            { record: { composer_id: 10, name: "Sonata", part: "Violin II" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }
         ]
         flagCompositionDuplicates(results, new Set<string>())
         expect(results[0].issues).toEqual([])
@@ -353,7 +637,7 @@ describe("flagCompositionDuplicates", () => {
 
     it("treats a null part and a blank part as the same part", () => {
         const existing = new Set<string>([compositionKey(10, "Etude", null)])
-        const results = [{ record: { composer_id: 10, name: "Etude", part: "" }, issues: [] as BuildIssue[] }]
+        const results = [{ record: { composer_id: 10, name: "Etude", part: "" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagCompositionDuplicates(results, existing)
         expect(messages(results[0].issues)).toContain(
             "a composition with this name and part already exists for this composer"
@@ -364,15 +648,15 @@ describe("flagCompositionDuplicates", () => {
 describe("flagNameDuplicates", () => {
     it("flags a name that already exists in the database", () => {
         const existing = new Set<string>([normalizeName("Amy Beach")])
-        const results = [{ record: { name: "amy   beach" }, issues: [] as BuildIssue[] }]
+        const results = [{ record: { name: "amy   beach" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagNameDuplicates(results, existing, "composer")
         expect(messages(results[0].issues)).toContain("a composer with this name already exists")
     })
 
     it("flags repeated names within the file (case-insensitive)", () => {
         const results = [
-            { record: { name: "Ada Lovelace" }, issues: [] as BuildIssue[] },
-            { record: { name: "ada lovelace" }, issues: [] as BuildIssue[] }
+            { record: { name: "Ada Lovelace" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] },
+            { record: { name: "ada lovelace" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }
         ]
         flagNameDuplicates(results, new Set<string>(), "contributor")
         expect(messages(results[0].issues)).toContain("duplicate contributor name within this file")
@@ -381,8 +665,8 @@ describe("flagNameDuplicates", () => {
 
     it("does not flag distinct names", () => {
         const results = [
-            { record: { name: "Ada Lovelace" }, issues: [] as BuildIssue[] },
-            { record: { name: "Grace Hopper" }, issues: [] as BuildIssue[] }
+            { record: { name: "Ada Lovelace" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] },
+            { record: { name: "Grace Hopper" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }
         ]
         flagNameDuplicates(results, new Set<string>(), "contributor")
         expect(results[0].issues).toEqual([])
@@ -391,11 +675,11 @@ describe("flagNameDuplicates", () => {
 
     it("keys composers on (name, role), not name alone (mirrors idx_composers_name_role)", () => {
         const existing = new Set<string>([`${normalizeName("Amy Beach")} ${normalizeName("composer")}`])
-        const sameNameDifferentRole = [{ record: { name: "Amy Beach", role: "arranger" }, issues: [] as BuildIssue[] }]
+        const sameNameDifferentRole = [{ record: { name: "Amy Beach", role: "arranger" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagNameDuplicates(sameNameDifferentRole, existing, "composer")
         expect(sameNameDifferentRole[0].issues).toEqual([]) // not a collision — different role
 
-        const sameNameSameRole = [{ record: { name: "amy   beach", role: "Composer" }, issues: [] as BuildIssue[] }]
+        const sameNameSameRole = [{ record: { name: "amy   beach", role: "Composer" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagNameDuplicates(sameNameSameRole, existing, "composer")
         expect(messages(sameNameSameRole[0].issues)).toContain("a composer with this name already exists")
     })
