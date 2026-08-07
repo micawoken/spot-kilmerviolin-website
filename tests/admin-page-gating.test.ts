@@ -119,7 +119,8 @@ const EXPECTED_ACCESS: Record<string, string> = {
     // site policy pages are always accessible
     "/admin/terms-of-use": "any",
     "/admin/privacy-policy": "any",
-    "/admin/security-policy": "any"
+    "/admin/security-policy": "any",
+    "/admin/license": "any"
 }
 
 /** Walks ADMIN_PAGE_STRUCTURE and yields every route path its keys describe. */
