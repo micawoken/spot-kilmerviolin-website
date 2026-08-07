@@ -252,6 +252,11 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
         key: "verticalSpaceControl",
         label: "Control padding & gap (search boxes, tiles, list-result cards, small captions)",
         kind: "space"
+    },
+    {
+        key: "verticalSpaceStatic",
+        label: "Static-page nudge (added on top of Section rhythm above — entity/database index, search, search/advanced only)",
+        kind: "space"
     }
 ]
 
@@ -287,7 +292,8 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     verticalSpaceHeader: [],
     verticalSpaceFooter: [],
     verticalSpaceItemGap: [],
-    verticalSpaceControl: []
+    verticalSpaceControl: [],
+    verticalSpaceStatic: []
 }
 
 /** Converts a validated catalog into the string-row form the editor mutates. */
