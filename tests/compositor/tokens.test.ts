@@ -346,6 +346,36 @@ describe("isTokenCatalog — site chrome vertical spacing roles", () => {
     })
 })
 
+describe("tokensToCss — site chrome vertical-space-static nudge", () => {
+    it("emits --dtk-chrome-vertical-space-static when set", () => {
+        const withStatic: TokenCatalog = {
+            ...catalog,
+            space: [...catalog.space, { name: "sm", value: "1rem" }],
+            siteChrome: { verticalSpaceStatic: "sm" }
+        }
+        expect(tokensToCss(withStatic)).toContain("--dtk-chrome-vertical-space-static: var(--dtk-space-sm);")
+    })
+
+    it("emits nothing for the static role when unset, independent of the other vertical roles", () => {
+        const withoutStatic: TokenCatalog = { ...catalog, siteChrome: { verticalSpaceSection: "md" } }
+        expect(tokensToCss(withoutStatic)).not.toContain("--dtk-chrome-vertical-space-static")
+    })
+})
+
+describe("isTokenCatalog — site chrome vertical-space-static role", () => {
+    it("accepts the static role alongside the other vertical roles", () => {
+        expect(
+            isTokenCatalog({
+                ...catalog,
+                siteChrome: { verticalSpaceSection: "md", verticalSpaceStatic: "sm" }
+            })
+        ).toBe(true)
+    })
+    it("rejects a present-but-malformed static role", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { verticalSpaceStatic: 1 } })).toBe(false)
+    })
+})
+
 /**
  * The emitters' output is injected with `set:html` into `<style>` elements in the head of EVERY public
  * page (layouts/PublicPage.astro), unescaped — as `<style>` content must be. A theme is authored by a

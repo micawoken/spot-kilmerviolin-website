@@ -206,6 +206,19 @@ export interface SiteChromeRoles {
      * cards (and their corner ID badge), and the search pages' scope note / result rows / result excerpts.
      */
     verticalSpaceControl?: string
+    /**
+     * names a `space` token; extra top/bottom padding ADDED on top of {@link verticalSpaceSection},
+     * scoped only to the pre-generated "static" pages (entity/database index, search, search/advanced —
+     * see public-chrome.css's `.entity-index-body`/`.search-page` rule) via those pages' own existing
+     * wrapper classes, not a dedicated marker class. Unlike the horizontal inset, which a shared rule now
+     * computes identically for every unwrapped `main` child (Puck's `.cmp-root` and a static page's
+     * wrapper alike — see public-chrome.css), a static page still has no equivalent of a Puck top-level
+     * `Section`'s own `paddingY` dropdown (catalog.tsx SectionProps): every such Section can pick ANY
+     * space token for its vertical padding, while a static page always renders at the fixed
+     * `verticalSpaceSection` role. This role is the owner-operated, additive correction for whatever
+     * vertical drift results — unset (0) by default.
+     */
+    verticalSpaceStatic?: string
 }
 
 export interface TokenCatalog {
@@ -491,7 +504,8 @@ export function tokensToCss(catalog: TokenCatalog): string {
             ["vertical-space-header", chrome.verticalSpaceHeader],
             ["vertical-space-footer", chrome.verticalSpaceFooter],
             ["vertical-space-item-gap", chrome.verticalSpaceItemGap],
-            ["vertical-space-control", chrome.verticalSpaceControl]
+            ["vertical-space-control", chrome.verticalSpaceControl],
+            ["vertical-space-static", chrome.verticalSpaceStatic]
         ]
         for (const [segment, name] of verticalSpaceRoles) {
             if (name) emit(`--dtk-chrome-${segment}`, tokenVar("space", name))
@@ -632,7 +646,8 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.verticalSpaceHeader === undefined || typeof value.verticalSpaceHeader === "string") &&
         (value.verticalSpaceFooter === undefined || typeof value.verticalSpaceFooter === "string") &&
         (value.verticalSpaceItemGap === undefined || typeof value.verticalSpaceItemGap === "string") &&
-        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string")
+        (value.verticalSpaceControl === undefined || typeof value.verticalSpaceControl === "string") &&
+        (value.verticalSpaceStatic === undefined || typeof value.verticalSpaceStatic === "string")
     )
 }
 

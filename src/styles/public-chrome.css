@@ -36,7 +36,7 @@
  *
  * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain (main content's inset is a
  * five-deep chain, with the extra `-inset` middle fallback above): `var(--dtk-chrome-<axis>-space-<role>,
- * var(--dtk-space-<name>, <literal>))`. Nine `--dtk-chrome-*-space-*` roles total (tokens.ts
+ * var(--dtk-space-<name>, <literal>))`. Ten `--dtk-chrome-*-space-*` roles total (tokens.ts
  * SiteChromeRoles, the theme editor's "Site Chrome" → "Horizontal spacing"/"Vertical spacing" tables) let
  * the owner scale this chrome's rhythm by category, per axis, instead of one dial for everything or
  * hand-picking a named space token per declaration:
@@ -53,22 +53,31 @@
  *                              link-row/copy stack, grid row-gaps)
  *   - vertical `-control`      vertical padding inside controls, and small margins tied to a control's own
  *                              content (search box padding, list-result cards, search result rows and captions)
+ *   - vertical `-static`       extra top/bottom padding ADDED on top of `-section`, scoped only to the
+ *                              pre-generated "static" pages below (see the `.entity-index-body`/
+ *                              `.search-page` rule further down)
  * Each role's own middle-link name and literal are chosen per role (not per declaration), so an unthemed
  * site renders one consistent value per role rather than the ad hoc per-declaration values this replaced —
  * see tokens.ts SiteChromeRoles for the exact declarations each role covers. A theme that authors one of
  * those `--dtk-space-*` names directly, or sets a spacing role, controls this chrome's rhythm too, not
  * just the design pages' (docs/dev/miscellaneous.txt "design tokens on static pages").
  *
- * There used to be a second pair of roles here (`-static`, horizontal and vertical): the pre-generated
+ * There used to be a HORIZONTAL `-static` role alongside the vertical one still above: the pre-generated
  * "static" pages below hardcode their own structure instead of reading it from a design/entity template,
- * and used to carry their own `.static-page-body` marker class with a dedicated CSS rule, so nothing kept
- * that structure automatically in step with wherever a Puck-templated page's own inset/rhythm ended up —
- * `-static` was an owner-operated, additive correction for whatever drift resulted. The main-content rule
- * below now reads identically for `.cmp-root` (Puck's mandatory wrapper, catalog.tsx's `root.render`) and a
- * static page's own wrapper div, and a separate rule fixes the one real structural bug that was causing
- * drift in the first place (a top-level `Section`'s inset stacking with `.cmp-root`'s own — see the
- * `.cmp-section` breakout rule below) — so there is no more drift left for a hand-tuned nudge to correct,
- * and the roles were removed rather than left as a now-inert dial.
+ * so nothing kept that structure automatically in step with wherever a Puck-templated page's own
+ * inset/rhythm ended up — both were an owner-operated, additive correction for whatever drift resulted.
+ * The main-content INSET rule below now reads identically for `.cmp-root` (Puck's mandatory wrapper,
+ * catalog.tsx's `root.render`) and a static page's own wrapper div, and a separate rule fixes the one real
+ * structural bug that was causing horizontal drift in the first place (a top-level `Section`'s inset
+ * stacking with `.cmp-root`'s own — see the `.cmp-section` breakout rule below) — so there is no more
+ * horizontal drift left for a hand-tuned nudge to correct, and that role was removed rather than left as a
+ * now-inert dial.
+ *
+ * Vertical drift has no equivalent structural fix, so `-static` stays for that axis only: a Puck top-level
+ * `Section` (catalog.tsx SectionProps) has its OWN `paddingY` dropdown, letting a design-page author pick
+ * any space token for that Section's vertical padding — a static page below has no such per-page control,
+ * it always renders at the fixed `-section` role. See the `.entity-index-body`/`.search-page` rule further
+ * down for how the nudge is scoped to just those pages without a dedicated marker class.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -333,8 +342,13 @@ main > article {
  * the body's own font size (a relative-unit token — e.g. a `clamp()` reading-width expression — would
  * otherwise resolve differently per differently-sized child if applied to each piece of content
  * individually). This replaces the pre-generated pages' old separate `.static-page-body` rule and its
- * additive "-static" nudge roles: those existed only to hand-correct drift between two structures that
- * independently computed their own inset, which this shared rule now makes structurally impossible.
+ * additive HORIZONTAL "-static" nudge role: that existed only to hand-correct inset drift between two
+ * structures that independently computed their own inset, which this shared rule now makes structurally
+ * impossible. The VERTICAL "-static" nudge still exists — see the `.entity-index-body`/`.search-page` rule
+ * just below this one — because a Puck top-level `Section`'s own `paddingY` dropdown has no static-page
+ * equivalent (this rule's own doc comment above has the full reasoning); it stays additive on top of the
+ * `:first-child`/`:last-child` padding-top/-bottom below, scoped to those pages' own existing wrapper
+ * classes rather than a revived marker class.
  *
  * `--pc-content-inset` is read by the `.cmp-section` breakout rule just below, so the two stay in lockstep
  * by construction rather than by a second, hand-copied reference to the same fallback chain.
@@ -356,6 +370,39 @@ main > :not(.cmp-section, article):first-child {
 }
 main > :not(.cmp-section, article):last-child {
 	padding-bottom: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
+}
+
+/* Vertical-only nudge, additive on top of the padding-top/-bottom above, scoped to the pre-generated
+ * "static" pages via their own EXISTING wrapper classes — `.entity-index-body` (entity/database index,
+ * DatabaseRoot.astro/EntityIndex.astro) and `.search-page` (search.astro, search/advanced.astro) — rather
+ * than a revived `.static-page-body` marker class: every one of those pages already renders one of these
+ * two classes as `main`'s only child, so nothing needs to change in the templates themselves to scope this.
+ *
+ * Can't be folded into the shared rule above by just adding a `+ var(--dtk-chrome-vertical-space-static,
+ * 0px)` term there instead: that rule also matches a Puck `.cmp-root` with no top-level Section (a bare-
+ * outlet template, or a design page authored without one), and `--dtk-chrome-vertical-space-static` is a
+ * `:root`-level custom property (tokensToCss) inherited everywhere — folding the term in would silently
+ * apply the static-page nudge to those Puck pages too the moment an owner sets it to a nonzero value,
+ * repeating the exact bug a marker class fixed the first time this nudge existed (see this rule's own
+ * history above `main > article`). Naming the two wrapper classes here keeps the correction scoped without
+ * that risk, and without touching the wrapper divs' markup.
+ *
+ * Equal specificity to the shared `:first-child`/`:last-child` rule above (one class + one pseudo-class
+ * either way) — this rule wins on source order for exactly the elements it names, leaving `.cmp-root` (and
+ * any other unwrapped `main` child) reading the shared rule alone. */
+main > .entity-index-body:first-child,
+main > .search-page:first-child {
+	padding-top: calc(
+		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
+		var(--dtk-chrome-vertical-space-static, 0px)
+	);
+}
+main > .entity-index-body:last-child,
+main > .search-page:last-child {
+	padding-bottom: calc(
+		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
+		var(--dtk-chrome-vertical-space-static, 0px)
+	);
 }
 
 /* A top-level `Section` breaks back OUT of `.cmp-root`'s own inset (the rule above) instead of sitting
