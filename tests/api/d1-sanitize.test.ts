@@ -152,3 +152,25 @@ describe("composition write-time sanitization", () => {
         expect(_stateTypeAssertCompleteComposition(record, false)).toBeTypeOf("string")
     })
 })
+
+describe("publication_info missing-field detail message", () => {
+    it("names exactly which publish_* subfield is missing, not just \"publication_info\"", () => {
+        const record = makeComposition({
+            // publish_name (the "name" subproperty) is entirely absent, everything else is present
+            publication_info: { location: "Boston", year: 2000, uri_type: "https", uri: "https://example.com" }
+        })
+        const result = _stateTypeAssertCompleteComposition(record, false)
+        expect(result).toBeTypeOf("string")
+        expect(result as string).toMatch(/missing required publication_info field\(s\): publish_name/)
+        expect(result as string).not.toMatch(/publish_location|publish_year|uri_type(?!\))/)
+    })
+
+    it("names every missing subfield when more than one is absent", () => {
+        const record = makeComposition({ publication_info: { uri_type: "https", uri: "https://example.com" } })
+        const result = _stateTypeAssertCompleteComposition(record, false)
+        expect(result).toBeTypeOf("string")
+        expect(result as string).toMatch(/publish_name/)
+        expect(result as string).toMatch(/publish_location/)
+        expect(result as string).toMatch(/publish_year/)
+    })
+})
