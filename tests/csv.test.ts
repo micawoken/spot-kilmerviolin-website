@@ -388,4 +388,15 @@ describe("flagNameDuplicates", () => {
         expect(results[0].issues).toEqual([])
         expect(results[1].issues).toEqual([])
     })
+
+    it("keys composers on (name, role), not name alone (mirrors idx_composers_name_role)", () => {
+        const existing = new Set<string>([`${normalizeName("Amy Beach")} ${normalizeName("composer")}`])
+        const sameNameDifferentRole = [{ record: { name: "Amy Beach", role: "arranger" }, issues: [] as BuildIssue[] }]
+        flagNameDuplicates(sameNameDifferentRole, existing, "composer")
+        expect(sameNameDifferentRole[0].issues).toEqual([]) // not a collision — different role
+
+        const sameNameSameRole = [{ record: { name: "amy   beach", role: "Composer" }, issues: [] as BuildIssue[] }]
+        flagNameDuplicates(sameNameSameRole, existing, "composer")
+        expect(messages(sameNameSameRole[0].issues)).toContain("a composer with this name already exists")
+    })
 })

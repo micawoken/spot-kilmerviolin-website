@@ -151,6 +151,7 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
         "date",
         "reference",
         "referenceList",
+        "referenceListWithRole",
         "list",
         "uri",
         "yearOrLiving",
@@ -754,6 +755,8 @@ interface ResolvedReferenceLike {
     id?: unknown
     name?: unknown
     href?: unknown
+    /** composer references only (see `ReferenceLinkListWithRole`) */
+    role?: unknown
 }
 
 function isResolvedReferenceLike(value: unknown): value is ResolvedReferenceLike {
@@ -781,6 +784,29 @@ function ReferenceLinkList({ values }: { values: unknown[] }) {
                     <ReferenceLink value={item} />
                 </span>
             ))}
+        </>
+    )
+}
+
+/** `ReferenceLinkList`, but each resolved composer also shows its `role` (e.g. "arranger") in
+ *  parentheses after its name — `author_secondary` only (see `EntityFieldKind`'s "referenceListWithRole"
+ *  doc in entity-fields.ts). Lower-cased (owner decision), unlike the composer's own `role` field, which
+ *  title-cases for its standalone display. */
+function ReferenceLinkListWithRole({ values }: { values: unknown[] }) {
+    const items = values.filter(isResolvedReferenceLike)
+    if (items.length === 0) return null
+    return (
+        <>
+            {items.map((item, index) => {
+                const role = typeof item.role === "string" ? item.role.trim().toLowerCase() : ""
+                return (
+                    <span key={index}>
+                        {index > 0 ? ", " : ""}
+                        <ReferenceLink value={item} />
+                        {role !== "" && <> ({role})</>}
+                    </span>
+                )
+            })}
         </>
     )
 }
@@ -824,6 +850,8 @@ function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
             return isResolvedReferenceLike(value) ? <ReferenceLink value={value} /> : ""
         case "referenceList":
             return Array.isArray(value) ? <ReferenceLinkList values={value} /> : ""
+        case "referenceListWithRole":
+            return Array.isArray(value) ? <ReferenceLinkListWithRole values={value} /> : ""
         case "uri":
             return isRecord(value) ? <PublicationUriValue value={value} /> : ""
         case "citations":

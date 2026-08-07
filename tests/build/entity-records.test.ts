@@ -121,7 +121,7 @@ describe("buildReferenceIndex", () => {
         const contributorRecord = formatContribFromD1(activeContributor)
         const refs = buildReferenceIndex([composerRecord], [contributorRecord], ALL_PAGES)
 
-        expect(refs.composer.get(1)).toEqual({ name: "Bach", hasPage: true })
+        expect(refs.composer.get(1)).toEqual({ name: "Bach", hasPage: true, role: "composer" })
         expect(refs.contributor.get(2)).toEqual({ name: "Ada", hasPage: true })
     })
 
@@ -194,7 +194,7 @@ describe("entityRecords — composition (the reference-fold linchpin)", () => {
         expect(result.entry.publish_year).toBe(2000)
         expect(result.entry.publication_uri).toEqual({ uriType: "https", uri: "https://example.test/score" })
 
-        expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: "/entity/composer/1" })
+        expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: "/entity/composer/1", role: "composer" })
         expect(result.entry.contrib_primary_1).toEqual({ id: 2, name: "Ada", href: "/entity/contributor/2" })
         // REGRESSION GUARD: contrib_primary_2 references the HIDDEN contributor. Its name still
         // resolves (unredacted map), but href is null — a hidden contributor has no public page.
@@ -228,7 +228,7 @@ describe("entityRecords — composition (the reference-fold linchpin)", () => {
 
         const [result] = entityRecords("composition", null, null, [object], refs)
 
-        expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: null })
+        expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: null, role: "composer" })
     })
 })
 
@@ -273,12 +273,20 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source (docs/dev/misce
     const works = [formatWorkFromD1(work1), formatWorkFromD1(work2), formatWorkFromD1(work3)]
     const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
 
-    it("composer -> works: lists primary credits before secondary-author credits", () => {
-        expect(index.get("composer:1")).toEqual([
-            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
-            { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
-            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
-        ])
+    it("composer -> works: includes both primary and secondary-author credits (order is seed-shuffled, not credit-type order)", () => {
+        expect(index.get("composer:1")).toEqual(
+            expect.arrayContaining([
+                { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
+                { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
+                { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+            ])
+        )
+        expect(index.get("composer:1")).toHaveLength(3)
+    })
+
+    it("composer -> works: order is deterministic (seeded by composer id) across separate calls with the same input", () => {
+        const rebuilt = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        expect(rebuilt.get("composer:1")).toEqual(index.get("composer:1"))
     })
 
     it("composer -> works: a composer with only primary credits gets no secondary-pass duplicates", () => {
@@ -301,12 +309,16 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source (docs/dev/misce
     })
 
     it("contributor -> works: matches across contrib_primary_1, contrib_primary_2, and contrib_addl", () => {
-        // contributor 2: contrib_primary_1 on work1 and work2, contrib_addl on work3.
-        expect(index.get("contributor:2")).toEqual([
-            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
-            { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
-            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
-        ])
+        // contributor 2: contrib_primary_1 on work1 and work2, contrib_addl on work3. Order is truly
+        // randomized (a fresh shuffle per build), so this only checks membership, not order.
+        expect(index.get("contributor:2")).toEqual(
+            expect.arrayContaining([
+                { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
+                { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
+                { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+            ])
+        )
+        expect(index.get("contributor:2")).toHaveLength(3)
         // contributor 3: contrib_primary_2 AND contrib_addl on work1 alone — deduped to one entry.
         expect(index.get("contributor:3")).toEqual([
             { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" }
@@ -324,5 +336,29 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source (docs/dev/misce
 
     it("an empty composers/compositions input yields an empty index", () => {
         expect(buildRelatedWorksIndex(null, null, ALL_PAGES).size).toBe(0)
+    })
+
+    it("composition -> related works: same-name siblings (other parts of the same piece) lead the list, ahead of the randomized rest", () => {
+        // prelude/preludeMvt2 share a name, differing only by part — the same signal the
+        // composer_id+name+part unique index keys on — and must sort before fugue/gavotte.
+        const prelude: D1Composition = { ...composition, composition_id: 20, name: "Prelude", part: null }
+        const preludeMvt2: D1Composition = { ...composition, composition_id: 21, name: "Prelude", part: "II" }
+        const fugue: D1Composition = { ...composition, composition_id: 22, name: "Fugue" }
+        const gavotte: D1Composition = { ...composition, composition_id: 23, name: "Gavotte" }
+        const nameIndex = buildRelatedWorksIndex(
+            [formatCompFromD1(composer)],
+            [prelude, preludeMvt2, fugue, gavotte].map(formatWorkFromD1),
+            ALL_PAGES
+        )
+
+        const related = nameIndex.get("composition:20")
+        expect(related?.[0]).toEqual({ id: 21, name: "Prelude", href: "/entity/work/21", composer: "Bach" })
+        expect(related?.slice(1)).toEqual(
+            expect.arrayContaining([
+                { id: 22, name: "Fugue", href: "/entity/work/22", composer: "Bach" },
+                { id: 23, name: "Gavotte", href: "/entity/work/23", composer: "Bach" }
+            ])
+        )
+        expect(related).toHaveLength(3)
     })
 })

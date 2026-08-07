@@ -419,11 +419,18 @@ export function initImport(type: ImportType): void {
             if (type === "works") {
                 ctx = await loadWorksContext()
             } else {
-                // composers/contributors: load existing names so preview can flag existing-name collisions
+                // composers/contributors: load existing (name[, role]) keys so preview can flag collisions
+                // mirroring idx_composers_name_role — composers key on (name, role), contributors on name alone
                 const list = (await (type === "composers" ? listComposer(true) : listContributor(true))) as
                     | NamedRecordLike[]
                     | null
-                existingNames = new Set<string>((list ?? []).map((record) => normalizeName(record.name)))
+                existingNames = new Set<string>(
+                    (list ?? []).map((record) =>
+                        typeof record.role === "string"
+                            ? `${normalizeName(record.name)} ${normalizeName(record.role)}`
+                            : normalizeName(record.name)
+                    )
+                )
             }
             rows = records.map((record) => {
                 // seed editable cells for exactly the known columns (ignore any tolerated extras)
@@ -530,8 +537,11 @@ export function initImport(type: ImportType): void {
     commitButton.disabled = true
 }
 
-/** The shape of a record returned by the list endpoints that carries an id and a name. */
+/** The shape of a record returned by the list endpoints that carries an id and a name. `role` is present
+ *  on composer records only (see idx_composers_name_role) — the existing-name-collision preflight keys
+ *  composers on (name, role) and everything else on name alone. */
 interface NamedRecordLike {
     id: number
     name: string
+    role?: string
 }

@@ -147,6 +147,7 @@ describe("OUTLET_PROPS", () => {
                 "date",
                 "reference",
                 "referenceList",
+                "referenceListWithRole",
                 "list",
                 "uri",
                 "yearOrLiving",
@@ -604,6 +605,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         { slug: "entry_date", label: "Added", type: "date" },
         { slug: "composer", label: "Composer", type: "reference" },
         { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList" },
+        { slug: "author_secondary", label: "Secondary Authors", type: "referenceListWithRole" },
         { slug: "tags", label: "Tags", type: "list" },
         { slug: "publication_uri", label: "Publication Link", type: "uri" },
         { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
@@ -622,6 +624,11 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         contrib_addl: [
             { id: 10, name: "Primary Editor", href: "/entity/contributor/10" },
             { id: 11, name: "", href: null } // unresolvable — renders as an empty entry, per ReferenceLink
+        ],
+        author_secondary: [
+            // role stored mixed-case, to prove the render lower-cases it rather than passing it through.
+            { id: 20, name: "Fanny Author", href: "/entity/composer/20", role: "Arranger" },
+            { id: 21, name: "No Role Author", href: "/entity/composer/21" } // role omitted — no parenthetical
         ],
         tags: ["romantic", "advanced"],
         publication_uri: { uriType: "https", uri: "https://example.test/score" },
@@ -680,6 +687,15 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         const html = render(config, "ContentField", { ...base, field: "contrib_addl" })
         expect(html).toContain('href="/entity/contributor/10"')
         expect(html).toContain("Primary Editor")
+    })
+
+    it("renders a referenceListWithRole, appending the lower-cased role in parentheses when present", () => {
+        const config = buildConfig(theme, "build", { entry, fields })
+        const html = render(config, "ContentField", { ...base, field: "author_secondary" })
+        expect(html).toContain('href="/entity/composer/20"')
+        expect(html).toContain("Fanny Author")
+        expect(html).toContain("(arranger)")
+        expect(html).toContain("No Role Author")
     })
 
     it("joins a list field with commas", () => {

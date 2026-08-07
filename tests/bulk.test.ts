@@ -71,7 +71,7 @@ change_date INTEGER NOT NULL
 const composers_ddl = `
 CREATE TABLE IF NOT EXISTS composers (
 composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
-name TEXT UNIQUE NOT NULL,
+name TEXT NOT NULL,
 role TEXT NOT NULL,
 birth_year INTEGER NOT NULL,
 death_year INTEGER NOT NULL,
@@ -83,6 +83,8 @@ citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 );`
+
+const composer_unique_index = `CREATE UNIQUE INDEX IF NOT EXISTS idx_composers_name_role ON composers (name, role);`
 
 const compositions_ddl = `
 CREATE TABLE IF NOT EXISTS compositions (
@@ -182,6 +184,7 @@ function makeComposition(name: string, composer_id: number, contrib_id: number):
 beforeAll(async () => {
     await exec_string(contributors_ddl)
     await exec_string(composers_ddl)
+    await exec_string(composer_unique_index)
     await exec_string(compositions_ddl)
     await exec_string(composition_unique_index)
 })
@@ -218,12 +221,23 @@ describe("batch add functions", () => {
 
     it("rolls the whole batch back when one record violates a UNIQUE constraint", async () => {
         const before = (await withCtx((ctx) => listComposers(ctx)))?.length ?? 0
-        // two records share a name; the second INSERT violates composers.name UNIQUE, aborting the batch
+        // two records share a (name, role); the second INSERT violates idx_composers_name_role, aborting the batch
         await expect(
             withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Dup Name"), makeComposer("Dup Name")]))
         ).rejects.toThrow()
         const after = (await withCtx((ctx) => listComposers(ctx)))?.length ?? 0
         expect(after).toBe(before) // nothing was written
+    })
+
+    it("allows the same name under two different roles (idx_composers_name_role is (name, role), not name alone)", async () => {
+        const ids = await withCtx((ctx) =>
+            addComposersBatch(ctx, [
+                { ...makeComposer("Dual Role Person"), role: "composer" },
+                { ...makeComposer("Dual Role Person"), role: "arranger" }
+            ])
+        )
+        expect(ids).toHaveLength(2)
+        expect(new Set(ids).size).toBe(2)
     })
 
     it("inserts placeholder contributors and compositions in a batch", async () => {
@@ -319,19 +333,27 @@ describe("composition (composer, name) uniqueness", () => {
 })
 
 describe("composer/contributor name conflict detection", () => {
-    it("flags a candidate name that already exists and a within-request repeat (composers)", async () => {
-        await withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Existing Composer Name")]))
+    it("flags a candidate (name, role) that already exists and a within-request repeat (composers)", async () => {
+        await withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Existing Composer Name")])) // role: "composer"
         const findings = await withCtx((ctx) =>
             findComposerNameConflicts(ctx, [
-                { name: "existing composer name" }, // collides with the row above (case-insensitive)
-                { name: "Fresh Composer" },
-                { name: "fresh composer" } // repeats index 1 within the request
+                { name: "existing composer name", role: "composer" }, // collides with the row above (case-insensitive)
+                { name: "Fresh Composer", role: "composer" },
+                { name: "fresh composer", role: "composer" } // repeats index 1 within the request
             ])
         )
         expect(findings.map((finding) => ({ index: finding.index, reason: finding.reason }))).toEqual([
             { index: 0, reason: "exists" },
             { index: 2, reason: "within-request" }
         ])
+    })
+
+    it("does NOT flag the same composer name under a different role (idx_composers_name_role is (name, role))", async () => {
+        await withCtx((ctx) => addComposersBatch(ctx, [makeComposer("Multi Role Person")])) // role: "composer"
+        const findings = await withCtx((ctx) =>
+            findComposerNameConflicts(ctx, [{ name: "Multi Role Person", role: "arranger" }])
+        )
+        expect(findings).toEqual([])
     })
 
     it("flags an existing contributor name", async () => {

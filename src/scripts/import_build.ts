@@ -419,30 +419,38 @@ export function flagCompositionDuplicates(results: BuildResult[], existingKeys: 
 }
 
 /**
- * Flags composer/contributor rows whose name collides with an existing record (by case-insensitive,
- * whitespace-collapsed name) or repeats another row within the file, appending an issue to each affected
- * result in place. Both entities' names are UNIQUE server-side, so a collision would abort the atomic
- * import; flagging it in the preview lets the file be cured before submitting. Mirrors the server's
- * findNameConflicts.
+ * Builds a row's dedup key: its normalized name alone, or name+role when the record carries a `role`
+ * (composers only — mirrors idx_composers_name_role, UNIQUE on (name, role), not name alone). Contributor
+ * records have no `role` field, so they fall back to the name-only key (contributors.name is UNIQUE alone).
+ */
+function nameDuplicateKey(record: Record<string, unknown>): string | null {
+    const name = record.name
+    if (typeof name !== "string" || name.trim() === "") return null
+    const role = record.role
+    return typeof role === "string" ? `${normalizeName(name)} ${normalizeName(role)}` : normalizeName(name)
+}
+
+/**
+ * Flags composer/contributor rows whose (name[, role]) collides with an existing record or repeats another
+ * row within the file, appending an issue to each affected result in place. contributors.name is UNIQUE
+ * server-side; composers has idx_composers_name_role, UNIQUE on (name, role) — a collision on either would
+ * abort the atomic import, so flagging it in the preview lets the file be cured before submitting. Mirrors
+ * the server's findNameConflicts.
  *
- * @param results the per-row build results (their records must carry a name)
- * @param existingNames the normalized names already present in the database for this entity
+ * @param results the per-row build results (their records must carry a name, and a role for composers)
+ * @param existingKeys the {@link nameDuplicateKey}-shaped keys already present in the database for this entity
  * @param label the entity noun used in the message (e.g. "composer", "contributor")
  */
-export function flagNameDuplicates(results: BuildResult[], existingNames: Set<string>, label: string): void {
+export function flagNameDuplicates(results: BuildResult[], existingKeys: Set<string>, label: string): void {
     const counts = new Map<string, number>()
     for (const result of results) {
-        const name = result.record.name
-        if (typeof name === "string" && name.trim() !== "") {
-            const key = normalizeName(name)
-            counts.set(key, (counts.get(key) ?? 0) + 1)
-        }
+        const key = nameDuplicateKey(result.record)
+        if (key !== null) counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     for (const result of results) {
-        const name = result.record.name
-        if (typeof name === "string" && name.trim() !== "") {
-            const key = normalizeName(name)
-            if (existingNames.has(key)) {
+        const key = nameDuplicateKey(result.record)
+        if (key !== null) {
+            if (existingKeys.has(key)) {
                 result.issues.push({ message: `a ${label} with this name already exists`, column: "name" })
             } else if ((counts.get(key) ?? 0) > 1) {
                 result.issues.push({ message: `duplicate ${label} name within this file`, column: "name" })

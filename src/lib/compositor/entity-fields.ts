@@ -80,7 +80,9 @@ export const ENTITY_NOUN_SLUGS: Record<EntityNoun, string> = {
  * speculative kinds. Notable ones: `"yearOrLiving"` — composer death_year, -1 sentinel formats as
  * "Present" (mirrors `ComposerInfo.astro`/`format.ts`); `"countryCode"` — ISO 3166-1, formats to
  * English display name; `"email"` — renders `mailto:`; `"titleCase"` — composer role, title-cased
- * regardless of entry; `"citations"` — key-value map rendered as hyperlink list (scripts/citations.ts).
+ * regardless of entry; `"citations"` — key-value map rendered as hyperlink list (scripts/citations.ts);
+ * `"referenceListWithRole"` — `author_secondary` only, a `referenceList` whose tiles also show each
+ * resolved composer's `role` (title-cased) in parentheses after their name.
  * "string"/"text"/"image" deliberately reuse `OUTLET_PROPS`'s (catalog.tsx) vocabulary for
  * `ContentText`/`ContentImage`, so those two work unmodified against entity fields; the rest are new
  * kinds only `ContentField` accepts.
@@ -92,6 +94,7 @@ export type EntityFieldKind =
     | "date"
     | "reference"
     | "referenceList"
+    | "referenceListWithRole"
     | "list"
     | "image"
     | "uri"
@@ -146,7 +149,7 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "part", label: "Part", type: "string" },
     { slug: "image", label: "Image", type: "image" },
     { slug: "composer", label: "Composer", type: "reference", refNoun: "composer" },
-    { slug: "author_secondary", label: "Secondary Authors", type: "referenceList", refNoun: "composer" },
+    { slug: "author_secondary", label: "Secondary Authors", type: "referenceListWithRole", refNoun: "composer" },
     { slug: "contrib_primary_1", label: "Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_primary_2", label: "Additional Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList", refNoun: "contributor" },
@@ -194,6 +197,7 @@ export function isEmptyFieldValue(value: unknown, kind: string | undefined): boo
         case "reference":
             return !isRecord(value) || typeof value.name !== "string" || value.name.trim() === ""
         case "referenceList":
+        case "referenceListWithRole":
         case "list":
             return !Array.isArray(value) || value.length === 0
         case "uri":
