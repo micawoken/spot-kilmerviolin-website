@@ -1077,14 +1077,14 @@ export async function getComposition(
  * @returns a stable key identifying the (composer, name, part) triple
  */
 function compositionDuplicateKey(composer_id: number, name: string, part: string | null): string {
-    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
+    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
 }
 
 /** Normalizes a name (+ optional discriminator, e.g. a composer's role) for case-insensitive,
  *  whitespace-trimmed conflict comparison (mirrors the UNIQUE column/index). */
 function nameConflictKey(name: string, discriminator?: string): string {
     const key = name.trim().toLowerCase()
-    return discriminator === undefined ? key : `${key} ${discriminator.trim().toLowerCase()}`
+    return discriminator === undefined ? key : `${key} ${discriminator.trim().toLowerCase()}`
 }
 
 /**
