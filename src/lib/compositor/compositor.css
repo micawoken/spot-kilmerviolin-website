@@ -126,6 +126,9 @@
 	text-decoration: var(--dtk-type-body-decoration, none);
 	text-transform: var(--dtk-type-body-transform, none);
 }
+.cmp-richtext > :last-child {
+	margin-block-end: 0;
+}
 
 /* Image — explicit width/height attributes prevent layout shift; aspect crops via object-fit. Radius/
  * border/shadow are optional per-instance fields (catalog.tsx), each defaulting to the pre-existing
