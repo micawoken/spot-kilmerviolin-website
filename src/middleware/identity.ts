@@ -126,7 +126,8 @@ export const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
     // site policy pages are always accessible
     "terms-of-use": { access: { kind: "any" } },
     "privacy-policy": { access: { kind: "any" } },
-    "security-policy": { access: { kind: "any" } }
+    "security-policy": { access: { kind: "any" } },
+    "license": { access: { kind: "any" } }
 }
 
 /**

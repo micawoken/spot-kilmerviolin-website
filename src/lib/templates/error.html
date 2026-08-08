@@ -174,29 +174,17 @@
         <p>{errorDescription}</p>
         <p>Please do not repeat this request.</p>
         <nav class="error-actions" aria-label="Error page navigation">
-            <a href="/admin" onclick="event.preventDefault(); history.back();">Back</a>
-            <span class="error-sep" aria-hidden="true">|</span>
-            <a href="/admin" rel="home">Home</a>
+            <a href="/admin" onclick="event.preventDefault(); history.back();">Back</a><span class="error-sep" aria-hidden="true">|</span><a href="/admin" rel="home">Home</a>
         </nav>
     </main>
     <footer role="contentinfo">
         <nav role="navigation" aria-label="Administrative footer">
             <p>
-                <a href="/admin" onclick="event.preventDefault(); history.back();">Back</a>
-                <span class="error-sep" aria-hidden="true">|</span>
-                <a href="/admin" rel="home">Admin Home</a>
-                <span class="error-sep" aria-hidden="true">|</span>
-                <a href="/admin/docs" rel="help">Help Docs</a>
-                <span class="error-sep" aria-hidden="true">|</span>
-                <a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a>
-                <span class="error-sep" aria-hidden="true">|</span>
-                <a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a>
-                <span class="error-sep" aria-hidden="true">|</span>
-                <a href="/admin/security-policy" rel="security-policy">Security Policy</a>
+                <a href="/admin" onclick="event.preventDefault(); history.back();">Back</a><span class="error-sep" aria-hidden="true">|</span><a href="/admin" rel="home">Admin Home</a><span class="error-sep" aria-hidden="true">|</span><a href="/admin/docs" rel="help">Help Docs</a><span class="error-sep" aria-hidden="true">|</span><a href="/admin/terms-of-use" rel="terms-of-use">Terms of Use</a><span class="error-sep" aria-hidden="true">|</span><a href="/admin/privacy-policy" rel="privacy-policy">Privacy Policy</a><span class="error-sep" aria-hidden="true">|</span><a href="/admin/security-policy" rel="security-policy">Security Policy</a>
             </p>
         </nav>
-        <p>{footerAccess} The time is {footerTime} ({footerTz}). Report security concerns to <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>.</p>
-        <p>Thank you for using administrative services. Administrative services are &copy; {footerYear} <a href="https://michaelwongmusic.com">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU AGPLv3 and additional terms</a>.</p>
+        <p>{footerAccess} The time is {footerTime} ({footerTz}). <a href="mailto:kilmer_security@mwmsc.net">Report a security issue</a>.</p>
+        <p>Thank you for using administrative services. Administrative services are &copy; {footerYear} <a href="https://michaelwongmusic.com" target="_blank" rel="noopener noreferrer">Michael Wong</a>, licensed under <a href="/admin/license" rel="license">GNU AGPLv3 and additional terms</a>.</p>
     </footer>
 </body>
 </html>

@@ -66,7 +66,7 @@ change_date INTEGER NOT NULL
 const composers_ddl = `
 CREATE TABLE IF NOT EXISTS composers (
 composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
-name TEXT UNIQUE NOT NULL,
+name TEXT NOT NULL,
 role TEXT NOT NULL,
 birth_year INTEGER NOT NULL,
 death_year INTEGER NOT NULL,
@@ -78,6 +78,8 @@ citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 );`
+
+const composer_unique_index = `CREATE UNIQUE INDEX IF NOT EXISTS idx_composers_name_role ON composers (name, role);`
 
 // runs a database.ts call with a fresh ExecutionContext and flushes its waitUntil work,
 // so cache invalidation scheduled by the call is complete before the next assertion
@@ -152,6 +154,7 @@ function makeContributor(name: string, identity_email: string): Contributor {
 beforeAll(async () => {
     await exec_string(contributors_ddl)
     await exec_string(composers_ddl)
+    await exec_string(composer_unique_index)
 })
 
 describe("composer CRUD with cache invalidation", () => {

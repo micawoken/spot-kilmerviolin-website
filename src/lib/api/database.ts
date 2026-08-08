@@ -1077,49 +1077,55 @@ export async function getComposition(
  * @returns a stable key identifying the (composer, name, part) triple
  */
 function compositionDuplicateKey(composer_id: number, name: string, part: string | null): string {
-    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
+    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
 }
 
-/** Normalizes a name for case-insensitive, whitespace-trimmed conflict comparison (mirrors the UNIQUE column). */
-function nameConflictKey(name: string): string {
-    return name.trim().toLowerCase()
+/** Normalizes a name (+ optional discriminator, e.g. a composer's role) for case-insensitive,
+ *  whitespace-trimmed conflict comparison (mirrors the UNIQUE column/index). */
+function nameConflictKey(name: string, discriminator?: string): string {
+    const key = name.trim().toLowerCase()
+    return discriminator === undefined ? key : `${key} ${discriminator.trim().toLowerCase()}`
 }
 
 /**
  * Finds names in `candidates` that collide with an existing record of the same entity (by case-insensitive,
- * trimmed name) or that repeat an earlier candidate within the same request. Both composers.name and
- * contributors.name are UNIQUE server-side, so a collision would abort an atomic bulk insert; surfacing it
- * here lets the endpoint dry-run and the import preview report the offending row before a write is attempted.
+ * trimmed name, plus `role` when the candidate has one) or that repeat an earlier candidate within the same
+ * request. contributors.name is UNIQUE server-side; composers has idx_composers_name_role, UNIQUE on
+ * (name, role) — a collision on either would abort an atomic bulk insert, so surfacing it here lets the
+ * endpoint dry-run and the import preview report the offending row before a write is attempted.
  *
  * @param existing the existing records of this entity, or null when the table is empty
- * @param candidates the records about to be written
+ * @param candidates the records about to be written; a `role` makes the conflict check (name, role)-scoped,
+ *   matching idx_composers_name_role — omit it for name-only entities (contributors)
  * @param label the entity noun used in the human-readable message (e.g. "composer", "contributor")
  * @returns per-candidate findings (by index) describing each within-request or existing-name collision
  */
 function findNameConflicts(
-    existing: Array<{ name: string }> | null,
-    candidates: Array<{ name: string }>,
+    existing: Array<{ name: string; role?: string }> | null,
+    candidates: Array<{ name: string; role?: string }>,
     label: string
 ): Array<{ index: number; reason: "within-request" | "exists"; message: string }> {
     const findings: Array<{ index: number; reason: "within-request" | "exists"; message: string }> = []
     const existing_keys = new Set<string>()
     for (const record of existing ?? []) {
-        existing_keys.add(nameConflictKey(record.name))
+        existing_keys.add(nameConflictKey(record.name, record.role))
     }
     const seen = new Set<string>()
     for (let index = 0; index < candidates.length; index++) {
-        const key = nameConflictKey(candidates[index].name)
+        const candidate = candidates[index]
+        const key = nameConflictKey(candidate.name, candidate.role)
+        const roleSuffix = candidate.role !== undefined ? ` with role "${candidate.role.trim()}"` : ""
         if (seen.has(key)) {
             findings.push({
                 index,
                 reason: "within-request",
-                message: `"${candidates[index].name.trim()}" appears more than once in this request`
+                message: `"${candidate.name.trim()}"${roleSuffix} appears more than once in this request`
             })
         } else if (existing_keys.has(key)) {
             findings.push({
                 index,
                 reason: "exists",
-                message: `A ${label} named "${candidates[index].name.trim()}" already exists`
+                message: `A ${label} named "${candidate.name.trim()}"${roleSuffix} already exists`
             })
         }
         seen.add(key)
@@ -1129,16 +1135,16 @@ function findNameConflicts(
 
 /**
  * Conflict-detection hook for composer bulk creates: flags candidate names that already exist or repeat
- * within the request, so the (UNIQUE) composers.name collision is reported by the dry-run/preview rather
- * than only surfacing as an aborted atomic write.
+ * within the request, so the (UNIQUE) idx_composers_name_role collision — on (name, role), not name alone —
+ * is reported by the dry-run/preview rather than only surfacing as an aborted atomic write.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the composer records about to be written (their names)
+ * @param candidates the composer records about to be written (their names and roles)
  * @returns per-candidate name-conflict findings
  */
 export async function findComposerNameConflicts(
     ctx: ExecutionContext,
-    candidates: Array<{ name: string }>
+    candidates: Array<{ name: string; role: string }>
 ): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
     return findNameConflicts(await listComposers(ctx), candidates, "composer")
 }

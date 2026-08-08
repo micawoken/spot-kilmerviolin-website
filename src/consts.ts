@@ -41,6 +41,15 @@ export const NOT_PROVIDED = "(not provided)"
 // text for consistency, since no distinct limit was specified for that case)
 export const MAX_ALT_TEXT_LENGTH = 256
 
+// Length caps for admin-authored free text on composer/contributor/composition records (lib/api/d1.ts),
+// enforced on every write path (single-record forms, bulk import, direct API) as a data-sanitization
+// backstop. No specific limit was documented for these fields; these are generous-but-finite defaults,
+// not derived from a requirement — raise them if a real record legitimately needs more room.
+export const MAX_NAME_LENGTH = 200 // name, role, part, publish_name/location, and similar single-line fields
+export const MAX_LONG_TEXT_LENGTH = 5000 // bio, notes_pedagogical/historical/other
+export const MAX_TAG_LENGTH = 50 // a single tag
+export const MAX_TAGS_PER_RECORD = 25 // distinct tags per record
+
 // The hostnames that serve the real site. Everything else a request can arrive on — the bare
 // workers.dev hostname, a per-version preview URL, an unanticipated alias — is treated as a preview and
 // gets the reduced surface (see detectEnvironmentFromHostname in lib/api/environment.ts). This is the

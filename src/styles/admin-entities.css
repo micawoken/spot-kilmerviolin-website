@@ -1332,6 +1332,10 @@ main.admin-main {
 	color: var(--color-danger);
 }
 
+.import-issue-warning {
+	color: var(--color-warning);
+}
+
 /* a row flagged by client resolution or the server dry-run */
 .import-grid-table tr.import-row-error td {
 	background: var(--color-danger-bg);

@@ -152,7 +152,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
         detectConflicts: (records) =>
             findComposerNameConflicts(
                 context.locals.cfContext,
-                records.map((record) => ({ name: record.name }))
+                records.map((record) => ({ name: record.name, role: record.role }))
             ),
         commitOne: (record) => addComposer(context.locals.cfContext, record),
         commitBatch: (records) => addComposersBatch(context.locals.cfContext, records),

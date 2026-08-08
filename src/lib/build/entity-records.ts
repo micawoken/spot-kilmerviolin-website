@@ -51,6 +51,10 @@ export interface ResolvedReference {
      *  no published default template this build) — the outlet renders the name as plain text, not a link
      *  to a 404. */
     href: string | null
+    /** the composer's `role` (e.g. "arranger"), carried through only for composer references — undefined
+     *  for a contributor reference or an unresolvable id. Only the `author_secondary` outlet (catalog.tsx)
+     *  renders it; other composer-referencing fields (e.g. the primary `composer` field) ignore it. */
+    role?: string
 }
 
 /** One tile in the `RelatedEntries` Puck block (catalog.tsx) — always a work, regardless of which noun's
@@ -64,10 +68,12 @@ export interface RelatedWork {
     composer: string
 }
 
-/** name + whether the target noun/record actually gets a public page this build. */
+/** name + whether the target noun/record actually gets a public page this build. `role` is only set for
+ *  composer targets (see {@link ResolvedReference}). */
 interface ReferenceTarget {
     name: string
     hasPage: boolean
+    role?: string
 }
 
 /** id → {name, hasPage} for each of the two referenceable nouns (composer, contributor). */
@@ -95,7 +101,7 @@ export function buildReferenceIndex(
 ): EntityReferenceIndex {
     const composer = new Map<number, ReferenceTarget>()
     for (const record of composers ?? []) {
-        composer.set(record.id, { name: record.name, hasPage: nounHasPage.composer })
+        composer.set(record.id, { name: record.name, hasPage: nounHasPage.composer, role: record.role })
     }
 
     const contributor = new Map<number, ReferenceTarget>()
@@ -170,7 +176,59 @@ export function buildRelatedWorksIndex(
         }
     }
 
+    // Owner decision: each bucket varies its tile order differently rather than always leading with the
+    // same first N (database-insertion order).
+    //  - composer: seeded by the composer id, so the order is reproducible across rebuilds as long as
+    //    that composer's related-works list is unchanged (a new/removed work naturally reshuffles it).
+    //  - composition: exact-name matches (other parts/movements of the same piece — the same signal the
+    //    composer_id+name+part unique index already keys on) lead, in their encountered order; the
+    //    remaining same-composer works are truly randomized, so they vary on every build.
+    //  - contributor: truly randomized, so they vary on every build.
+    for (const [key, list] of index) {
+        const [noun, idStr] = key.split(":")
+        if (noun === "composer") {
+            index.set(key, seededShuffle(list, Number(idStr)))
+        } else if (noun === "composition") {
+            const record = works.find((w) => w.id === Number(idStr))
+            const targetName = record?.name.trim()
+            const exact = list.filter((work) => work.name.trim() === targetName)
+            const rest = list.filter((work) => work.name.trim() !== targetName)
+            index.set(key, [...exact, ...randomShuffle(rest)])
+        } else if (noun === "contributor") {
+            index.set(key, randomShuffle(list))
+        }
+    }
+
     return index
+}
+
+/** Deterministic Fisher-Yates shuffle seeded by `seed` (mulberry32): the same seed and input list always
+ *  produce the same order, so a composer's related-works tiles are stable across rebuilds unless the
+ *  underlying list itself changes. */
+function seededShuffle<T>(items: T[], seed: number): T[] {
+    let state = seed >>> 0
+    const next = () => {
+        state = (state + 0x6d2b79f5) | 0
+        let t = Math.imul(state ^ (state >>> 15), 1 | state)
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    const result = items.slice()
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(next() * (i + 1))
+        ;[result[i], result[j]] = [result[j], result[i]]
+    }
+    return result
+}
+
+/** Fisher-Yates shuffle with Math.random(): a fresh order on every call (every build), unlike {@link seededShuffle}. */
+function randomShuffle<T>(items: T[]): T[] {
+    const result = items.slice()
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[result[i], result[j]] = [result[j], result[i]]
+    }
+    return result
 }
 
 /** Resolves a single nullable foreign key to a display reference, or null when the key itself is null. */
@@ -178,7 +236,7 @@ function resolveRef(index: Map<number, ReferenceTarget>, id: number | null, noun
     if (id === null) return null
     const target = index.get(id)
     if (!target) return { id, name: "", href: null } // unresolvable id — mirrors the prior "" fallback
-    return { id, name: target.name, href: target.hasPage ? entityHref(noun, id) : null }
+    return { id, name: target.name, href: target.hasPage ? entityHref(noun, id) : null, role: target.role }
 }
 
 /** Resolves a list of foreign keys, preserving order and length (an unresolvable id still gets an entry). */

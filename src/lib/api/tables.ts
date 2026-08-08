@@ -47,7 +47,7 @@
  *
  * CREATE TABLE composers (
  *   composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
- *   name TEXT UNIQUE NOT NULL,
+ *   name TEXT NOT NULL,
  *   role TEXT NOT NULL,
  *   birth_year INTEGER NOT NULL,
  *   death_year INTEGER NOT NULL,
@@ -57,7 +57,8 @@
  *   tags TEXT,
  *   citations TEXT,
  *   entry_date INTEGER NOT NULL,
- *   change_date INTEGER
+ *   change_date INTEGER,
+ *   UNIQUE (name, role)
  * );
  *
  * CREATE TABLE compositions (

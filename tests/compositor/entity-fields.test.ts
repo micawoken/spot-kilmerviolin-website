@@ -40,6 +40,7 @@ const KINDS: readonly EntityFieldKind[] = [
     "date",
     "reference",
     "referenceList",
+    "referenceListWithRole",
     "list",
     "image",
     "uri",
@@ -117,7 +118,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         const bySlug = Object.fromEntries(fields.map((f) => [f.slug, f]))
 
         expect(bySlug.composer).toMatchObject({ type: "reference", refNoun: "composer" })
-        expect(bySlug.author_secondary).toMatchObject({ type: "referenceList", refNoun: "composer" })
+        expect(bySlug.author_secondary).toMatchObject({ type: "referenceListWithRole", refNoun: "composer" })
         expect(bySlug.contrib_primary_1).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_primary_2).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_addl).toMatchObject({ type: "referenceList", refNoun: "contributor" })
@@ -147,10 +148,10 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         }
     })
 
-    it("only reference/referenceList fields declare refNoun", () => {
+    it("only reference/referenceList/referenceListWithRole fields declare refNoun", () => {
         for (const noun of ENTITY_NOUNS) {
             for (const field of entityFields(noun)) {
-                if (field.type === "reference" || field.type === "referenceList") {
+                if (field.type === "reference" || field.type === "referenceList" || field.type === "referenceListWithRole") {
                     expect(field.refNoun).toBeDefined()
                 } else {
                     expect(field.refNoun).toBeUndefined()

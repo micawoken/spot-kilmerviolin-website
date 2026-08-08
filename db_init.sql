@@ -57,7 +57,7 @@ change_date INTEGER NOT NULL
 
 CREATE TABLE composers (
 composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
-name TEXT UNIQUE NOT NULL,
+name TEXT NOT NULL,
 role TEXT NOT NULL,
 birth_year INTEGER NOT NULL,
 death_year INTEGER NOT NULL,
@@ -69,6 +69,10 @@ citations TEXT,
 entry_date INTEGER NOT NULL,
 change_date INTEGER NOT NULL
 );
+
+-- the same person may appear twice under different roles (e.g. as both "composer" and "arranger"), but
+-- not twice under the same one.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_composers_name_role ON composers (name, role);
 
 CREATE TABLE compositions (
 composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
