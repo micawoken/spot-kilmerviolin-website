@@ -36,6 +36,10 @@ import PublicFooter from "../components/PublicFooter.astro"
 import { getSiteSettings } from "../lib/content/site"
 import { getThemeHead } from "../lib/content/theme-head"
 import { getNav, getFooterNav } from "../lib/content/nav"
+// Static, build-independent text — cheap to import into every page even though only compositor-rendering
+// pages opt into emitting it (includeCompositorCss below), unlike the theme CSS above which is genuinely
+// fetched per build.
+import compositorCss from "../lib/compositor/compositor.css?raw"
 // Binds the shared public chrome (body, PublicHeader, PublicFooter) to the theme's --dtk-* tokens, each
 // with a styles/global.css --color-* fallback. Public-only: never imported by the admin (BaseHead), so the
 // admin keeps its built-in palette. Loaded after global.css (imported by PublicHead) so its body rule wins.
@@ -65,6 +69,11 @@ interface Props {
      *  Defaults to "page" so every existing/future public page is tagged automatically with no caller
      *  change required — only [...slug].astro (posts) and entity/[noun]/[id].astro override it. */
     contentType?: string
+    /** Folds the compositor component stylesheet into the fused theme <style> below instead of leaving it
+     *  to a caller's own `<style slot="head">`. Off by default: a Portable-Text page ([...slug].astro's
+     *  "portable" branch) renders no compositor components and shouldn't ship their CSS. Callers that
+     *  always render through the compositor (entity/[noun]/[id].astro, a design_page branch) pass true. */
+    includeCompositorCss?: boolean
 }
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
@@ -75,14 +84,29 @@ interface Props {
 // all four now lets them race over the network together instead of each component discovering — and
 // paying for — its own read one at a time as the page renders top to bottom.
 const [site, themeHead] = await Promise.all([getSiteSettings(), getThemeHead(), getNav(), getFooterNav()])
-const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore, contentType = "page" } =
-    Astro.props
+const {
+    title = site.title,
+    description = site.description,
+    image,
+    pagefindFilter,
+    pagefindIgnore,
+    contentType = "page",
+    includeCompositorCss = false
+} = Astro.props
 
 // The theme's four independent CSS contributions (font faces, --dtk-* tokens, the Columns breakpoint, view
 // transitions) target disjoint selectors/at-rules, so their cascade order doesn't matter — fuse them into
-// one <style> tag instead of one each. columnsBreakpointCss is always present; the other three are "" when
-// their theme input is absent, and filter(Boolean) drops those rather than leaving blank lines.
-const themeCss = [themeHead.fontFaceCss, themeHead.tokenCss, themeHead.columnsBreakpointCss, themeHead.viewTransitionCss]
+// one <style> tag instead of one each, plus the compositor component stylesheet when the caller asks for
+// it (includeCompositorCss). columnsBreakpointCss is always present; the rest are "" when their theme
+// input is absent, or when this page renders no compositor components — filter(Boolean) drops those
+// rather than leaving blank lines.
+const themeCss = [
+    themeHead.fontFaceCss,
+    themeHead.tokenCss,
+    themeHead.columnsBreakpointCss,
+    themeHead.viewTransitionCss,
+    includeCompositorCss ? compositorCss : ""
+]
     .filter(Boolean)
     .join("\n\n")
 ---
@@ -99,16 +123,16 @@ const themeCss = [themeHead.fontFaceCss, themeHead.tokenCss, themeHead.columnsBr
             themeHead.preloadHrefs.map((href) => (
                 <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
             ))}
-        {/* One fused block for all four theme CSS contributions (see themeCss above): @font-face rules,
-            the --dtk-* custom properties (site-wide, so both public-chrome.css and any compositor design
-            page resolve their token references), the Columns single-column stacking breakpoint (always
-            present — it replaces what used to be a rule hardcoded into compositor.css, and is harmless on
-            a page with no .cmp-columns element), and the @view-transition rule (enabled by default,
-            matching the site's original always-on global.css rule; unsupported browsers just fall back to
-            a normal navigation). */}
+        {/* One fused block for all theme/compositor CSS contributions (see themeCss above): @font-face
+            rules, the --dtk-* custom properties (site-wide, so both public-chrome.css and any compositor
+            design page resolve their token references), the Columns single-column stacking breakpoint
+            (always present — it replaces what used to be a rule hardcoded into compositor.css, and is
+            harmless on a page with no .cmp-columns element), the @view-transition rule (enabled by
+            default, matching the site's original always-on global.css rule; unsupported browsers just
+            fall back to a normal navigation), and the compositor component stylesheet itself when
+            includeCompositorCss asks for it. */}
         <style set:html={themeCss} />
-        {/* Optional per-page head content. Design pages inject the compositor component stylesheet here;
-            every other caller simply leaves it empty. */}
+        {/* Optional per-page head content beyond the fused block above (e.g. EntityOgMeta). */}
         <slot name="head" />
     </head>
     <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>
