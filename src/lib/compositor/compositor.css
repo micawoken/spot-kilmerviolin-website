@@ -302,6 +302,8 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
+	box-sizing: border-box; /* height:100% must include padding+border, or the tile outgrows its
+		grid-stretched <li> and overflows past the intended bottom spacing (no global border-box reset exists) */
 	height: 100%;
 	padding: 1rem 1.25rem;
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
