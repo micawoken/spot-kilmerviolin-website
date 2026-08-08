@@ -59,6 +59,7 @@ import {
 import { breadcrumbAncestors, collectRoutes, POSTS_PREFIX } from "../lib/build/route-authority"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
+import { resolvePublicImageUrl } from "../lib/compositor/media"
 import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
 import compositorCss from "../lib/compositor/compositor.css?raw"
 
@@ -164,11 +165,18 @@ const headCss = props.kind === "design" ? compositorCss : ""
 const slugParam = Astro.params.slug
 const isPost = typeof slugParam === "string" && slugParam.startsWith(`${POSTS_PREFIX}/`)
 const contentType = isPost ? "post" : "page"
+
+const mediaBaseUrl = import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+const filesBaseUrl = import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL
+// The entry's `featured_image` (route-authority.ts's RouteProps.image), resolved to a public URL for
+// og:image/twitter:image — undefined (falls through to PublicHead's site default) when the entry set no
+// featured image, or a design_page's props.image (always undefined — no EmDash entry behind one).
+const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
 ---
 
 {
     props.kind === "portable" ? (
-        <PublicPage title={props.title} description={props.description} contentType={contentType}>
+        <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
             <article>
                 <h1>{props.title}</h1>
                 {props.published_at && (
@@ -180,7 +188,7 @@ const contentType = isPost ? "post" : "page"
             </article>
         </PublicPage>
     ) : (
-        <PublicPage title={props.title} description={props.description} contentType={contentType}>
+        <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
             <style slot="head" set:html={headCss} />
             {/* Puck's config holds React render functions, can't travel through getStaticPaths props
                 (serialized) — rebuilt here from the serializable theme. "build" target swaps the two
@@ -190,8 +198,8 @@ const contentType = isPost ? "post" : "page"
             <Render
                 config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: props.entry,
-                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
-                    filesBaseUrl: import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
+                    mediaBaseUrl,
+                    filesBaseUrl,
                     breadcrumbs: props.breadcrumbs,
                     pageTitle: props.title
                 })}

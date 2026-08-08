@@ -244,8 +244,8 @@ export async function populateInfo(
             continue
         }
         // the publication URI renders according to its declared uri_type (a sibling field on the
-        // publication_info object currently being populated): a clickable link for https/doi, the literal
-        // "isbn:{value}" text for isbn. renderPublicationUri returns markup-safe HTML (every value is
+        // publication_info object currently being populated): a clickable link for https/doi/isbn.
+        // renderPublicationUri returns markup-safe HTML (every value is
         // escapeHtml-encoded), assigned via innerHTML, mirroring the set:html render in CompositionInfo.astro.
         // A blank/absent URI falls through to the shared "not provided" marker below.
         if (

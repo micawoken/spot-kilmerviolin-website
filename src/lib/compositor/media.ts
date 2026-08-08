@@ -144,3 +144,27 @@ export function publicFileUrl(key: string, publicBase: string | undefined): stri
     }
     return `${publicBase.replace(/\/+$/, "")}/${key}`
 }
+
+/** Resolves a raw image field value (a D1 entity's `image` column, or an EmDash media object like
+ * `featured_image`) to a public URL suitable for `og:image`/`twitter:image` metadata — same source
+ * detection as `ContentImage` (`mediaSource`) and the same public-vs-proxy split as
+ * {@link publicMediaUrl}/{@link publicFileUrl} (this is only ever called at build time, for a
+ * prerendered public page, so the proxy target is never correct here). Returns `undefined` when the
+ * value carries no usable image, so a caller can fall through to a page- or site-level default instead
+ * of emitting a broken tag. */
+export function resolvePublicImageUrl(
+    value: unknown,
+    mediaBaseUrl: string | undefined,
+    filesBaseUrl: string | undefined
+): string | undefined {
+    const source = mediaSource(value)
+    if (!source) return undefined
+    switch (source.kind) {
+        case "key":
+            return publicMediaUrl(source.storageKey, mediaBaseUrl)
+        case "file":
+            return publicFileUrl(source.key, filesBaseUrl)
+        case "url":
+            return source.url
+    }
+}

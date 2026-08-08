@@ -55,11 +55,13 @@ import EntityOgMeta from "../../../components/EntityOgMeta.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
 import { buildReferenceIndex, buildRelatedWorksIndex, entityRecords, type RelatedWork } from "../../../lib/build/entity-records"
+import { entityMetaDescription } from "../../../lib/build/entity-meta"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { loadBundledFileAlt } from "../../../lib/build/bundled-file-alt"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, entityFields, type EntityNoun } from "../../../lib/compositor/entity-fields"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../../../lib/compositor/lint"
+import { resolvePublicImageUrl } from "../../../lib/compositor/media"
 import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/tokens"
 import compositorCss from "../../../lib/compositor/compositor.css?raw"
 
@@ -145,9 +147,19 @@ export async function getStaticPaths() {
 
 const { template, entry, theme, bundledFileAlt, relatedEntries } = Astro.props
 const title = typeof entry.name === "string" ? entry.name : undefined
+const description = entityMetaDescription(template.collection, entry)
+const mediaBaseUrl = import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+const filesBaseUrl = import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL
+const image = resolvePublicImageUrl(entry.image, mediaBaseUrl, filesBaseUrl)
 ---
 
-<PublicPage title={title} pagefindFilter="scope:database" contentType={ENTITY_NOUN_SLUGS[template.collection]}>
+<PublicPage
+    title={title}
+    description={description}
+    image={image}
+    pagefindFilter="scope:database"
+    contentType={ENTITY_NOUN_SLUGS[template.collection]}
+>
     <style slot="head" set:html={compositorCss} />
     <EntityOgMeta slot="head" entryDate={entry.entry_date} changeDate={entry.change_date} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
@@ -157,8 +169,8 @@ const title = typeof entry.name === "string" ? entry.name : undefined
         config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
             entry,
             fields: [...entityFields(template.collection)],
-            mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
-            filesBaseUrl: import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
+            mediaBaseUrl,
+            filesBaseUrl,
             // Entity pages always link Home / Database / {noun} / {item} — never the generic slug-prefix
             // walk route-authority.ts's breadcrumbAncestors does, since an entity page's URL
             // (/entity/{noun}/{id}) has no relationship to the published CMS route tree. /database is the

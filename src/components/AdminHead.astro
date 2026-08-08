@@ -47,17 +47,14 @@ import "../styles/admin-entities.css"
 <meta name="robots" content="noindex" />
 <AdminTypeface />
 
-<!-- Suppress EmDash's injected visual-editing toolbar on admin pages (see the file header). -->
 <style is:global>
     #emdash-toolbar {
         display: none !important;
     }
 </style>
 
-<!--
-    Same-origin static file (public/js/emdash-toolbar-strip.js) loaded with is:inline + src, NOT an
-    Astro <script>: the bundler inlines small Astro scripts directly into the document, which the admin
-    Content-Security-Policy (script-src 'self', no 'unsafe-inline'/nonce/hash) then blocks. An external
-    same-origin script is covered by 'self'. See components/AdminFooter.astro for the same pattern.
--->
+{/* Same-origin static file (public/js/emdash-toolbar-strip.js) via is:inline + src, NOT an Astro
+    <script>: the bundler inlines small Astro scripts directly into the document, which the admin CSP
+    (script-src 'self', no 'unsafe-inline'/nonce/hash) then blocks. An external same-origin script is
+    covered by 'self'. See components/AdminFooter.astro for the same pattern. */}
 <script is:inline src="/js/emdash-toolbar-strip.js"></script>

@@ -77,6 +77,14 @@ interface Props {
 const [site, themeHead] = await Promise.all([getSiteSettings(), getThemeHead(), getNav(), getFooterNav()])
 const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore, contentType = "page" } =
     Astro.props
+
+// The theme's four independent CSS contributions (font faces, --dtk-* tokens, the Columns breakpoint, view
+// transitions) target disjoint selectors/at-rules, so their cascade order doesn't matter — fuse them into
+// one <style> tag instead of one each. columnsBreakpointCss is always present; the other three are "" when
+// their theme input is absent, and filter(Boolean) drops those rather than leaving blank lines.
+const themeCss = [themeHead.fontFaceCss, themeHead.tokenCss, themeHead.columnsBreakpointCss, themeHead.viewTransitionCss]
+    .filter(Boolean)
+    .join("\n\n")
 ---
 
 <!doctype html>
@@ -87,27 +95,18 @@ const { title = site.title, description = site.description, image, pagefindFilte
             font file can be preloaded directly instead of routing through fonts.googleapis.com — see
             theme-fonts.ts for why that round trip made the theme font unreliable on a cold cache. Omitted
             entirely when no font is authored or self-hosting it failed for this build. */}
-        {themeHead.fontFaceCss && (
-            <>
-                {themeHead.preloadHrefs.map((href) => (
-                    <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
-                ))}
-                <style set:html={themeHead.fontFaceCss} />
-            </>
-        )}
-        {/* The theme's --dtk-* custom properties, emitted site-wide so both the chrome (public-chrome.css)
-            and any compositor design page resolve their token references. Omitted when no theme is
-            published, leaving every binding on its --color-* fallback. */}
-        {themeHead.tokenCss && <style set:html={themeHead.tokenCss} />}
-        {/* Columns' single-column stacking breakpoint (theme-authored; see tokens.ts's
-            columnsStackBreakpointCss). Always present, theme or not — it replaces what used to be a rule
-            hardcoded into compositor.css. Harmless on a page with no .cmp-columns element. */}
-        <style set:html={themeHead.columnsBreakpointCss} />
-        {/* Cross-document view transitions (theme-authored; see tokens.ts's viewTransitionCss). Enabled by
-            default, matching the site's original always-on global.css rule; "" (rendering nothing) when
-            the theme has explicitly disabled it. Unsupported browsers (Firefox, Safari) just fall back to
-            a normal navigation with no regression either way. */}
-        {themeHead.viewTransitionCss && <style set:html={themeHead.viewTransitionCss} />}
+        {themeHead.fontFaceCss &&
+            themeHead.preloadHrefs.map((href) => (
+                <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+            ))}
+        {/* One fused block for all four theme CSS contributions (see themeCss above): @font-face rules,
+            the --dtk-* custom properties (site-wide, so both public-chrome.css and any compositor design
+            page resolve their token references), the Columns single-column stacking breakpoint (always
+            present — it replaces what used to be a rule hardcoded into compositor.css, and is harmless on
+            a page with no .cmp-columns element), and the @view-transition rule (enabled by default,
+            matching the site's original always-on global.css rule; unsupported browsers just fall back to
+            a normal navigation). */}
+        <style set:html={themeCss} />
         {/* Optional per-page head content. Design pages inject the compositor component stylesheet here;
             every other caller simply leaves it empty. */}
         <slot name="head" />

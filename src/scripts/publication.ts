@@ -6,7 +6,8 @@
  * A composition's publication URI is rendered according to its declared uri_type (the type is
  * authoritative; the server validates the type/URI pairing in lib/api/d1.ts):
  *   https -> the URL rendered as a clickable link
- *   isbn  -> the literal text "isbn:{value}" (an ISBN is not directly resolvable, so it is not linked)
+ *   isbn  -> the bare ISBN text linked to its WorldCat lookup (https://www.worldcat.org/isbn/{isbn}),
+ *            mirroring citations.ts's ISBN handling
  *   doi   -> the bare DOI text linked to its doi.org resolver (https://doi.org/{doi})
  *
  * The returned string is HTML: every interpolated value is HTML-entity-encoded with escapeHtml first
@@ -72,8 +73,10 @@ export function renderPublicationUri(
             return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`
         case "doi":
             return `<a href="https://doi.org/${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`
-        case "isbn":
-            return `isbn:${safe}`
+        case "isbn": {
+            const href = escapeHtml(`https://www.worldcat.org/isbn/${uri.trim().replace(/[\s-]/g, "")}`)
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${safe}</a>`
+        }
         default:
             // unknown type (the server validates uri_type, so this should not occur): render the bare value
             return safe
