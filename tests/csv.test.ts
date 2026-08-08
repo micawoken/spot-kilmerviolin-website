@@ -42,6 +42,7 @@ import {
     parsePhases,
     compositionKey,
     normalizeName,
+    sentinelComposerName,
     type WorksContext,
     type BuildIssue
 } from "../src/scripts/import_build.ts"
@@ -274,6 +275,81 @@ function makeCtx(): WorksContext {
         phaseMap: new Map<string, string>()
     }
 }
+
+describe("sentinelComposerName", () => {
+    it("collapses recognized \"unknown\" spellings to the \"Unknown\" sentinel", () => {
+        for (const raw of ["unknown", "Unknown", "UNKNOWN COMPOSER", "unk", "unk.", "N/A", " na "]) {
+            expect(sentinelComposerName(raw)).toBe("Unknown")
+        }
+    })
+
+    it("collapses recognized \"traditional\" spellings to the \"Traditional\" sentinel", () => {
+        for (const raw of ["traditional", "Traditional", "TRAD", "trad."]) {
+            expect(sentinelComposerName(raw)).toBe("Traditional")
+        }
+    })
+
+    it("leaves every other name unchanged", () => {
+        for (const raw of ["Amy Beach", "Johann Sebastian Bach", "", "Unknown River Band"]) {
+            expect(sentinelComposerName(raw)).toBe(raw)
+        }
+    })
+})
+
+// a resolution context extending makeCtx() with the two sentinel composer records already present, for
+// tests that need sentinelComposerName's output to actually resolve rather than just report the issue
+function makeCtxWithSentinels(): WorksContext {
+    const composerRecords = [
+        { id: 10, name: "Johann Sebastian Bach", role: "composer" },
+        { id: 11, name: "Amy Beach", role: "composer" },
+        { id: 12, name: "Johann Sebastian Bach", role: "arranger" },
+        { id: 13, name: "Unknown", role: "other" },
+        { id: 14, name: "Traditional", role: "other" }
+    ]
+    const composers = indexByName(composerRecords)
+    const contributors = indexByName([
+        { id: 20, name: "Ada Lovelace" },
+        { id: 21, name: "Grace Hopper" }
+    ])
+    return {
+        composerByName: composers.byName,
+        composerByNameRole: indexByNameRole(composerRecords),
+        contributorByName: contributors.byName,
+        composerNames: composers.names,
+        contributorNames: contributors.names,
+        existingKeys: new Set<string>(),
+        phaseMap: new Map<string, string>()
+    }
+}
+
+describe("buildComposition: unknown/traditional composer sentinel normalization", () => {
+    it("resolves a variant \"unknown\" composer cell to the Unknown sentinel composer", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ composer: "unk.", contrib_primary_1: "Ada Lovelace" }),
+            makeCtxWithSentinels()
+        )
+        expect(issues).toEqual([])
+        expect(record.composer_id).toBe(13)
+    })
+
+    it("resolves a variant \"traditional\" composer cell to the Traditional sentinel composer", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ composer: "TRAD", contrib_primary_1: "Ada Lovelace" }),
+            makeCtxWithSentinels()
+        )
+        expect(issues).toEqual([])
+        expect(record.composer_id).toBe(14)
+    })
+
+    it("resolves a variant sentinel spelling in author_secondary the same way", () => {
+        const { record, issues } = buildComposition(
+            baseCompositionCells({ author_secondary: "N/A (other)" }),
+            makeCtxWithSentinels()
+        )
+        expect(issues).toEqual([])
+        expect(record.author_secondary).toEqual([13]) // resolved via the "Unknown" sentinel's (name, role) entry
+    })
+})
 
 describe("buildComposition", () => {
     it("resolves composer and contributor names to ids and maps the contribution period to phases", () => {

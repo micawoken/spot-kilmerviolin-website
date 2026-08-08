@@ -112,19 +112,22 @@ const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].f
             entirely when no theme is published (both are "" then, same as fontFaceCss's preload guard
             above). */}
         {(themeHead.fontFaceCss || themeHead.tokenCss) && <link rel="stylesheet" href="/theme-head.css" />}
-        {/* Optional per-page head content beyond the above (e.g. EntityOgMeta, CompositorStyles). Rendered
-            BEFORE the fused theme <style> below so that a compositor-rendering page's CompositorStyles
-            (compositor.css, carrying .cmp-columns' unconditional base rule) loads first in the cascade —
-            otherwise the equal-specificity, unconditional base rule would win source order over
-            columnsBreakpointCss's @media override below it, and Columns would never stack on narrow
-            viewports regardless of the breakpoint (confirmed live on /entity/work/1/ at 400px). */}
+        {/* Optional per-page head content beyond the above (e.g. EntityOgMeta, CompositorStyles). Kept
+            before the fused theme <style> below for readability, but this order is NOT load-bearing for
+            the cascade: CompositorStyles.astro's compositor.css reaches <head> via a plain side-effect
+            `import`, which Astro/Vite bundles into its own hashed `<link>` positioned by its static
+            CSS-extraction pass — independent of where this slot renders relative to the inline <style>
+            below. .cmp-columns' base rule is `:where()`-wrapped (compositor.css) specifically so the
+            @media override always wins on specificity regardless of which one the bundler emits first;
+            see that rule's comment for the live bug this replaced (confirmed on /privacy-policy: the
+            bundled <link> landed AFTER this inline <style> despite this source order). */}
         <slot name="head" />
         {/* The Columns single-column stacking breakpoint (always present — it replaces what used to be a
             rule hardcoded into compositor.css, and is harmless on a page with no .cmp-columns element) and
             the @view-transition rule (enabled by default, matching the site's original always-on
             global.css rule; unsupported browsers just fall back to a normal navigation) — see themeCss
-            above for why these two stay inline instead of joining theme-head.css. Must render after the
-            slot above (see that comment) so this @media override wins the cascade. */}
+            above for why these two stay inline instead of joining theme-head.css. Wins the cascade via
+            :where() on the base rule, not via this position — see the slot comment above. */}
         <style set:html={themeCss} />
     </head>
     <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>

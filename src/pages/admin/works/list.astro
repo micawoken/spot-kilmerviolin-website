@@ -31,7 +31,12 @@ import ListResults from "../../../components/entities/ListResults.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 // list is rendered server-side
-import { attachCompositionNames, listCompositions } from "../../../lib/api/database"
+import {
+    attachCompositionNames,
+    compositionNameCollisionKey,
+    disambiguatedCompositionName,
+    listCompositions
+} from "../../../lib/api/database"
 import { guardPage } from "../../../lib/api/page_auth"
 import { guardedRead } from "../../../lib/api/http"
 
@@ -59,13 +64,25 @@ if (enhanced_compositions instanceof Response) {
     return enhanced_compositions
 }
 
+// automatic disambiguation: a name collides with a sibling composition's when they share the same
+// (composer_id, name) pair — see disambiguatedCompositionName's header — regardless of list order
+const name_collision_counts = new Map<string, number>()
+for (const { object } of enhanced_compositions) {
+    const key = compositionNameCollisionKey(object.composer_id, object.name)
+    name_collision_counts.set(key, (name_collision_counts.get(key) ?? 0) + 1)
+}
+
 // NOTE: ListResults builds /admin/{noun}s/... links, so the URL noun is "work";
 // the client-side interface noun for compositions remains "composition"
-const formatted_compositions = enhanced_compositions.map(({ object, names }) => ({
-    id: object.id,
-    name: object.name,
-    name2: names.composer_name
-}))
+const formatted_compositions = enhanced_compositions.map(({ object, names }) => {
+    const key = compositionNameCollisionKey(object.composer_id, object.name)
+    const has_collision = (name_collision_counts.get(key) ?? 0) > 1
+    return {
+        id: object.id,
+        name: disambiguatedCompositionName(object.name, object.part, has_collision),
+        name2: names.composer_name
+    }
+})
 ---
 
 <!doctype html>

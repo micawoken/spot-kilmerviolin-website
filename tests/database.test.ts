@@ -40,7 +40,8 @@ import { WorkType } from "../src/lib/api/common.ts"
 import {
     addComposer, getComposer, listComposers, updateComposer, updateComposerPartial, deleteComposer,
     addContributor, getContributor, updateContributorPartial,
-    attachCompositionNames, purgeCacheAll
+    attachCompositionNames, purgeCacheAll,
+    compositionNameCollisionKey, disambiguatedCompositionName
 } from "../src/lib/api/database.ts"
 
 // mirrors the table definitions in d1.ts (the init strings there are module-private)
@@ -359,6 +360,23 @@ describe("attachCompositionNames", () => {
         expect(enhanced.names.contrib_primary_1_name).toBe("Names Contrib Resolvable")
         expect(enhanced.names.contrib_primary_2_name).toBe("")
         expect(enhanced.names.contrib_addl_names).toEqual(["Names Contrib Resolvable", ""])
+    })
+})
+
+describe("automatic composition-name disambiguation", () => {
+    it("compositionNameCollisionKey is case-insensitive and whitespace-trimmed, mirroring the UNIQUE index columns", () => {
+        expect(compositionNameCollisionKey(1, "Prelude")).toBe(compositionNameCollisionKey(1, "  PRELUDE  "))
+        expect(compositionNameCollisionKey(1, "Prelude")).not.toBe(compositionNameCollisionKey(2, "Prelude"))
+        expect(compositionNameCollisionKey(1, "Prelude")).not.toBe(compositionNameCollisionKey(1, "Fugue"))
+    })
+
+    it("disambiguatedCompositionName appends the part only when both a collision AND a part exist", () => {
+        expect(disambiguatedCompositionName("Prelude", "II", true)).toBe("Prelude (II)")
+        // no colliding sibling — name stays bare even though a part is set
+        expect(disambiguatedCompositionName("Prelude", "II", false)).toBe("Prelude")
+        // a colliding sibling exists, but THIS record has no part of its own to disambiguate with
+        expect(disambiguatedCompositionName("Prelude", null, true)).toBe("Prelude")
+        expect(disambiguatedCompositionName("Prelude", "", true)).toBe("Prelude")
     })
 })
 

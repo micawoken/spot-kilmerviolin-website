@@ -1080,6 +1080,28 @@ function compositionDuplicateKey(composer_id: number, name: string, part: string
     return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
 }
 
+/**
+ * Groups compositions by their (composer_id, name) pair — the two components of the compositions
+ * table's UNIQUE index (composer_id, name, COALESCE(part,'')) that on their own do NOT guarantee
+ * uniqueness; `part` is the index's third, disambiguating component. Two compositions sharing this key
+ * are indistinguishable by name+composer alone and need their `part` surfaced in a display name to
+ * tell them apart. Case-insensitive, whitespace-trimmed to mirror {@link compositionDuplicateKey}.
+ */
+export function compositionNameCollisionKey(composer_id: number, name: string): string {
+    return `${composer_id} ${name.trim().toLowerCase()}`
+}
+
+/**
+ * A composition's display name, with its `part` appended in parentheses when another composition
+ * shares the exact same (composer, name) pair — automatic disambiguation for list/tile contexts that
+ * show a composition's name next to its composer but have no other way to tell same-titled works
+ * apart. A part-less composition stays ambiguous even when a same-named sibling has its own part: there
+ * is nothing to disambiguate it WITH.
+ */
+export function disambiguatedCompositionName(name: string, part: string | null, hasCollision: boolean): string {
+    return hasCollision && part ? `${name} (${part})` : name
+}
+
 /** Normalizes a name (+ optional discriminator, e.g. a composer's role) for case-insensitive,
  *  whitespace-trimmed conflict comparison (mirrors the UNIQUE column/index). */
 function nameConflictKey(name: string, discriminator?: string): string {

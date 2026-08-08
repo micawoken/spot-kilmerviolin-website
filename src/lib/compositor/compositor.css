@@ -78,8 +78,18 @@
  * canvas/preview), because it is theme-authored (`layoutStackBreakpoint`) and custom properties cannot
  * appear in `@media` conditions — the chosen breakpoint's literal pixel value has to be baked into that
  * generated CSS text instead. Each column is itself a stacking container (flow invariant) for whatever
- * is dropped into it. */
-.cmp-columns {
+ * is dropped into it.
+ *
+ * This base rule is wrapped in `:where()` so it carries ZERO specificity, deliberately, not for source
+ * order: CompositorStyles.astro loads this file via a plain side-effect `import`, which Astro/Vite
+ * extracts into its own hashed, bundled `<link>` at a position in <head> decided by its static
+ * CSS-bundling pass — NOT by where `<slot name="head">` happens to render relative to PublicPage's
+ * inline breakpoint `<style>`. A same-specificity, unconditional `.cmp-columns` rule can end up LATER
+ * in the cascade than the `@media` override regardless of any source-order arrangement, silently
+ * defeating stacking on narrow viewports (confirmed live: /privacy-policy served the breakpoint `<style>`
+ * before this stylesheet's `<link>`). `:where()` makes the override win on specificity alone, so it holds
+ * no matter which one the bundler emits first. */
+:where(.cmp-columns) {
 	display: grid;
 	grid-template-columns: repeat(var(--cmp-columns-count, 1), 1fr);
 	column-gap: var(--cmp-columns-column-gap, 0);
@@ -128,6 +138,13 @@
 }
 .cmp-richtext > :last-child {
 	margin-block-end: 0;
+}
+/* An empty trailing block (e.g. a blank paragraph left by the rich-text editor) is a self-collapsing
+ * box: its UA margin-block-start survives the :last-child rule above (which only zeroes margin-block-end)
+ * and escapes through the empty box on both sides, re-adding the gap the rule exists to remove. Hiding
+ * empty blocks outright removes both their margin and their (nonexistent) content. */
+.cmp-richtext > :empty {
+	display: none;
 }
 
 /* Code blocks (richtext.tsx's `code` type) are the one `.cmp-richtext` child whose own UA-default vertical
