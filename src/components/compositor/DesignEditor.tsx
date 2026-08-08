@@ -62,12 +62,17 @@ import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../lib/compositor/migr
 import { columnsStackBreakpointCss, isTokenCatalog, tokensToCss, type TokenCatalog } from "../../lib/compositor/tokens"
 import { cmsBoolean, type DesignDoc } from "../../lib/compositor/types"
 // Vite `?raw` yields the file's text (typed via astro/client). Injected into the canvas iframe below,
-// where host styles are not synced — so this is how compositor.css reaches the preview.
-import compositorCss from "../../lib/compositor/compositor.css?raw"
+// where host styles are not synced — so this is how compositor.css reaches the preview. stripCssComments
+// keeps the source files' dev comments out of that iframe — see lib/compositor/css.ts.
+import { stripCssComments } from "../../lib/compositor/css"
+import rawCompositorCss from "../../lib/compositor/compositor.css?raw"
 // The PagefindSearch component's shared form styles (styles/search-form.css) — same `?raw` route, since
 // a bare `@import` in compositorCss would not survive that transform.
-import searchFormCss from "../../styles/search-form.css?raw"
+import rawSearchFormCss from "../../styles/search-form.css?raw"
 import { rebuildSite } from "../../scripts/connector"
+
+const compositorCss = stripCssComments(rawCompositorCss)
+const searchFormCss = stripCssComments(rawSearchFormCss)
 
 // puck-theme.css rebinds Puck's own semantic color tokens to the app's palette (it ships no dark mode);
 // design-editor.css styles the chrome we wrap it in. Both are unlayered, so they win over Puck's

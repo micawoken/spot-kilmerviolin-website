@@ -69,11 +69,16 @@ import {
 import "./design-editor.css"
 // Vite `?raw` yields the file's text, same mechanism as DesignEditor.tsx's Puck canvas iframe. Styles
 // the live preview specimens below via a plain `<style>` in the admin document (admin CSP allows
-// `style-src 'self' 'unsafe-inline'`).
-import compositorCss from "../../lib/compositor/compositor.css?raw"
+// `style-src 'self' 'unsafe-inline'`). stripCssComments keeps the source files' dev comments out of that
+// document — see lib/compositor/css.ts.
+import { stripCssComments } from "../../lib/compositor/css"
+import rawCompositorCss from "../../lib/compositor/compositor.css?raw"
 // The PagefindSearch component's shared form styles (styles/search-form.css) — same `?raw` route, since
 // a bare `@import` in compositorCss would not survive that transform.
-import searchFormCss from "../../styles/search-form.css?raw"
+import rawSearchFormCss from "../../styles/search-form.css?raw"
+
+const compositorCss = stripCssComments(rawCompositorCss)
+const searchFormCss = stripCssComments(rawSearchFormCss)
 
 const DESIGN_THEME = "/_emdash/api/content/design_theme"
 

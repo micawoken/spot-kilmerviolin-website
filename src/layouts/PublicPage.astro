@@ -38,8 +38,10 @@ import { getThemeHead } from "../lib/content/theme-head"
 import { getNav, getFooterNav } from "../lib/content/nav"
 // Static, build-independent text — cheap to import into every page even though only compositor-rendering
 // pages opt into emitting it (includeCompositorCss below), unlike the theme CSS above which is genuinely
-// fetched per build.
-import compositorCss from "../lib/compositor/compositor.css?raw"
+// fetched per build. stripCssComments keeps the source file's dev comments out of the served HTML — see
+// lib/compositor/css.ts.
+import { stripCssComments } from "../lib/compositor/css"
+import rawCompositorCss from "../lib/compositor/compositor.css?raw"
 // Binds the shared public chrome (body, PublicHeader, PublicFooter) to the theme's --dtk-* tokens, each
 // with a styles/global.css --color-* fallback. Public-only: never imported by the admin (BaseHead), so the
 // admin keeps its built-in palette. Loaded after global.css (imported by PublicHead) so its body rule wins.
@@ -93,6 +95,8 @@ const {
     contentType = "page",
     includeCompositorCss = false
 } = Astro.props
+
+const compositorCss = stripCssComments(rawCompositorCss)
 
 // The theme's four independent CSS contributions (font faces, --dtk-* tokens, the Columns breakpoint, view
 // transitions) target disjoint selectors/at-rules, so their cascade order doesn't matter — fuse them into
