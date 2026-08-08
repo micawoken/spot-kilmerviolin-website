@@ -36,7 +36,8 @@ import {
     proxyFileUrl,
     proxyMediaUrl,
     publicFileUrl,
-    publicMediaUrl
+    publicMediaUrl,
+    resolvePublicImageUrl
 } from "../../src/lib/compositor/media"
 import { EMPTY_TOKEN_CATALOG } from "../../src/lib/compositor/tokens"
 
@@ -171,6 +172,39 @@ describe("publicFileUrl", () => {
 describe("proxyFileUrl", () => {
     it("builds the same-origin /api/v1/files/{key} route (correct in the admin)", () => {
         expect(proxyFileUrl(KEY)).toBe(`/api/v1/files/${KEY}`)
+    })
+})
+
+describe("resolvePublicImageUrl", () => {
+    it("resolves an EmDash local-media value (meta.storageKey) through the public media origin", () => {
+        expect(resolvePublicImageUrl(localImageValue, MEDIA_ORIGIN, undefined)).toBe(`${MEDIA_ORIGIN}/${KEY}`)
+    })
+
+    it("resolves an /api/v1/files/{key} string (a D1 entity's uploaded image) through the public files origin", () => {
+        expect(resolvePublicImageUrl("/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg", undefined, FILES_ORIGIN)).toBe(
+            `${FILES_ORIGIN}/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg`
+        )
+    })
+
+    it("passes a plain absolute URL (a D1 entity's `image` column) through untouched", () => {
+        const url = "https://images.example.test/abc.jpg"
+        expect(resolvePublicImageUrl(url, undefined, undefined)).toBe(url)
+    })
+
+    it("returns undefined for an absent/empty value, so a caller can fall through to a default instead of a broken tag", () => {
+        expect(resolvePublicImageUrl(undefined, MEDIA_ORIGIN, FILES_ORIGIN)).toBeUndefined()
+        expect(resolvePublicImageUrl("", MEDIA_ORIGIN, FILES_ORIGIN)).toBeUndefined()
+        expect(resolvePublicImageUrl({}, MEDIA_ORIGIN, FILES_ORIGIN)).toBeUndefined()
+    })
+
+    it("THROWS for a local-media value when the media origin is unset, same as publicMediaUrl", () => {
+        expect(() => resolvePublicImageUrl(localImageValue, undefined, FILES_ORIGIN)).toThrow(/EMDASH_MEDIA_PUBLIC_URL/)
+    })
+
+    it("THROWS for an uploaded-file value when the files origin is unset, same as publicFileUrl", () => {
+        expect(() =>
+            resolvePublicImageUrl("/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg", MEDIA_ORIGIN, undefined)
+        ).toThrow(/FILES_PUBLIC_URL/)
     })
 })
 

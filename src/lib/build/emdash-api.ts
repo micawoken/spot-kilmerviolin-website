@@ -371,8 +371,9 @@ let publishedPagesCache: Promise<BuildPage[]> | null = null
  *
  * `posts` is shaped differently from `pages`: its blurb field is **`excerpt`**, and it has **no
  * `published_at`**, so a post carries no "last updated" date into the untemplated render. It does have a
- * `featured_image`, the only `image` field either routed collection defines — and therefore the only
- * field a `ContentImage` outlet can bind to anywhere on the site.
+ * `featured_image` — as does `pages` (added by `tools/setup-design-collections.mjs`'s `FIELD_ADDITIONS`)
+ * — the only `image`-typed field either routed collection defines, bindable by a `ContentImage` outlet
+ * and read directly by `route-authority.ts` for a routed page/post's `og:image`/`twitter:image`.
  *
  * The collection is read fail-LOUD (no `allowMissing`), like `pages` and unlike `design_template`: it is
  * an EmDash seed collection that exists in every environment, so a 404 here means the CMS is not the one

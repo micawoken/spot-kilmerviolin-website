@@ -69,6 +69,10 @@ interface ImportMetaEnv {
     // Build-time-only like the rest of this interface: public pages are prerendered (see PublicHead.astro),
     // so this must come from the build environment, not a wrangler runtime var. See .env.example.
     readonly CF_WEB_ANALYTICS_TOKEN?: string
+    // Site-wide og:image/twitter:image fallback (absolute URL) for a page with no image of its own. See
+    // PublicHead.astro and .env.example. Unset by default — the tags are omitted, not pointed at a
+    // placeholder.
+    readonly SITE_DEFAULT_OG_IMAGE?: string
 }
 
 declare module "jose" {

@@ -36,7 +36,10 @@ interface Props {
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 
-const { title, description, image = "/blog-placeholder-1.jpg" } = Astro.props
+// No admin-page default: the admin is Access-gated, so a scraper never resolves og:image/twitter:image
+// here anyway. The previous default, "/blog-placeholder-1.jpg", was never carried into public/ from the
+// Astro starter template it came from and 404s in prod — omit the tags entirely rather than point at it.
+const { title, description, image } = Astro.props
 
 // keep the staging preview out of search indexes (see PublicHead.astro for the canonical version)
 const noindex = detectEnvironment(Astro.request) === "staging"
@@ -113,11 +116,11 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image, Astro.url)} />
+{image && <meta property="og:image" content={new URL(image, Astro.url)} />}
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:url" content={Astro.url} />
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
-<meta property="twitter:image" content={new URL(image, Astro.url)} />
+{image && <meta property="twitter:image" content={new URL(image, Astro.url)} />}

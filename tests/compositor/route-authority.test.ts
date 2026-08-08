@@ -118,6 +118,27 @@ describe("collectRoutes — merging the two sources", () => {
         expect(design.template).toBeNull()
     })
 
+    it("carries a portable entry's featured_image field through as props.image", () => {
+        const { routes } = collectRoutes({
+            pages: [page("about", { fields: { title: "Page about", content: [], featured_image: "/files/hero.jpg" } })],
+            posts: [],
+            designPages: [],
+            templates: []
+        })
+
+        const portable = routes[0].props
+        if (portable.kind !== "portable") throw new Error("expected a portable route")
+        expect(portable.image).toBe("/files/hero.jpg")
+    })
+
+    it("gives a design_page's props.image undefined — no EmDash entry, no featured_image field", () => {
+        const { routes } = collectRoutes({ pages: [], posts: [], designPages: [designPage("gallery")], templates: [] })
+
+        const design = routes[0].props
+        if (design.kind !== "design") throw new Error("expected a design route")
+        expect(design.image).toBeUndefined()
+    })
+
     it("accepts empty sources", () => {
         expect(collectRoutes({ pages: [], posts: [], designPages: [], templates: [] })).toEqual({
             routes: [],
@@ -148,6 +169,25 @@ describe("collectRoutes — D4 template resolution", () => {
         expect(props.entry).toEqual({ title: "Page about", content: [] })
         expect(props.template).toEqual({ slug: tpl.slug, collection: tpl.collection })
         expect(warnings).toEqual([])
+    })
+
+    it("carries a templated entry's featured_image field through as props.image", () => {
+        const tpl = template("t1")
+        const { routes } = collectRoutes({
+            pages: [
+                page("about", {
+                    designRef: "t1",
+                    fields: { title: "Page about", content: [], featured_image: "/files/hero.jpg" }
+                })
+            ],
+            posts: [],
+            designPages: [],
+            templates: [tpl]
+        })
+
+        const props = routes[0].props
+        if (props.kind !== "design") throw new Error("expected a design route")
+        expect(props.image).toBe("/files/hero.jpg")
     })
 
     it("resolves the design pointer by the template's slug, not only its id", () => {

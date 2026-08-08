@@ -54,7 +54,17 @@ import type { BuildPage } from "./emdash-api"
  * behavior, unchanged) or a composed design document.
  */
 export type RouteProps =
-    | { kind: "portable"; title: string; description: string; published_at: string | null; content: unknown }
+    | {
+          kind: "portable"
+          title: string
+          description: string
+          published_at: string | null
+          content: unknown
+          /** Raw `featured_image` field value (an EmDash media object), not yet resolved to a URL — the
+           * route file resolves it against the build's media/files origins. `undefined` when the entry
+           * defines no such field. */
+          image: unknown
+      }
     | {
           kind: "design"
           title: string
@@ -67,6 +77,9 @@ export type RouteProps =
            * selects the checked schema (§5.5). Null for a `design_page` — its own layout, linted
            * standalone before routes are collected. */
           template: { slug: string; collection: TemplateCollection } | null
+          /** Same `featured_image` field as the portable branch — a `design_page` has no entry behind it
+           * (no EmDash `fields` record), so this is always `undefined` there. */
+          image: unknown
       }
 
 /** One route the build will emit: the owning slug and the props that render it. */
@@ -281,14 +294,16 @@ export function collectRoutes({ pages, posts, designPages, templates }: RouteSou
                       description: entry.description,
                       doc: template.doc,
                       entry: entry.fields,
-                      template: { slug: template.slug, collection: template.collection }
+                      template: { slug: template.slug, collection: template.collection },
+                      image: entry.fields.featured_image
                   }
                 : {
                       kind: "portable",
                       title: entry.title,
                       description: entry.description,
                       published_at: entry.published_at,
-                      content: entry.content
+                      content: entry.content,
+                      image: entry.fields.featured_image
                   }
         })
     }
@@ -306,7 +321,8 @@ export function collectRoutes({ pages, posts, designPages, templates }: RouteSou
                 description: designPage.description,
                 doc: designPage.doc,
                 entry: null,
-                template: null
+                template: null,
+                image: undefined
             }
         })
     }
