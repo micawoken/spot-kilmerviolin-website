@@ -136,6 +136,33 @@ export function normalizeName(name: string): string {
     return name.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
+/** Spellings donated CSV data commonly uses for "the composer is not known" — collapsed to the
+ *  "Unknown" sentinel below. Distinct from {@link TRADITIONAL_COMPOSER_ALIASES}: this means "we don't
+ *  know who wrote it", not "there was no individual composer". Matched against normalizeName's output
+ *  with one trailing "." stripped, so "Unknown", "UNKNOWN COMPOSER", "unk.", and "N/A" all collapse the
+ *  same way. */
+const UNKNOWN_COMPOSER_ALIASES = new Set(["unknown", "unknown composer", "unk", "n/a", "na"])
+
+/** Spellings for a work with no individual composer (the folk/anonymous-authorship case) — collapsed to
+ *  the "Traditional" sentinel below. See {@link UNKNOWN_COMPOSER_ALIASES} for the contrast. */
+const TRADITIONAL_COMPOSER_ALIASES = new Set(["traditional", "trad"])
+
+/**
+ * Collapses a composer-name cell to one of two canonical sentinel names — "Unknown" or "Traditional" —
+ * when it's a recognized variant meaning "not a known individual composer" (see the two alias sets
+ * above). Applied before {@link resolveReference} so every recognized variant resolves against the SAME
+ * composer record instead of the resolver treating "Unknown", "unk.", and "N/A" as three different,
+ * unresolvable names (or, once created, three near-duplicate composer rows). Returns `raw` unchanged for
+ * every other name — a composer actually named e.g. "Unknown" would need to collide with this list to be
+ * affected, which is not a realistic concern for a person/ensemble name.
+ */
+export function sentinelComposerName(raw: string): string {
+    const key = normalizeName(raw).replace(/\.+$/, "")
+    if (UNKNOWN_COMPOSER_ALIASES.has(key)) return "Unknown"
+    if (TRADITIONAL_COMPOSER_ALIASES.has(key)) return "Traditional"
+    return raw
+}
+
 /**
  * Composite dedup key for a composition: composer id + case-insensitively-normalized name + part. A null or
  * blank part is treated as an empty part so two part-less works still collide (mirrors the server's
@@ -288,10 +315,12 @@ function resolveSecondaryAuthor(
     ctx: WorksContext,
     column: string
 ): { id: number | null; issue: BuildIssue | null } {
-    const { name, role } = parseSecondaryAuthorEntry(raw)
-    if (name === "") {
+    const parsed = parseSecondaryAuthorEntry(raw)
+    if (parsed.name === "") {
         return { id: null, issue: null }
     }
+    const name = sentinelComposerName(parsed.name)
+    const role = parsed.role
     const key = `${normalizeName(name)} ${normalizeName(role)}`
     const match = ctx.composerByNameRole.get(key)
     if (match !== undefined) {
@@ -388,7 +417,13 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         issues.push({ message: "name is required", column: "name" })
     }
 
-    const composer = resolveReference(cells.composer, ctx.composerByName, ctx.composerNames, "composer", "composer")
+    const composer = resolveReference(
+        sentinelComposerName(cells.composer),
+        ctx.composerByName,
+        ctx.composerNames,
+        "composer",
+        "composer"
+    )
     if (cells.composer.trim() === "") {
         issues.push({ message: "composer is required", column: "composer" })
     } else if (composer.issue !== null) {

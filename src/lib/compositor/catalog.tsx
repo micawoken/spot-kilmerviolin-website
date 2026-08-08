@@ -639,6 +639,20 @@ function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, stri
     return index[source.url.slice(BUNDLED_FILE_PREFIX.length)]
 }
 
+/** The `sizes` attribute hint for each `ImageSizePreset`, mirroring compositor.css's
+ * `.cmp-image[data-size]` max-width caps (12/24/40rem at the standard 16px root, small/medium/large) —
+ * a rendered image is never wider than its preset's cap, so the browser's `srcset` selection can pick
+ * the smallest candidate that still covers it instead of defaulting to the largest. "full" has no cap
+ * (max-width: 100%), so its hint stays viewport-relative. Approximate by nature — `sizes` is a layout
+ * hint, not a guarantee — and deliberately not themed: a custom root font size would only make the
+ * browser fetch a slightly larger/smaller candidate than ideal, never a broken one. */
+const IMAGE_SIZE_HINTS: Record<ImageSizePreset, string> = {
+    small: "192px",
+    medium: "384px",
+    large: "640px",
+    full: "100vw"
+}
+
 /** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). Not
  * used by `MediaText`'s media side — its rendered size comes from its flex container, not the `<img>`
  * itself (see `.cmp-media-text__media` in compositor.css), so `size` drives `data-size` there instead.
@@ -648,7 +662,15 @@ function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, stri
  * at all, so the browser's heuristic guess was the only thing ever prioritizing a hero image over
  * everything else competing for bandwidth. `false` (the default) renders neither attribute, byte-for-byte
  * the pre-existing markup — this only ever adds a priority hint, never removes the browser's own default
- * (eager) loading behavior for the common case. */
+ * (eager) loading behavior for the common case.
+ *
+ * `sizes` is always emitted (from `IMAGE_SIZE_HINTS`) — inert on its own (the browser ignores `sizes`
+ * without a matching `srcset`), but it is the attribute the build-time responsive-image integration
+ * (optimize-emdash-media.mjs) looks for when deciding whether/how to inject a `srcset` of width variants
+ * into the already-rendered HTML, since a per-request build has no direct hook into this render path
+ * (see that file's header for why it operates as a post-build HTML pass). Emitting it here, unconditionally,
+ * means the two stay in sync without either module needing to duplicate the `ImageSizePreset` → width
+ * mapping. */
 function renderImageTag(
     url: string,
     alt: string,
@@ -667,6 +689,7 @@ function renderImageTag(
             data-aspect={aspect}
             data-size={size}
             src={url}
+            sizes={IMAGE_SIZE_HINTS[size]}
             alt={alt}
             width={width}
             height={height}

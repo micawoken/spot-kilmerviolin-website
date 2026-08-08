@@ -133,6 +133,9 @@ export function buildRelatedWorksIndex(
     for (const record of composers ?? []) composerNames.set(record.id, record.name)
 
     const works = compositions ?? []
+    // Raw `record.name`, deliberately: the exact-name-match ordering below (composition bucket) compares
+    // against CompositionRecord.name directly, so a RelatedWork's own name must stay unmodified here.
+    // Automatic disambiguation is applied as a final pass, after ordering, once all lists are built.
     const toRelatedWork = (record: CompositionRecord): RelatedWork => ({
         id: record.id,
         name: record.name,
@@ -196,6 +199,30 @@ export function buildRelatedWorksIndex(
             index.set(key, [...exact, ...randomShuffle(rest)])
         } else if (noun === "contributor") {
             index.set(key, randomShuffle(list))
+        }
+    }
+
+    // Automatic disambiguation, applied last so it never disturbs the exact-name-match ordering above: a
+    // tile's composer subtitle (catalog.tsx) can't tell two same-titled works by the same composer apart
+    // — the compositions table's UNIQUE index is (composer_id, name, COALESCE(part,'')), so `part` is the
+    // one field that does. Mirrors compositionNameCollisionKey/disambiguatedCompositionName
+    // (lib/api/database.ts) for the admin works list; duplicated rather than imported so this build-time
+    // module doesn't pull in the worker-only D1 access layer. A part-less work stays ambiguous — there is
+    // nothing to disambiguate it WITH — even when its same-named sibling has its own part.
+    const worksById = new Map<number, CompositionRecord>()
+    for (const record of works) worksById.set(record.id, record)
+    const nameCollisionCounts = new Map<string, number>()
+    for (const record of works) {
+        const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
+        nameCollisionCounts.set(key, (nameCollisionCounts.get(key) ?? 0) + 1)
+    }
+    for (const list of index.values()) {
+        for (const work of list) {
+            const record = worksById.get(work.id)
+            if (!record) continue
+            const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
+            const hasCollision = (nameCollisionCounts.get(key) ?? 0) > 1
+            if (hasCollision && record.part) work.name = `${record.name} (${record.part})`
         }
     }
 

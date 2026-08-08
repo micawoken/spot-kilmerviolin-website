@@ -595,6 +595,25 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
         const viaContentImage = render(config, "ContentImage", { field: "cover", aspect: "original", size: "small" })
         expect(viaContentImage).toContain('data-size="small"')
     })
+
+    it("Image/ContentImage/MediaText emit a sizes attribute matching the size preset's CSS max-width cap", () => {
+        const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
+        const cases: Array<["small" | "medium" | "large" | "full", string]> = [
+            ["small", "192px"],
+            ["medium", "384px"],
+            ["large", "640px"],
+            ["full", "100vw"]
+        ]
+        for (const [size, hint] of cases) {
+            const html = render(config, "Image", {
+                media: { mediaId: "med_1", storageKey: "med_1.jpg", alt: "", width: 0, height: 0 },
+                alt: "A violin",
+                aspect: "original",
+                size
+            })
+            expect(html).toContain(`sizes="${hint}"`)
+        }
+    })
 })
 
 describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {

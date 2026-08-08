@@ -24,7 +24,10 @@
 
 // integrations/optimize-emdash-media.mjs
 //
-// Astro integration that re-encodes EmDash-sourced media referenced by the built site.
+// Astro integration that re-encodes EmDash-sourced media referenced by the built site, and adds a
+// responsive `srcset` of width variants so a narrow viewport downloads a correspondingly smaller file
+// instead of the same capped-at-1600px image every viewport gets — the LCP-relevant half of the
+// optimization (the single-size webp re-encode was the byte-count half).
 //
 // EmDash (the CMS) manages its own media bucket (EMDASH_MEDIA, publicUrl EMDASH_MEDIA_PUBLIC_URL) and its
 // own upload pipeline — unlike this project's own R2_FILES bucket, which every upload already passes
@@ -44,12 +47,24 @@
 // tags use `content=`, not `src=`, so they're untouched by design — those want full quality, not a capped
 // thumbnail.
 //
+// `srcset` width variants: for each referenced image, resize to every entry of WIDTH_TARGETS that's no
+// larger than the source's own natural width (sharp's `withoutEnlargement` would otherwise just emit the
+// same capped file repeatedly for a source narrower than a given target — read the metadata once and
+// filter instead of paying for redundant, identical output files). The `sizes` attribute this pairs with
+// is emitted unconditionally by catalog.tsx's renderImageTag (IMAGE_SIZE_HINTS) on every `<img>` it
+// produces, so every `<img src>` this integration finds at the EmDash media origin already has one — no
+// separate check needed here, same "the emitted markup is authoritative" reasoning the src-origin filter
+// above already relies on. A source narrower than every WIDTH_TARGETS entry still gets exactly one
+// variant (its own capped width) — a one-candidate `srcset` is valid HTML and simply never has a smaller
+// alternative to offer. `src` itself keeps pointing at the largest variant, so a browser with no `srcset`
+// support renders exactly what it did before this integration gained responsive variants.
+//
 // Fails soft per image, same contract as theme-fonts.ts: a fetch/decode error leaves that one image's
 // `src` pointing at the original EMDASH_MEDIA_PUBLIC_URL rather than failing the build. An unset
 // EMDASH_MEDIA_PUBLIC_URL (local dev without it configured) skips the integration entirely.
 //
-// Output is content-hashed (sha256 of the source URL, matching theme-fonts.ts's filename scheme) under
-// dist/client/images/emdash/ — public/_headers marks that path immutable, same as /fonts/*.
+// Output is content-hashed (sha256 of the source URL + width, matching theme-fonts.ts's filename scheme)
+// under dist/client/images/emdash/ — public/_headers marks that path immutable, same as /fonts/*.
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
@@ -60,8 +75,15 @@ import sharp from "sharp"
 // Mirrors optimize-files.mjs's TARGET_QUALITY (itself mirroring TARGET_IMAGE_QUALITY / lib/api/images.ts).
 const TARGET_QUALITY = 82
 // Mirrors the MAX_IMAGE_WIDTH wrangler var / CANON_* long edge in lib/api/images.ts — this project's
-// existing ceiling for "how big does a rendered image ever need to be".
+// existing ceiling for "how big does a rendered image ever need to be". Also the largest `srcset`
+// candidate width — a source wider than this was already being downscaled before responsive variants
+// existed, so it stays the ceiling here too.
 const MAX_LONG_EDGE = 1600
+// `srcset` candidate widths, largest first (the order variants are considered in, not the order they're
+// emitted). Roughly doubling steps: covers a phone viewport (small preset, 192px @2x ≈ 480) up through a
+// full-bleed hero on a hi-DPI laptop screen (MAX_LONG_EDGE @1x). A source narrower than a given target is
+// skipped for that target (see this file's header) rather than upscaled or redundantly re-emitted.
+const WIDTH_TARGETS = [480, 800, 1200, MAX_LONG_EDGE]
 const OUT_SUBDIR = "images/emdash"
 // EmDash storage keys are `{ulid}{ext}` (media.ts) — the extension is always present in the URL. Anything
 // outside this set (an SVG icon, an unrecognized type) passes through unrewritten rather than risk a bad
@@ -130,6 +152,9 @@ export default function optimizeEmdashMedia() {
                 const out_dir = path.join(out_root, OUT_SUBDIR)
                 await fs.mkdir(out_dir, { recursive: true })
 
+                // `local` is the largest variant's path (the `src` fallback); `srcset` is the full
+                // `"path Nw, path Nw, ..."` descriptor list, widest last (matches browser convention,
+                // though selection doesn't depend on order).
                 const rewrites = new Map()
                 for (const url of referenced) {
                     let ext
@@ -147,19 +172,37 @@ export default function optimizeEmdashMedia() {
                             throw new Error(`${res.status} ${res.statusText}`)
                         }
                         const input = Buffer.from(await res.arrayBuffer())
-                        const out_bytes = await sharp(input)
-                            .resize({
-                                width: MAX_LONG_EDGE,
-                                height: MAX_LONG_EDGE,
-                                fit: "inside",
-                                withoutEnlargement: true
-                            })
-                            .webp({ quality: TARGET_QUALITY })
-                            .toBuffer()
-                        const hash = createHash("sha256").update(url).digest("hex").slice(0, 20)
-                        const out_name = `${hash}.webp`
-                        await fs.writeFile(path.join(out_dir, out_name), out_bytes)
-                        rewrites.set(url, `/${OUT_SUBDIR}/${out_name}`)
+                        const metadata = await sharp(input).metadata()
+                        const naturalWidth = metadata.width ?? MAX_LONG_EDGE
+
+                        // Widths no larger than the source's own — narrower than every WIDTH_TARGETS entry
+                        // still yields one variant (its own, capped-by-MAX_LONG_EDGE width) via the fallback.
+                        const targets = WIDTH_TARGETS.filter((width) => width <= naturalWidth)
+                        if (targets.length === 0) {
+                            targets.push(Math.min(naturalWidth, MAX_LONG_EDGE))
+                        }
+
+                        const variants = []
+                        for (const width of targets) {
+                            // `height: MAX_LONG_EDGE` alongside `fit: "inside"` mirrors the pre-responsive
+                            // behavior's dual width/height cap — without it, an extreme-aspect portrait
+                            // source (e.g. a very tall crop) would resize to the requested WIDTH but an
+                            // unbounded height, defeating the "no dimension exceeds MAX_LONG_EDGE" guarantee.
+                            const out_bytes = await sharp(input)
+                                .resize({ width, height: MAX_LONG_EDGE, fit: "inside", withoutEnlargement: true })
+                                .webp({ quality: TARGET_QUALITY })
+                                .toBuffer()
+                            const hash = createHash("sha256").update(`${url}@${width}`).digest("hex").slice(0, 20)
+                            const out_name = `${hash}.webp`
+                            await fs.writeFile(path.join(out_dir, out_name), out_bytes)
+                            variants.push({ path: `/${OUT_SUBDIR}/${out_name}`, width })
+                        }
+
+                        const widest = variants.reduce((a, b) => (b.width > a.width ? b : a))
+                        rewrites.set(url, {
+                            local: widest.path,
+                            srcset: variants.map((variant) => `${variant.path} ${variant.width}w`).join(", ")
+                        })
                     } catch (error) {
                         const reason = error instanceof Error ? error.message : String(error)
                         logger.warn(
@@ -176,10 +219,10 @@ export default function optimizeEmdashMedia() {
                 for (const [file, html] of fileContents) {
                     let next = html
                     let changed = false
-                    for (const [original, local] of rewrites) {
+                    for (const [original, { local, srcset }] of rewrites) {
                         const needle = `src="${original}"`
                         if (next.includes(needle)) {
-                            next = next.split(needle).join(`src="${local}"`)
+                            next = next.split(needle).join(`src="${local}" srcset="${srcset}"`)
                             changed = true
                         }
                     }
@@ -189,7 +232,7 @@ export default function optimizeEmdashMedia() {
                     }
                 }
                 logger.info(
-                    `optimized ${rewrites.size} EmDash media image(s) (of ${referenced.size} referenced), rewritten across ${rewritten_files} page(s)`
+                    `optimized ${rewrites.size} EmDash media image(s) (of ${referenced.size} referenced) with responsive srcset variants, rewritten across ${rewritten_files} page(s)`
                 )
             }
         }

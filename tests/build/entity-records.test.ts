@@ -352,7 +352,9 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source (docs/dev/misce
         )
 
         const related = nameIndex.get("composition:20")
-        expect(related?.[0]).toEqual({ id: 21, name: "Prelude", href: "/entity/work/21", composer: "Bach" })
+        // Automatic disambiguation: id 21 shares (composer, name) with id 20, so its own `part` ("II")
+        // surfaces in parentheses — the composer subtitle alone can't tell the two "Prelude"s apart.
+        expect(related?.[0]).toEqual({ id: 21, name: "Prelude (II)", href: "/entity/work/21", composer: "Bach" })
         expect(related?.slice(1)).toEqual(
             expect.arrayContaining([
                 { id: 22, name: "Fugue", href: "/entity/work/22", composer: "Bach" },
