@@ -203,8 +203,8 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     >
                 </div>
                 <!-- the publication URI is rendered according to its declared uri_type (the type is authoritative):
-                 a clickable link for https, the literal "isbn:{value}" text for isbn, and the bare DOI linked to
-                 its doi.org resolver for doi. renderPublicationUri returns markup-safe HTML (every value is
+                 a clickable link for https, the bare ISBN linked to its WorldCat lookup for isbn, and the bare
+                 DOI linked to its doi.org resolver for doi. renderPublicationUri returns markup-safe HTML (every value is
                  escapeHtml-encoded), so it is emitted via set:html rather than the auto-escaped `{}`. The
                  separate URI-type field is intentionally omitted here since the type is conveyed by the render
                  itself. Mirrored client-side in populateInfo. -->
