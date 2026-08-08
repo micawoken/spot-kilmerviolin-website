@@ -43,11 +43,8 @@ const identity = locals.identity !== undefined ? locals.identity : null
         <AdminHead />
     </head>
     <body>
-        <!-- Header -->
         <AdminHeader identity={identity} welcome={true} />
         <main class="admin-main" role="main">
-            <!-- account-status callouts (enrollment / inactive) now render globally in AdminHeader -->
-            <!-- links to database management pages -->
             <div class="admin-sections">
                 <section class="admin-section">
                     <h2><a href="/admin/works" class="col-header-link">Compositions</a></h2>
@@ -94,7 +91,6 @@ const identity = locals.identity !== undefined ? locals.identity : null
                     </ul>
                 </section>
             </div>
-            <!-- Pages for IAM, designs, site info/mgmt, files, profile, help/policies, and advanced -->
             <div class="admin-sections">
                 <section class="admin-section">
                     <h2><a href="/admin/iam" class="col-header-link">Identity & Access Management</a></h2>

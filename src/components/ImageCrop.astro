@@ -47,8 +47,8 @@ const { inputId, id = "image-crop" } = Astro.props
         <button type="button" class="image-crop-aspect is-active" data-aspect="portrait">Portrait 4:5</button>
         <button type="button" class="image-crop-aspect" data-aspect="landscape">Landscape 5:4</button>
     </div>
-    <!-- the stage and the too-small caution share a row so the caution aligns to the top of the image
-         (not the controls above it); the caution reserves no space while hidden, so it shifts no layout. -->
+    {/* the stage and the too-small caution share a row so the caution aligns to the top of the image
+        (not the controls above it); the caution reserves no space while hidden, so it shifts no layout. */}
     <div class="image-crop-body">
         <div class="image-crop-stage">
             <img class="image-crop-img" alt="Crop preview" />
@@ -56,19 +56,19 @@ const { inputId, id = "image-crop" } = Astro.props
                 <div class="image-crop-handle"></div>
             </div>
         </div>
-        <!-- shown only while the selected region would be upscaled. -->
+        {/* shown only while the selected region would be upscaled */}
         <div class="image-crop-warning field-warning" role="status" hidden>
             <span class="image-crop-warning-text"></span>
         </div>
     </div>
 </div>
 
-<!--
-    Behaviour lives in a same-origin static file (public/js/image-crop.js) loaded with is:inline + src,
+{
+    /* Behaviour lives in a same-origin static file (public/js/image-crop.js) loaded with is:inline + src,
     NOT an Astro <script>: the bundler inlines small self-contained Astro scripts directly into the
     document, which the admin Content-Security-Policy (script-src 'self', no 'unsafe-inline'/nonce/hash)
     then blocks. An external same-origin script is covered by 'self'. defer runs it after the DOM is
     parsed so every .image-crop root exists. The compile-time contract (CropSelection,
-    ImageCropChangeDetail, CLIENT_CANON, CLIENT_RATIO) still lives in scripts/image_crop.ts.
--->
+    ImageCropChangeDetail, CLIENT_CANON, CLIENT_RATIO) still lives in scripts/image_crop.ts. */
+}
 <script is:inline defer src="/js/image-crop.js"></script>

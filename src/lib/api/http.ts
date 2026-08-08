@@ -33,7 +33,11 @@ import { ALLOWED_ORIGINS } from "../../consts"
 
 // the generic HTTP error page lives in its own file (error.html) and is inlined as a raw string at
 // build time; the {errorCode}/{errorName}/{errorDescription} tokens, plus the AdminFooter-mirroring
-// {footerAccess}/{footerTime}/{footerTz}/{footerYear} footer tokens, are filled by fillErrorTemplate
+// {footerAccess}/{footerTime}/{footerTz}/{footerYear} footer tokens, are filled by fillErrorTemplate.
+// error.html can't render the Astro admin components (this is the raw fallback for when those fail),
+// so its styles reproduce the admin look inline instead of linking styles/global.css, and it hides the
+// EmDash toolbar the same way AdminHead.astro does. Because the file ships to the client byte-for-byte
+// with no compile step, it must never carry `<!-- -->` or `/* */` comments — put any "why" here instead.
 import error_http from "../templates/error.html?raw"
 
 interface SQLiteErrorMsg extends SQLiteErrorMsgPrimitive {

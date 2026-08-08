@@ -81,10 +81,10 @@ function formatBytes(bytes: number): string {
         use_key && file ? (
             <>
             <div class="entity-result-container">
-                <!-- head: the key is the card title with the type/size/location infoline (top-left), the
-                     by-type detail groups flow in columns beneath it, and the preview image occupies the
-                     top-right (mirrors the entity Info cards). Source order is header → image → groups so
-                     the image stacks directly below the title on narrow viewports. -->
+                {/* head: the key is the card title with the type/size/location infoline (top-left), the
+                    by-type detail groups flow in columns beneath it, and the preview image occupies the
+                    top-right (mirrors the entity Info cards). Source order is header → image → groups so
+                    the image stacks directly below the title on narrow viewports. */}
                 <div class="entity-result-head">
                     <div class="entity-result-header">
                         <h2 class="entity-result-name">{file.key}</h2>
@@ -118,7 +118,7 @@ function formatBytes(bytes: number): string {
                     </div>
                 </div>
             </div>
-            <!-- follow-up task links live below the card, per the entity Info convention -->
+            {/* follow-up task links live below the card, per the entity Info convention */}
             <p>
                 <a href={`/admin/files/edit?id=${file.key}`}>Replace this file &gt;</a>
                 <span class="admin-nav-sep" aria-hidden="true">|</span>

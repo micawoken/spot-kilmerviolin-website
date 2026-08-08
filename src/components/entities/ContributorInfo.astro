@@ -79,33 +79,33 @@ const authorized = contributor !== null && "identity_email" in contributor
 ---
 
 <div id="generic-result-contributor" class={`entity-result-container${hidden ? " hidden" : ""}`}>
-    <!-- head: the identifying header (name, contacts, class line, bio) sits top-left, the auth and tags
-         groups flow in columns beneath it, and the image occupies the top-right. Source order is header →
-         image → groups so that on narrow viewports the image stacks directly below the title (see
-         admin-entities.css). -->
+    {/* head: the identifying header (name, contacts, class line, bio) sits top-left, the auth and tags
+        groups flow in columns beneath it, and the image occupies the top-right. Source order is header →
+        image → groups so that on narrow viewports the image stacks directly below the title (see
+        admin-entities.css). */}
     <div class="entity-result-head">
         <div class="entity-result-header">
             <h2 id="contributor-name" class="entity-result-name">{contributor?.name}</h2>
             <p id="contributor-id">ID #{contributor?.id}</p>
             <p id="contributor-public_email">{disp(contributor?.public_email, "(no email set)")}</p>
             <div id="contributor-infocard-school">
-                <!-- class year, major, and phases render together on a single line. All three data-bearing
-                     elements are ALWAYS present (with placeholder markers when unset) so the client-side
-                     READ flow (populateInfo) can fill them; conditionally omitting them would leave
-                     populateInfo with no target and strand the SSR placeholder text in the DOM. -->
+                {/* class year, major, and phases render together on a single line. All three data-bearing
+                    elements are ALWAYS present (with placeholder markers when unset) so the client-side
+                    READ flow (populateInfo) can fill them; conditionally omitting them would leave
+                    populateInfo with no target and strand the SSR placeholder text in the DOM. */}
                 <p id="contributor-class_year">{disp(contributor?.class_year, "(no class year set)")}</p>
                 <p id="contributor-major">{disp(contributor?.major, "(no major set)")}</p>
                 <p id="contributor-phases">Phases {disp(contributor?.phases, "(no phases specified)")}</p>
             </div>
-            <!-- the bio sits directly below the class line within the header -->
+            {/* the bio sits directly below the class line within the header */}
             <div id="contributor-bio-container" class="entity-result-bio">
                 <p id="contributor-bio">{disp(contributor?.bio, "(no bio available)")}</p>
             </div>
         </div>
         <div id="contributor-image-container" class="entity-result-image-container">
-            <!-- the <img> is always present (hidden when there is no image) so the client-side READ flow
-                 (populateInfo) can fill its src; the "(no image)" placeholder mirrors it inversely. src is
-                 omitted when absent to avoid a broken-image request. -->
+            {/* the <img> is always present (hidden when there is no image) so the client-side READ flow
+                (populateInfo) can fill its src; the "(no image)" placeholder mirrors it inversely. src is
+                omitted when absent to avoid a broken-image request. */}
             <img
                 id="contributor-image"
                 class={`entity-result-image${contributor?.image ? "" : " hidden"}`}
@@ -126,10 +126,10 @@ const authorized = contributor !== null && "identity_email" in contributor
                     Authorization-related fields ({protected_label}) are only visible for your user account unless you
                     are an administrator.
                 </p>
-                <!-- the four fields pair up 2×2 (identity email, roles, account type, tags). The help caption
-                     above spans both columns and is excluded from that pairing, so the fields stay evenly
-                     aligned regardless of it; the grid collapses to one column when space is low (see
-                     admin-entities.css). -->
+                {/* the four fields pair up 2×2 (identity email, roles, account type, tags). The help caption
+                    above spans both columns and is excluded from that pairing, so the fields stay evenly
+                    aligned regardless of it; the grid collapses to one column when space is low (see
+                    admin-entities.css). */}
                 <p>
                     <strong>Identity Email:</strong> <span id="contributor-identity_email">{disp(contributor?.identity_email)}</span>
                 </p>
