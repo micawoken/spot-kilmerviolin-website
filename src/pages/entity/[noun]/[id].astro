@@ -52,6 +52,7 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../../../layouts/PublicPage.astro"
 import EntityOgMeta from "../../../components/EntityOgMeta.astro"
+import CompositorStyles from "../../../components/CompositorStyles.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
 import { buildReferenceIndex, buildRelatedWorksIndex, entityRecords, type RelatedWork } from "../../../lib/build/entity-records"
@@ -158,8 +159,8 @@ const image = resolvePublicImageUrl(entry.image, mediaBaseUrl, filesBaseUrl)
     image={image}
     pagefindFilter="scope:database"
     contentType={ENTITY_NOUN_SLUGS[template.collection]}
-    includeCompositorCss
 >
+    <CompositorStyles slot="head" />
     <EntityOgMeta slot="head" entryDate={entry.entry_date} changeDate={entry.change_date} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
         that file's header for why. `fields` is passed at build (not just for the editor's pickers):

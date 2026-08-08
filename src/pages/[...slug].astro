@@ -47,6 +47,7 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../layouts/PublicPage.astro"
 import FormattedDate from "../components/FormattedDate.astro"
+import CompositorStyles from "../components/CompositorStyles.astro"
 import { fetchPublishedPages, fetchPublishedPosts } from "../lib/build/emdash-api"
 import {
     fetchCollectionFields,
@@ -187,8 +188,8 @@ const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
             description={props.description}
             image={image}
             contentType={contentType}
-            includeCompositorCss
         >
+            <CompositorStyles slot="head" />
             {/* Puck's config holds React render functions, can't travel through getStaticPaths props
                 (serialized) — rebuilt here from the serializable theme. "build" target swaps the two
                 editor-only fields for passthroughs so stored Portable Text reaches the renderer intact.

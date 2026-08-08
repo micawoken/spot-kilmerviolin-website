@@ -37,6 +37,7 @@
 import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../layouts/PublicPage.astro"
+import CompositorStyles from "../components/CompositorStyles.astro"
 import { fetchPublishedDesignPages, fetchPublishedTheme, NOT_FOUND_PAGE_SLUG, partitionDesignPages } from "../lib/build/design-api"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
@@ -71,7 +72,8 @@ const description = notFoundPage?.description || "The page you requested does no
 
 {
     notFoundPage ? (
-        <PublicPage title={title} description={description} includeCompositorCss>
+        <PublicPage title={title} description={description}>
+            <CompositorStyles slot="head" />
             {/* No entry (a design_page, same as [...slug].astro's design_page branch): outlets render
                 nothing. No client directive → server-rendered, zero JS. */}
             <Render

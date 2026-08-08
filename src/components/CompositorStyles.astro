@@ -1,0 +1,37 @@
+---
+/**
+ * components/CompositorStyles.astro
+ *
+ * Loads the compositor component stylesheet (lib/compositor/compositor.css) as its own linked,
+ * browser-cacheable file rather than folding it into PublicPage's fused inline <style> tag. Unlike that
+ * block's other contributions (font faces, --dtk-* tokens, view transitions), compositor.css is fully
+ * static — same bytes on every build, every theme, every page — so inlining it just duplicated ~16KB of
+ * uncacheable markup into every compositor page's HTML. A plain side-effect import lets Astro extract and
+ * hash it once; the browser then fetches it a single time and reuses it across every page that links it.
+ *
+ * Rendered into PublicPage's "head" slot by callers that render compositor components — currently
+ * pages/entity/[noun]/[id].astro, the design_page branch of pages/[...slug].astro, and pages/404.astro's
+ * design_page branch — the same set that used to pass PublicPage's includeCompositorCss prop.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import "../lib/compositor/compositor.css"
+---
