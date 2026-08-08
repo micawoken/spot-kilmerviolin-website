@@ -473,6 +473,20 @@ function imageSizeSelect() {
     }
 }
 
+/** The `priority` select shared by `Image`, `ContentImage`, and `MediaText` — mark the one image, if any,
+ *  that sits above the fold so it loads with `fetchPriority="high"` instead of competing on equal footing
+ *  with every other resource on the page. */
+function imagePrioritySelect() {
+    return {
+        type: "select" as const,
+        label: "Priority (above the fold)",
+        options: [
+            { label: "No", value: "no" },
+            { label: "Yes", value: "yes" }
+        ]
+    }
+}
+
 interface ImageProps {
     media?: MediaValue
     alt: string
@@ -484,6 +498,9 @@ interface ImageProps {
     border: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
     shadow: string
+    /** "yes" renders `fetchPriority="high" loading="eager"` — for the one image, if any, that sits
+     *  above the fold. "no" (the default) renders neither attribute. */
+    priority: "yes" | "no"
 }
 interface ButtonProps {
     label: string
@@ -522,6 +539,9 @@ interface ContentImageProps {
     border: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
     shadow: string
+    /** "yes" renders `fetchPriority="high" loading="eager"` — for the one image, if any, that sits
+     *  above the fold. "no" (the default) renders neither attribute. */
+    priority: "yes" | "no"
 }
 interface ContentFieldProps {
     field: string
@@ -571,6 +591,9 @@ interface MediaTextProps {
     border: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default). Media side only. */
     shadow: string
+    /** "yes" renders `fetchPriority="high" loading="eager"` — for the one image, if any, that sits
+     *  above the fold. "no" (the default) renders neither attribute. */
+    priority: "yes" | "no"
 }
 
 // --- Shared render bodies ---------------------------------------------------------------------------
@@ -618,7 +641,14 @@ function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, stri
 
 /** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). Not
  * used by `MediaText`'s media side — its rendered size comes from its flex container, not the `<img>`
- * itself (see `.cmp-media-text__media` in compositor.css), so `size` drives `data-size` there instead. */
+ * itself (see `.cmp-media-text__media` in compositor.css), so `size` drives `data-size` there instead.
+ *
+ * `priority` opts an above-the-fold image (typically at most one per page) into `fetchPriority="high"` +
+ * `loading="eager"` — Lighthouse flagged every compositor image as loading with no fetch-priority signal
+ * at all, so the browser's heuristic guess was the only thing ever prioritizing a hero image over
+ * everything else competing for bandwidth. `false` (the default) renders neither attribute, byte-for-byte
+ * the pre-existing markup — this only ever adds a priority hint, never removes the browser's own default
+ * (eager) loading behavior for the common case. */
 function renderImageTag(
     url: string,
     alt: string,
@@ -628,7 +658,8 @@ function renderImageTag(
     size: ImageSizePreset,
     radius: string,
     border: string,
-    shadow: string
+    shadow: string,
+    priority: boolean
 ) {
     return (
         <img
@@ -639,6 +670,7 @@ function renderImageTag(
             alt={alt}
             width={width}
             height={height}
+            {...(priority ? { fetchPriority: "high" as const, loading: "eager" as const } : {})}
             style={vars(frameStyleVars("image", radius, border, shadow))}
         />
     )
@@ -1067,14 +1099,26 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 size: imageSizeSelect(),
                 radius: tokenSelect(theme, "radius", "Corner radius", true),
                 border: tokenSelect(theme, "borders", "Border", true),
-                shadow: tokenSelect(theme, "shadows", "Shadow", true)
+                shadow: tokenSelect(theme, "shadows", "Shadow", true),
+                priority: imagePrioritySelect()
             },
             // "full" preserves this component's pre-existing (unstyled, max-width:100%) behavior.
-            defaultProps: { alt: "", aspect: "original", size: "full", radius: "", border: "", shadow: "" },
-            render: ({ media, alt, aspect, size, radius, border, shadow }: ImageProps) => {
+            defaultProps: { alt: "", aspect: "original", size: "full", radius: "", border: "", shadow: "", priority: "no" },
+            render: ({ media, alt, aspect, size, radius, border, shadow, priority }: ImageProps) => {
                 if (!media?.storageKey || !isSafeStorageKey(media.storageKey)) return null
                 const url = resolveMediaUrl(media.storageKey)
-                return renderImageTag(url, alt, media.width || undefined, media.height || undefined, aspect, size, radius, border, shadow)
+                return renderImageTag(
+                    url,
+                    alt,
+                    media.width || undefined,
+                    media.height || undefined,
+                    aspect,
+                    size,
+                    radius,
+                    border,
+                    shadow,
+                    priority === "yes"
+                )
             }
         },
         Button: {
@@ -1295,11 +1339,12 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 size: imageSizeSelect(),
                 radius: tokenSelect(theme, "radius", "Corner radius", true),
                 border: tokenSelect(theme, "borders", "Border", true),
-                shadow: tokenSelect(theme, "shadows", "Shadow", true)
+                shadow: tokenSelect(theme, "shadows", "Shadow", true),
+                priority: imagePrioritySelect()
             },
             // "full" preserves this outlet's pre-existing (unstyled, max-width:100%) behavior.
-            defaultProps: { field: "", aspect: "original", size: "full", radius: "", border: "", shadow: "" },
-            render: ({ field, aspect, size, radius, border, shadow }: ContentImageProps) => {
+            defaultProps: { field: "", aspect: "original", size: "full", radius: "", border: "", shadow: "", priority: "no" },
+            render: ({ field, aspect, size, radius, border, shadow, priority }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 // For local media EmDash strips `src` on persist and carries the key at `meta.storageKey`
                 // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it. A plain
@@ -1317,7 +1362,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         ""
                     const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
                     const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
-                    return renderImageTag(url, alt, width, height, aspect, size, radius, border, shadow)
+                    return renderImageTag(url, alt, width, height, aspect, size, radius, border, shadow, priority === "yes")
                 }
                 return isEditor ? <OutletPlaceholder field={field} /> : null
             }
@@ -1407,6 +1452,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 radius: tokenSelect(theme, "radius", "Corner radius", true),
                 border: tokenSelect(theme, "borders", "Border", true),
                 shadow: tokenSelect(theme, "shadows", "Shadow", true),
+                priority: imagePrioritySelect(),
                 content: { type: "slot" as const }
             },
             // "medium" preserves this primitive's pre-existing fixed 16rem media-column width.
@@ -1418,12 +1464,13 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 radius: "",
                 border: "",
                 shadow: "",
+                priority: "no",
                 content: []
             },
             // Concern #3 (missing images): when the bound field resolves to no usable source, the media
             // side is simply not rendered — no dead column, no reserved space. `content` then occupies the
             // whole row, matching the collapsing-primitive design (see plan / module header).
-            render: ({ field, aspect, imagePosition, size, radius, border, shadow, content: Content }: MediaTextProps) => {
+            render: ({ field, aspect, imagePosition, size, radius, border, shadow, priority, content: Content }: MediaTextProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 const source = mediaSource(image)
                 return (
@@ -1444,7 +1491,8 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                                     size,
                                     radius,
                                     border,
-                                    shadow
+                                    shadow,
+                                    priority === "yes"
                                 )}
                             </div>
                         )}

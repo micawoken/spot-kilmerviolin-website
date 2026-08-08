@@ -564,10 +564,8 @@ function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean,
 }
 
 // shared field predicates: each returns true when the value is invalid for that field
-const _invalidString = (v: any) => typeof v !== "string"
 const _invalidBoolean = (v: any) => typeof v !== "boolean"
 // nullable variants accept null alongside the base type
-const _invalidNullableString = (v: any) => typeof v !== "string" && v !== null
 // a nullable image field: null, or a string that (when non-blank) is a valid image URL or internal path
 const _invalidNullableImage = (v: any) =>
     v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidImageUrl(v)))

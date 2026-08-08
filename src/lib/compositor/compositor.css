@@ -130,6 +130,21 @@
 	margin-block-end: 0;
 }
 
+/* Code blocks (richtext.tsx's `code` type) are the one `.cmp-richtext` child whose own UA-default vertical
+ * rhythm lives on a DESCENDANT, not on itself: `.emdash-code` is a plain, unstyled div, and `pre`'s margin
+ * is what actually pushes it apart from its neighbours. Margin collapsing takes the LARGER of two adjoining
+ * margins, not their sum — so when a code block is `.cmp-richtext`'s last child, the `:last-child` rule
+ * above zeroing `.emdash-code`'s own (already-zero) margin-block-end does nothing to stop `pre`'s 1em
+ * escaping through it, and the trailing gap the rule exists to remove reappears. Moving the block's rhythm
+ * onto `.emdash-code` itself — and zeroing `pre`'s — makes it own margin the `:last-child` rule can actually
+ * reach, same as every other block type here. */
+.cmp-richtext .emdash-code {
+	margin-block: 1em;
+}
+.cmp-richtext .emdash-code pre {
+	margin: 0;
+}
+
 /* Image — explicit width/height attributes prevent layout shift; aspect crops via object-fit. Radius/
  * border/shadow are optional per-instance fields (catalog.tsx), each defaulting to the pre-existing
  * unstyled look; shared with MediaText's media-side <img>, which sets the same three locals. */

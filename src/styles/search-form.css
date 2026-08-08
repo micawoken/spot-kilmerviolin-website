@@ -394,7 +394,12 @@
 	padding: 0 0.15em;
 	border-radius: var(--dtk-radius-sm, 0);
 }
-#search-pagination {
+/* :not(:empty) — renderPagination (search.astro/search/advanced.astro) leaves this completely childless
+ * whenever showingAll collapses to a single page (its own early return), same as #search-status's own
+ * :not(:empty) guard above; an unconditional margin here reserved dead space with nothing rendered to
+ * justify it, stacking with .search-page's own padding-bottom and the footer's margin-top into a gap that
+ * read as too large specifically in "Show all" results (confirmed against the live site, 2026-08-08). */
+#search-pagination:not(:empty) {
 	margin-top: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem));
 }
 .search-pagination {

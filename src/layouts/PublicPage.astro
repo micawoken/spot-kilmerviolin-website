@@ -75,16 +75,23 @@ interface Props {
 // all four now lets them race over the network together instead of each component discovering — and
 // paying for — its own read one at a time as the page renders top to bottom.
 const [site, themeHead] = await Promise.all([getSiteSettings(), getThemeHead(), getNav(), getFooterNav()])
-const { title = site.title, description = site.description, image, pagefindFilter, pagefindIgnore, contentType = "page" } =
-    Astro.props
+const {
+    title = site.title,
+    description = site.description,
+    image,
+    pagefindFilter,
+    pagefindIgnore,
+    contentType = "page"
+} = Astro.props
 
-// The theme's four independent CSS contributions (font faces, --dtk-* tokens, the Columns breakpoint, view
-// transitions) target disjoint selectors/at-rules, so their cascade order doesn't matter — fuse them into
-// one <style> tag instead of one each. columnsBreakpointCss is always present; the other three are "" when
-// their theme input is absent, and filter(Boolean) drops those rather than leaving blank lines.
-const themeCss = [themeHead.fontFaceCss, themeHead.tokenCss, themeHead.columnsBreakpointCss, themeHead.viewTransitionCss]
-    .filter(Boolean)
-    .join("\n\n")
+// The Columns single-column breakpoint and the @view-transition rule target disjoint at-rules, so their
+// cascade order doesn't matter — fuse them into one <style> tag instead of one each. Both are tiny and
+// worth keeping inline (avoids a network round trip for a few hundred bytes); the theme's two BIG
+// contributions, fontFaceCss and tokenCss, are page-invariant the same way compositor.css is, so they ship
+// from the linked theme-head.css.ts endpoint instead (see that file's doc header) — pulled in below via
+// the same <link> pattern as CompositorStyles. columnsBreakpointCss is always present; viewTransitionCss is
+// "" when the theme disables it — filter(Boolean) drops that rather than leaving a blank line.
+const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].filter(Boolean).join("\n\n")
 ---
 
 <!doctype html>
@@ -99,17 +106,26 @@ const themeCss = [themeHead.fontFaceCss, themeHead.tokenCss, themeHead.columnsBr
             themeHead.preloadHrefs.map((href) => (
                 <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
             ))}
-        {/* One fused block for all four theme CSS contributions (see themeCss above): @font-face rules,
-            the --dtk-* custom properties (site-wide, so both public-chrome.css and any compositor design
-            page resolve their token references), the Columns single-column stacking breakpoint (always
-            present — it replaces what used to be a rule hardcoded into compositor.css, and is harmless on
-            a page with no .cmp-columns element), and the @view-transition rule (enabled by default,
-            matching the site's original always-on global.css rule; unsupported browsers just fall back to
-            a normal navigation). */}
-        <style set:html={themeCss} />
-        {/* Optional per-page head content. Design pages inject the compositor component stylesheet here;
-            every other caller simply leaves it empty. */}
+        {/* The theme's @font-face rules and --dtk-* custom properties (site-wide, so both public-chrome.css
+            and any compositor design page resolve their token references) — linked, not inlined, since
+            they're identical across every page of a build (theme-head.css.ts's doc header). Omitted
+            entirely when no theme is published (both are "" then, same as fontFaceCss's preload guard
+            above). */}
+        {(themeHead.fontFaceCss || themeHead.tokenCss) && <link rel="stylesheet" href="/theme-head.css" />}
+        {/* Optional per-page head content beyond the above (e.g. EntityOgMeta, CompositorStyles). Rendered
+            BEFORE the fused theme <style> below so that a compositor-rendering page's CompositorStyles
+            (compositor.css, carrying .cmp-columns' unconditional base rule) loads first in the cascade —
+            otherwise the equal-specificity, unconditional base rule would win source order over
+            columnsBreakpointCss's @media override below it, and Columns would never stack on narrow
+            viewports regardless of the breakpoint (confirmed live on /entity/work/1/ at 400px). */}
         <slot name="head" />
+        {/* The Columns single-column stacking breakpoint (always present — it replaces what used to be a
+            rule hardcoded into compositor.css, and is harmless on a page with no .cmp-columns element) and
+            the @view-transition rule (enabled by default, matching the site's original always-on
+            global.css rule; unsupported browsers just fall back to a normal navigation) — see themeCss
+            above for why these two stay inline instead of joining theme-head.css. Must render after the
+            slot above (see that comment) so this @media override wins the cascade. */}
+        <style set:html={themeCss} />
     </head>
     <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>
         {/* Own element, not comma-joined onto <body>'s type: filter — see pagefindFilter's doc comment above. */}

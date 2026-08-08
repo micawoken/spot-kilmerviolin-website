@@ -52,6 +52,7 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../../../layouts/PublicPage.astro"
 import EntityOgMeta from "../../../components/EntityOgMeta.astro"
+import CompositorStyles from "../../../components/CompositorStyles.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates, fetchPublishedTheme, type BuildEntityTemplate } from "../../../lib/build/design-api"
 import { buildReferenceIndex, buildRelatedWorksIndex, entityRecords, type RelatedWork } from "../../../lib/build/entity-records"
@@ -63,7 +64,6 @@ import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../../../lib/compositor/
 import { hasBlockingError, lintDesign } from "../../../lib/compositor/lint"
 import { resolvePublicImageUrl } from "../../../lib/compositor/media"
 import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/tokens"
-import compositorCss from "../../../lib/compositor/compositor.css?raw"
 
 export const prerender = true
 
@@ -160,7 +160,7 @@ const image = resolvePublicImageUrl(entry.image, mediaBaseUrl, filesBaseUrl)
     pagefindFilter="scope:database"
     contentType={ENTITY_NOUN_SLUGS[template.collection]}
 >
-    <style slot="head" set:html={compositorCss} />
+    <CompositorStyles slot="head" />
     <EntityOgMeta slot="head" entryDate={entry.entry_date} changeDate={entry.change_date} />
     {/* Same render path as [...slug].astro's design branch (buildConfig + Render, zero client JS) — see
         that file's header for why. `fields` is passed at build (not just for the editor's pickers):

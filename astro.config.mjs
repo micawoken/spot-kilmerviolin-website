@@ -29,6 +29,7 @@ import sitemap from "@astrojs/sitemap"
 import cloudflare from "@astrojs/cloudflare"
 
 import optimizeFiles from "./integrations/optimize-files.mjs"
+import optimizeEmdashMedia from "./integrations/optimize-emdash-media.mjs"
 import themeFonts from "./integrations/theme-fonts.mjs"
 import cspGuard from "./integrations/csp-guard.mjs"
 
@@ -50,6 +51,10 @@ export default defineConfig({
             filter: (page) => !new URL(page).pathname.startsWith("/admin")
         }),
         optimizeFiles(),
+        // Re-encodes EmDash-sourced media (compositor Image/ContentImage/MediaText) referenced by the
+        // built HTML — EmDash's own uploads bypass optimizeFiles/optimizeImage entirely. See that file's
+        // header for why this runs as a post-build HTML rewrite rather than at render time.
+        optimizeEmdashMedia(),
         // Resolves the published theme's self-hosted web fonts in a real-Node build hook, before the
         // prerenderer's workerd instance starts — see integrations/theme-fonts.mjs for why.
         themeFonts(),

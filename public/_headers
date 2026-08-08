@@ -48,3 +48,18 @@
 # new deploy under the same path), so it's safe to let the browser skip revalidation entirely.
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Same reasoning as /fonts/* above: filenames are content-hashed (sha256 of the source EmDash media URL,
+# integrations/optimize-emdash-media.mjs), so a new image is always a new path — skipping revalidation is
+# safe and removes a 304 round trip from every repeat view of a page carrying one of these images.
+/images/emdash/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Bundled src/files assets (integrations/optimize-files.mjs), published to /files/*. NOT content-hashed —
+# the output keeps the source filename (photo.jpg -> files/photo.webp), so unlike /fonts/* and
+# /images/emdash/* above, the URL does not change when the file's content does. `immutable` here would let
+# a browser that cached an old version keep serving it for up to a year after a same-name replacement
+# ships. A bounded max-age instead of the default max-age=0 still saves a revalidation round trip on every
+# repeat view, and recovers within a day of any such replacement.
+/files/*
+  Cache-Control: public, max-age=86400

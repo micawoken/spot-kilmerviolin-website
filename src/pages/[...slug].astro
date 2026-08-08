@@ -47,6 +47,7 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../layouts/PublicPage.astro"
 import FormattedDate from "../components/FormattedDate.astro"
+import CompositorStyles from "../components/CompositorStyles.astro"
 import { fetchPublishedPages, fetchPublishedPosts } from "../lib/build/emdash-api"
 import {
     fetchCollectionFields,
@@ -61,7 +62,6 @@ import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalo
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
 import { resolvePublicImageUrl } from "../lib/compositor/media"
 import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
-import compositorCss from "../lib/compositor/compositor.css?raw"
 
 export const prerender = true
 
@@ -155,11 +155,6 @@ export async function getStaticPaths() {
 
 const props = Astro.props
 
-// Compositor component stylesheet, inlined into this design page's head. The theme's --dtk-* token
-// block is emitted site-wide by PublicPage (getThemeHead), not repeated here. Kept off Portable-Text
-// pages entirely — they render no compositor components.
-const headCss = props.kind === "design" ? compositorCss : ""
-
 // route.slug already carries the "posts/" prefix routedSlug() applies (route-authority.ts), and that's
 // exactly what the rest-param route matches it on — so the same prefix check identifies a post here.
 const slugParam = Astro.params.slug
@@ -188,8 +183,13 @@ const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
             </article>
         </PublicPage>
     ) : (
-        <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
-            <style slot="head" set:html={headCss} />
+        <PublicPage
+            title={props.title}
+            description={props.description}
+            image={image}
+            contentType={contentType}
+        >
+            <CompositorStyles slot="head" />
             {/* Puck's config holds React render functions, can't travel through getStaticPaths props
                 (serialized) — rebuilt here from the serializable theme. "build" target swaps the two
                 editor-only fields for passthroughs so stored Portable Text reaches the renderer intact.

@@ -64,6 +64,27 @@ const resolvedImage = image || siteDefaultOgImage
 // block the script on their next update rather than protect against anything.
 const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.CF_WEB_ANALYTICS_TOKEN
 
+// Preconnect to the two R2 custom domains record/CMS images load from (media.ts) — cross-origin, so a
+// cold connection pays DNS + TLS before the first byte of whatever image the page renders, LCP candidate
+// or not. Both are optional build-time vars (same resolution as filesBaseUrl in [...slug].astro/entity
+// pages); Set dedupes when both env vars happen to point at the same origin. Origin only, not the full
+// URL — preconnect establishes the connection, it doesn't fetch a resource.
+const imageOrigins = [
+    import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
+    import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+]
+    .filter((url): url is string => Boolean(url))
+    .reduce((origins, url) => {
+        try {
+            origins.add(new URL(url).origin)
+        } catch {
+            // an unparseable configured URL is a build-time misconfiguration surfaced elsewhere
+            // (media.ts/files.ts throw when they actually try to build an image URL from it); a
+            // preconnect hint has nothing useful to add here, so just skip it
+        }
+        return origins
+    }, new Set<string>())
+
 // Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
 // cross-document view transitions (theme-authored; see layouts/PublicPage.astro) never reveal a flash of
 // the wrong scheme. The color-scheme meta tag below is parsed synchronously with the rest of <head> and
@@ -76,6 +97,8 @@ const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+{imageOrigins.size > 0 && [...imageOrigins].map((origin) => <link rel="preconnect" href={origin} />)}
 
 <meta name="color-scheme" content="light dark" />
 <style>
