@@ -45,20 +45,15 @@ const { title, description, image } = Astro.props
 const noindex = detectEnvironment(Astro.request) === "staging"
 ---
 
-<!-- Global Metadata -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-<!--
-  Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
-  cross-document view transitions (see below) never reveal a flash of the wrong scheme. The
-  color-scheme meta tag is parsed synchronously with the rest of <head> and tells the browser which UA
-  default to use for anything not yet styled (scrollbars, form controls); the inline <style> paints the
-  exact --color-bg value from global.css (not just the UA's approximate dark canvas) since it also
-  parses synchronously, with no network round-trip. Keep the hex values below in sync with --color-bg
-  in global.css (also duplicated in lib/templates/error.html for the same reason).
--->
+{/* Paints the real background before global.css (network-fetched) loads, so view transitions never
+    flash the wrong scheme. color-scheme sets the UA default for unstyled controls; the inline style
+    paints the exact --color-bg value (not just the UA's approximate dark canvas), both parsed
+    synchronously with no network round-trip. Keep these hex values in sync with --color-bg in
+    global.css (also duplicated in lib/templates/error.html). */}
 <meta name="color-scheme" content="light dark" />
 <style>
     html { background: #ffffff; }
@@ -67,60 +62,44 @@ const noindex = detectEnvironment(Astro.request) === "staging"
     }
 </style>
 
-<!--
-  No @view-transition rule here, deliberately. The UA crossfade's old snapshot paints a flat #ffffff fill
-  across the whole snapshot containing block, flashing white for ~230ms on every admin navigation —
-  measured 3/3 in Trace-20260726T223908.json, under bare UA-default CSS, cause inside Chrome still
-  unknown. Restyling the crossfade does not fix it and makes things worse: overriding mix-blend-mode to
-  normal breaks the UA's alpha-exact (1-t)·old + t·new sum and dims every navigation instead.
+{/* No @view-transition rule here, deliberately: the UA crossfade flashes white ~230ms on every admin
+    nav (measured 3/3 in Trace-20260726T223908.json; Chrome root cause still unknown). Overriding
+    mix-blend-mode to fix it breaks the UA's alpha-exact blend and dims navigations instead — worse.
+    Public pages get their own theme-toggled copy (tokens.ts's viewTransitionCss via PublicPage.astro);
+    admin has no theme to toggle from, so it opts out. Don't reintroduce without re-tracing a deploy
+    first. */}
 
-  The public site keeps its own theme-toggled copy (tokens.ts's viewTransitionCss, rendered by
-  layouts/PublicPage.astro); admin has no design theme to read a toggle from, so it opts out outright.
-  Don't reintroduce this without re-tracing a deploy first.
--->
-
-<!--
-  EmDash appends its visual-editing toolbar to the end of the document body on every HTML response for a
-  CMS editor (emdash's request-context middleware — no path or environment gate, and it exposes no option
-  to opt out). That toolbar exists to edit *public* pages in place; on an admin page it is dead weight,
-  since the admin CSP blocks its inline script (middleware/headers.ts), and it floats over the UI —
-  including the compositor's full-viewport editor. Only admin pages use BaseHead (the public site uses
-  PublicHead), so hiding it here scopes the rule to exactly the admin UI.
-
-  is:global because the toolbar is appended outside this component's tree, and !important because
-  EmDash's own stylesheet lands later in the document, where it would otherwise win a tie.
-
-  Careful: EmDash locates the insertion point with a plain string replace on the first closing body tag.
-  Writing that tag literally anywhere earlier in the document — even inside a comment like this one —
-  makes it inject the toolbar there instead. Do not spell it out here.
--->
-<style is:global>
-    #emdash-toolbar {
-        display: none !important;
-    }
-</style>
-
-<!-- Keep the staging preview out of search indexes -->
-{noindex && <meta name="robots" content="noindex" />}
-
-<!-- Canonical URL -->
-<link rel="canonical" href={canonicalURL} />
-
-<!-- Primary Meta Tags -->
 <title>{title}</title>
 <meta name="title" content={title} />
 <meta name="description" content={description} />
 
-<!-- Open Graph / Facebook -->
+{/* staging preview only; see PublicHead.astro for the canonical (prerendered) version */}
+{noindex && <meta name="robots" content="noindex" />}
+
+<link rel="canonical" href={canonicalURL} />
+
 <meta property="og:type" content="website" />
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 {image && <meta property="og:image" content={new URL(image, Astro.url)} />}
 
-<!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:url" content={Astro.url} />
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
 {image && <meta property="twitter:image" content={new URL(image, Astro.url)} />}
+
+{/* EmDash injects its visual-editing toolbar into every HTML response (no path/env gate, no opt-out) —
+    meant for editing public pages, but dead weight on admin: CSP blocks its script and it floats over
+    the UI. Only BaseHead (admin) hides it; PublicHead doesn't. is:global since the toolbar lives outside
+    this tree; !important since EmDash's stylesheet loads later and would otherwise win.
+
+    Gotcha: EmDash finds its insertion point via a plain string-replace on the first closing body tag —
+    writing that tag literally anywhere earlier, even in a comment, redirects the injection here. Don't
+    spell it out. */}
+<style is:global>
+    #emdash-toolbar {
+        display: none !important;
+    }
+</style>

@@ -85,11 +85,11 @@ const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.
     }
 </style>
 
-<link rel="canonical" href={canonicalURL} />
-
 <title>{title}</title>
 <meta name="title" content={title} />
 <meta name="description" content={description} />
+
+<link rel="canonical" href={canonicalURL} />
 
 <meta property="og:type" content="website" />
 <meta property="og:url" content={Astro.url} />
