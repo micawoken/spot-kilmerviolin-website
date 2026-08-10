@@ -50,7 +50,8 @@ import {
     exec_string,
     recordTypeAssertComplete
 } from "./d1.ts"
-import { SQLStatement, VirtualSQLTable } from "./sql.ts"
+import { SQLStatement } from "./sql_statement.ts"
+import { VirtualSQLTable } from "./sql_virtual_table.ts"
 import { getKey, setKey, deleteKey, listKeys } from "./kv.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 import { invalidateIdentityCache } from "./authorize.ts"

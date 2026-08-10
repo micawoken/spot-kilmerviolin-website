@@ -35,7 +35,7 @@ import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 
 import { exec_string, exec_stmt_batch, COMPOSER } from "../src/lib/api/d1.ts"
 import { _stateTypeAssertCompleteComposition } from "../src/lib/api/composition.ts"
-import { SQLStatement } from "../src/lib/api/sql.ts"
+import { SQLStatement } from "../src/lib/api/sql_statement.ts"
 import { WorkType, sanitizeInputStrings } from "../src/lib/api/common.ts"
 import {
     addComposersBatch,

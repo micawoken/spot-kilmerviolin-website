@@ -34,7 +34,7 @@
  */
 
 import { env } from "cloudflare:workers"
-import { SQLStatement } from "./sql.ts"
+import { SQLStatement } from "./sql_statement.ts"
 import { dbWriteEnabled } from "./environment.ts"
 import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE } from "./tables.ts"
 
