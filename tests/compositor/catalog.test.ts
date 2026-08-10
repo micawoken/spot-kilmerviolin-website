@@ -57,9 +57,8 @@ const theme: TokenCatalog = {
 }
 
 /** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
- * container (unified field-outlet rewrite) — `PagefindSearch`/`Breadcrumbs`, the two components added per
- * docs/dev/miscellaneous.txt "puck components to add", and `RelatedEntries` (docs/dev/miscellaneous.txt
- * "related-entries tiles"). A change here is a deliberate version bump. */
+ * container (unified field-outlet rewrite) — `PagefindSearch`/`Breadcrumbs`, and `RelatedEntries`, the
+ * three components added since. A change here is a deliberate version bump. */
 const CATALOG_V1 = [
     "Section",
     "Columns",
@@ -807,6 +806,52 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         const html = render(config, "ContentField", { ...base, field: "plain", label: "My Label" })
         expect(html).toContain("hello")
         expect(html).toContain("My Label")
+    })
+
+    describe("valuePlacement", () => {
+        // The editor control itself is pinned, not just the render: an earlier pass shipped the prop,
+        // the defaultProps entry and the render branch WITHOUT this `fields` entry, leaving a placement
+        // no author could ever select. Asserting the render alone would not have caught that.
+        it("exposes a Value placement select in the editor, offering inline/auto/below", () => {
+            const config = buildConfig(theme, "editor", { entry, fields })
+            const placement = field(config, "ContentField", "valuePlacement")
+            expect(placement.type).toBe("select")
+            expect(placement.label).toBe("Value placement")
+            expect(placement.options.map((option: { value: string }) => option.value)).toEqual(["inline", "auto", "below"])
+        })
+
+        it("stays inline by default, so designs stored before the prop existed are unaffected", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            // `base` deliberately omits valuePlacement — the shape of an older stored design.
+            const html = render(config, "ContentField", { ...base, field: "bio" })
+            expect(html).toContain('class="cmp-field"')
+        })
+
+        it('renders no modifier for "inline"', () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", valuePlacement: "inline" })
+            expect(html).toContain('class="cmp-field"')
+        })
+
+        it('renders the always-stacked modifier for "below"', () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", valuePlacement: "below" })
+            expect(html).toContain('class="cmp-field cmp-field--below"')
+        })
+
+        it('renders the container-query modifier for "auto"', () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", valuePlacement: "auto" })
+            expect(html).toContain('class="cmp-field cmp-field--auto"')
+        })
+
+        it("falls back to inline for a stale stored value rather than emitting a dangling class", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", valuePlacement: "sideways" })
+            expect(html).toContain('class="cmp-field"')
+            expect(html).not.toContain("cmp-field--")
+        })
+
     })
 })
 

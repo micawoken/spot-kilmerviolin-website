@@ -4,8 +4,8 @@
  * Self-hosts the design theme's Google Fonts (tokens.ts's `WebFont[]`) instead of linking straight to
  * fonts.googleapis.com.
  *
- * Root cause fixed: `webFontsHref`'s `display=optional` (kills theme-font initial-load layout shift,
- * docs/dev/miscellaneous.txt "initial load layout shift") gives the browser only ~100ms to have the
+ * Root cause fixed: `webFontsHref`'s `display=optional` (kills theme-font initial-load layout shift)
+ * gives the browser only ~100ms to have the
  * font ready at first paint, but Google's css2 stylesheet can't be `<link rel="preload">`d — the actual
  * font-file URL isn't known until that stylesheet's response resolves. Cold cache (first visit, or
  * evicted font): that round trip routinely blows past 100ms, browser abandons the custom font for the

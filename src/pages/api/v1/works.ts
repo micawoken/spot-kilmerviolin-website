@@ -26,14 +26,14 @@
  */
 
 import type { APIRoute } from "astro"
-import { _stateTypeAssertCompleteComposition } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteComposition } from "../../../lib/api/composition"
 import {
     addComposition,
     addCompositionsBatch,
     attachCompositionNames,
     findCompositionDuplicates,
     listCompositions
-} from "../../../lib/api/database"
+} from "../../../lib/api/db_composition"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import {

@@ -4,7 +4,7 @@
  *
  * Rendering body for one entity noun's public index (composer/composition/contributor) — extracted out
  * of pages/entity/[noun]/index.astro so pages/database/[noun]/index.astro (mirroring the noun indexes
- * under /database, docs/dev/miscellaneous.txt "/database alias") can render byte-identical output at a
+ * under /database) can render byte-identical output at a
  * second path, the same split DatabaseRoot.astro already uses for the database root. Both page files
  * independently run their own `getStaticPaths` (Astro's build has no shared cache between page files,
  * matching [id].astro/index.astro's own existing duplication) and pass this component the same props.

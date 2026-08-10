@@ -41,7 +41,7 @@
 import { useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
-import { renderButtonTag } from "../../lib/compositor/catalog"
+import { renderButtonTag } from "../../lib/compositor/catalog-renderers"
 import {
     bestTextColorFor,
     contrastRatio,

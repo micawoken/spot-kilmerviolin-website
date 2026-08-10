@@ -26,7 +26,9 @@
  */
 
 import type { APIRoute } from "astro"
-import { listComposers, listCompositions, listContributors } from "../../../lib/api/database"
+import { listComposers } from "../../../lib/api/db_composer"
+import { listCompositions } from "../../../lib/api/db_composition"
+import { listContributors } from "../../../lib/api/db_contributor"
 import { searchComposers, searchCompositions, searchContributors, VALID_DATABASES } from "../../../lib/api/search"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"

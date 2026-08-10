@@ -28,7 +28,7 @@
 
 import { describe, it, expect } from "vitest"
 
-import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../src/lib/api/d1.ts"
+import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../src/lib/api/composer.ts"
 
 // a complete, otherwise-valid composer record (no id, as on create); overrides tweak individual fields
 function makeComposer(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -72,9 +72,9 @@ describe("composer birth/death year consistency", () => {
     })
 })
 
-// citations is optional (docs/dev/miscellaneous.txt): a complete-mode create must still pass with the
-// field entirely absent (this is the case assertRecordBySpec's complete-mode loop does NOT auto-skip an
-// undefined field for — the base check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
+// citations is optional: a complete-mode create must still pass with the field entirely absent (this is
+// the case assertRecordBySpec's complete-mode loop does NOT auto-skip an undefined field for — the base
+// check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
 describe("composer citations validation", () => {
     it("a complete create with no citations key passes", () => {
         expect(_stateTypeAssertCompleteComposer(makeComposer(), false)).not.toBeTypeOf("string")

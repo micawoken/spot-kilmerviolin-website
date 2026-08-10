@@ -25,8 +25,8 @@
 /// <reference path="../src/lib/api/types.d.ts" />
 
 /**
- * Tests for the user-scoped API token primitives (docs/dev/plan-prelaunch-features.md §2, Stage A):
- * secret generation/hashing (src/lib/api/tokens.ts), DB-backed lookup/issue/revoke, resolution to an
+ * Tests for the user-scoped API token primitives: secret generation/hashing (src/lib/api/tokens.ts),
+ * DB-backed lookup/issue/revoke, resolution to an
  * Identity (authorizeContributorId), and the D2 guard (token-authenticated requests cannot manage tokens).
  */
 
@@ -49,7 +49,7 @@ import {
 } from "../src/lib/api/tokens.ts"
 import { authorizeContributorId, requiresAllOf } from "../src/lib/api/authorize.ts"
 import { exec_string } from "../src/lib/api/d1.ts"
-import { addContributor } from "../src/lib/api/database.ts"
+import { addContributor } from "../src/lib/api/db_contributor.ts"
 import { GET as tokensGET, POST as tokensPOST } from "../src/pages/api/v1/tokens.ts"
 import { DELETE as tokenDELETE } from "../src/pages/api/v1/tokens/[id].ts"
 

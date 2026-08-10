@@ -41,8 +41,8 @@ import {
     getComposition,
     updateComposition,
     updateCompositionPartial
-} from "../../../../lib/api/database"
-import { _stateTypeAssertCompleteComposition, _stateTypeAssertPartialComposition } from "../../../../lib/api/d1"
+} from "../../../../lib/api/db_composition"
+import { _stateTypeAssertCompleteComposition, _stateTypeAssertPartialComposition } from "../../../../lib/api/composition"
 import { canAct, canModify, withActingContributor } from "../../../../lib/api/authorize"
 import { authEnabled } from "../../../../lib/api/environment"
 

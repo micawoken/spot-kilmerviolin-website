@@ -50,8 +50,9 @@ import {
     addContributorsBatch,
     listContributors,
     findContributorNameConflicts
-} from "../../../lib/api/database"
-import { _stateTypeAssertCompleteContributor, CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
+} from "../../../lib/api/db_contributor"
+import { CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteContributor } from "../../../lib/api/contributor"
 import { authEnabled } from "../../../lib/api/environment"
 import { resolveIdentityEmail } from "../../../lib/api/fallback"
 

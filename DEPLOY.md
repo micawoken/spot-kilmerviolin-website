@@ -52,5 +52,5 @@ The Astro worker is a Cloudflare Worker powering a website using the Astro frame
 
 Done!
 
-Content editing goes through EmDash, the in-worker CMS at /_emdash (see docs/dev/emdash-migration.md) — no
-separate CMS deployment is needed.
+Content editing goes through EmDash, the in-worker CMS at /_emdash — no separate CMS deployment is
+needed.

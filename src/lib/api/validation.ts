@@ -247,7 +247,7 @@ export function isImageMimeType(type: string): boolean {
 
 /**
  * Validates a candidate alt-text value: required (non-empty after trimming) and within
- * MAX_ALT_TEXT_LENGTH characters (docs/dev/miscellaneous.txt's "data model changes" section)
+ * MAX_ALT_TEXT_LENGTH characters
  *
  * @param {string} value - the trimmed candidate alt text
  * @returns {string | null} - an error message if invalid, or null if the value is acceptable
@@ -345,8 +345,8 @@ export function validateURIForType(uri_type: string, uri: string): boolean {
 }
 
 /**
- * Classifies a citation value by sniffing its shape: an https link, a DOI, or an ISBN
- * (docs/dev/miscellaneous.txt's "data model changes" section). Unlike a composition's own
+ * Classifies a citation value by sniffing its shape: an https link, a DOI, or an ISBN. Unlike a
+ * composition's own
  * publication_info, a citation carries no separate declared uri_type field, so the type is inferred
  * from the value itself rather than looked up.
  *

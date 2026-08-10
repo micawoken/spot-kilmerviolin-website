@@ -1,7 +1,7 @@
 /**
  * /api/v1/tokens/build/[id]
  *
- * Revokes a specific build token (docs/dev/plan-prelaunch-features.md §2 D9).
+ * Revokes a specific build token.
  *
  *
  * Copyright (C) 2026 Michael Wong.

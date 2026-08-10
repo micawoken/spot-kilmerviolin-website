@@ -32,7 +32,7 @@ import ContributorInfo from "../../../components/entities/ContributorInfo.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 
 import { CONTRIBUTOR, redactProtected } from "../../../lib/api/d1"
-import { getContributor } from "../../../lib/api/database"
+import { getContributor } from "../../../lib/api/db_contributor"
 import { guardPage } from "../../../lib/api/page_auth"
 import { guardedRead } from "../../../lib/api/http"
 import { authEnabled } from "../../../lib/api/environment"

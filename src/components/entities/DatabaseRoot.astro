@@ -14,7 +14,7 @@
  *
  * The nav tiles point at `/database/{noun}/` (EntityIndex.astro's mirror), not `/entity/{noun}/`, even
  * though this component is itself rendered at both /entity and /database — /database is the canonical
- * database root (docs/dev/miscellaneous.txt "/database alias"), so both aliases send a visitor into the
+ * database root, so both aliases send a visitor into the
  * canonical namespace rather than /entity's. Individual entries still only exist under /entity/{noun}/{id}.
  *
  * Search box targets plain /search (with a hidden scope=database input), not /search/advanced: a bare
@@ -25,8 +25,8 @@
  * explicit link below is the only path into it, matching the Puck `PagefindSearch` component's own
  * `advancedLink` option (catalog.tsx).
  *
- * Extracted out of pages/entity/index.astro so pages/database/index.astro (docs/dev/miscellaneous.txt,
- * "/database alias") can render byte-identical output at a second path — no platform-level path-alias or
+ * Extracted out of pages/entity/index.astro so pages/database/index.astro can render byte-identical
+ * output at a second path — no platform-level path-alias or
  * rewrite mechanism exists in this project (Astro, wrangler, and EmDash were all checked), and
  * route-authority.ts's duplicate-slug build failure only governs the EmDash-authored [...slug].astro
  * catch-all, not hardcoded Astro file routes like this one — so both page files import and render this

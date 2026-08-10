@@ -29,9 +29,9 @@ import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 import { list_users } from "../../../lib/api/access_iam_mgmt"
-import { listContributors } from "../../../lib/api/database"
+import { listContributors } from "../../../lib/api/db_contributor"
 import { isFallbackEmail } from "../../../lib/api/fallback"
-import { isMissingTableError } from "../../../lib/api/http"
+import { isMissingTableError } from "../../../lib/api/sqlite_error"
 import { guardPage } from "../../../lib/api/page_auth"
 
 export const prerender = false

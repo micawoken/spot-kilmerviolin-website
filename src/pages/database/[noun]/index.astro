@@ -2,8 +2,8 @@
 /**
  * pages/database/[noun]/index.astro
  *
- * Mirror of pages/entity/[noun]/index.astro under /database (docs/dev/miscellaneous.txt "/database
- * alias", extended beyond the root to the noun indexes): renders the exact same markup via the shared
+ * Mirror of pages/entity/[noun]/index.astro under /database (extended beyond the root to the noun
+ * indexes): renders the exact same markup via the shared
  * `EntityIndex.astro` component, so /database/{noun} serves identical content to /entity/{noun} without
  * an HTTP redirect. Individual entries are NOT mirrored — /entity/{noun}/{id} stays the only route for a
  * detail page (ListResult.astro always links there); only this reachability index is duplicated.

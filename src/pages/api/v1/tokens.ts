@@ -1,8 +1,8 @@
 /**
  * /pages/api/v1/tokens.ts
  *
- * Issues and lists user-scoped API tokens (docs/dev/plan-prelaunch-features.md §2). A token acts as the
- * contributor who issued it, inheriting their live permissions in full except token self-management: every
+ * Issues and lists user-scoped API tokens. A token acts as the contributor who issued it, inheriting
+ * their live permissions in full except token self-management: every
  * handler here refuses a token-authenticated caller (locals.tokenAuth) so a leaked token cannot mint
  * successors or revoke evidence of its own use.
  *

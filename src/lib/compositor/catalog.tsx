@@ -58,13 +58,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useState } from "react"
 import type { ComponentType, CSSProperties, ReactNode } from "react"
-import type { Config, CustomFieldRender } from "@puckeditor/core"
+import type { Config } from "@puckeditor/core"
 import type { PortableTextBlock } from "emdash"
 
 import { isEmptyFieldValue } from "./entity-fields"
-import { RichTextView, opensInNewTab, sanitizeHref } from "./richtext"
+import { RichTextView, opensInNewTab } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
 import {
@@ -76,21 +75,25 @@ import {
     publicMediaUrl,
     type MediaSource
 } from "./media"
-// Framework-agnostic (only ./escape), returns markup-safe (escapeHtml-encoded) HTML — safe for both
-// editor (browser) and build (Node) targets. ContentField's "uri" kind reuses it for the composition
-// publication link, the one composite field this catalog still knows the shape of.
-import { renderPublicationUri } from "../../scripts/publication"
-// Likewise framework-agnostic — ContentField's "citations" kind reuses it so the public render matches
-// the admin Info cards' rendering exactly.
-import { renderCitationsList } from "../../scripts/citations"
-// Likewise framework-agnostic — reused so composer death_year/country render identically to the admin's
-// ComposerInfo.astro/format.ts treatment, not a second hand-written "-1 => Present"/code=>name copy.
-import { countryCodeName, formatDeathYear, titleCaseRole } from "../../scripts/format"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
 // Same type-only split as CollectionField above — RelatedEntries reads this from context, never imports
 // entity-records.ts's build-side functions.
 import type { RelatedWork } from "../build/entity-records"
+import { mediaPickerRender } from "./catalog-media-picker"
+import {
+    DEFAULT_RELATED_LIMIT,
+    fieldPlacementClass,
+    formatFieldValue,
+    frameStyleVars,
+    renderButtonTag,
+    renderHeadingTag,
+    renderImageTag,
+    renderRelatedEntriesTag,
+    vars,
+    type ImageSizePreset,
+    type ValuePlacement
+} from "./catalog-renderers"
 
 /** Which config a `buildConfig` call produces: the editor island's or the static build renderer's. */
 export type CatalogTarget = "editor" | "build"
@@ -235,11 +238,6 @@ export interface MediaValue {
  * since children render as direct DOM children with no further nesting. */
 type SlotRender = ComponentType<{ className?: string; style?: CSSProperties }>
 
-/** Casts a token-var map to CSSProperties (React types omit custom-property keys). */
-function vars(map: Record<string, string | number>): CSSProperties {
-    return map as CSSProperties
-}
-
 /** A token select field. Optional selects prepend a "None" option (value ""), letting the render skip
  * the local var so `compositor.css`'s fallback applies. */
 function tokenSelect(theme: TokenCatalog, kind: TokenKind, label: string, optional = false) {
@@ -249,167 +247,6 @@ function tokenSelect(theme: TokenCatalog, kind: TokenKind, label: string, option
         label,
         options: optional ? [{ label: "None", value: "" }, ...options] : options
     }
-}
-
-/** Optional radius/border/shadow local `--cmp-<prefix>-*` vars for a frame-styled container (Section,
- * Image/ContentImage, MediaText's media side). Skipped when its token name is "" (None), so
- * `compositor.css`'s own fallback (no rounding/border/shadow) applies. */
-function frameStyleVars(prefix: string, radius: string, border: string, shadow: string): Record<string, string> {
-    const result: Record<string, string> = {}
-    if (radius) result[`--cmp-${prefix}-radius`] = tokenVar("radius", radius)
-    if (border) {
-        result[`--cmp-${prefix}-border-width`] = tokenVar("borders", border, "width")
-        result[`--cmp-${prefix}-border-style`] = tokenVar("borders", border, "style")
-        result[`--cmp-${prefix}-border-color`] = tokenVar("borders", border, "color")
-    }
-    if (shadow) result[`--cmp-${prefix}-shadow`] = tokenVar("shadows", shadow)
-    return result
-}
-
-// --- Media picker (editor-only custom field) -------------------------------------------------------
-// Lives entirely inside the field render so its browser code (fetch + modal state) never runs on the
-// build path; attached only in the editor target. Lists images from GET /_emdash/api/media, same-origin.
-
-/** A media list row from GET /_emdash/api/media (subset of EmDash's MediaItem). */
-interface MediaListItem {
-    id: string
-    storageKey: string
-    filename: string
-    alt: string | null
-    width: number | null
-    height: number | null
-    mimeType: string
-}
-
-// Rendered by Puck as a React component (AutoField mounts `<FieldComponent />`), so hooks are valid.
-// Never invoked by the static RSC renderer, and attached only in the editor target, so its browser
-// code (fetch + modal state) stays off the build path.
-const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ value, onChange }) => {
-    const [open, setOpen] = useState(false)
-    const [items, setItems] = useState<MediaListItem[]>([])
-    const [query, setQuery] = useState("")
-    const [error, setError] = useState<string | null>(null)
-
-    const load = async (q: string) => {
-        setError(null)
-        const params = new URLSearchParams({ mimeType: "image/", limit: "50" })
-        if (q) params.set("q", q)
-        try {
-            const res = await fetch(`/_emdash/api/media?${params.toString()}`, {
-                headers: { Accept: "application/json" },
-                credentials: "same-origin"
-            })
-            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-            const body = (await res.json()) as { data?: { items?: MediaListItem[] } }
-            setItems(body.data?.items ?? [])
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to load media")
-        }
-    }
-
-    const pick = (item: MediaListItem) => {
-        onChange({
-            mediaId: item.id,
-            storageKey: item.storageKey,
-            alt: item.alt ?? "",
-            width: item.width ?? 0,
-            height: item.height ?? 0
-        })
-        setOpen(false)
-    }
-
-    return (
-        <div>
-            <button
-                type="button"
-                onClick={() => {
-                    setOpen(true)
-                    void load(query)
-                }}
-                style={{ display: "block", width: "100%", padding: "0.5rem", cursor: "pointer" }}
-            >
-                {value ? `Change image (${value.alt || value.mediaId})` : "Choose image…"}
-            </button>
-            {value?.storageKey && isSafeStorageKey(value.storageKey) && (
-                <img
-                    src={proxyMediaUrl(value.storageKey)}
-                    alt={value.alt}
-                    style={{ marginTop: "0.5rem", maxWidth: "100%", height: "auto", display: "block" }}
-                />
-            )}
-            {open && (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(0,0,0,0.5)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 1000
-                    }}
-                    onClick={() => setOpen(false)}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            background: "#fff",
-                            color: "#111",
-                            width: "min(720px, 90vw)",
-                            maxHeight: "80vh",
-                            overflow: "auto",
-                            padding: "1rem",
-                            borderRadius: "0.5rem"
-                        }}
-                    >
-                        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                            <input
-                                type="search"
-                                placeholder="Search media…"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") void load(query)
-                                }}
-                                style={{ flex: 1, padding: "0.4rem" }}
-                            />
-                            <button type="button" onClick={() => void load(query)}>
-                                Search
-                            </button>
-                            <button type="button" onClick={() => setOpen(false)}>
-                                Close
-                            </button>
-                        </div>
-                        {error && <p style={{ color: "#b00" }}>{error}</p>}
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-                                gap: "0.5rem"
-                            }}
-                        >
-                            {items.map((item) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => pick(item)}
-                                    title={item.filename}
-                                    style={{ padding: 0, border: "1px solid #ddd", cursor: "pointer", background: "none" }}
-                                >
-                                    <img
-                                        src={proxyMediaUrl(item.storageKey)}
-                                        alt={item.alt ?? item.filename}
-                                        style={{ width: "100%", height: "90px", objectFit: "cover", display: "block" }}
-                                    />
-                                </button>
-                            ))}
-                        </div>
-                        {items.length === 0 && !error && <p>No images found.</p>}
-                    </div>
-                </div>
-            )}
-        </div>
-    )
 }
 
 // --- Component render props -----------------------------------------------------------------------
@@ -453,12 +290,6 @@ interface RichTextProps {
     /** PT block array on the build path (stored form); a Puck-rendered ReactNode in the editor canvas. */
     body: PortableTextBlock[] | ReactNode
 }
-/** Fixed rendered-size preset for `Image`/`ContentImage`/`MediaText`: NOT a theme token — a
- * per-placement layout choice, reuses the fixed-enum-select pattern `aspect` already uses rather than
- * a new `TokenKind`. "full" is `Image`/`ContentImage`'s pre-existing unstyled default, "medium" is
- * `MediaText`'s pre-existing fixed flex-basis — each `defaultProps` preserves its own old behavior. */
-type ImageSizePreset = "small" | "medium" | "large" | "full"
-
 /** The `size` select shared by `Image`, `ContentImage`, and `MediaText` — same options, different default. */
 function imageSizeSelect() {
     return {
@@ -548,6 +379,13 @@ interface ContentFieldProps {
     /** blank = use the bound field's catalog label (entity-fields.ts). Non-blank overrides it. */
     label: string
     showLabel: "yes" | "no"
+    /** Where the value sits relative to its label: on the same line ("inline", the pre-existing behavior
+     *  and the default, so designs stored before this field existed are unaffected), always stacked
+     *  underneath it ("below"), or stacked only while the field's own container is narrow ("auto" — a
+     *  container query, see compositor.css). Optional — undefined on any such older design, so `render`
+     *  defaults it defensively rather than relying on `defaultProps`, which Puck applies only to newly
+     *  inserted components. */
+    valuePlacement?: ValuePlacement
     typography: string
     /** What to render when the bound value is empty (see {@link isEmptyFieldValue}): leave the row as-is
      *  (label per `showLabel`, blank value — the pre-existing behavior, and the default so old designs
@@ -596,35 +434,6 @@ interface MediaTextProps {
     priority: "yes" | "no"
 }
 
-// --- Shared render bodies ---------------------------------------------------------------------------
-// The outlets are thin content-fed twins of existing components (pivot §4): same markup, same classes,
-// same token wiring — only where the value comes from differs. One render body each keeps them twins.
-
-/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). Exported,
- * though not currently imported elsewhere — `renderButtonTag` below is the one actually reused by the
- * theme editor's live preview (`ThemePreview.tsx`). */
-export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
-    const Tag = level
-    return (
-        <Tag
-            className="cmp-heading"
-            style={vars({
-                "--cmp-heading-family": tokenVar("typography", typography, "family"),
-                "--cmp-heading-size": tokenVar("typography", typography, "size"),
-                "--cmp-heading-weight": tokenVar("typography", typography, "weight"),
-                "--cmp-heading-line-height": tokenVar("typography", typography, "line-height"),
-                "--cmp-heading-letter-spacing": tokenVar("typography", typography, "letter-spacing"),
-                "--cmp-heading-style": tokenVar("typography", typography, "style"),
-                "--cmp-heading-decoration": tokenVar("typography", typography, "decoration"),
-                "--cmp-heading-transform": tokenVar("typography", typography, "transform"),
-                "--cmp-heading-align": align
-            })}
-        >
-            {text}
-        </Tag>
-    )
-}
-
 const BUNDLED_FILE_PREFIX = "/files/"
 
 /**
@@ -637,147 +446,6 @@ function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, stri
         return undefined
     }
     return index[source.url.slice(BUNDLED_FILE_PREFIX.length)]
-}
-
-/** The `sizes` attribute hint for each `ImageSizePreset`, mirroring compositor.css's
- * `.cmp-image[data-size]` max-width caps (12/24/40rem at the standard 16px root, small/medium/large) —
- * a rendered image is never wider than its preset's cap, so the browser's `srcset` selection can pick
- * the smallest candidate that still covers it instead of defaulting to the largest. "full" has no cap
- * (max-width: 100%), so its hint stays viewport-relative. Approximate by nature — `sizes` is a layout
- * hint, not a guarantee — and deliberately not themed: a custom root font size would only make the
- * browser fetch a slightly larger/smaller candidate than ideal, never a broken one. */
-const IMAGE_SIZE_HINTS: Record<ImageSizePreset, string> = {
-    small: "192px",
-    medium: "384px",
-    large: "640px",
-    full: "100vw"
-}
-
-/** The Image markup, shared by `Image` (picked media) and `ContentImage` (entry-fed image field). Not
- * used by `MediaText`'s media side — its rendered size comes from its flex container, not the `<img>`
- * itself (see `.cmp-media-text__media` in compositor.css), so `size` drives `data-size` there instead.
- *
- * `priority` opts an above-the-fold image (typically at most one per page) into `fetchPriority="high"` +
- * `loading="eager"` — Lighthouse flagged every compositor image as loading with no fetch-priority signal
- * at all, so the browser's heuristic guess was the only thing ever prioritizing a hero image over
- * everything else competing for bandwidth. `false` (the default) renders neither attribute, byte-for-byte
- * the pre-existing markup — this only ever adds a priority hint, never removes the browser's own default
- * (eager) loading behavior for the common case.
- *
- * `sizes` is always emitted (from `IMAGE_SIZE_HINTS`) — inert on its own (the browser ignores `sizes`
- * without a matching `srcset`), but it is the attribute the build-time responsive-image integration
- * (optimize-emdash-media.mjs) looks for when deciding whether/how to inject a `srcset` of width variants
- * into the already-rendered HTML, since a per-request build has no direct hook into this render path
- * (see that file's header for why it operates as a post-build HTML pass). Emitting it here, unconditionally,
- * means the two stay in sync without either module needing to duplicate the `ImageSizePreset` → width
- * mapping. */
-function renderImageTag(
-    url: string,
-    alt: string,
-    width: number | undefined,
-    height: number | undefined,
-    aspect: string,
-    size: ImageSizePreset,
-    radius: string,
-    border: string,
-    shadow: string,
-    priority: boolean
-) {
-    return (
-        <img
-            className="cmp-image"
-            data-aspect={aspect}
-            data-size={size}
-            src={url}
-            sizes={IMAGE_SIZE_HINTS[size]}
-            alt={alt}
-            width={width}
-            height={height}
-            {...(priority ? { fetchPriority: "high" as const, loading: "eager" as const } : {})}
-            style={vars(frameStyleVars("image", radius, border, shadow))}
-        />
-    )
-}
-
-/** The Button markup. Exported so the theme editor's live preview (`ThemePreview.tsx`) renders a
- * button variant with the exact same class/var wiring as the real component, never a hand-rolled copy. */
-export function renderButtonTag(label: string, href: string, variant: string, shadow = "", target = "") {
-    const safeHref = sanitizeHref(href)
-    const newTab = opensInNewTab(safeHref, target)
-    return (
-        <a
-            className="cmp-button"
-            href={safeHref}
-            target={newTab ? "_blank" : undefined}
-            rel={newTab ? "noopener noreferrer" : undefined}
-            style={vars({
-                "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
-                "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
-                "--cmp-button-radius": tokenVar("buttonVariants", variant, "radius"),
-                "--cmp-button-pad-x": tokenVar("buttonVariants", variant, "pad-x"),
-                "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
-                "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
-                "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
-                "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color"),
-                ...(shadow ? { "--cmp-button-shadow": tokenVar("shadows", shadow) } : {})
-            })}
-        >
-            {label}
-        </a>
-    )
-}
-
-/** `RelatedEntries`' default `limit`, and the fallback used when an authored `limit` isn't a positive
- *  finite number (e.g. cleared in the editor). */
-const DEFAULT_RELATED_LIMIT = 6
-
-/** Illustrative canvas-only tiles, shown when there is no route context at all (mirrors
- *  `Breadcrumbs`' fallback trail) — `href: null` so they render as plain, non-navigating tiles. */
-const ILLUSTRATIVE_RELATED_WORKS: RelatedWork[] = [
-    { id: -1, name: "Example Work", href: null, composer: "Example Composer" },
-    { id: -2, name: "Another Example Work", href: null, composer: "Example Composer" }
-]
-
-function RelatedWorkTileBody({ work }: { work: RelatedWork }) {
-    return (
-        <>
-            <span className="cmp-related__name">{work.name}</span>
-            {work.composer && <span className="cmp-related__sub">{work.composer}</span>}
-        </>
-    )
-}
-
-/** The `RelatedEntries` tile grid: works related to the routed record, sliced to `limit`. With no
- * route context (editor previewing a template, not a fixed record), illustrative tiles stand in. On
- * build, `entries` is always defined — an empty list renders nothing, same auto-omit as the outlets. */
-function renderRelatedEntriesTag(entries: RelatedWork[] | undefined, heading: string, limit: number, isEditorPreview: boolean) {
-    const isIllustrative = entries === undefined && isEditorPreview
-    const source = isIllustrative ? ILLUSTRATIVE_RELATED_WORKS : entries
-    if (!source || source.length === 0) return null // pages/posts template, or a record with no related works
-
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_RELATED_LIMIT
-    const tiles = source.slice(0, safeLimit)
-
-    return (
-        <div className="cmp-related">
-            {heading && <h2 className="cmp-related__heading">{heading}</h2>}
-            <ul className="cmp-related__grid">
-                {tiles.map((work) => (
-                    <li key={work.id}>
-                        {work.href ? (
-                            <a className="cmp-related__tile" href={work.href}>
-                                <RelatedWorkTileBody work={work} />
-                            </a>
-                        ) : (
-                            <span className="cmp-related__tile">
-                                <RelatedWorkTileBody work={work} />
-                            </span>
-                        )}
-                    </li>
-                ))}
-            </ul>
-        </div>
-    )
 }
 
 /** Neutral editor-canvas placeholder for an outlet with no preview entry to resolve against (pivot §4). */
@@ -798,154 +466,6 @@ function outletFieldSelect(fields: CollectionField[] | undefined, accepted: read
         type: "select" as const,
         label: "Field",
         options: [{ label: "— choose a field —", value: "" }, ...options]
-    }
-}
-
-// --- ContentField / MediaText (unified field-outlet rewrite) ----------------------------------------
-// Replaces the old dedicated CompositionDetail block: every entity field, of any kind, is bindable
-// through these two generic, collection-agnostic outlets — no per-noun render code lives here.
-
-/** A resolved foreign-key reference, as `entity-records.ts`'s normalizer attaches it to an entry. */
-interface ResolvedReferenceLike {
-    id?: unknown
-    name?: unknown
-    href?: unknown
-    /** composer references only (see `ReferenceLinkListWithRole`) */
-    role?: unknown
-}
-
-function isResolvedReferenceLike(value: unknown): value is ResolvedReferenceLike {
-    return isRecord(value) && ("name" in value || "href" in value)
-}
-
-/** One resolved reference: linked to its public page when it has one, plain text otherwise (owner note:
- * an empty/unresolvable reference renders as an empty value, not a placeholder string). */
-function ReferenceLink({ value }: { value: ResolvedReferenceLike }) {
-    const name = typeof value.name === "string" ? value.name.trim() : ""
-    const href = typeof value.href === "string" ? value.href : null
-    if (name === "") return null
-    return href ? <a href={href}>{name}</a> : <>{name}</>
-}
-
-/** A comma-separated list of resolved references (see {@link ReferenceLink}). */
-function ReferenceLinkList({ values }: { values: unknown[] }) {
-    const items = values.filter(isResolvedReferenceLike)
-    if (items.length === 0) return null
-    return (
-        <>
-            {items.map((item, index) => (
-                <span key={index}>
-                    {index > 0 ? ", " : ""}
-                    <ReferenceLink value={item} />
-                </span>
-            ))}
-        </>
-    )
-}
-
-/** `ReferenceLinkList`, but each resolved composer also shows its `role` (e.g. "arranger") in
- *  parentheses after its name — `author_secondary` only (see `EntityFieldKind`'s "referenceListWithRole"
- *  doc in entity-fields.ts). Lower-cased (owner decision), unlike the composer's own `role` field, which
- *  title-cases for its standalone display. */
-function ReferenceLinkListWithRole({ values }: { values: unknown[] }) {
-    const items = values.filter(isResolvedReferenceLike)
-    if (items.length === 0) return null
-    return (
-        <>
-            {items.map((item, index) => {
-                const role = typeof item.role === "string" ? item.role.trim().toLowerCase() : ""
-                return (
-                    <span key={index}>
-                        {index > 0 ? ", " : ""}
-                        <ReferenceLink value={item} />
-                        {role !== "" && <> ({role})</>}
-                    </span>
-                )
-            })}
-        </>
-    )
-}
-
-/** The composition publication-uri composite (`{ uriType, uri }`) `entity-records.ts` synthesizes. */
-function PublicationUriValue({ value }: { value: ResolvedReferenceLike & { uriType?: unknown; uri?: unknown } }) {
-    const uriType = typeof value.uriType === "string" ? value.uriType : null
-    const uri = typeof value.uri === "string" ? value.uri : null
-    return <span dangerouslySetInnerHTML={{ __html: renderPublicationUri(uriType, uri, "") }} />
-}
-
-/** A composer/composition's citations map, rendered as comma-separated hyperlinks (see citations.ts). */
-function CitationsValue({ value }: { value: Record<string, unknown> }) {
-    const citations: Record<string, string> = {}
-    for (const [key, entry] of Object.entries(value)) {
-        if (typeof entry === "string") citations[key] = entry
-    }
-    return <span dangerouslySetInnerHTML={{ __html: renderCitationsList(citations, "") }} />
-}
-
-/** Long-form date formatting for `entry_date`/`change_date` (fixed locale/options — build output must
- * be deterministic, never reads the reader's locale). `timeZone: "UTC"` is load-bearing: D1 stores
- * these as epoch-millisecond instants — formatting in the build machine's local timezone would shift
- * the displayed date/time depending on where the build runs. */
-const ENTITY_DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" })
-
-/** Formats a resolved entity-field value for display, kind-aware when `kind` (`EntityField.type`) is
- * known, falling back to shape-based inference otherwise (pages/posts fields, or a pre-schema editor
- * render). Owner decision: null/empty/unresolvable ALWAYS formats to an empty value, never a
- * placeholder string, so `ContentField` keeps rendering its row. */
-function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
-    if (value === null || value === undefined) return ""
-
-    switch (kind) {
-        case "date": {
-            if (typeof value !== "number") return ""
-            const date = new Date(value)
-            return Number.isNaN(date.getTime()) ? String(value) : ENTITY_DATE_FORMAT.format(date)
-        }
-        case "reference":
-            return isResolvedReferenceLike(value) ? <ReferenceLink value={value} /> : ""
-        case "referenceList":
-            return Array.isArray(value) ? <ReferenceLinkList values={value} /> : ""
-        case "referenceListWithRole":
-            return Array.isArray(value) ? <ReferenceLinkListWithRole values={value} /> : ""
-        case "uri":
-            return isRecord(value) ? <PublicationUriValue value={value} /> : ""
-        case "citations":
-            return isRecord(value) ? <CitationsValue value={value} /> : ""
-        case "list":
-            return Array.isArray(value)
-                ? value.filter((item) => item !== null && item !== undefined && item !== "").join(", ")
-                : ""
-        case "number":
-            return typeof value === "number" ? String(value) : ""
-        case "yearOrLiving":
-            // A composer's death_year: -1 is the "still living" sentinel (mirrors ComposerInfo.astro).
-            return typeof value === "number" ? formatDeathYear(value) : ""
-        case "countryCode":
-            // A composer's ISO 3166-1 alpha-2 country code, rendered as its English display name.
-            return typeof value === "string" && value.trim() !== "" ? countryCodeName(value) : ""
-        case "email":
-            return typeof value === "string" && value.trim() !== "" ? (
-                <a href={`mailto:${value}`}>{value}</a>
-            ) : (
-                ""
-            )
-        case "titleCase":
-            return typeof value === "string" ? titleCaseRole(value) : ""
-        case "string":
-        case "text":
-            return typeof value === "string" ? value : ""
-        default: {
-            // Shape-based fallback — no catalog kind available for this field (see header).
-            if (typeof value === "string") return value
-            if (typeof value === "number") return String(value)
-            if (Array.isArray(value)) {
-                if (value.length > 0 && value.every(isResolvedReferenceLike)) return <ReferenceLinkList values={value} />
-                return value.filter((item) => item !== null && item !== undefined && item !== "").join(", ")
-            }
-            if (isResolvedReferenceLike(value)) return <ReferenceLink value={value} />
-            if (isRecord(value) && ("uriType" in value || "uri" in value)) return <PublicationUriValue value={value} />
-            return ""
-        }
     }
 }
 
@@ -1403,6 +923,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "No", value: "no" }
                     ]
                 },
+                valuePlacement: {
+                    type: "select" as const,
+                    label: "Value placement",
+                    options: [
+                        { label: "Inline with the label", value: "inline" },
+                        { label: "Below the label when narrow", value: "auto" },
+                        { label: "Always below the label", value: "below" }
+                    ]
+                },
                 typography: tokenSelect(theme, "typography", "Value typography"),
                 onEmpty: {
                     type: "select" as const,
@@ -1415,9 +944,18 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 },
                 emptyValue: { type: "text" as const, label: "Placeholder value (when empty)" }
             },
-            // "doNothing" preserves this outlet's pre-existing behavior (label per showLabel, blank value).
-            defaultProps: { field: "", label: "", showLabel: "yes", typography: "body", onEmpty: "doNothing", emptyValue: "(none)" },
-            render: ({ field, label, showLabel, typography, onEmpty, emptyValue }: ContentFieldProps) => {
+            // "doNothing"/"inline" preserve this outlet's pre-existing behavior (label per showLabel, blank
+            // value, both on one line).
+            defaultProps: {
+                field: "",
+                label: "",
+                showLabel: "yes",
+                valuePlacement: "inline",
+                typography: "body",
+                onEmpty: "doNothing",
+                emptyValue: "(none)"
+            },
+            render: ({ field, label, showLabel, valuePlacement, typography, onEmpty, emptyValue }: ContentFieldProps) => {
                 if (!field) return isEditor ? <OutletPlaceholder field={field} /> : null
                 if (isEditor && !context?.entry) return <OutletPlaceholder field={field} />
 
@@ -1430,7 +968,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
 
                 return (
                     <div
-                        className="cmp-field"
+                        className={`cmp-field${fieldPlacementClass(valuePlacement)}`}
                         style={vars({
                             "--cmp-field-family": tokenVar("typography", typography, "family"),
                             "--cmp-field-size": tokenVar("typography", typography, "size"),

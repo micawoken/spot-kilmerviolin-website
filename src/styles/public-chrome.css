@@ -60,7 +60,7 @@
  * site renders one consistent value per role rather than the ad hoc per-declaration values this replaced —
  * see tokens.ts SiteChromeRoles for the exact declarations each role covers. A theme that authors one of
  * those `--dtk-space-*` names directly, or sets a spacing role, controls this chrome's rhythm too, not
- * just the design pages' (docs/dev/miscellaneous.txt "design tokens on static pages").
+ * just the design pages'.
  *
  * There used to be a HORIZONTAL `-static` role alongside the vertical one still above: the pre-generated
  * "static" pages below hardcode their own structure instead of reading it from a design/entity template,

@@ -48,9 +48,17 @@ const contentText = (field, level = "h1") => ({
     type: "ContentText",
     props: { id: genId("ContentText"), field, level, typography: "display", align: "start" }
 })
-const contentField = (field) => ({
+const contentField = (field, props = {}) => ({
     type: "ContentField",
-    props: { id: genId("ContentField"), field, label: "", showLabel: "yes", typography: "body" }
+    props: {
+        id: genId("ContentField"),
+        field,
+        label: "",
+        showLabel: "yes",
+        valuePlacement: "inline",
+        typography: "body",
+        ...props
+    }
 })
 const mediaText = (field, content) => ({
     type: "MediaText",
@@ -137,7 +145,13 @@ const COMPOSITION_DOC = doc([
         contentField("publication_uri"),
         divider(),
         heading("Notes"),
-        columns([[contentField("notes_historical")], [contentField("notes_pedagogical")], [contentField("notes_other")]]),
+        // "auto" placement, unlike the short values in the Details columns above: a note is a paragraph,
+        // and a 3-up column leaves it too little measure to sit beside its own label.
+        columns([
+            [contentField("notes_historical", { valuePlacement: "auto" })],
+            [contentField("notes_pedagogical", { valuePlacement: "auto" })],
+            [contentField("notes_other", { valuePlacement: "auto" })]
+        ]),
         contentField("tags"),
         contentField("citations"),
         divider(),

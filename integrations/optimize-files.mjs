@@ -39,7 +39,7 @@
 // The IMAGES binding used for uploads is a runtime-only Worker API and is not available during this Node
 // build step, so sharp is used here instead.
 //
-// Alt text (docs/dev/miscellaneous.txt's "data model changes" section): every image asset (raster or
+// Alt text: every image asset (raster or
 // SVG) must carry a sidecar text file at "<name>.txt" alongside it (e.g. photo.jpg's alt text lives in
 // photo.jpg.txt) with 1-256 characters of alt text. A missing or oversized sidecar fails the build — this
 // mirrors the R2 upload API's hard "alt is required" validation (see lib/api/validation.ts), just enforced

@@ -40,13 +40,12 @@ import {
     getContributor,
     updateContributor,
     updateContributorPartial
-} from "../../../../lib/api/database"
+} from "../../../../lib/api/db_contributor"
+import { CONTRIBUTOR, redactProtected } from "../../../../lib/api/d1"
 import {
     _stateTypeAssertCompleteContributor,
-    CONTRIBUTOR,
-    _stateTypeAssertPartialContributor,
-    redactProtected
-} from "../../../../lib/api/d1"
+    _stateTypeAssertPartialContributor
+} from "../../../../lib/api/contributor"
 import { authEnabled } from "../../../../lib/api/environment"
 import { generateFallbackEmail, resolveIdentityEmail } from "../../../../lib/api/fallback"
 import { extractUploadedFileKey, getFileMeta } from "../../../../lib/api/files"

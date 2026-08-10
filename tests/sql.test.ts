@@ -24,7 +24,8 @@
 
 import { it, expect } from "vitest"
 
-import { SQLStatement, VirtualSQLTable } from '../src/lib/api/sql.ts'
+import { SQLStatement } from '../src/lib/api/sql_statement.ts'
+import { VirtualSQLTable } from '../src/lib/api/sql_virtual_table.ts'
 import { CONTRIBUTOR, COMPOSER, COMPOSITION } from '../src/lib/api/d1.ts'
 import { SQLCompareOp } from '../src/lib/api/common.ts'
 

@@ -1,7 +1,7 @@
 /**
  * /api/v1/tokens/[id]
  *
- * Revokes a specific user-scoped API token (docs/dev/plan-prelaunch-features.md §2).
+ * Revokes a specific user-scoped API token.
  *
  *
  * Copyright (C) 2026 Michael Wong.

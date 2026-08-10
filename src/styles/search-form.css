@@ -2,8 +2,8 @@
  * styles/search-form.css
  *
  * Single source for every public search form's look, and for the results list both search pages render
- * below theirs (see the `#search-results` block) (docs/dev/plan-prelaunch-features.md §10) —
- * replaces four independently hand-synced copies: the Puck `PagefindSearch` component's `.cmp-search`
+ * below theirs (see the `#search-results` block) — replaces four independently hand-synced copies: the
+ * Puck `PagefindSearch` component's `.cmp-search`
  * (formerly in compositor.css), `DatabaseRoot.astro`'s `.entity-search-form`, `pages/search.astro`'s
  * `#search-form`, and `PublicHeader.astro`'s `#header-search-form` (which keeps its own header-specific
  * layout/overlay rules in public-chrome.css, adopting only the shared input/button look from here).

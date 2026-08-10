@@ -321,8 +321,7 @@ interface Identity extends BaseIdentity {
  * @property {boolean} user_addition - Whether the role allows a user to add new users
  * @property {boolean} conferrable - Whether the role can be conferred by a non-administrator possessing the role to another user
  * @property {boolean} cms_editor - Whether the role provides authorization to edit site content through the
- *   in-worker EmDash CMS at /_emdash, enforced by src/middleware/emdash_access.ts. See
- *   docs/dev/emdash-migration.md.
+ *   in-worker EmDash CMS at /_emdash, enforced by src/middleware/emdash_access.ts.
  * @property {boolean} design_editor - Whether the role provides authorization to use the visual design
  *   system (/admin/advanced/designs: the design list, the Puck editor, the theme). STRICTLY WEAKER than cms_editor
  *   over /_emdash: the design system is a browser-side EmDash API client, so emdash_access.ts admits a
@@ -508,7 +507,7 @@ interface ComposerPrimitive {
  * @property {string} bio - a short biography of the composer
  * @property {string | null} image - the URL of the composer image, or null
  * @property {Record<string, string>} [citations] - optional key-value citations: source name to an https
- *   link, DOI, or ISBN (docs/dev/miscellaneous.txt); omitted or {} when there are none
+ *   link, DOI, or ISBN; omitted or {} when there are none
  */
 interface Composer extends ComposerPrimitive {
     // the API representation of a composer
@@ -624,7 +623,7 @@ interface CompositionPrimitive {
  * @property {number[]} phases - what phases it was in
  * @property {string[]} tags - what tags it has
  * @property {Record<string, string>} [citations] - optional key-value citations: source name to an
- *   https link, DOI, or ISBN (docs/dev/miscellaneous.txt); omitted or {} when there are none
+ *   https link, DOI, or ISBN; omitted or {} when there are none
  */
 interface Composition extends CompositionPrimitive {
     // the default construct for objects representing a composition
