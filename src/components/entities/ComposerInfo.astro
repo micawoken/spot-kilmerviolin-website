@@ -56,18 +56,18 @@ const dispDeath = (value: number | null | undefined): string =>
 ---
 
 <div id="generic-result-composer" class={`entity-result-container${hidden ? " hidden" : ""}`}>
-    <!-- head: the identifying header (name/ID + country/role/birth-death infoline) sits top-left, the bio
-       flows in the column beneath it, and the image occupies the top-right. The tags are pulled out below
-       the head so they follow the bio text. Source order is header → image → groups so the image stacks
-       directly below the title on narrow viewports. -->
+    {/* head: the identifying header (name/ID + country/role/birth-death infoline) sits top-left, the bio
+        flows in the column beneath it, and the image occupies the top-right. The tags are pulled out below
+        the head so they follow the bio text. Source order is header → image → groups so the image stacks
+        directly below the title on narrow viewports. */}
     <div class="entity-result-head">
         <div class="entity-result-header">
             <h2 id="composer-name" class="entity-result-name">{composer?.name}</h2>
             <div id="composer-details-infoline">
-                <!-- one middot-separated line; the ID # leads the bar -->
+                {/* one middot-separated line; the ID # leads the bar */}
                 <p id="composer-id">ID #{composer?.id}</p>
-                <!-- data-bearing elements carry the composer-{key} id used by populateInfo; birth/death are split into
-               their own spans (the ndash stays as static text) so each maps to a single record key -->
+                {/* data-bearing elements carry the composer-{key} id used by populateInfo; birth/death are split into
+                    their own spans (the ndash stays as static text) so each maps to a single record key */}
                 <strong
                     ><span id="composer-country"
                         >{
@@ -86,9 +86,9 @@ const dispDeath = (value: number | null | undefined): string =>
             </div>
         </div>
         <div id="composer-image-container" class="entity-result-image-container">
-            <!-- the <img> is always present (hidden when there is no image) so the client-side READ flow
-             (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
-             src is omitted when absent to avoid a broken-image request. -->
+            {/* the <img> is always present (hidden when there is no image) so the client-side READ flow
+                (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
+                src is omitted when absent to avoid a broken-image request. */}
             <img
                 id="composer-image"
                 class={`entity-result-image${composer?.image ? "" : " hidden"}`}
@@ -101,18 +101,18 @@ const dispDeath = (value: number | null | undefined): string =>
             </p>
         </div>
         <div class="entity-result-groups">
-            <!-- the bio occupies the group flow (where the tags previously sat) -->
+            {/* the bio occupies the group flow (where the tags previously sat) */}
             <div id="composer-details-bio" class="entity-result-group entity-result-bio">
                 <p id="composer-bio">{disp(composer?.bio, "(biography not provided)")}</p>
             </div>
         </div>
     </div>
-    <!-- tags follow the bio text, pulled below the head to span the full card width -->
+    {/* tags follow the bio text, pulled below the head to span the full card width */}
     <div id="composer-details-tags" class="entity-result-fullwidth entity-result-details">
         <div class="entity-field"><strong>Tags:</strong> <span id="composer-tags">{disp(composer?.tags)}</span></div>
-        <!-- citations render as a comma-separated list of hyperlinks (key as display text); renderCitationsList
-         returns markup-safe HTML (every value escapeHtml-encoded), so it is emitted via set:html. Mirrored
-         client-side in populateInfo. -->
+        {/* citations render as a comma-separated list of hyperlinks (key as display text); renderCitationsList
+            returns markup-safe HTML (every value escapeHtml-encoded), so it is emitted via set:html. Mirrored
+            client-side in populateInfo. */}
         <div class="entity-field">
             <strong>Citations:</strong> <span
                 id="composer-citations"

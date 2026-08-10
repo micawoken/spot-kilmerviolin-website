@@ -7,13 +7,6 @@
     <meta name="color-scheme" content="light dark">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <title>{errorCode} {errorName}</title>
-    <!--
-      Self-contained styles. This page is the worker's generic error fallback (served by both
-      middlewareErrorResponder and constructErrorPage in src/lib/api/http.ts) and cannot render the
-      Astro admin components, so the admin look — the light-dark() color tokens from styles/global.css,
-      the self-hosted Inter typeface, and the AdminFooter sticky-footer anchoring — is reproduced inline
-      rather than linked, so the page always styles correctly even when other assets are unavailable.
-    -->
     <style>
         @font-face {
             font-family: "Inter";
@@ -23,8 +16,6 @@
             font-display: swap;
         }
 
-        /* Admin color tokens (mirrors :root in styles/global.css) so the error page tracks the same
-           light/dark palette as the admin pages. */
         :root {
             color-scheme: light dark;
             --color-bg: light-dark(#ffffff, #1a1a1a);
@@ -38,9 +29,6 @@
             --shade-7: light-dark(#888888, #8a8a8a);
         }
 
-        /* Sticky footer: a full-height flex column so the footer is pushed to the bottom of the viewport
-           on short pages (this page is always short) while flowing naturally below longer content.
-           Mirrors the AdminFooter body rules. */
         body {
             font-family: "Inter", Helvetica, Arial, system-ui, sans-serif;
             background: var(--color-bg);
@@ -62,7 +50,6 @@
         a:hover {
             color: var(--color-link-hover);
         }
-        /* Visible keyboard focus indicator for accessibility. */
         a:focus-visible {
             outline: 2px solid var(--color-link);
             outline-offset: 2px;
@@ -73,8 +60,6 @@
             line-height: 1.2;
         }
 
-        /* Header banner echoes the AdminHeader "Administrative Services" branding without taking the
-           page's single <h1> (which names the error), keeping a correct heading hierarchy. */
         header .site-name {
             margin: 0;
             font-size: 1.5rem;
@@ -118,7 +103,6 @@
         footer p {
             margin: 0.4rem 0;
         }
-        /* the footer nav is the first child; pull its paragraph flush to the top rule */
         footer nav p {
             margin-top: 0;
         }
@@ -126,7 +110,6 @@
             margin-bottom: 0;
         }
 
-        /* Skip link: visually hidden until focused, then revealed at the top-left. */
         .skip-link {
             position: absolute;
             left: -9999px;
@@ -144,24 +127,12 @@
         }
     </style>
 
-    <!--
-      Suppress EmDash's injected visual-editing toolbar. EmDash's request-context middleware injects it
-      into every SSR HTML response for an authenticated editor, with no path or environment gate, so it
-      also lands on this fallback page (middlewareErrorResponder / constructErrorPage in
-      src/lib/api/http.ts serve it for any 401/403/etc. that middleware/identity.ts raises before an Astro
-      page renders). Mirrors the same rule in AdminHead.astro/BaseHead.astro.
-    -->
     <style>
         #emdash-toolbar {
             display: none !important;
         }
     </style>
 
-    <!--
-      Same-origin static file, not an inline script: this page's CSP (error_headers, stamped by
-      middleware/headers.ts's ADMIN_CSP for /admin paths) is script-src 'self' with no inline-script
-      allowance. See public/js/emdash-toolbar-strip.js and AdminHead.astro for the same pattern.
-    -->
     <script src="/js/emdash-toolbar-strip.js"></script>
 </head>
 <body>

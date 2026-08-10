@@ -101,7 +101,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                         <div class="field-row">
                             <input type="file" id="file-replace-input" name="file" accept="image/*" required />
                         </div>
-                        <!-- crop interface: appears once an image is chosen; lets the operator pick orientation and frame -->
+                        {/* crop interface: appears once an image is chosen; lets the operator pick orientation and frame */}
                         <ImageCrop inputId="file-replace-input" id="image-crop" />
                     </fieldset>
                     <fieldset>
@@ -116,9 +116,9 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                             ></textarea>
                         </div>
                     </fieldset>
-                    <!-- live storage figure (mirrors /admin/files); updates with a projection once a file is chosen,
-                 discounting the replaced file's current size. used/max bytes are carried in data attributes
-                 for the client estimate (a define:vars script cannot also use module imports). -->
+                    {/* live storage figure (mirrors /admin/files); updates with a projection once a file is chosen,
+                        discounting the replaced file's current size. used/max bytes are carried in data attributes
+                        for the client estimate (a define:vars script cannot also use module imports). */}
                     <p id="file-storage-usage" class="general-infohelp" data-used={usage.used} data-max={usage.max}>
                         Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
                     </p>
