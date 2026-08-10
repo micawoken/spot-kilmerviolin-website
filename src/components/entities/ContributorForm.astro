@@ -68,7 +68,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 ---
 <div class="generic-form">
     <form id="generic-form-contributors" class=`generic-form${hidden ? " hidden" : ""}` data-self-id={self_id ?? ""} data-is-admin={String(is_admin)} data-protected-fields={protected_fields} novalidate>
-        <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
+        {/* tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates */}
         <input type="hidden" id="form-contributors-id" name="id" value={contributor?.id ?? ""} />
 
         <div class="form-section">
@@ -91,8 +91,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Class Year</legend>
                 <div class="field-row">
-                    <!-- class_year is a nullable column: a blank input is submitted as null. Optionality is
-                         conveyed by the absence of a required (*) marker, not a placeholder. -->
+                    {/* class_year is a nullable column: a blank input is submitted as null. Optionality is
+                        conveyed by the absence of a required (*) marker, not a placeholder. */}
                     <input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
                     {
                         patch ? (
@@ -108,7 +108,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Major</legend>
                 <div class="field-row">
-                    <!-- major is a nullable column: a blank input is submitted as null -->
+                    {/* major is a nullable column: a blank input is submitted as null */}
                     <input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
                     {
                         patch ? (
@@ -139,7 +139,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Phases</legend>
                 <div class="field-row">
-                    <!-- phases is a nullable column: a blank input is submitted as null -->
+                    {/* phases is a nullable column: a blank input is submitted as null */}
                     <input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
                     <small class="general-infohelp field-inline-help">comma-separated numbers</small>
                     {
@@ -261,8 +261,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     <fieldset>
                         <legend>Account Type</legend>
                         <div class="field-row">
-                            <!-- the option values stay the literal admin booleans ("true"/"false") so this still
-                                 maps to the `admin` field sent to the API; only the labels are humanized -->
+                            {/* the option values stay the literal admin booleans ("true"/"false") so this still
+                                maps to the `admin` field sent to the API; only the labels are humanized */}
                             <select id="form-contributors-admin" name="admin">
                                 <option value="false" selected={contributor ? contributor.admin === false : true}>Standard</option>
                                 <option value="true" selected={contributor?.admin === true}>Administrator</option>

@@ -91,13 +91,13 @@ const tz_label: string = tz || "UTC"
     </p>
 </footer>
 
-<!--
-    "Back" navigation lives in a same-origin static file (public/js/admin-footer-back.js) loaded with
+{
+    /* "Back" navigation lives in a same-origin static file (public/js/admin-footer-back.js) loaded with
     is:inline + src, NOT an Astro <script>: the bundler inlines small Astro scripts directly into the
     document, which the admin Content-Security-Policy (script-src 'self', no 'unsafe-inline'/nonce/hash)
     then blocks. An external same-origin script is covered by 'self'. defer runs it after the DOM is
-    parsed so #admin-footer-back exists; the anchor's href="/admin" remains the no-JS fallback.
--->
+    parsed so #admin-footer-back exists; the anchor's href="/admin" remains the no-JS fallback. */
+}
 <script is:inline defer src="/js/admin-footer-back.js"></script>
 
 {

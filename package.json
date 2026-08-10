@@ -18,15 +18,15 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
-    "@astrojs/cloudflare": "^14.1.7",
+    "@astrojs/cloudflare": "^14.2.0",
     "@astrojs/markdoc": "^2.0.6",
     "@astrojs/react": "^6.0.2",
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.3",
-    "@emdash-cms/cloudflare": "^0.31.1",
-    "@lucide/astro": "^1.28.0",
+    "@emdash-cms/cloudflare": "^0.32.0",
+    "@lucide/astro": "^1.31.0",
     "@portabletext/react": "~7.0.1",
-    "@puckeditor/core": "~0.22.4",
+    "@puckeditor/core": "~0.23.0",
     "@tiptap/core": "^3.29.2",
     "@tiptap/extension-blockquote": "^3.29.2",
     "@tiptap/extension-bold": "^3.29.2",
@@ -47,8 +47,8 @@
     "@tiptap/html": "^3.29.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "astro": "^7.1.6",
-    "emdash": "^0.31.1",
+    "astro": "^7.2.0",
+    "emdash": "^0.32.0",
     "he": "^1.2.0",
     "jose": "^6.2.8",
     "kysely": "^0.29.4",
@@ -57,10 +57,10 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.20.2",
+    "@cloudflare/vitest-pool-workers": "^0.20.3",
     "@playwright/test": "^1.62.1",
     "@types/he": "^1.2.3",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "pagefind": "^1.5.2",
     "prettier": "^3.9.6",
@@ -68,7 +68,7 @@
     "sharp": "^0.35.3",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.10",
-    "wrangler": "^4.119.0"
+    "wrangler": "^4.120.0"
   },
   "packageManager": "pnpm@11.20.0",
   "engines": {

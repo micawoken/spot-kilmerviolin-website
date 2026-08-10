@@ -47,7 +47,7 @@ const patch: boolean = Astro.props.patch || false
 
 <div class="generic-form">
     <form id="generic-form-composers" class=`generic-form${hidden ? " hidden" : ""}` novalidate>
-        <!-- tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates -->
+        {/* tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates */}
         <input type="hidden" id="form-composers-id" name="id" value={composer?.id ?? ""} />
 
         <div class="form-section">
@@ -137,8 +137,8 @@ const patch: boolean = Astro.props.patch || false
                         required={required}
                         value={composer?.country ?? ""}
                     />
-                    <!-- filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
-                         guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised -->
+                    {/* filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
+                        guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised */}
                     <small id="form-composers-country-help" class="general-infohelp field-inline-help"
                         >ISO 3166-1 alpha-2 code or country name</small
                     >
