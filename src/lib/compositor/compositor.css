@@ -252,7 +252,8 @@
 /* ContentField (unified field-outlet rewrite) — an optionally-labeled value row. Mirrors the admin
  * info components' litigated `.entity-field` flow (admin-entities.css): label and value sit adjacent
  * on one line by default, and the value wraps to its own line when the remaining space is too tight —
- * never a rigid two-column layout that breaks on narrow viewports. */
+ * never a rigid two-column layout that breaks on narrow viewports. `valuePlacement` can stack the value
+ * under its label instead, always or only while the field is narrow (see the placement rules below). */
 .cmp-field {
 	display: flex;
 	flex-wrap: wrap;
@@ -274,6 +275,39 @@
 }
 .cmp-field__value a {
 	color: inherit;
+}
+
+/* Value placement (ContentField's `valuePlacement`). Both non-inline modes stack by giving the LABEL a
+ * full-width flex basis, so the value wraps onto the next line through the same `flex-wrap` the inline
+ * mode already relies on. Deliberately NOT `flex-direction: column` on `.cmp-field`: the stacked and
+ * inline states then differ in exactly one declaration and keep every other box property (gaps,
+ * alignment, typography) identical, instead of two layouts drifting apart as this rule set grows. */
+.cmp-field--below .cmp-field__label {
+	flex-basis: 100%;
+}
+
+/* "auto" — stack only while the field itself is narrower than a comfortable reading measure. A container
+ * query, not `@media`: the constraint is the FIELD's width, not the viewport's. The motivating case is a
+ * 3-up `Columns` on a wide desktop, where the viewport is roomy and each column is not, so a viewport
+ * breakpoint cannot see the problem at all. 30rem is where the label's own width starts eating the
+ * value's measure — a 3-up column at common desktop widths falls under it; a 2-up or full-width field
+ * does not. */
+.cmp-field--auto {
+	container: cmp-field / inline-size;
+}
+@container cmp-field (max-width: 30rem) {
+	.cmp-field--auto .cmp-field__label {
+		flex-basis: 100%;
+	}
+}
+/* `container-type: inline-size` sizes the element without regard to its contents, which is free for a
+ * field in any of the flex-COLUMN stacks (`.cmp-root`, `.cmp-section`, `.cmp-columns__col`,
+ * `.cmp-media-text__content`) since those already stretch it to the container's width. `.cmp-row` is the
+ * one parent that sizes children FROM their content (flow invariant) — containment there would collapse
+ * the field to zero width. Opt out rather than collapse: "auto" degrades to the inline default, which is
+ * the fail-soft behavior this file applies to every other unsatisfiable request. */
+.cmp-row > .cmp-field--auto {
+	container-type: normal;
 }
 
 /* Breadcrumbs — an auto-derived trail (catalog.tsx's Breadcrumbs render, fed by route-authority.ts). Each

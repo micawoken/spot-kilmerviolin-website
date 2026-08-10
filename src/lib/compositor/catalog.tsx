@@ -548,6 +548,13 @@ interface ContentFieldProps {
     /** blank = use the bound field's catalog label (entity-fields.ts). Non-blank overrides it. */
     label: string
     showLabel: "yes" | "no"
+    /** Where the value sits relative to its label: on the same line ("inline", the pre-existing behavior
+     *  and the default, so designs stored before this field existed are unaffected), always stacked
+     *  underneath it ("below"), or stacked only while the field's own container is narrow ("auto" — a
+     *  container query, see compositor.css). Optional — undefined on any such older design, so `render`
+     *  defaults it defensively rather than relying on `defaultProps`, which Puck applies only to newly
+     *  inserted components. */
+    valuePlacement?: "inline" | "below" | "auto"
     typography: string
     /** What to render when the bound value is empty (see {@link isEmptyFieldValue}): leave the row as-is
      *  (label per `showLabel`, blank value — the pre-existing behavior, and the default so old designs
@@ -887,6 +894,19 @@ function CitationsValue({ value }: { value: Record<string, unknown> }) {
  * these as epoch-millisecond instants — formatting in the build machine's local timezone would shift
  * the displayed date/time depending on where the build runs. */
 const ENTITY_DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" })
+
+/** The `.cmp-field` modifier for a `ContentField`'s `valuePlacement`, or "" for the inline default. Both
+ * modifiers are defined in compositor.css (the "Value placement" rules) — the only place either one has
+ * any effect, so the two must be renamed together.
+ *
+ * Matches by value rather than indexing a lookup so that anything else — undefined on a design stored
+ * before the prop existed, or a hand-edited design doc carrying a stale value — falls back to inline
+ * instead of emitting a dangling class name. */
+function fieldPlacementClass(placement: ContentFieldProps["valuePlacement"]): string {
+    if (placement === "below") return " cmp-field--below"
+    if (placement === "auto") return " cmp-field--auto"
+    return ""
+}
 
 /** Formats a resolved entity-field value for display, kind-aware when `kind` (`EntityField.type`) is
  * known, falling back to shape-based inference otherwise (pages/posts fields, or a pre-schema editor
@@ -1403,6 +1423,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "No", value: "no" }
                     ]
                 },
+                valuePlacement: {
+                    type: "select" as const,
+                    label: "Value placement",
+                    options: [
+                        { label: "Inline with the label", value: "inline" },
+                        { label: "Below the label when narrow", value: "auto" },
+                        { label: "Always below the label", value: "below" }
+                    ]
+                },
                 typography: tokenSelect(theme, "typography", "Value typography"),
                 onEmpty: {
                     type: "select" as const,
@@ -1415,9 +1444,18 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 },
                 emptyValue: { type: "text" as const, label: "Placeholder value (when empty)" }
             },
-            // "doNothing" preserves this outlet's pre-existing behavior (label per showLabel, blank value).
-            defaultProps: { field: "", label: "", showLabel: "yes", typography: "body", onEmpty: "doNothing", emptyValue: "(none)" },
-            render: ({ field, label, showLabel, typography, onEmpty, emptyValue }: ContentFieldProps) => {
+            // "doNothing"/"inline" preserve this outlet's pre-existing behavior (label per showLabel, blank
+            // value, both on one line).
+            defaultProps: {
+                field: "",
+                label: "",
+                showLabel: "yes",
+                valuePlacement: "inline",
+                typography: "body",
+                onEmpty: "doNothing",
+                emptyValue: "(none)"
+            },
+            render: ({ field, label, showLabel, valuePlacement, typography, onEmpty, emptyValue }: ContentFieldProps) => {
                 if (!field) return isEditor ? <OutletPlaceholder field={field} /> : null
                 if (isEditor && !context?.entry) return <OutletPlaceholder field={field} />
 
@@ -1430,7 +1468,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
 
                 return (
                     <div
-                        className="cmp-field"
+                        className={`cmp-field${fieldPlacementClass(valuePlacement)}`}
                         style={vars({
                             "--cmp-field-family": tokenVar("typography", typography, "family"),
                             "--cmp-field-size": tokenVar("typography", typography, "size"),
