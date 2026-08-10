@@ -31,10 +31,8 @@
 
 import { describe, it, expect } from "vitest"
 
-import {
-    _stateTypeAssertCompleteContributor,
-    _stateTypeAssertCompleteComposition
-} from "../../src/lib/api/d1.ts"
+import { _stateTypeAssertCompleteContributor } from "../../src/lib/api/contributor.ts"
+import { _stateTypeAssertCompleteComposition } from "../../src/lib/api/composition.ts"
 
 function makeContributor(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {

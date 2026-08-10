@@ -28,7 +28,7 @@
 
 import { describe, it, expect } from "vitest"
 
-import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../src/lib/api/d1.ts"
+import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../src/lib/api/composer.ts"
 
 // a complete, otherwise-valid composer record (no id, as on create); overrides tweak individual fields
 function makeComposer(overrides: Record<string, unknown> = {}): Record<string, unknown> {

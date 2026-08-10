@@ -26,7 +26,7 @@
  */
 
 import type { APIRoute } from "astro"
-import { _stateTypeAssertCompleteComposer } from "../../../lib/api/d1"
+import { _stateTypeAssertCompleteComposer } from "../../../lib/api/composer"
 import {
     addComposer,
     addComposersBatch,
