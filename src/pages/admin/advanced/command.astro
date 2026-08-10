@@ -76,8 +76,8 @@ export const prerender = false
                         </p>
                     </fieldset>
                     <div id="advanced-command-danger" class="command-danger hidden">
-                        <!-- Shown only when the command appears to contain a destructive operation (see detectDangerousSql);
-                    the user must acknowledge before the command can be sent. -->
+                        {/* shown only when the command looks destructive (see detectDangerousSql); the user must
+                            acknowledge before the command can be sent */}
                         <p class="general-warning" id="advanced-command-danger-text"></p>
                         <label class="command-danger-ack">
                             <input type="checkbox" id="advanced-command-danger-ack" name="danger_ack" />
