@@ -169,3 +169,34 @@ it('SQLStatement construct prototype returns correct form from VirtualSQLTable',
     expect(output[0]).toEqual({name: "Niche Apples", major: "Cosmic Geology", contributor_id: 1})
 })
 
+// The table name and LIMIT are interpolated into the command rather than bound, so finish() must reject
+// anything but the schema's own table and a plain non-negative integer limit. Every caller already
+// satisfies both; these pin the guarantee to the function so a future caller cannot quietly reintroduce
+// injection through either.
+it('SQLStatement rejects a table that is not the schema\'s own', () => {
+    const mismatched = new SQLStatement(CONTRIBUTOR, "SELECT", "composers")
+    expect(() => mismatched.finish()).toThrow(/Invalid table 'composers' for schema 'contributors'/)
+
+    const injected = new SQLStatement(CONTRIBUTOR, "SELECT", "contributors; DROP TABLE contributors--")
+    expect(() => injected.finish()).toThrow(/Invalid table/)
+})
+
+it('SQLStatement rejects a non-integer or negative limit', () => {
+    for (const bad of [-1, 1.5, NaN, Infinity]) {
+        const stmt = new SQLStatement(CONTRIBUTOR, "SELECT", "contributors")
+        stmt.setLimit(bad)
+        expect(() => stmt.finish()).toThrow(/Invalid limit/)
+    }
+
+    // a string limit defeats the type system only at runtime (e.g. an unparsed query parameter)
+    const untyped = new SQLStatement(CONTRIBUTOR, "SELECT", "contributors")
+    untyped.setLimit("5; DROP TABLE contributors--" as unknown as number)
+    expect(() => untyped.finish()).toThrow(/Invalid limit/)
+})
+
+it('SQLStatement still emits a valid positive limit', () => {
+    const stmt = new SQLStatement(CONTRIBUTOR, "SELECT", "contributors")
+    stmt.setLimit(10)
+    expect(stmt.finish()).toEqual(["SELECT * FROM contributors LIMIT 10;", []])
+})
+

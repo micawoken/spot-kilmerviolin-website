@@ -349,7 +349,20 @@ export class SQLStatement {
 
         if (!this.from) {
             throw new Error("Missing target table for SQL statement")
-            // it could be assumed from schema.name, but it is not for now
+        }
+
+        // The table name is interpolated, not bound, so it must be the schema's own — the same rule the
+        // column and WHERE-parameter checks below enforce. Every construction site already passes
+        // schema.name; asserting it here puts the guarantee in the function instead of in the discipline
+        // of its callers.
+        if (this.from !== this.schema.name) {
+            throw new Error(`Invalid table '${this.from}' for schema '${this.schema.name}'`)
+        }
+
+        // LIMIT is interpolated too (SQLite accepts a bound limit, but the rest of this builder treats
+        // clause structure as non-parameterized), so it must be a plain non-negative integer.
+        if (!Number.isSafeInteger(this.limit) || this.limit < 0) {
+            throw new Error(`Invalid limit '${this.limit}' for table '${this.from}'`)
         }
 
         if (this.columns.length === 0) {
