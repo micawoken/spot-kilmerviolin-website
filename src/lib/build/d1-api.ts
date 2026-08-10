@@ -4,13 +4,13 @@
  * Build-time reader for the D1-backed entity tables (composers, contributors, compositions) — the
  * runtime SQLite records administered by src/lib/api/database.ts, not EmDash's `pages`/`posts`
  * collections (see emdash-api.ts). Reads the deployed Worker's own
- * `GET /api/v1/{composers,contributors,works}`, build-token-authenticated (src/lib/api/tokens.ts,
- * docs/dev/plan-prelaunch-features.md §2 D9) — `astro build` runs plain Node, no D1 binding;
+ * `GET /api/v1/{composers,contributors,works}`, build-token-authenticated (src/lib/api/tokens.ts) —
+ * `astro build` runs plain Node, no D1 binding;
  * src/lib/api/d1.ts's schema constants embed `env.DB_MAIN` from `cloudflare:workers`, Worker-only.
  *
  * Supersedes an earlier version reading Cloudflare's D1 REST endpoint with a broad, account-scoped "D1:
  * Read" token. Build token is scoped to exactly these three read-only routes, no write/admin — a leak
- * exposes far less (see docs/dev/handoff-entity-page-generation.md for the prior reasoning).
+ * exposes far less.
  *
  * Response shape: `meta.full=true` already returns the application-level `*Record` shape (same as
  * listComposers/listContributors/listCompositions) as JSON `payload` — no conversion needed, unlike the

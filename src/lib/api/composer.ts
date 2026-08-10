@@ -84,8 +84,8 @@ const COMPOSER_SPEC: RecordSpec = {
     country: { invalid: (v) => typeof v !== "string" || !isValidCountryCode(v) },
     image: { invalid: _invalidNullableImage },
     bio: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
-    // citations is optional (docs/dev/miscellaneous.txt); when present, every entry must be a non-blank
-    // source name mapped to an https link, DOI, or ISBN (validateCitations)
+    // citations is optional; when present, every entry must be a non-blank source name mapped to an
+    // https link, DOI, or ISBN (validateCitations)
     citations: {
         invalid: _invalidOptionalObject,
         elementCheck: (v) => (v === undefined || v === null ? null : validateCitations(v))

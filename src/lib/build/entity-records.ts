@@ -114,8 +114,8 @@ export function buildReferenceIndex(
 
 /**
  * Builds the id→related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles —
- * related entries are always works, regardless of which noun's detail page shows them
- * (docs/dev/miscellaneous.txt "related-entries tiles"): a composer's tiles are their works, a
+ * related entries are always works, regardless of which noun's detail page shows them: a composer's
+ * tiles are their works, a
  * contributor's tiles are works they contributed to, a work's tiles are other works by the same
  * composer. Keyed `"{noun}:{id}"` so one map serves all three nouns.
  *

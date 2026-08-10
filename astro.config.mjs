@@ -36,8 +36,8 @@ import cspGuard from "./integrations/csp-guard.mjs"
 import react from "@astrojs/react"
 import markdoc from "@astrojs/markdoc"
 
-// EmDash CMS (replaced Pages CMS; see docs/dev/emdash-migration.md). Cloudflare-native: content in its
-// own D1 (EMDASH_DB), media in its own R2 bucket (EMDASH_MEDIA), admin at /_emdash/admin.
+// EmDash CMS (replaced Pages CMS). Cloudflare-native: content in its own D1 (EMDASH_DB), media in its
+// own R2 bucket (EMDASH_MEDIA), admin at /_emdash/admin.
 import emdash from "emdash/astro"
 import { d1, r2, access, kvCache } from "@emdash-cms/cloudflare"
 

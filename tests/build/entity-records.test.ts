@@ -242,7 +242,7 @@ describe("entityRecords — the reader-returned-null case (D1 unconfigured, or t
     })
 })
 
-describe("buildRelatedWorksIndex — RelatedEntries' data source (docs/dev/miscellaneous.txt \"related-entries tiles\")", () => {
+describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
     const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
     const mozart: D1Composer = { ...composer, composer_id: 4, name: "Mozart" }
 

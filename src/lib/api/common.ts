@@ -171,8 +171,8 @@ const KEY_PITCH_CLASS: Record<Key, number> = {
  * C#/Db, D#/Eb, E/Fb, E#/F, F#/Gb, G#/Ab, A#/Bb, B/Cb — onto the same value, so two differently-spelled
  * but musically identical keys compare equal.
  *
- * Used by the advanced search feature (docs/dev/plan-prelaunch-features.md §10) — lib/search/facets.ts's
- * `keyOptions`/`parseFacetQuery` and the database-facets.json.ts build endpoint — to match/group
+ * Used by the advanced search feature — lib/search/facets.ts's `keyOptions`/`parseFacetQuery` and the
+ * database-facets.json.ts build endpoint — to match/group
  * compositions by key using this reference instead of the raw Key string.
  *
  * @param {Key} key - the key to normalize

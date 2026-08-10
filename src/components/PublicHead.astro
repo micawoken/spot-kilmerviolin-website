@@ -55,9 +55,8 @@ const resolvedImage = image || siteDefaultOgImage
 // Cloudflare Web Analytics beacon token. Public pages are prerendered (astro build), so this must be a
 // build-time value, not a wrangler runtime var — see the ImportMetaEnv comment in env.d.ts and
 // .env.example. Cookieless and requires no consent banner (Cloudflare Web Analytics does not use
-// cookies/localStorage to track visitors), satisfying the analytics requirement in
-// docs/dev/miscellaneous.txt. Omitted entirely when unset, so a site with no token configured yet renders
-// with no beacon rather than a broken one.
+// cookies/localStorage to track visitors). Omitted entirely when unset, so a site with no token
+// configured yet renders with no beacon rather than a broken one.
 //
 // No integrity= hash on the beacon script below: Cloudflare updates beacon.min.js's contents server-side
 // without notice (it is not a versioned release), so pinning our own SRI hash would go stale and silently

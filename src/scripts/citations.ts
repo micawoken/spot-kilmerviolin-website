@@ -4,8 +4,8 @@
  * Citations display helper shared by the SSR ComposerInfo/CompositionInfo cards, catalog.tsx's
  * ContentField outlet (public pages), and the client-side READ flow.
  *
- * A composer/composition's citations are an optional key-value map (docs/dev/miscellaneous.txt's "data
- * model changes" section): the key is a source name (the display text), and the value is an https link,
+ * A composer/composition's citations are an optional key-value map: the key is a source name (the
+ * display text), and the value is an https link,
  * a DOI, or an ISBN. Unlike a composition's own publication URI, a citation carries no separate declared
  * type field — classifyCitationValue (lib/api/validation.ts) sniffs it from the value's shape. Every
  * entry renders as a hyperlink:

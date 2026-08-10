@@ -57,9 +57,8 @@ const theme: TokenCatalog = {
 }
 
 /** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
- * container (unified field-outlet rewrite) — `PagefindSearch`/`Breadcrumbs`, the two components added per
- * docs/dev/miscellaneous.txt "puck components to add", and `RelatedEntries` (docs/dev/miscellaneous.txt
- * "related-entries tiles"). A change here is a deliberate version bump. */
+ * container (unified field-outlet rewrite) — `PagefindSearch`/`Breadcrumbs`, and `RelatedEntries`, the
+ * three components added since. A change here is a deliberate version bump. */
 const CATALOG_V1 = [
     "Section",
     "Columns",

@@ -146,7 +146,6 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
         })
 
         // jwtVerify interface shape is defined at https://github.com/panva/jose/blob/main/docs/types/interfaces/JWTPayload.md
-        // this time (in this project, unlike mwm-go-shorturl), the interface is defined in env.d.ts
         const sub: string | null = payload.sub ? payload.sub : null // see RFC 7519; property is the subject of the JWT, which is the Access ID
         // Cloudflare Access stores and compares emails case-insensitively (lowercased); normalize the
         // claim here, at the single point identities are minted, so every downstream lookup and

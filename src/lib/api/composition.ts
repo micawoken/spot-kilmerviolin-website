@@ -298,8 +298,8 @@ const COMPOSITION_SPEC: RecordSpec = {
         invalid: (v) => typeof v !== "object" || v === null,
         elementCheck: (v, partial) => validatePubInfoDetail(v, partial)
     },
-    // citations is optional (docs/dev/miscellaneous.txt); when present, every entry must be a non-blank
-    // source name mapped to an https link, DOI, or ISBN (validateCitations)
+    // citations is optional; when present, every entry must be a non-blank source name mapped to an
+    // https link, DOI, or ISBN (validateCitations)
     citations: {
         invalid: _invalidOptionalObject,
         elementCheck: (v) => (v === undefined || v === null ? null : validateCitations(v))

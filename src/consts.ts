@@ -36,9 +36,8 @@ export const ADMIN_PAGE_TITLE_PRFX = "Administrative Services - "
 // (a distinct marker so a blank field is not confused with an empty/unset render)
 export const NOT_PROVIDED = "(not provided)"
 
-// maximum length of an uploaded/bundled image's alt text (docs/dev/miscellaneous.txt's "data model
-// changes" section specifies 256 for bundled sidecar files; the same cap applies to R2-uploaded alt
-// text for consistency, since no distinct limit was specified for that case)
+// maximum length of an uploaded/bundled image's alt text: 256 for bundled sidecar files; the same cap
+// applies to R2-uploaded alt text for consistency, since no distinct limit was specified for that case
 export const MAX_ALT_TEXT_LENGTH = 256
 
 // Length caps for admin-authored free text on composer/contributor/composition records (lib/api/d1.ts),

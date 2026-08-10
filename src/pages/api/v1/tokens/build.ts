@@ -1,8 +1,8 @@
 /**
  * /pages/api/v1/tokens/build.ts
  *
- * Issues and lists build tokens (docs/dev/plan-prelaunch-features.md §2 D9). A build token has no owning
- * contributor and resolves no Identity — it authenticates the build process, not a person — so, unlike
+ * Issues and lists build tokens. A build token has no owning contributor and resolves no Identity — it
+ * authenticates the build process, not a person — so, unlike
  * user-scoped API tokens, this file is admin-only end to end: there is no self-service caller to scope a
  * list to.
  *

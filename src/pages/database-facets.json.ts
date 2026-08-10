@@ -1,8 +1,8 @@
 /**
  * pages/database-facets.json.ts
  *
- * Build-time facet index for advanced database search (docs/dev/plan-prelaunch-features.md §10) —
- * prerendered once to dist/client/database-facets.json, one row per D1 entity record that actually gets
+ * Build-time facet index for advanced database search — prerendered once to
+ * dist/client/database-facets.json, one row per D1 entity record that actually gets
  * a public page this build. Pagefind's own filters are discrete-value only (no ranges, no comparisons),
  * so /search/advanced and /search's query-syntax path fetch this JSON and filter it directly with
  * lib/search/facets.ts's `matchesFacets`, rather than relying on anything in the rendered page HTML —

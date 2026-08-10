@@ -11,8 +11,8 @@
  * The index only exists post-build: `astro dev` does not run Pagefind, so search only works against a
  * built site (`npm run preview`, or the deployed worker) — see the empty-index handling in the script.
  *
- * Query syntax (docs/dev/plan-prelaunch-features.md §10): typing a recognized `field:value` token (see
- * lib/search/facets.ts's `parseFacetQuery`) snaps this page to the same JSON+Pagefind hybrid
+ * Query syntax: typing a recognized `field:value` token (see lib/search/facets.ts's `parseFacetQuery`)
+ * snaps this page to the same JSON+Pagefind hybrid
  * pages/search/advanced.astro uses, restricted to database entries — without exposing that page's
  * criteria form. A plain query with no recognized token behaves exactly as before.
  *

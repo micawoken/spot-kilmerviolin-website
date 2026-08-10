@@ -1,8 +1,8 @@
 /**
  * tests/scripts/common.test.ts
  *
- * Covers the new citations surface added to scripts/common.ts (docs/dev/miscellaneous.txt); does not
- * attempt full coverage of the pre-existing argParse/FIELD_VALIDATORS machinery.
+ * Covers the new citations surface added to scripts/common.ts; does not attempt full coverage of the
+ * pre-existing argParse/FIELD_VALIDATORS machinery.
  *
  * Copyright (C) 2026 Michael Wong.
  *

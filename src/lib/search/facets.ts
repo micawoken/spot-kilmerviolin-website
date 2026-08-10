@@ -1,8 +1,8 @@
 /**
  * lib/search/facets.ts
  *
- * Shared core for advanced database search (docs/dev/plan-prelaunch-features.md §10). Pure and
- * dependency-light — imported by the build-time facet endpoint (database-facets.json.ts) and the
+ * Shared core for advanced database search. Pure and dependency-light — imported by the build-time
+ * facet endpoint (database-facets.json.ts) and the
  * `/search` and `/search/advanced` client scripts. `ADVANCED_FIELDS` is the criteria form's single
  * field-definition list, rendered only by pages/search/advanced.astro — the Puck `PagefindSearch`
  * component and `DatabaseRoot.astro` used to duplicate that form inline, but now just link to that page

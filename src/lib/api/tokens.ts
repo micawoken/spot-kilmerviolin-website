@@ -1,9 +1,8 @@
 /**
  * lib/api/tokens.ts
  *
- * Issuance, hashing, and lookup primitives for the two token types defined in
- * docs/dev/plan-prelaunch-features.md §2: user-scoped API tokens (this file's Stage A surface) and
- * capability-scoped build tokens (Stage B).
+ * Issuance, hashing, and lookup primitives for the two token types: user-scoped API tokens (this file's
+ * Stage A surface) and capability-scoped build tokens (Stage B).
  *
  *
  * Copyright (C) 2026 Michael Wong.

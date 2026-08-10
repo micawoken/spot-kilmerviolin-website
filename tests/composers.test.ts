@@ -72,9 +72,9 @@ describe("composer birth/death year consistency", () => {
     })
 })
 
-// citations is optional (docs/dev/miscellaneous.txt): a complete-mode create must still pass with the
-// field entirely absent (this is the case assertRecordBySpec's complete-mode loop does NOT auto-skip an
-// undefined field for — the base check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
+// citations is optional: a complete-mode create must still pass with the field entirely absent (this is
+// the case assertRecordBySpec's complete-mode loop does NOT auto-skip an undefined field for — the base
+// check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
 describe("composer citations validation", () => {
     it("a complete create with no citations key passes", () => {
         expect(_stateTypeAssertCompleteComposer(makeComposer(), false)).not.toBeTypeOf("string")

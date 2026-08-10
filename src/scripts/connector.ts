@@ -889,7 +889,7 @@ export async function deleteIdentity(email: string, autodeactivation?: boolean):
     )
 }
 
-// API TOKENS (docs/dev/plan-prelaunch-features.md §2)
+// API TOKENS
 
 /** Token metadata as returned by the tokens API — never the hash or the plaintext secret. */
 export interface ApiTokenSummary {

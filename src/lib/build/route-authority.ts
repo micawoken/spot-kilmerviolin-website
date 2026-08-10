@@ -223,8 +223,8 @@ export interface BreadcrumbAncestor {
 }
 
 /**
- * Auto-derives the breadcrumb *ancestor* chain for a routed slug (docs/dev/miscellaneous.txt "puck
- * components to add") — Home always implicit (Breadcrumbs component prepends it), current page's own
+ * Auto-derives the breadcrumb *ancestor* chain for a routed slug — Home always implicit (Breadcrumbs
+ * component prepends it), current page's own
  * title is the final unlinked crumb (component appends its own `pageTitle`) — returns only what's
  * between.
  *

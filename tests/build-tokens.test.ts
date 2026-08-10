@@ -25,8 +25,8 @@
 /// <reference path="../src/lib/api/types.d.ts" />
 
 /**
- * Tests for the build-token primitives (docs/dev/plan-prelaunch-features.md §2, Stage B, decision D9):
- * secret generation (src/lib/api/tokens.ts), the buildTokenRouteAllowed default-deny predicate, DB-backed
+ * Tests for the build-token primitives: secret generation (src/lib/api/tokens.ts), the
+ * buildTokenRouteAllowed default-deny predicate, DB-backed
  * issue/lookup/verify/revoke, the D2 guard on the management endpoints (a token-authenticated request
  * cannot manage tokens), and the "meta full:true required" validation on the three whitelisted collection
  * GETs. Mirrors tests/tokens.test.ts's Stage A conventions: function-level, not middleware-level — the full
