@@ -36,7 +36,7 @@ import {
 } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import { _stateTypeAssertCompleteComposer, _stateTypeAssertPartialComposer } from "../../../../lib/api/composer"
-import { deleteComposer, getComposer, updateComposer, updateComposerPartial } from "../../../../lib/api/database"
+import { deleteComposer, getComposer, updateComposer, updateComposerPartial } from "../../../../lib/api/db_composer"
 
 /**
  * GET /api/v1/composers/[id]

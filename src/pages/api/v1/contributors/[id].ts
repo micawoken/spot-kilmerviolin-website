@@ -40,7 +40,7 @@ import {
     getContributor,
     updateContributor,
     updateContributorPartial
-} from "../../../../lib/api/database"
+} from "../../../../lib/api/db_contributor"
 import { CONTRIBUTOR, redactProtected } from "../../../../lib/api/d1"
 import {
     _stateTypeAssertCompleteContributor,

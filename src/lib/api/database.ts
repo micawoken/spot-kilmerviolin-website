@@ -460,7 +460,7 @@ export async function run_stmt(stmt: SQLStatement, ctx: ExecutionContext): Promi
  * @returns the ID of the newly added record
  * @throws an error if the record is invalid or if the schema is invalid
  */
-async function _addPrimitive(
+export async function _addPrimitive(
     ctx: ExecutionContext,
     schema: D1Schema,
     record: Contributor | Composition | Composer
@@ -510,7 +510,7 @@ async function _addPrimitive(
  * @returns the ids of the newly added records, in the same order as the input
  * @throws an error if the schema is invalid, or if the atomic batch fails (nothing is written)
  */
-async function _addPrimitiveBatch(
+export async function _addPrimitiveBatch(
     ctx: ExecutionContext,
     schema: D1Schema,
     records: Array<Contributor | Composition | Composer>
@@ -589,7 +589,7 @@ export async function _getPrimitiveCacheless(
  * @return the record matching the query as a primitive record type, or null if not found
  * @throws an error if the param is not a unique column
  */
-async function _getPrimitive(
+export async function _getPrimitive(
     ctx: ExecutionContext,
     schema: D1Schema,
     param: string,
@@ -617,7 +617,7 @@ async function _getPrimitive(
  * @returns null
  * @throws an error if the record is invalid or if the schema is invalid
  */
-async function _updatePrimitive(
+export async function _updatePrimitive(
     ctx: ExecutionContext,
     schema: D1Schema,
     id: number,
@@ -659,7 +659,7 @@ async function _updatePrimitive(
  * @returns null
  * @throws an error if the record is invalid, if the schema is invalid, or if it writes a protected column without authorization
  */
-async function _updatePrimitivePartial(
+export async function _updatePrimitivePartial(
     ctx: ExecutionContext,
     schema: D1Schema,
     id: number,
@@ -723,7 +723,7 @@ async function _updatePrimitivePartial(
  * @returns null
  * @throws an error if the schema is invalid
  */
-async function _deletePrimitive(ctx: ExecutionContext, schema: D1Schema, id: number): Promise<null> {
+export async function _deletePrimitive(ctx: ExecutionContext, schema: D1Schema, id: number): Promise<null> {
     const stmt = new SQLStatement(schema, "DELETE", schema.name)
     stmt.addWhere(schema.primary_key, id.toString(), SQLCompareOp.EQ)
     await _exec_wrap(stmt, ctx)
@@ -738,7 +738,7 @@ async function _deletePrimitive(ctx: ExecutionContext, schema: D1Schema, id: num
  * @returns an array of records matching the schema, as primitive record types
  * @throws an error if the schema is invalid
  */
-async function _listPrimitive(
+export async function _listPrimitive(
     ctx: ExecutionContext,
     schema: D1Schema
 ): Promise<Record<string, string | number | null>[]> {
@@ -755,7 +755,7 @@ async function _listPrimitive(
  * @returns the record as an API record type, or null if the input is null
  * @throws an error if the schema is invalid
  */
-async function _getWrapper(
+export async function _getWrapper(
     schema: D1Schema,
     result: Record<string, string | number | null> | null
 ): Promise<ContributorRecord | ComposerRecord | CompositionRecord | null> {
@@ -797,7 +797,7 @@ async function _getWrapper(
  * @returns the records as an array of API record types, or null if the input is null
  * @throws an error if the schema is invalid
  */
-async function _listWrapper(
+export async function _listWrapper(
     schema: D1Schema,
     result: Record<string, string | number | null>[] | null
 ): Promise<ContributorRecord[] | ComposerRecord[] | CompositionRecord[] | null> {
@@ -832,277 +832,6 @@ async function _listWrapper(
     return output
 }
 
-/**
- * Get a contributor record based on a unique param
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param param the unique column being queried on (from D1Schema.index, i.e. the D1 types, not API types)
- * @param value the value of the unique column being queried
- * @returns the contributor record matching the query, or null if not found
- * @throws an error if the param is not a unique column
- */
-export async function getContributor(
-    ctx: ExecutionContext,
-    param: string,
-    value: string
-): Promise<ContributorRecord | null> {
-    // given the unique param and its value, return the contributor record
-    // caching is implemented at the primitive level
-    return _getWrapper(
-        CONTRIBUTOR,
-        await _getPrimitive(ctx, CONTRIBUTOR, param, value)
-    ) as Promise<ContributorRecord | null>
-}
-
-/**
- * Add a contributor record to the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param record the contributor record to add
- * @returns the id of the new record
- */
-export async function addContributor(ctx: ExecutionContext, record: Contributor): Promise<number> {
-    // adds a contributor record to the database, returning the new record's id
-    return await _addPrimitive(ctx, CONTRIBUTOR, record)
-}
-
-/**
- * Add several contributor records to the database in a single atomic transaction.
- *
- * Either every record is inserted or none is (see _addPrimitiveBatch). Records must be pre-validated by
- * the caller; a UNIQUE name or identity_email collision (within the batch or against existing rows) fails
- * the whole batch.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param records the contributor records to add
- * @returns the ids of the new records, in input order
- * @throws an error if the batch fails (nothing is written)
- */
-export async function addContributorsBatch(ctx: ExecutionContext, records: Contributor[]): Promise<number[]> {
-    return await _addPrimitiveBatch(ctx, CONTRIBUTOR, records)
-}
-
-/**
- * Update a contributor record in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to update
- * @param record the updated contributor record; all fields must be provided
- * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
- */
-export async function updateContributor(ctx: ExecutionContext, id: number, record: Contributor): Promise<null> {
-    // updates a contributor record in the database, returning null if successful
-    return await _updatePrimitive(ctx, CONTRIBUTOR, id, record)
-}
-
-/**
- * Perform a partial update on a contributor record in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to update
- * @param record the updated contributor record; only provided fields will be updated
- * @param allowProtected whether the caller has authorized writing protected columns (roles/admin/
- *   identity_email); the caller must perform its own elevation/permission check before passing true
- * @returns null if successful
- * @throws an error if the record is invalid, if the id does not exist, or if it writes a protected column without authorization
- */
-export async function updateContributorPartial(
-    ctx: ExecutionContext,
-    id: number,
-    record: Partial<Contributor>,
-    allowProtected: boolean = false
-): Promise<null> {
-    return await _updatePrimitivePartial(ctx, CONTRIBUTOR, id, record, allowProtected)
-}
-
-/**
- * Delete a contributor record from the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to delete
- * @returns null if successful
- * @throws an error if the id does not exist
- */
-export async function deleteContributor(ctx: ExecutionContext, id: number): Promise<null> {
-    return await _deletePrimitive(ctx, CONTRIBUTOR, id)
-}
-
-/**
- * List all contributor records in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @returns an array of all contributor records, or null if no records are found
- * @throws an error if the database query fails
- */
-export async function listContributors(ctx: ExecutionContext): Promise<ContributorRecord[] | null> {
-    return _listWrapper(CONTRIBUTOR, await _listPrimitive(ctx, CONTRIBUTOR)) as Promise<ContributorRecord[] | null>
-}
-
-/**
- * Get a composer record based on a unique param
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param param the unique column being queried on
- * @param value the value of the unique column being queried
- * @returns the composer record matching the query, or null if not found
- * @throws an error if the param is not a unique column
- */
-export async function getComposer(ctx: ExecutionContext, param: string, value: string): Promise<ComposerRecord | null> {
-    // retrieves a composer record based on the unique param
-    return _getWrapper(COMPOSER, await _getPrimitive(ctx, COMPOSER, param, value)) as Promise<ComposerRecord | null>
-}
-
-/**
- * Add a composer record to the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param record the composer record to add
- * @returns the id of the new record
- * @throws an error if the record is invalid
- */
-export async function addComposer(ctx: ExecutionContext, record: Composer): Promise<number> {
-    return await _addPrimitive(ctx, COMPOSER, record)
-}
-
-/**
- * Add several composer records to the database in a single atomic transaction.
- *
- * Either every record is inserted or none is (see _addPrimitiveBatch). Records must be pre-validated by
- * the caller; a UNIQUE name collision (within the batch or against existing rows) fails the whole batch.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param records the composer records to add
- * @returns the ids of the new records, in input order
- * @throws an error if the batch fails (nothing is written)
- */
-export async function addComposersBatch(ctx: ExecutionContext, records: Composer[]): Promise<number[]> {
-    return await _addPrimitiveBatch(ctx, COMPOSER, records)
-}
-
-/**
- * Update a composer record in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to update
- * @param record the updated composer record; all fields must be provided
- * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
- */
-export async function updateComposer(ctx: ExecutionContext, id: number, record: Composer): Promise<null> {
-    return await _updatePrimitive(ctx, COMPOSER, id, record)
-}
-
-/**
- * Perform a partial update on a composer record in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to update
- * @param record the updated composer record; only provided fields will be updated
- * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
- */
-export async function updateComposerPartial(
-    ctx: ExecutionContext,
-    id: number,
-    record: Partial<Composer>
-): Promise<null> {
-    return await _updatePrimitivePartial(ctx, COMPOSER, id, record)
-}
-
-/**
- * Delete a composer record from the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to delete
- * @returns null if successful
- * @throws an error if the id does not exist
- */
-export async function deleteComposer(ctx: ExecutionContext, id: number): Promise<null> {
-    return await _deletePrimitive(ctx, COMPOSER, id)
-}
-
-/**
- * List all composer records in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @returns an array of all composer records, or null if no records are found
- * @throws an error if the database query fails
- */
-export async function listComposers(ctx: ExecutionContext): Promise<ComposerRecord[] | null> {
-    return _listWrapper(COMPOSER, await _listPrimitive(ctx, COMPOSER)) as Promise<ComposerRecord[] | null>
-}
-
-/**
- * Get a composition record based on a unique param
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param param the unique column being queried on
- * @param value the value of the unique column being queried
- * @returns the composition record matching the query, or null if not found
- * @throws an error if the param is not a unique column
- */
-export async function getComposition(
-    ctx: ExecutionContext,
-    param: string,
-    value: string
-): Promise<CompositionRecord | null> {
-    return _getWrapper(
-        COMPOSITION,
-        await _getPrimitive(ctx, COMPOSITION, param, value)
-    ) as Promise<CompositionRecord | null>
-}
-
-/**
- * Add a composition record to the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param record the composition record to add
- * @returns the id of the new record
- * @throws an error if the record is invalid
- */
-/**
- * Normalizes a composition (composer_id, name, part) triple into a comparison key.
- *
- * A composition's identity is (composer_id, name, part): the same piece by the same composer for a different
- * part (e.g. "Violin I" vs "Violin II") is distinct, but two rows agreeing on all three collide. SQLite
- * cannot enforce this through a generated column (the value depends on a cross-table lookup), so a composite
- * UNIQUE index on (composer_id, name, COALESCE(part,'')) is the database backstop and this key is the
- * application-model mirror. Name and part are compared case-insensitively and whitespace-trimmed so trivial
- * variants collide as intended, and a null part is treated as an empty part so two part-less rows still
- * conflict. The NUL separator cannot appear in a name or part, so distinct triples never alias.
- *
- * @param composer_id the referenced composer id
- * @param name the composition name
- * @param part the composition part, or null for a part-less work
- * @returns a stable key identifying the (composer, name, part) triple
- */
-function compositionDuplicateKey(composer_id: number, name: string, part: string | null): string {
-    return `${composer_id} ${name.trim().toLowerCase()} ${(part ?? "").trim().toLowerCase()}`
-}
-
-/**
- * Groups compositions by their (composer_id, name) pair — the two components of the compositions
- * table's UNIQUE index (composer_id, name, COALESCE(part,'')) that on their own do NOT guarantee
- * uniqueness; `part` is the index's third, disambiguating component. Two compositions sharing this key
- * are indistinguishable by name+composer alone and need their `part` surfaced in a display name to
- * tell them apart. Case-insensitive, whitespace-trimmed to mirror {@link compositionDuplicateKey}.
- */
-export function compositionNameCollisionKey(composer_id: number, name: string): string {
-    return `${composer_id} ${name.trim().toLowerCase()}`
-}
-
-/**
- * A composition's display name, with its `part` appended in parentheses when another composition
- * shares the exact same (composer, name) pair — automatic disambiguation for list/tile contexts that
- * show a composition's name next to its composer but have no other way to tell same-titled works
- * apart. A part-less composition stays ambiguous even when a same-named sibling has its own part: there
- * is nothing to disambiguate it WITH.
- */
-export function disambiguatedCompositionName(name: string, part: string | null, hasCollision: boolean): string {
-    return hasCollision && part ? `${name} (${part})` : name
-}
-
 /** Normalizes a name (+ optional discriminator, e.g. a composer's role) for case-insensitive,
  *  whitespace-trimmed conflict comparison (mirrors the UNIQUE column/index). */
 function nameConflictKey(name: string, discriminator?: string): string {
@@ -1117,13 +846,16 @@ function nameConflictKey(name: string, discriminator?: string): string {
  * (name, role) — a collision on either would abort an atomic bulk insert, so surfacing it here lets the
  * endpoint dry-run and the import preview report the offending row before a write is attempted.
  *
+ * Shared by db_composer.ts's findComposerNameConflicts and db_contributor.ts's findContributorNameConflicts,
+ * since the check is identical modulo the (name, role) vs. name-only key.
+ *
  * @param existing the existing records of this entity, or null when the table is empty
  * @param candidates the records about to be written; a `role` makes the conflict check (name, role)-scoped,
  *   matching idx_composers_name_role — omit it for name-only entities (contributors)
  * @param label the entity noun used in the human-readable message (e.g. "composer", "contributor")
  * @returns per-candidate findings (by index) describing each within-request or existing-name collision
  */
-function findNameConflicts(
+export function findNameConflicts(
     existing: Array<{ name: string; role?: string }> | null,
     candidates: Array<{ name: string; role?: string }>,
     label: string
@@ -1154,265 +886,4 @@ function findNameConflicts(
         seen.add(key)
     }
     return findings
-}
-
-/**
- * Conflict-detection hook for composer bulk creates: flags candidate names that already exist or repeat
- * within the request, so the (UNIQUE) idx_composers_name_role collision — on (name, role), not name alone —
- * is reported by the dry-run/preview rather than only surfacing as an aborted atomic write.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the composer records about to be written (their names and roles)
- * @returns per-candidate name-conflict findings
- */
-export async function findComposerNameConflicts(
-    ctx: ExecutionContext,
-    candidates: Array<{ name: string; role: string }>
-): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
-    return findNameConflicts(await listComposers(ctx), candidates, "composer")
-}
-
-/**
- * Conflict-detection hook for contributor bulk creates: flags candidate names that already exist or repeat
- * within the request (mirrors {@link findComposerNameConflicts} for the contributors.name UNIQUE column).
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the contributor records about to be written (their names)
- * @returns per-candidate name-conflict findings
- */
-export async function findContributorNameConflicts(
-    ctx: ExecutionContext,
-    candidates: Array<{ name: string }>
-): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
-    return findNameConflicts(await listContributors(ctx), candidates, "contributor")
-}
-
-/**
- * Enforces that no two compositions share a composer, (normalized) name, and part, at the application model
- * level. Checks the candidate triples against each other (catching duplicates inside a single bulk upload)
- * and against every existing composition (excluding excludeId, so a record does not conflict with itself
- * on update). This complements the composite UNIQUE index added in db_add_composition_part_unique.sql: the
- * index is the authoritative guard, while this produces a clear, early error before the write is attempted
- * and covers the cached read model uniformly across the single, batch, and update paths.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the (composer_id, name, part) triples about to be written
- * @param excludeId a composition id to ignore among existing rows (the record being updated), if any
- * @throws an Error naming the offending composition if a duplicate is found
- */
-export async function findCompositionDuplicates(
-    ctx: ExecutionContext,
-    candidates: Array<{ composer_id: number; name: string; part: string | null }>,
-    excludeId?: number
-): Promise<Array<{ index: number; reason: "within-request" | "exists"; message: string }>> {
-    const findings: Array<{ index: number; reason: "within-request" | "exists"; message: string }> = []
-    // collisions with existing compositions (excluding the record being updated, if any)
-    const existing = await listCompositions(ctx)
-    const existing_keys = new Set<string>()
-    if (existing) {
-        for (const composition of existing) {
-            if (excludeId !== undefined && composition.id === excludeId) {
-                continue
-            }
-            existing_keys.add(compositionDuplicateKey(composition.composer_id, composition.name, composition.part))
-        }
-    }
-    // walk candidates in order: an earlier candidate with the same key makes a later one a within-request
-    // duplicate; a match against existing rows is an "exists" duplicate
-    const seen = new Set<string>()
-    for (let index = 0; index < candidates.length; index++) {
-        const candidate = candidates[index]
-        const key = compositionDuplicateKey(candidate.composer_id, candidate.name, candidate.part)
-        if (seen.has(key)) {
-            findings.push({
-                index,
-                reason: "within-request",
-                message: `"${candidate.name.trim()}" appears more than once for the same composer in this request`
-            })
-        } else if (existing_keys.has(key)) {
-            findings.push({
-                index,
-                reason: "exists",
-                message: `A composition named "${candidate.name.trim()}" already exists for this composer`
-            })
-        }
-        seen.add(key)
-    }
-    return findings
-}
-
-/**
- * Throwing wrapper over {@link findCompositionDuplicates} used on the write paths (single add, batch add,
- * and update). Throws on the first duplicate so a write is never attempted when the (composer, name, part)
- * invariant would be violated; the composite UNIQUE index remains the authoritative backstop.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param candidates the (composer_id, name, part) triples about to be written
- * @param excludeId a composition id to ignore among existing rows (the record being updated), if any
- * @throws an Error naming the offending composition if a duplicate is found
- */
-async function _assertNoCompositionDuplicates(
-    ctx: ExecutionContext,
-    candidates: Array<{ composer_id: number; name: string; part: string | null }>,
-    excludeId?: number
-): Promise<void> {
-    const findings = await findCompositionDuplicates(ctx, candidates, excludeId)
-    if (findings.length > 0) {
-        throw new Error(findings[0].message)
-    }
-}
-
-export async function addComposition(ctx: ExecutionContext, record: Composition): Promise<number> {
-    // enforce the (composer, name, part) uniqueness invariant before writing (mirrors the composite UNIQUE index)
-    await _assertNoCompositionDuplicates(ctx, [
-        { composer_id: record.composer_id, name: record.name, part: record.part }
-    ])
-    return await _addPrimitive(ctx, COMPOSITION, record)
-}
-
-/**
- * Add several composition records to the database in a single atomic transaction.
- *
- * Enforces the (composer, name) uniqueness invariant across the batch and against existing rows before
- * writing (see _assertNoCompositionDuplicates), then commits atomically (see _addPrimitiveBatch): either
- * every record is inserted or none is. Records must otherwise be pre-validated (and their name references
- * already resolved to ids) by the caller.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param records the composition records to add
- * @returns the ids of the new records, in input order
- * @throws an error on a duplicate (composer, name) or if the batch fails (nothing is written)
- */
-export async function addCompositionsBatch(ctx: ExecutionContext, records: Composition[]): Promise<number[]> {
-    await _assertNoCompositionDuplicates(
-        ctx,
-        records.map((record) => ({ composer_id: record.composer_id, name: record.name, part: record.part }))
-    )
-    return await _addPrimitiveBatch(ctx, COMPOSITION, records)
-}
-
-/**
- * Update a composition record in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to update
- * @param record the updated composition record; all fields must be provided
- * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
- */
-export async function updateComposition(ctx: ExecutionContext, id: number, record: Composition): Promise<null> {
-    // enforce (composer, name, part) uniqueness, ignoring this record's own existing row
-    await _assertNoCompositionDuplicates(
-        ctx,
-        [{ composer_id: record.composer_id, name: record.name, part: record.part }],
-        id
-    )
-    return await _updatePrimitive(ctx, COMPOSITION, id, record)
-}
-
-/**
- * Perform a partial update on a composition record in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to update
- * @param record the updated composition record; only provided fields will be updated
- * @returns null if successful
- * @throws an error if the record is invalid or if the id does not exist
- */
-export async function updateCompositionPartial(
-    ctx: ExecutionContext,
-    id: number,
-    record: Partial<Composition>
-): Promise<null> {
-    // a partial update only risks a (composer, name, part) collision when it changes the name, composer, or
-    // part; resolve the effective triple from the patch (falling back to the current row for untouched
-    // fields) and enforce uniqueness, ignoring this record's own existing row
-    if (record.name !== undefined || record.composer_id !== undefined || record.part !== undefined) {
-        const current = await getComposition(ctx, "composition_id", id.toString())
-        if (current) {
-            await _assertNoCompositionDuplicates(
-                ctx,
-                [
-                    {
-                        composer_id: record.composer_id ?? current.composer_id,
-                        name: record.name ?? current.name,
-                        part: record.part !== undefined ? record.part : current.part
-                    }
-                ],
-                id
-            )
-        }
-    }
-    return await _updatePrimitivePartial(ctx, COMPOSITION, id, record)
-}
-
-/**
- * Delete a composition record from the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param id the id of the record to delete
- * @returns null if successful
- * @throws an error if the id does not exist
- */
-export async function deleteComposition(ctx: ExecutionContext, id: number): Promise<null> {
-    return await _deletePrimitive(ctx, COMPOSITION, id)
-}
-
-/**
- * List all composition records in the database
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @returns an array of all composition records, or null if no records are found
- * @throws an error if the database query fails
- */
-export async function listCompositions(ctx: ExecutionContext): Promise<CompositionRecord[] | null> {
-    return _listWrapper(COMPOSITION, await _listPrimitive(ctx, COMPOSITION)) as Promise<CompositionRecord[] | null>
-}
-
-/**
- * Pairs each composition with the human-readable names referenced by its numeric fields
- *
- * A composition stores only numeric references: composer_id and the author_secondary id list point into
- * the composer table, while contrib_primary_1, contrib_primary_2, and contrib_addl point into the
- * contributor table. This resolves all of them to names. Each table is fetched once (both are served from
- * the caching layer) and indexed, so resolving a list of compositions costs a single read per table
- * rather than one per reference. Unresolvable ids yield an empty string, keeping author_secondary_names
- * and contrib_addl_names aligned positionally with their source arrays; a null contrib_primary_2 also
- * yields an empty string.
- *
- * @param ctx the Cloudflare Worker ExecutionContext
- * @param compositions the composition records to resolve names for
- * @returns each composition paired with its resolved composer and contributor names
- */
-export async function attachCompositionNames(
-    ctx: ExecutionContext,
-    compositions: CompositionRecord[]
-): Promise<CompositionWithNames[]> {
-    const composers = await listComposers(ctx)
-    const composer_names = new Map<number, string>()
-    if (composers) {
-        for (const composer of composers) {
-            composer_names.set(composer.id, composer.name)
-        }
-    }
-    const contributors = await listContributors(ctx)
-    const contributor_names = new Map<number, string>()
-    if (contributors) {
-        for (const contributor of contributors) {
-            contributor_names.set(contributor.id, contributor.name)
-        }
-    }
-    return compositions.map((composition) => ({
-        object: composition,
-        names: {
-            composer_name: composer_names.get(composition.composer_id) ?? "",
-            author_secondary_names: composition.author_secondary.map((id) => composer_names.get(id) ?? ""),
-            contrib_primary_1_name: contributor_names.get(composition.contrib_primary_1) ?? "",
-            contrib_primary_2_name:
-                composition.contrib_primary_2 === null
-                    ? ""
-                    : (contributor_names.get(composition.contrib_primary_2) ?? ""),
-            contrib_addl_names: composition.contrib_addl.map((id) => contributor_names.get(id) ?? "")
-        }
-    }))
 }

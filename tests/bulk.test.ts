@@ -37,18 +37,14 @@ import { exec_string, exec_stmt_batch, COMPOSER } from "../src/lib/api/d1.ts"
 import { _stateTypeAssertCompleteComposition } from "../src/lib/api/composition.ts"
 import { SQLStatement } from "../src/lib/api/sql_statement.ts"
 import { WorkType, sanitizeInputStrings } from "../src/lib/api/common.ts"
+import { addComposersBatch, findComposerNameConflicts, listComposers, getComposer } from "../src/lib/api/db_composer.ts"
+import { addContributorsBatch, findContributorNameConflicts } from "../src/lib/api/db_contributor.ts"
 import {
-    addComposersBatch,
-    addContributorsBatch,
     addCompositionsBatch,
     addComposition,
     findCompositionDuplicates,
-    findComposerNameConflicts,
-    findContributorNameConflicts,
-    listComposers,
-    listCompositions,
-    getComposer
-} from "../src/lib/api/database.ts"
+    listCompositions
+} from "../src/lib/api/db_composition.ts"
 
 const contributors_ddl = `
 CREATE TABLE IF NOT EXISTS contributors (

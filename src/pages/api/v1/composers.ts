@@ -32,7 +32,7 @@ import {
     addComposersBatch,
     listComposers,
     findComposerNameConflicts
-} from "../../../lib/api/database"
+} from "../../../lib/api/db_composer"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import {

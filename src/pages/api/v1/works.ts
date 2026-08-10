@@ -33,7 +33,7 @@ import {
     attachCompositionNames,
     findCompositionDuplicates,
     listCompositions
-} from "../../../lib/api/database"
+} from "../../../lib/api/db_composition"
 import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import {

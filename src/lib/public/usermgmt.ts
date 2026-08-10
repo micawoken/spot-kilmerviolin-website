@@ -29,7 +29,8 @@ import { add_user, list_users, remove_user } from "../api/access_iam_mgmt"
 import { conferFrom, requires, filterValidRoles } from "../api/authorize"
 import { formatContribFromD1 } from "../api/common"
 import { CONTRIBUTOR, recordTypeAssertComplete, getRecord } from "../api/d1"
-import { addContributor, _getPrimitiveCacheless, updateContributorPartial } from "../api/database"
+import { _getPrimitiveCacheless } from "../api/database"
+import { addContributor, updateContributorPartial } from "../api/db_contributor"
 
 /** Whether an identity email is present in the (lowercase) Cloudflare Access user list. */
 function isEmailInAccess(email: string, accessList: string[]): boolean {

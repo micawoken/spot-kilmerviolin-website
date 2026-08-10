@@ -49,7 +49,7 @@ import {
 } from "../src/lib/api/tokens.ts"
 import { authorizeContributorId, requiresAllOf } from "../src/lib/api/authorize.ts"
 import { exec_string } from "../src/lib/api/d1.ts"
-import { addContributor } from "../src/lib/api/database.ts"
+import { addContributor } from "../src/lib/api/db_contributor.ts"
 import { GET as tokensGET, POST as tokensPOST } from "../src/pages/api/v1/tokens.ts"
 import { DELETE as tokenDELETE } from "../src/pages/api/v1/tokens/[id].ts"
 

@@ -38,11 +38,13 @@ import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 import { exec_string } from "../src/lib/api/d1.ts"
 import { WorkType } from "../src/lib/api/common.ts"
 import {
-    addComposer, getComposer, listComposers, updateComposer, updateComposerPartial, deleteComposer,
-    addContributor, getContributor, updateContributorPartial,
-    attachCompositionNames, purgeCacheAll,
-    compositionNameCollisionKey, disambiguatedCompositionName
-} from "../src/lib/api/database.ts"
+    addComposer, getComposer, listComposers, updateComposer, updateComposerPartial, deleteComposer
+} from "../src/lib/api/db_composer.ts"
+import { addContributor, getContributor, updateContributorPartial } from "../src/lib/api/db_contributor.ts"
+import {
+    attachCompositionNames, compositionNameCollisionKey, disambiguatedCompositionName
+} from "../src/lib/api/db_composition.ts"
+import { purgeCacheAll } from "../src/lib/api/database.ts"
 
 // mirrors the table definitions in d1.ts (the init strings there are module-private)
 const contributors_ddl = `
