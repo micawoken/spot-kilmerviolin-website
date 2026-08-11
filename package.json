@@ -51,13 +51,13 @@
     "emdash": "^0.32.0",
     "he": "^1.2.0",
     "jose": "^6.2.8",
-    "kysely": "^0.29.4",
+    "kysely": "^0.29.5",
     "minisearch": "^7.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.20.3",
+    "@cloudflare/vitest-pool-workers": "^0.21.0",
     "@playwright/test": "^1.62.1",
     "@types/he": "^1.2.3",
     "@types/node": "^26.2.0",
@@ -68,7 +68,7 @@
     "sharp": "^0.35.3",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.10",
-    "wrangler": "^4.120.0"
+    "wrangler": "^4.120.1"
   },
   "packageManager": "pnpm@11.20.0",
   "engines": {

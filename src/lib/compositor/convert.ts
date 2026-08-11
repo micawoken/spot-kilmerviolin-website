@@ -12,6 +12,18 @@
  * default a link markDef's `blank` to false — diff semantically, never hold `_key` refs across an edit
  * session.
  *
+ * Link `target` round-trip (the seam `richtext.tsx`'s `opensInNewTab` doc names as built for a dialog):
+ * EmDash's converters are lossy for it in both directions — load collapses any stored `target` into
+ * `blank ? "_blank" : null`, and save keeps only `blank`, computed from whatever `target` the load side
+ * left on the mark. `portableTextToEditor`/`editorToPortableText` each wrap the EmDash call with a pure
+ * pass that captures `target` before the lossy step and reapplies it after, keyed by href within that
+ * one rich-text value. The map is href-keyed, not per-occurrence, so two links to the same href in one
+ * body share one "Opens in" setting by construction — first occurrence in document order wins on both
+ * the collecting and the applying side, so load and save always agree with each other. The reapply is
+ * unconditional (an href absent from the map clears any stale `target`), since every link either editor
+ * has ever produced carries `blank: true` — leaving that unresolved would load all legacy content as an
+ * explicit "New tab" and persist that choice on the next autosave.
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 
@@ -47,6 +59,87 @@ import { RICH_TEXT_EXTENSIONS } from "./richtext-extensions"
 import type { DesignDoc, PuckData } from "./types"
 import { isPuckComponent, isRecord } from "./types"
 
+/** A link's explicit "Opens in" choice, href-keyed — see the module header for why href, not occurrence. */
+type LinkTargetMap = Map<string, "_self" | "_blank">
+
+/** Collects the explicit `target` already on each link markDef, keyed by href (first occurrence in
+ *  document order wins). A markDef with no `target` (never authored, or "Automatic") contributes no
+ *  entry — the mirror of {@link collectPmLinkTargets}. */
+function collectPtLinkTargets(blocks: unknown): LinkTargetMap {
+    const targets: LinkTargetMap = new Map()
+    if (!Array.isArray(blocks)) return targets
+    for (const block of blocks) {
+        if (!isRecord(block) || !Array.isArray(block.markDefs)) continue
+        for (const def of block.markDefs) {
+            if (!isRecord(def) || def._type !== "link") continue
+            const href = typeof def.href === "string" ? def.href : ""
+            const target = def.target
+            if (href !== "" && (target === "_self" || target === "_blank") && !targets.has(href)) {
+                targets.set(href, target)
+            }
+        }
+    }
+    return targets
+}
+
+/** Recursively sets every link mark's `target` attr from `targets` (or `null` when its href is absent),
+ *  overwriting whatever EmDash's PT→ProseMirror conversion derived from the untrustworthy `blank` flag —
+ *  see the module header for why this must be unconditional. Mutates `nodes` in place. */
+function applyPmLinkTargets(nodes: unknown[], targets: LinkTargetMap): void {
+    for (const node of nodes) {
+        if (!isRecord(node)) continue
+        if (Array.isArray(node.marks)) {
+            for (const mark of node.marks) {
+                if (!isRecord(mark) || mark.type !== "link" || !isRecord(mark.attrs)) continue
+                const href = typeof mark.attrs.href === "string" ? mark.attrs.href : ""
+                mark.attrs.target = targets.get(href) ?? null
+            }
+        }
+        if (Array.isArray(node.content)) applyPmLinkTargets(node.content, targets)
+    }
+}
+
+/** Collects the live `target` attr of each link mark in a ProseMirror doc, keyed by href (first
+ *  occurrence in document order wins) — the mirror of {@link collectPtLinkTargets}, read from the editor
+ *  state instead of stored markDefs. */
+function collectPmLinkTargets(nodes: unknown[], targets: LinkTargetMap = new Map()): LinkTargetMap {
+    for (const node of nodes) {
+        if (!isRecord(node)) continue
+        if (Array.isArray(node.marks)) {
+            for (const mark of node.marks) {
+                if (!isRecord(mark) || mark.type !== "link" || !isRecord(mark.attrs)) continue
+                const href = typeof mark.attrs.href === "string" ? mark.attrs.href : ""
+                const target = mark.attrs.target
+                if (href !== "" && (target === "_self" || target === "_blank") && !targets.has(href)) {
+                    targets.set(href, target)
+                }
+            }
+        }
+        if (Array.isArray(node.content)) collectPmLinkTargets(node.content, targets)
+    }
+    return targets
+}
+
+/** Applies `targets` onto the resulting PT markDefs, keyed by href — the mirror of
+ *  `applyPmLinkTargets`. An href absent from the map (Automatic) clears any stale `target` key rather
+ *  than leaving one behind. Mutates `blocks` in place. */
+function applyPtLinkTargets(blocks: unknown, targets: LinkTargetMap): void {
+    if (!Array.isArray(blocks)) return
+    for (const block of blocks) {
+        if (!isRecord(block) || !Array.isArray(block.markDefs)) continue
+        for (const def of block.markDefs) {
+            if (!isRecord(def) || def._type !== "link") continue
+            const href = typeof def.href === "string" ? def.href : ""
+            const target = targets.get(href)
+            if (target) {
+                def.target = target
+            } else {
+                delete def.target
+            }
+        }
+    }
+}
+
 /**
  * Registry mapping a component `type` to the names of its rich-text props. Supplied by the catalog
  * (§6.3). A component type absent from the registry has no rich-text props.
@@ -56,20 +149,34 @@ export type RichTextPropRegistry = Record<string, readonly string[]>
 /** A transform applied to one rich-text prop value during a walk (PT → ProseMirror or the inverse). */
 type PropTransform = (value: unknown) => unknown
 
-/** PT block array → ProseMirror document. Non-array values pass through (defensive against double conversion). */
+/** PT block array → ProseMirror document. Non-array values pass through (defensive against double
+ * conversion). Reapplies each link's `target` after EmDash's conversion — see the module header. */
 function portableTextToEditor(value: unknown): unknown {
-    return Array.isArray(value) ? portableTextToProsemirror(value as PortableTextBlock[]) : value
+    if (!Array.isArray(value)) return value
+    const targets = collectPtLinkTargets(value)
+    const doc = portableTextToProsemirror(value as PortableTextBlock[])
+    applyPmLinkTargets(doc.content, targets)
+    return doc
 }
 
 /** ProseMirror document → PT block array. Puck's richtext field's actual working value is an HTML
  * string (`editor.getHTML()`), not ProseMirror JSON, despite the field's name — parse with the same
  * Tiptap schema the editor uses (RICH_TEXT_EXTENSIONS) before the PT converter. A `{type: "doc"}`
- * value converts directly; anything else (already-PT, empty default) passes through untouched. */
+ * value converts directly; anything else (already-PT, empty default) passes through untouched. Captures
+ * each link's live `target` before EmDash's conversion and reapplies it after — see the module header. */
 function editorToPortableText(value: unknown): unknown {
-    if (typeof value === "string") {
-        return prosemirrorToPortableText(generateJSON(value, RICH_TEXT_EXTENSIONS) as unknown as ProseMirrorDocument)
-    }
-    return isRecord(value) && value.type === "doc" ? prosemirrorToPortableText(value as unknown as ProseMirrorDocument) : value
+    const doc: ProseMirrorDocument | null =
+        typeof value === "string"
+            ? (generateJSON(value, RICH_TEXT_EXTENSIONS) as unknown as ProseMirrorDocument)
+            : isRecord(value) && value.type === "doc"
+              ? (value as unknown as ProseMirrorDocument)
+              : null
+    if (doc === null) return value
+
+    const targets = collectPmLinkTargets(doc.content)
+    const blocks = prosemirrorToPortableText(doc)
+    applyPtLinkTargets(blocks, targets)
+    return blocks
 }
 
 /** Walks an array of components in place, converting rich-text props and recursing into slots. */

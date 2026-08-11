@@ -458,6 +458,54 @@ describe("lintDesign — ContentField (unified field-outlet rewrite)", () => {
     })
 })
 
+describe("lintDesign — ContentField forced hyperlink", () => {
+    function forcedLink(field: string, linkHref: string, forceLink: "yes" | "no" = "yes") {
+        return {
+            type: "ContentField",
+            props: { field, label: "", showLabel: "yes", typography: "display", forceLink, linkHref }
+        }
+    }
+
+    it("warns force-link-no-url when forced but linkHref is blank", () => {
+        const findings = lintTemplate([forcedLink("title", "")])
+        expect(rules(findings)).toContain("force-link-no-url")
+    })
+
+    it("errors unsafe-href when the forced linkHref uses a disallowed scheme", () => {
+        const findings = lintTemplate([forcedLink("title", "javascript:alert(1)")])
+        expect(rules(findings)).toContain("unsafe-href")
+        expect(hasBlockingError(findings)).toBe(true)
+    })
+
+    it("is clean when forced with a safe linkHref on a kind with no anchor of its own", () => {
+        const findings = lintTemplate([forcedLink("title", "/works")])
+        expect(rules(findings)).not.toContain("force-link-no-url")
+        expect(rules(findings)).not.toContain("unsafe-href")
+        expect(rules(findings)).not.toContain("force-link-inert")
+    })
+
+    it("warns force-link-inert when forced on a field whose kind renders its own anchor (uri)", () => {
+        const findings = lintTemplate([forcedLink("publication_uri", "/override")])
+        expect(rules(findings)).toContain("force-link-inert")
+    })
+
+    it("does not warn force-link-inert on a kind without its own anchor (reference)", () => {
+        const findings = lintTemplate([forcedLink("composer", "/override")])
+        expect(rules(findings)).not.toContain("force-link-inert")
+    })
+
+    it("runs structurally, independent of a routed entry (template alone)", () => {
+        const findings = lintTemplate([forcedLink("title", "javascript:alert(1)")], { entry: null })
+        expect(rules(findings)).toContain("unsafe-href")
+    })
+
+    it("does not fire when forceLink is off, even with a bad-scheme linkHref left over from a prior edit", () => {
+        const findings = lintTemplate([forcedLink("title", "javascript:alert(1)", "no")])
+        expect(rules(findings)).not.toContain("unsafe-href")
+        expect(rules(findings)).not.toContain("force-link-no-url")
+    })
+})
+
 describe("lintDesign — MediaText (collapsing media+text primitive)", () => {
     it("shares ContentImage's dangling-field and empty-value/alt rules", () => {
         expect(rules(lintTemplate([mediaText("")]))).toContain("dangling-outlet-field")
