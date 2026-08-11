@@ -261,16 +261,18 @@ function isResolvedReferenceLike(value: unknown): value is ResolvedReferenceLike
 }
 
 /** One resolved reference: linked to its public page when it has one, plain text otherwise (owner note:
- * an empty/unresolvable reference renders as an empty value, not a placeholder string). */
-function ReferenceLink({ value }: { value: ResolvedReferenceLike }) {
+ * an empty/unresolvable reference renders as an empty value, not a placeholder string). `plain` skips
+ * the anchor even when `href` is present — used by `ContentField`'s forced link, which replaces this
+ * kind's own anchor rather than nesting inside it. */
+function ReferenceLink({ value, plain = false }: { value: ResolvedReferenceLike; plain?: boolean }) {
     const name = typeof value.name === "string" ? value.name.trim() : ""
     const href = typeof value.href === "string" ? value.href : null
     if (name === "") return null
-    return href ? <a href={href}>{name}</a> : <>{name}</>
+    return href && !plain ? <a href={href}>{name}</a> : <>{name}</>
 }
 
 /** A comma-separated list of resolved references (see {@link ReferenceLink}). */
-function ReferenceLinkList({ values }: { values: unknown[] }) {
+function ReferenceLinkList({ values, plain = false }: { values: unknown[]; plain?: boolean }) {
     const items = values.filter(isResolvedReferenceLike)
     if (items.length === 0) return null
     return (
@@ -278,7 +280,7 @@ function ReferenceLinkList({ values }: { values: unknown[] }) {
             {items.map((item, index) => (
                 <span key={index}>
                     {index > 0 ? ", " : ""}
-                    <ReferenceLink value={item} />
+                    <ReferenceLink value={item} plain={plain} />
                 </span>
             ))}
         </>
@@ -289,7 +291,7 @@ function ReferenceLinkList({ values }: { values: unknown[] }) {
  *  parentheses after its name — `author_secondary` only (see `EntityFieldKind`'s "referenceListWithRole"
  *  doc in entity-fields.ts). Lower-cased (owner decision), unlike the composer's own `role` field, which
  *  title-cases for its standalone display. */
-function ReferenceLinkListWithRole({ values }: { values: unknown[] }) {
+function ReferenceLinkListWithRole({ values, plain = false }: { values: unknown[]; plain?: boolean }) {
     const items = values.filter(isResolvedReferenceLike)
     if (items.length === 0) return null
     return (
@@ -299,7 +301,7 @@ function ReferenceLinkListWithRole({ values }: { values: unknown[] }) {
                 return (
                     <span key={index}>
                         {index > 0 ? ", " : ""}
-                        <ReferenceLink value={item} />
+                        <ReferenceLink value={item} plain={plain} />
                         {role !== "" && <> ({role})</>}
                     </span>
                 )
@@ -343,11 +345,26 @@ export function fieldPlacementClass(placement: ValuePlacement | undefined): stri
     return ""
 }
 
+/** Kinds whose value is injected HTML carrying its own anchors (`renderPublicationUri`/
+ *  `renderCitationsList`, via `dangerouslySetInnerHTML`) — `ContentField`'s forced link cannot wrap
+ *  them without nesting an `<a>` inside one, so the option is inert there (lint flags it). A field with
+ *  no declared kind falls through `formatFieldValue`'s shape-inference `default` branch, which only
+ *  infers the `uri` shape — mirrored here so the inert check agrees with what actually renders. */
+export function rendersOwnAnchors(value: unknown, kind: string | undefined): boolean {
+    if (kind === "uri" || kind === "citations") return true
+    return kind === undefined && isRecord(value) && ("uriType" in value || "uri" in value)
+}
+
 /** Formats a resolved entity-field value for display, kind-aware when `kind` (`EntityField.type`) is
  * known, falling back to shape-based inference otherwise (pages/posts fields, or a pre-schema editor
  * render). Owner decision: null/empty/unresolvable ALWAYS formats to an empty value, never a
- * placeholder string, so `ContentField` keeps rendering its row. */
-export function formatFieldValue(value: unknown, kind: string | undefined): ReactNode {
+ * placeholder string, so `ContentField` keeps rendering its row.
+ *
+ * `plain` renders a kind's value without its own anchor — for `ContentField`'s forced link, which
+ * replaces that anchor rather than nesting inside it. The caller is expected to have already checked
+ * {@link rendersOwnAnchors}; `plain` has no effect on `uri`/`citations`, whose anchors are baked into
+ * injected HTML this function does not control. */
+export function formatFieldValue(value: unknown, kind: string | undefined, plain = false): ReactNode {
     if (value === null || value === undefined) return ""
 
     switch (kind) {
@@ -357,11 +374,11 @@ export function formatFieldValue(value: unknown, kind: string | undefined): Reac
             return Number.isNaN(date.getTime()) ? String(value) : ENTITY_DATE_FORMAT.format(date)
         }
         case "reference":
-            return isResolvedReferenceLike(value) ? <ReferenceLink value={value} /> : ""
+            return isResolvedReferenceLike(value) ? <ReferenceLink value={value} plain={plain} /> : ""
         case "referenceList":
-            return Array.isArray(value) ? <ReferenceLinkList values={value} /> : ""
+            return Array.isArray(value) ? <ReferenceLinkList values={value} plain={plain} /> : ""
         case "referenceListWithRole":
-            return Array.isArray(value) ? <ReferenceLinkListWithRole values={value} /> : ""
+            return Array.isArray(value) ? <ReferenceLinkListWithRole values={value} plain={plain} /> : ""
         case "uri":
             return isRecord(value) ? <PublicationUriValue value={value} /> : ""
         case "citations":
@@ -380,7 +397,7 @@ export function formatFieldValue(value: unknown, kind: string | undefined): Reac
             return typeof value === "string" && value.trim() !== "" ? countryCodeName(value) : ""
         case "email":
             return typeof value === "string" && value.trim() !== "" ? (
-                <a href={`mailto:${value}`}>{value}</a>
+                plain ? value : <a href={`mailto:${value}`}>{value}</a>
             ) : (
                 ""
             )
@@ -394,10 +411,12 @@ export function formatFieldValue(value: unknown, kind: string | undefined): Reac
             if (typeof value === "string") return value
             if (typeof value === "number") return String(value)
             if (Array.isArray(value)) {
-                if (value.length > 0 && value.every(isResolvedReferenceLike)) return <ReferenceLinkList values={value} />
+                if (value.length > 0 && value.every(isResolvedReferenceLike)) {
+                    return <ReferenceLinkList values={value} plain={plain} />
+                }
                 return value.filter((item) => item !== null && item !== undefined && item !== "").join(", ")
             }
-            if (isResolvedReferenceLike(value)) return <ReferenceLink value={value} />
+            if (isResolvedReferenceLike(value)) return <ReferenceLink value={value} plain={plain} />
             if (isRecord(value) && ("uriType" in value || "uri" in value)) return <PublicationUriValue value={value} />
             return ""
         }

@@ -63,7 +63,7 @@ import type { Config } from "@puckeditor/core"
 import type { PortableTextBlock } from "emdash"
 
 import { isEmptyFieldValue } from "./entity-fields"
-import { RichTextView, opensInNewTab } from "./richtext"
+import { RichTextView, opensInNewTab, sanitizeHref } from "./richtext"
 import { tokenSelectOptions, tokenVar, type TokenCatalog, type TokenKind, type TokenPropRegistry } from "./tokens"
 import { isRecord } from "./types"
 import {
@@ -81,6 +81,8 @@ import type { CollectionField } from "../build/design-api"
 // entity-records.ts's build-side functions.
 import type { RelatedWork } from "../build/entity-records"
 import { mediaPickerRender } from "./catalog-media-picker"
+import { renderRichTextInlineMenu, renderRichTextMenu, richTextLinkSelector } from "./catalog-richtext-link"
+import { COMPOSITOR_LINK } from "./richtext-extensions"
 import {
     DEFAULT_RELATED_LIMIT,
     fieldPlacementClass,
@@ -90,6 +92,7 @@ import {
     renderHeadingTag,
     renderImageTag,
     renderRelatedEntriesTag,
+    rendersOwnAnchors,
     vars,
     type ImageSizePreset,
     type ValuePlacement
@@ -393,6 +396,22 @@ interface ContentFieldProps {
     onEmpty: "doNothing" | "hideLabel" | "placeholder"
     /** Shown in place of the value when empty and `onEmpty` is "placeholder". */
     emptyValue: string
+    /** Prepended to the value with no separator — used verbatim, never trimmed, so a trailing space is
+     *  how an author encodes "Op. ". Optional, defaulted to "" defensively in `render` (added after
+     *  `ContentField` existed, so `defaultProps` alone would not reach older stored designs). Suppressed
+     *  whenever the value is empty, so every `onEmpty` outcome (including the "placeholder" substitution)
+     *  renders without it. */
+    prefix?: string
+    /** "yes" wraps prefix+value in an `<a>` to `linkHref`, replacing (not nesting inside) any anchor the
+     *  bound field's own kind would otherwise render — nested `<a>` is invalid HTML. Inert when the kind
+     *  injects its own anchor markup ({@link rendersOwnAnchors}: `uri`, `citations`) — lint flags that.
+     *  Optional, defaulted to "no" defensively in `render`, same back-compat reasoning as `prefix`. */
+    forceLink?: "yes" | "no"
+    /** The forced link's href, live only when `forceLink` is "yes" and this is non-blank. An unsafe
+     *  scheme is sanitized to "#" (matches `renderButtonTag`); target follows `opensInNewTab`'s scheme
+     *  rule with no override, per the outlet's "auto mechanism" design. Optional, defaulted to "" in
+     *  `render`, same back-compat reasoning as `prefix`. */
+    linkHref?: string
 }
 interface PagefindSearchProps {
     /** "site" (the default, and search.astro's untagged behavior) searches every indexed public page;
@@ -612,9 +631,23 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
         RichText: {
             label: "Rich text",
             fields: {
-                // Editor: the native richtext field (ProseMirror working value). Build: a passthrough so the
-                // render receives the raw PT array (see header — Puck would otherwise blank it at build).
-                body: isEditor ? { type: "richtext" as const, label: "Body" } : { type: "text" as const, label: "Body" }
+                // Editor: the native richtext field (ProseMirror working value), with a link control added
+                // beside Puck's own toolbar (catalog-richtext-link.tsx) — Puck's stock richtext field has
+                // none. `options.link: false` (not `{...}`) because Puck calls `Link.configure(options.link)`,
+                // which deep-merges onto Tiptap's `target: "_blank"` default rather than clearing it;
+                // COMPOSITOR_LINK is the one Link extension actually used, supplied via `tiptap.extensions`.
+                // Build: a passthrough so the render receives the raw PT array (see header — Puck would
+                // otherwise blank it at build).
+                body: isEditor
+                    ? {
+                          type: "richtext" as const,
+                          label: "Body",
+                          options: { link: false },
+                          tiptap: { extensions: [COMPOSITOR_LINK], selector: richTextLinkSelector },
+                          renderMenu: renderRichTextMenu,
+                          renderInlineMenu: renderRichTextInlineMenu
+                      }
+                    : { type: "text" as const, label: "Body" }
             },
             defaultProps: { body: [] },
             render: ({ body }: RichTextProps) => (
@@ -942,7 +975,17 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         { label: "Show a placeholder value", value: "placeholder" }
                     ]
                 },
-                emptyValue: { type: "text" as const, label: "Placeholder value (when empty)" }
+                emptyValue: { type: "text" as const, label: "Placeholder value (when empty)" },
+                prefix: { type: "text" as const, label: "Value prefix (optional)" },
+                forceLink: {
+                    type: "select" as const,
+                    label: "Force hyperlink",
+                    options: [
+                        { label: "No", value: "no" },
+                        { label: "Yes", value: "yes" }
+                    ]
+                },
+                linkHref: { type: "text" as const, label: "Link URL (when forced)" }
             },
             // "doNothing"/"inline" preserve this outlet's pre-existing behavior (label per showLabel, blank
             // value, both on one line).
@@ -953,9 +996,23 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 valuePlacement: "inline",
                 typography: "body",
                 onEmpty: "doNothing",
-                emptyValue: "(none)"
+                emptyValue: "(none)",
+                prefix: "",
+                forceLink: "no",
+                linkHref: ""
             },
-            render: ({ field, label, showLabel, valuePlacement, typography, onEmpty, emptyValue }: ContentFieldProps) => {
+            render: ({
+                field,
+                label,
+                showLabel,
+                valuePlacement,
+                typography,
+                onEmpty,
+                emptyValue,
+                prefix,
+                forceLink,
+                linkHref
+            }: ContentFieldProps) => {
                 if (!field) return isEditor ? <OutletPlaceholder field={field} /> : null
                 if (isEditor && !context?.entry) return <OutletPlaceholder field={field} />
 
@@ -963,8 +1020,27 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 const displayLabel = label.trim() !== "" ? label.trim() : (catalogField?.label ?? "")
                 const value = context?.entry ? context.entry[field] : undefined
                 const empty = isEmptyFieldValue(value, catalogField?.type)
-                const formatted = empty && onEmpty === "placeholder" ? emptyValue : formatFieldValue(value, catalogField?.type)
+                // Forced link replaces (never nests inside) any anchor the value's own kind would
+                // otherwise render, and is inert on kinds that inject their own anchor markup.
+                const linked =
+                    forceLink === "yes" &&
+                    typeof linkHref === "string" &&
+                    linkHref.trim() !== "" &&
+                    !rendersOwnAnchors(value, catalogField?.type)
+                const formatted =
+                    empty && onEmpty === "placeholder" ? emptyValue : formatFieldValue(value, catalogField?.type, linked)
                 const hideLabel = showLabel === "no" || displayLabel === "" || (empty && onEmpty === "hideLabel")
+                // Prefix is used verbatim (a trailing space is how an author encodes "Op. ") and
+                // suppressed on empty so every onEmpty outcome, including "placeholder", renders without it.
+                const prefixText = !empty && prefix ? prefix : ""
+                const content = (
+                    <>
+                        {prefixText}
+                        {formatted}
+                    </>
+                )
+                const safeHref = linked ? sanitizeHref(linkHref) : null
+                const newTab = safeHref !== null && opensInNewTab(safeHref)
 
                 return (
                     <div
@@ -983,7 +1059,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                                 {displayLabel}
                             </strong>
                         )}
-                        <span className="cmp-field__value">{formatted}</span>
+                        <span className="cmp-field__value">
+                            {safeHref !== null ? (
+                                <a href={safeHref} target={newTab ? "_blank" : undefined} rel={newTab ? "noopener noreferrer" : undefined}>
+                                    {content}
+                                </a>
+                            ) : (
+                                content
+                            )}
+                        </span>
                     </div>
                 )
             }

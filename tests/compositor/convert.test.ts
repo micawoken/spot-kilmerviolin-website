@@ -174,6 +174,48 @@ function slotChildren(doc: DesignDoc): Array<{ type: string; props: Record<strin
     return section.props.content as Array<{ type: string; props: Record<string, unknown> }>
 }
 
+/** A design doc with a single top-level RichText (no Section wrapper) — the shape link-target-round-trip
+ *  fixtures below use, matching the "Puck's actual richtext value" describe block's own doc shape. */
+function docWithBody(body: unknown): DesignDoc {
+    return { schemaVersion: 1, puck: { content: [{ type: "RichText", props: { id: "rt-1", body } }] } as unknown as PuckData }
+}
+
+/** The RichText body of a `docWithBody`-shaped design doc. */
+function topLevelBody(doc: DesignDoc): unknown {
+    return (doc.puck as unknown as { content: Array<{ props: { body: unknown } }> }).content[0].props.body
+}
+
+/** One PT block with a single link span, its markDef extended with `extra` (e.g. `{target: "_blank"}`). */
+function ptBodyWithLink(extra: Record<string, unknown>): unknown[] {
+    return [
+        {
+            _type: "block",
+            _key: "b1",
+            style: "normal",
+            markDefs: [{ _type: "link", _key: "l1", href: "https://example.com", ...extra }],
+            children: [{ _type: "span", _key: "s1", text: "Link", marks: ["l1"] }]
+        }
+    ]
+}
+
+/** Finds the first link mark's attrs for `href` inside a (plain-object) ProseMirror doc/body. */
+function findLinkMarkAttrs(pmValue: unknown, href: string): Record<string, unknown> | undefined {
+    let found: Record<string, unknown> | undefined
+    const walk = (nodes: unknown[]): void => {
+        for (const node of nodes) {
+            if (!node || typeof node !== "object") continue
+            const n = node as { marks?: Array<{ type?: string; attrs?: Record<string, unknown> }>; content?: unknown[] }
+            for (const mark of n.marks ?? []) {
+                if (mark.type === "link" && mark.attrs?.href === href) found ??= mark.attrs
+            }
+            if (Array.isArray(n.content)) walk(n.content)
+        }
+    }
+    const content = (pmValue as { content?: unknown[] } | undefined)?.content
+    if (Array.isArray(content)) walk(content)
+    return found
+}
+
 describe("designToEditorForm", () => {
     it("converts a rich-text prop nested inside a slot to a ProseMirror document", () => {
         const editor = designToEditorForm(makeDoc(), REGISTRY)
@@ -233,6 +275,88 @@ describe("editorFormToDesign — Puck's actual richtext value (HTML string)", ()
         const body = (design.puck as unknown as { content: Array<{ props: { body: unknown } }> }).content[0].props.body
         expect(Array.isArray(body)).toBe(true)
         expect((body as Array<Record<string, unknown>>)[0]._type).toBe("block")
+    })
+})
+
+describe("link target round-trip (Opens in)", () => {
+    // EmDash's converters are lossy for `target` in both directions (see convert.ts's header): load
+    // collapses any stored `target` into `blank ? "_blank" : null`, and save keeps only `blank`. These
+    // pin the pure passes that wrap those calls to actually carry `target` through.
+
+    it("loads an explicit _blank target onto the ProseMirror mark", () => {
+        const editor = designToEditorForm(docWithBody(ptBodyWithLink({ target: "_blank", blank: false })), REGISTRY)
+        expect(findLinkMarkAttrs(topLevelBody(editor), "https://example.com")?.target).toBe("_blank")
+    })
+
+    it("loads an explicit _self target onto the ProseMirror mark, even when blank disagrees", () => {
+        const editor = designToEditorForm(docWithBody(ptBodyWithLink({ target: "_self", blank: true })), REGISTRY)
+        expect(findLinkMarkAttrs(topLevelBody(editor), "https://example.com")?.target).toBe("_self")
+    })
+
+    it("loads legacy content (blank: true, no target) as Automatic, not New tab", () => {
+        // EmDash's own portableTextToProsemirror would set target: "_blank" here (blank ? "_blank" :
+        // null) — every link either editor has ever produced carries blank: true, so this is the trap
+        // the unconditional overwrite in applyPmLinkTargets exists to close.
+        const editor = designToEditorForm(docWithBody(ptBodyWithLink({ blank: true })), REGISTRY)
+        expect(findLinkMarkAttrs(topLevelBody(editor), "https://example.com")?.target).toBeNull()
+    })
+
+    it("saves a link's live target back onto its markDef", () => {
+        const pmDoc = {
+            type: "doc",
+            content: [
+                {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com", target: "_self" } }] }]
+                }
+            ]
+        }
+        const body = topLevelBody(editorFormToDesign(docWithBody(pmDoc), REGISTRY)) as Array<Record<string, unknown>>
+        const markDef = (body[0].markDefs as Array<Record<string, unknown>>)[0]
+        expect(markDef.target).toBe("_self")
+    })
+
+    it("clears a stale target when the live mark has none (Automatic) — no target key at all, not null", () => {
+        const pmDoc = {
+            type: "doc",
+            content: [
+                {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com", target: null } }] }]
+                }
+            ]
+        }
+        const body = topLevelBody(editorFormToDesign(docWithBody(pmDoc), REGISTRY)) as Array<Record<string, unknown>>
+        const markDef = (body[0].markDefs as Array<Record<string, unknown>>)[0]
+        expect("target" in markDef).toBe(false)
+    })
+
+    it("shares one target across two occurrences of the same href — the first explicit occurrence wins", () => {
+        const pmDoc = {
+            type: "doc",
+            content: [
+                {
+                    type: "paragraph",
+                    content: [
+                        { type: "text", text: "First", marks: [{ type: "link", attrs: { href: "https://example.com", target: "_blank" } }] },
+                        { type: "text", text: " and ", marks: [] },
+                        { type: "text", text: "second", marks: [{ type: "link", attrs: { href: "https://example.com", target: null } }] }
+                    ]
+                }
+            ]
+        }
+        const body = topLevelBody(editorFormToDesign(docWithBody(pmDoc), REGISTRY)) as Array<Record<string, unknown>>
+        const markDefs = body[0].markDefs as Array<Record<string, unknown>>
+        // EmDash dedupes markDefs by href, so both spans already reference the same one def.
+        expect(markDefs).toHaveLength(1)
+        expect(markDefs[0].target).toBe("_blank")
+    })
+
+    it("does not persist a spurious New-tab target across a legacy load/save cycle with no author edits", () => {
+        const design = editorFormToDesign(designToEditorForm(docWithBody(ptBodyWithLink({ blank: true })), REGISTRY), REGISTRY)
+        const body = topLevelBody(design) as Array<Record<string, unknown>>
+        const markDef = (body[0].markDefs as Array<Record<string, unknown>>)[0]
+        expect("target" in markDef).toBe(false)
     })
 })
 

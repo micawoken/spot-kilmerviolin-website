@@ -37,6 +37,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { rendersOwnAnchors } from "./catalog-renderers"
 import { isEmptyFieldValue } from "./entity-fields"
 import { mediaSource } from "./media"
 import { SAFE_URL_SCHEME_RE } from "./richtext"
@@ -266,6 +267,38 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     if (type === "ContentText") {
         const depth = headingDepth(props.level)
         if (depth !== null) headings.push({ depth, path })
+    }
+
+    // Forced-link checks (ContentField only): static props, independent of the field binding above and
+    // of any routed entry, so they run structurally rather than gated on context.entry — an author sees
+    // them while still choosing a URL, not only once a preview entry happens to be selected.
+    if (type === "ContentField" && props.forceLink === "yes") {
+        const linkHref = typeof props.linkHref === "string" ? props.linkHref : ""
+        if (linkHref.trim() === "") {
+            findings.push({
+                severity: "warning",
+                rule: "force-link-no-url",
+                path,
+                message: `${type}'s "Force hyperlink" is on, but no Link URL is set`
+            })
+        } else if (isUnsafeHref(linkHref)) {
+            findings.push({
+                severity: "error",
+                rule: "unsafe-href",
+                path,
+                message: `${type}'s forced link uses a disallowed URL scheme: "${linkHref}"`
+            })
+        }
+        if (schemaField && rendersOwnAnchors(undefined, schemaField.type)) {
+            findings.push({
+                severity: "warning",
+                rule: "force-link-inert",
+                path,
+                message:
+                    `${type}'s "Force hyperlink" has no effect on field "${field}" — ` +
+                    `its type ("${schemaField.type}") already renders its own link`
+            })
+        }
     }
 
     // Entry-dependent rows: skipped template-alone (entry null) or when the binding is already broken.
