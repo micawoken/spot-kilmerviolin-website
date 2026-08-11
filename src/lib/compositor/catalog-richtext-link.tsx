@@ -169,45 +169,38 @@ function LinkControl({ editor, editorState, readOnly }: { editor: RichTextEditor
                 }}
             />
             {open && (
-                <div
-                    role="dialog"
-                    aria-label="Link"
-                    style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
-                    onClick={() => setOpen(false)}
-                >
+                <div className="design-editor__modal-backdrop" onClick={() => setOpen(false)}>
                     <div
+                        className="design-editor__modal"
+                        role="dialog"
+                        aria-label="Link"
                         onClick={(e) => e.stopPropagation()}
-                        style={{ background: "#fff", color: "#111", width: "min(420px, 90vw)", padding: "1rem", borderRadius: "0.5rem" }}
+                        style={{ width: "min(420px, 90vw)", display: "flex", flexDirection: "column", gap: "0.75rem" }}
                     >
-                        <label style={{ display: "block", marginBottom: "0.75rem" }}>
-                            <span style={{ display: "block", marginBottom: "0.25rem", fontSize: "0.875rem" }}>URL</span>
+                        <label>
+                            <span>URL</span>
                             <input
                                 type="text"
                                 value={href}
                                 onChange={(e) => setHref(e.target.value)}
                                 placeholder="https://example.org"
-                                style={{ width: "100%", padding: "0.4rem" }}
                                 autoFocus
                             />
                         </label>
-                        <label style={{ display: "block", marginBottom: "0.75rem" }}>
-                            <span style={{ display: "block", marginBottom: "0.25rem", fontSize: "0.875rem" }}>Opens in</span>
-                            <select
-                                value={target}
-                                onChange={(e) => setTarget(e.target.value as "" | "_self" | "_blank")}
-                                style={{ width: "100%", padding: "0.4rem" }}
-                            >
+                        <label>
+                            <span>Opens in</span>
+                            <select value={target} onChange={(e) => setTarget(e.target.value as "" | "_self" | "_blank")}>
                                 <option value="">Automatic (new tab if external)</option>
                                 <option value="_self">Same tab</option>
                                 <option value="_blank">New tab</option>
                             </select>
                         </label>
                         {sharesTarget && (
-                            <p style={{ fontSize: "0.8125rem", color: "#555", marginBottom: "0.75rem" }}>
+                            <p className="design-editor__hint">
                                 Other links to this URL in this text share the same "Opens in" setting.
                             </p>
                         )}
-                        {error && <p style={{ color: "#b00", marginBottom: "0.75rem" }}>{error}</p>}
+                        {error && <p className="design-editor__blocked">{error}</p>}
                         <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
                             <span>{isLink && <button type="button" onClick={remove}>Remove</button>}</span>
                             <span style={{ display: "flex", gap: "0.5rem" }}>
