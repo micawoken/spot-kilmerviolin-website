@@ -41,7 +41,7 @@ export const prerender = false
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Delete a Composer</h2>
             <p class="general-warning">
                 Deletion is permanent. Composers that are referenced by compositions cannot be deleted.

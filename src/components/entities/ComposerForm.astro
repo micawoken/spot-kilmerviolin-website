@@ -63,6 +63,7 @@ const patch: boolean = Astro.props.patch || false
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composers-name" class="sr-only">Name</label>
                     <input
                         type="text"
                         id="form-composers-name"
@@ -92,6 +93,7 @@ const patch: boolean = Astro.props.patch || false
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composers-role" class="sr-only">Role</label>
                     <select id="form-composers-role" name="role" required={required}>
                         <option value="composer" selected={composer !== null ? composer.role === "composer" : true}
                             >Composer</option
@@ -130,6 +132,7 @@ const patch: boolean = Astro.props.patch || false
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composers-country" class="sr-only">Country</label>
                     <input
                         type="text"
                         id="form-composers-country"
@@ -168,6 +171,7 @@ const patch: boolean = Astro.props.patch || false
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composers-birth_year" class="sr-only">Birth Year</label>
                     <input
                         type="number"
                         id="form-composers-birth_year"
@@ -201,6 +205,7 @@ const patch: boolean = Astro.props.patch || false
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composers-death_year" class="sr-only">Death Year</label>
                     <input
                         type="number"
                         id="form-composers-death_year"
@@ -229,6 +234,7 @@ const patch: boolean = Astro.props.patch || false
             <h3 class="form-section-title">Biography</h3>
             <fieldset>
                 <legend>Biography</legend>
+                <label for="form-composers-bio" class="sr-only">Biography</label>
                 <textarea id="form-composers-bio" name="bio">{composer?.bio ?? ""}</textarea>
                 {
                     patch ? (
@@ -245,6 +251,7 @@ const patch: boolean = Astro.props.patch || false
             <fieldset>
                 <legend>Image URL</legend>
                 <div class="field-row">
+                    <label for="form-composers-image" class="sr-only">Image URL</label>
                     <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
                     <small class="general-infohelp field-inline-help"
                         >Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a
@@ -275,6 +282,7 @@ const patch: boolean = Astro.props.patch || false
             <fieldset>
                 <legend>Tags</legend>
                 <div class="field-row">
+                    <label for="form-composers-tags" class="sr-only">Tags</label>
                     <input
                         type="text"
                         id="form-composers-tags"
@@ -300,6 +308,7 @@ const patch: boolean = Astro.props.patch || false
             <fieldset>
                 <legend>Citations</legend>
                 <div class="field-row field-row-textarea">
+                    <label for="form-composers-citations" class="sr-only">Citations</label>
                     <textarea
                         id="form-composers-citations"
                         name="citations"

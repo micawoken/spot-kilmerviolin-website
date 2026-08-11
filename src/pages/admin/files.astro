@@ -51,7 +51,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>File Management</h2>
             <p class="general-infohelp">
                 Files (mainly images) are stored in the R2 file store and referenced by records via their image field.

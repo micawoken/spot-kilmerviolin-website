@@ -78,7 +78,7 @@ const prefill_failed = Boolean(id) && !use_id
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Edit a Composer</h2>
             {
                 prefill_failed ? (

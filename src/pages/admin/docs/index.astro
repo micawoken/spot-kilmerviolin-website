@@ -48,7 +48,7 @@ const docs = (await getCollection("docs")).sort((a, b) => a.data.title.localeCom
     </head>
     <body>
         <AdminHeader identity={identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <div class="flex-container">
                 <div class="column">
                     <h2>Documentation</h2>

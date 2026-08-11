@@ -46,7 +46,7 @@ const identity = Astro.locals.identity ?? null
     </head>
     <body>
         <AdminHeader identity={identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>My User Authorization Info</h2>
             {
                 identity ? (

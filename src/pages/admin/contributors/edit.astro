@@ -93,7 +93,7 @@ const prefill_failed = Boolean(id) && may_prefill && !use_id
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Edit a Contributor</h2>
             <p class="general-infohelp">
                 To edit your own contributor record, you should use <a href="/admin/profile/edit"

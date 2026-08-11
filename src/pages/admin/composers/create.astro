@@ -39,7 +39,7 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Add a New Composer</h2>
             <ComposerForm required={true} />
             <p id="transaction-status">Your request status will show here after you press "Submit".</p>

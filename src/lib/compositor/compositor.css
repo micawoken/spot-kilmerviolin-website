@@ -216,6 +216,16 @@
 	text-decoration: none;
 	cursor: pointer;
 }
+/* Without this, public-chrome.css's `main a:hover` (specificity 0,1,2) outranks `.cmp-button` alone
+ * (0,1,0) and silently overrides this token's own --cmp-button-text with the theme's plain-link hover
+ * color on hover — while the button's own background stays put, since that rule never sets one. Wrong
+ * for every button variant regardless of its author's chosen colors: the two tokens are independent, so
+ * a background chosen to pair with --cmp-button-text may not pair with the site's link-hover color at
+ * all, and hovering any themed button could turn its own text unreadable against its own background.
+ * `.cmp-button:hover` (0,2,0) restores this component's precedence over that rule. */
+.cmp-button:hover {
+	color: var(--cmp-button-text, currentColor);
+}
 
 /* Spacer — empty vertical space. */
 .cmp-spacer {

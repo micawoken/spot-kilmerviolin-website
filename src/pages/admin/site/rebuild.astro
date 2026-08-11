@@ -60,7 +60,7 @@ const is_admin = Astro.locals.identity?.admin === true
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Rebuild the Site</h2>
             <p class="general-warning">
                 Website rebuilds use cloud compute minutes on Worker Builds. Do not rebuild the website until you are

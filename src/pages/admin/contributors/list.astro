@@ -82,7 +82,7 @@ const formatted_contributors = contributors.map((contributor) => ({
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>List Contributors</h2>
             <ListResults noun="contributor" enviro="admin" results={formatted_contributors} />
         </main>

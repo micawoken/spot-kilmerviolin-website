@@ -61,7 +61,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Replace a File</h2>
             <p class="general-infohelp">Replace a file to change what image shows while maintaining its file key.</p>
             {

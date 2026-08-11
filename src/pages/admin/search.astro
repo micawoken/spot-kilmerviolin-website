@@ -41,7 +41,7 @@ export const prerender = false
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Search the Database</h2>
             <p class="general-infohelp">Search composers, compositions, and contributors by keyword.</p>
             <KeywordSearchBox id_prefix="admin-search" label="Search by keyword" database_select={true} />

@@ -56,7 +56,7 @@ const summary = await getWebAnalyticsSummary(range)
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Site Analytics</h2>
             <p class="general-infohelp">
                 Pageview and visit counts reported by the public site's Cloudflare Web Analytics beacon. This

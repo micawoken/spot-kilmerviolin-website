@@ -44,7 +44,7 @@ const prefill_email = emailFromParam(Astro.url)
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Add a New User</h2>
             <p class="general-infohelp">
                 Allow a user to log onto the system. Optionally, automatically create a contributor record. This

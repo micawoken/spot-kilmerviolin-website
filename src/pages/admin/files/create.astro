@@ -54,7 +54,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Add a New File</h2>
             <p class="general-infohelp">
                 Upload a portrait (4:5, 1280x1600) or landscape (5:4, 1600x1280) image. You may set an optional name to

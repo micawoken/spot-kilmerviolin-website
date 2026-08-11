@@ -56,6 +56,7 @@ const search: boolean = Astro.props.search || false;
     <form id="generic-form-id-entry" class="generic-form">
         <fieldset>
             <legend>Enter ID</legend>
+            <label for="form-id-entry-id" class="sr-only">Enter ID</label>
             <input type="text" id="form-id-entry-id" name="id" required />
             {
                 search ? (

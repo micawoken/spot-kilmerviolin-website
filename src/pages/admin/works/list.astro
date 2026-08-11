@@ -96,7 +96,7 @@ const formatted_compositions = enhanced_compositions.map(({ object, names }) => 
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>List Compositions</h2>
             <ListResults noun="work" enviro="admin" results={formatted_compositions} />
         </main>

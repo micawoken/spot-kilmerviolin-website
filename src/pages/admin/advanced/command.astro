@@ -43,7 +43,7 @@ export const prerender = false
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Database Terminal</h2>
             <p class="general-warning">
                 The terminal runs a command directly on the D1 SQLite database with no validation. A malformed or

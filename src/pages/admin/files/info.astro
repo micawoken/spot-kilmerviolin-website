@@ -75,7 +75,7 @@ function formatBytes(bytes: number): string {
 </head>
 <body>
     <AdminHeader identity={Astro.locals.identity} welcome={false}/>
-    <main class="admin-main" role="main">
+    <main id="admin-main-content" class="admin-main" role="main">
     <h2>View a File</h2>
     {
         use_key && file ? (

@@ -44,7 +44,7 @@ export const prerender = false
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Add a New Contributor</h2>
             <p class="general-warning">
                 This operation only creates a contributor record - this user will not be able to sign in. Use <a
