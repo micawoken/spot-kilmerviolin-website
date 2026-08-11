@@ -28,21 +28,21 @@ import { isFallbackEmail, generateFallbackEmail, resolveIdentityEmail, fallbackE
 
 describe("isFallbackEmail", () => {
     it("matches generated fallback addresses", () => {
-        expect(isFallbackEmail("fallback+first_last-8362@mwmsc.net")).toBe(true)
+        expect(isFallbackEmail("fallback+first_last-8362@fallback.invalid")).toBe(true)
         expect(isFallbackEmail(generateFallbackEmail("First Last"))).toBe(true)
     })
 
     it("matches the whole reserved namespace, not just the generated form", () => {
         // any local part beginning fallback+ at the reserved domain is reserved
-        expect(isFallbackEmail("fallback+@mwmsc.net")).toBe(true)
-        expect(isFallbackEmail("fallback+anything-goes-here@mwmsc.net")).toBe(true)
+        expect(isFallbackEmail("fallback+@fallback.invalid")).toBe(true)
+        expect(isFallbackEmail("fallback+anything-goes-here@fallback.invalid")).toBe(true)
         // case-insensitive and tolerant of surrounding whitespace
-        expect(isFallbackEmail("  FALLBACK+First_Last-1234@MWMSC.NET  ")).toBe(true)
+        expect(isFallbackEmail("  FALLBACK+First_Last-1234@FALLBACK.INVALID  ")).toBe(true)
     })
 
     it("does not match real addresses", () => {
-        expect(isFallbackEmail("person@mwmsc.net")).toBe(false)
-        expect(isFallbackEmail("fallback@mwmsc.net")).toBe(false) // no + subaddress
+        expect(isFallbackEmail("person@fallback.invalid")).toBe(false)
+        expect(isFallbackEmail("fallback@fallback.invalid")).toBe(false) // no + subaddress
         expect(isFallbackEmail("fallback+first_last-8362@example.com")).toBe(false) // wrong domain
         expect(isFallbackEmail("")).toBe(false)
     })
@@ -51,13 +51,13 @@ describe("isFallbackEmail", () => {
 describe("generateFallbackEmail", () => {
     it("slugifies the name: lowercase, spaces to underscores, other chars stripped", () => {
         const email = generateFallbackEmail("First Last")
-        expect(email).toMatch(/^fallback\+first_last-\d{4}@mwmsc\.net$/)
+        expect(email).toMatch(/^fallback\+first_last-\d{4}@fallback\.invalid$/)
     })
 
     it("strips characters that are not alphanumeric or underscore (including hyphens)", () => {
         // hyphens are stripped so the -{nnnn} suffix stays an unambiguous delimiter
         const email = generateFallbackEmail("Ada O'Neil-Smith, Jr.")
-        expect(email).toMatch(/^fallback\+ada_oneilsmith_jr-\d{4}@mwmsc\.net$/)
+        expect(email).toMatch(/^fallback\+ada_oneilsmith_jr-\d{4}@fallback\.invalid$/)
     })
 
     it("always ends with a four-digit suffix and the reserved domain", () => {
@@ -68,7 +68,7 @@ describe("generateFallbackEmail", () => {
 
     it("falls back to a stable local part when the name slugifies to nothing", () => {
         const email = generateFallbackEmail("！＠＃")
-        expect(email).toMatch(/^fallback\+contributor-\d{4}@mwmsc\.net$/)
+        expect(email).toMatch(/^fallback\+contributor-\d{4}@fallback\.invalid$/)
     })
 
     it("produces addresses recognized as fallback emails", () => {
