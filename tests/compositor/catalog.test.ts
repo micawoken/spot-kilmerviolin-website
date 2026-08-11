@@ -177,7 +177,8 @@ describe("TOKEN_PROPS", () => {
             Button: { variant: "buttonVariants", shadow: "shadows" },
             Image: { radius: "radius", border: "borders", shadow: "shadows" },
             ContentImage: { radius: "radius", border: "borders", shadow: "shadows" },
-            MediaText: { radius: "radius", border: "borders", shadow: "shadows" }
+            MediaText: { radius: "radius", border: "borders", shadow: "shadows" },
+            RelatedEntries: { typography: "typography" }
         })
     })
 
@@ -199,7 +200,12 @@ describe("tokenKindUsers", () => {
         // Pinned against TOKEN_PROPS' current shape (see the describe block above) — a change to which
         // components draw from "typography" should be visible here too, since the theme editor's
         // typography preview surfaces this list to the author.
-        expect(tokenKindUsers("typography")).toEqual(["Heading.typography", "ContentText.typography", "ContentField.typography"])
+        expect(tokenKindUsers("typography")).toEqual([
+            "Heading.typography",
+            "ContentText.typography",
+            "ContentField.typography",
+            "RelatedEntries.typography"
+        ])
         expect(tokenKindUsers("buttonVariants")).toEqual(["Button.variant"])
     })
 
@@ -470,6 +476,24 @@ describe("buildConfig — RelatedEntries reads related works from route context"
         const config = buildConfig(theme, "build")
         const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6 })
         expect(html).toBe("")
+    })
+
+    it("applies the authored typography token's vars to the heading", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [{ id: 1, name: "A Work", href: "/entity/work/1", composer: "" }]
+        })
+        const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6, typography: "display" })
+        expect(html).toContain('class="cmp-related__heading cmp-heading"')
+        expect(html).toContain("--dtk-type-display-family")
+    })
+
+    it("renders the pre-existing unstyled heading when typography is absent (design saved before this field existed)", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [{ id: 1, name: "A Work", href: "/entity/work/1", composer: "" }]
+        })
+        const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6 })
+        expect(html).toContain('class="cmp-related__heading cmp-heading"')
+        expect(html).not.toContain("--dtk-type-")
     })
 })
 

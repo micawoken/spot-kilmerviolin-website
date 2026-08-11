@@ -77,26 +77,31 @@ export function frameStyleVars(prefix: string, radius: string, border: string, s
  * `MediaText`'s pre-existing fixed flex-basis — each `defaultProps` preserves its own old behavior. */
 export type ImageSizePreset = "small" | "medium" | "large" | "full"
 
+/** The `--cmp-heading-*` local vars driven by a `typography` token, shared by every element that carries
+ *  the `.cmp-heading` class — `renderHeadingTag` below and `RelatedEntries`' own `<h2>`. `align` defaults
+ *  to "start", `.cmp-heading`'s own CSS fallback, so a caller that doesn't expose alignment (RelatedEntries)
+ *  can omit it without changing the rendered result. */
+function headingStyleVars(typography: string, align: string = "start"): Record<string, string> {
+    return {
+        "--cmp-heading-family": tokenVar("typography", typography, "family"),
+        "--cmp-heading-size": tokenVar("typography", typography, "size"),
+        "--cmp-heading-weight": tokenVar("typography", typography, "weight"),
+        "--cmp-heading-line-height": tokenVar("typography", typography, "line-height"),
+        "--cmp-heading-letter-spacing": tokenVar("typography", typography, "letter-spacing"),
+        "--cmp-heading-style": tokenVar("typography", typography, "style"),
+        "--cmp-heading-decoration": tokenVar("typography", typography, "decoration"),
+        "--cmp-heading-transform": tokenVar("typography", typography, "transform"),
+        "--cmp-heading-align": align
+    }
+}
+
 /** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text). Exported,
  * though not currently imported elsewhere — `renderButtonTag` below is the one actually reused by the
  * theme editor's live preview (`ThemePreview.tsx`). */
 export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
     const Tag = level
     return (
-        <Tag
-            className="cmp-heading"
-            style={vars({
-                "--cmp-heading-family": tokenVar("typography", typography, "family"),
-                "--cmp-heading-size": tokenVar("typography", typography, "size"),
-                "--cmp-heading-weight": tokenVar("typography", typography, "weight"),
-                "--cmp-heading-line-height": tokenVar("typography", typography, "line-height"),
-                "--cmp-heading-letter-spacing": tokenVar("typography", typography, "letter-spacing"),
-                "--cmp-heading-style": tokenVar("typography", typography, "style"),
-                "--cmp-heading-decoration": tokenVar("typography", typography, "decoration"),
-                "--cmp-heading-transform": tokenVar("typography", typography, "transform"),
-                "--cmp-heading-align": align
-            })}
-        >
+        <Tag className="cmp-heading" style={vars(headingStyleVars(typography, align))}>
             {text}
         </Tag>
     )
@@ -212,8 +217,18 @@ function RelatedWorkTileBody({ work }: { work: RelatedWork }) {
 
 /** The `RelatedEntries` tile grid: works related to the routed record, sliced to `limit`. With no
  * route context (editor previewing a template, not a fixed record), illustrative tiles stand in. On
- * build, `entries` is always defined — an empty list renders nothing, same auto-omit as the outlets. */
-export function renderRelatedEntriesTag(entries: RelatedWork[] | undefined, heading: string, limit: number, isEditorPreview: boolean) {
+ * build, `entries` is always defined — an empty list renders nothing, same auto-omit as the outlets.
+ *
+ * `typography` is a `typography` token name, or "" for the pre-existing unstyled (browser default `h2`)
+ * look — defaults to "" here, not just in `defaultProps`, so a design saved before this field existed
+ * (whose stored props lack it entirely) renders byte-for-byte as before. */
+export function renderRelatedEntriesTag(
+    entries: RelatedWork[] | undefined,
+    heading: string,
+    limit: number,
+    isEditorPreview: boolean,
+    typography: string = ""
+) {
     const isIllustrative = entries === undefined && isEditorPreview
     const source = isIllustrative ? ILLUSTRATIVE_RELATED_WORKS : entries
     if (!source || source.length === 0) return null // pages/posts template, or a record with no related works
@@ -223,7 +238,11 @@ export function renderRelatedEntriesTag(entries: RelatedWork[] | undefined, head
 
     return (
         <div className="cmp-related">
-            {heading && <h2 className="cmp-related__heading">{heading}</h2>}
+            {heading && (
+                <h2 className="cmp-related__heading cmp-heading" style={vars(headingStyleVars(typography))}>
+                    {heading}
+                </h2>
+            )}
             <ul className="cmp-related__grid">
                 {tiles.map((work) => (
                     <li key={work.id}>
