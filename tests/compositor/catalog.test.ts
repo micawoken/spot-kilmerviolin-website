@@ -628,7 +628,8 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         { slug: "publication_uri", label: "Publication Link", type: "uri" },
         { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
         { slug: "country", label: "Country", type: "countryCode" },
-        { slug: "citations", label: "Citations", type: "citations" }
+        { slug: "citations", label: "Citations", type: "citations" },
+        { slug: "email", label: "Email", type: "email" }
     ]
 
     // Shapes exactly as entity-records.ts's normalizer produces them (references pre-resolved, no
@@ -652,7 +653,8 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         publication_uri: { uriType: "https", uri: "https://example.test/score" },
         death_year: -1,
         country: "DE",
-        citations: { IMSLP: "https://imslp.org/wiki/Category:Bach,_Johann_Sebastian" }
+        citations: { IMSLP: "https://imslp.org/wiki/Category:Bach,_Johann_Sebastian" },
+        email: "second.violin@example.test"
     }
     const base = {
         label: "",
@@ -852,6 +854,159 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
             expect(html).not.toContain("cmp-field--")
         })
 
+    })
+
+    describe("prefix", () => {
+        it("prepends verbatim with no separator", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "birth_year", prefix: "b. " })
+            expect(html).toContain("b. 1990")
+        })
+
+        it("is absent by default, so designs stored before the prop existed are unaffected", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            // `base` deliberately omits prefix — the shape of an older stored design.
+            const html = render(config, "ContentField", { ...base, field: "birth_year" })
+            expect(html).toContain(">1990<")
+        })
+
+        it("is suppressed when the value is empty (doNothing)", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", prefix: "Bio: ", onEmpty: "doNothing" })
+            expect(html).not.toContain("Bio:")
+        })
+
+        it("is suppressed when the value is empty (hideLabel)", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "bio", prefix: "Bio: ", onEmpty: "hideLabel" })
+            expect(html).not.toContain("Bio:")
+        })
+
+        it("is suppressed even when a placeholder value is substituted", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "bio",
+                prefix: "Bio: ",
+                onEmpty: "placeholder",
+                emptyValue: "(none)"
+            })
+            expect(html).toContain("(none)")
+            expect(html).not.toContain("Bio:")
+        })
+    })
+
+    describe("forced hyperlink", () => {
+        it("wraps the value in an anchor to linkHref when forced", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "birth_year", forceLink: "yes", linkHref: "/works" })
+            expect(html).toContain('<a href="/works">1990</a>')
+        })
+
+        it("wraps prefix and value together inside the anchor", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "birth_year",
+                prefix: "b. ",
+                forceLink: "yes",
+                linkHref: "/works"
+            })
+            expect(html).toContain('<a href="/works">b. 1990</a>')
+        })
+
+        it("sanitizes an unsafe linkHref to #", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "birth_year",
+                forceLink: "yes",
+                linkHref: "javascript:alert(1)"
+            })
+            expect(html).toContain('href="#"')
+        })
+
+        it("does not link when forceLink is yes but linkHref is blank", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "birth_year", forceLink: "yes", linkHref: "" })
+            expect(html).not.toContain("<a ")
+            expect(html).toContain("1990")
+        })
+
+        it("is off by default, so designs stored before the prop existed are unaffected", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            // `base` deliberately omits forceLink/linkHref — the shape of an older stored design.
+            const html = render(config, "ContentField", { ...base, field: "birth_year" })
+            expect(html).not.toContain("<a ")
+        })
+
+        it("opens an internal linkHref in the same tab, automatically", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", { ...base, field: "birth_year", forceLink: "yes", linkHref: "/database" })
+            expect(html).toContain('href="/database"')
+            expect(html).not.toContain("target=")
+        })
+
+        it("opens an external linkHref in a new tab, automatically", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "birth_year",
+                forceLink: "yes",
+                linkHref: "https://imslp.org"
+            })
+            expect(html).toContain('target="_blank"')
+            expect(html).toContain('rel="noopener noreferrer"')
+        })
+
+        it("replaces (not nests inside) a reference field's own anchor", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "composer",
+                forceLink: "yes",
+                linkHref: "/override"
+            })
+            expect(html).toContain('<a href="/override">Jane Composer</a>')
+            expect(html).not.toContain("/entity/composer/5")
+            expect((html.match(/<a /g) ?? []).length).toBe(1)
+        })
+
+        it("replaces an email field's own mailto anchor", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "email",
+                forceLink: "yes",
+                linkHref: "/contact"
+            })
+            expect(html).toContain('<a href="/contact">second.violin@example.test</a>')
+            expect(html).not.toContain("mailto:")
+        })
+
+        it("is inert on a uri field — its own anchor renders, forced link is ignored", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "publication_uri",
+                forceLink: "yes",
+                linkHref: "/override"
+            })
+            expect(html).toContain('href="https://example.test/score"')
+            expect(html).not.toContain("/override")
+        })
+
+        it("is inert on a citations field — its own anchors render, forced link is ignored", () => {
+            const config = buildConfig(theme, "build", { entry, fields })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "citations",
+                forceLink: "yes",
+                linkHref: "/override"
+            })
+            expect(html).toContain("https://imslp.org/wiki/Category:Bach,_Johann_Sebastian")
+            expect(html).not.toContain("/override")
+        })
     })
 })
 
