@@ -654,62 +654,72 @@ This program is primarily distributed using the GNU Affero General Public Licens
 ## Third-Party Licenses
 This source code repository depends on the following third-party software packages. The table lists all immediate (direct) dependencies declared in `package.json`; transitive dependencies are not listed individually but are covered by the same license terms as the direct package that pulls them in. "Kind" distinguishes runtime dependencies from devDependencies (build/test tooling not included in the deployed Program).
 
-_Generated 2026-07-23 from `package.json` cross-referenced with `pnpm licenses list --json`; regenerate the same way to refresh this table._
+_Generated 2026-08-10 from `package.json` cross-referenced with `pnpm licenses list --json`; regenerate the same way to refresh this table._
 
 | Package                           | Kind          | License           | Declared range                     | Installed version | Author                  | Homepage                                                                                |
 | :-------------------------------- | :------------ | :---------------- | :--------------------------------- | :---------------- | :---------------------- | :-------------------------------------------------------------------------------------- |
-| @astrojs/check                    | dependency    | MIT               | ^0.9.9                             | 0.9.9             | withastro               | https://github.com/withastro/astro/tree/main/packages/language-tools/astro-check        |
-| @astrojs/cloudflare               | dependency    | MIT               | ^14.1.3                            | 14.1.3            | withastro               | https://docs.astro.build/en/guides/integrations-guide/cloudflare/                       |
-| @astrojs/markdoc                  | dependency    | MIT               | ^2.0.3                             | 2.0.3             | withastro               | https://docs.astro.build/en/guides/integrations-guide/markdoc/                          |
-| @astrojs/react                    | dependency    | MIT               | ^6.0.1                             | 6.0.1             | withastro               | https://docs.astro.build/en/guides/integrations-guide/react/                            |
+| @astrojs/check                    | dependency    | MIT               | ^0.9.10                            | 0.9.10            | withastro               | https://github.com/withastro/astro/tree/main/packages/language-tools/astro-check        |
+| @astrojs/cloudflare               | dependency    | MIT               | ^14.2.0                            | 14.2.0            | withastro               | https://docs.astro.build/en/guides/integrations-guide/cloudflare/                       |
+| @astrojs/markdoc                  | dependency    | MIT               | ^2.0.6                             | 2.0.6             | withastro               | https://docs.astro.build/en/guides/integrations-guide/markdoc/                          |
+| @astrojs/react                    | dependency    | MIT               | ^6.0.2                             | 6.0.2             | withastro               | https://docs.astro.build/en/guides/integrations-guide/react/                            |
 | @astrojs/rss                      | dependency    | MIT               | ^4.0.19                            | 4.0.19            | withastro               | https://astro.build                                                                     |
 | @astrojs/sitemap                  | dependency    | MIT               | ^3.7.3                             | 3.7.3             | withastro               | https://docs.astro.build/en/guides/integrations-guide/sitemap/                          |
-| @cloudflare/vitest-pool-workers   | devDependency | MIT               | ^0.18.6                            | 0.18.6            |                         | https://github.com/cloudflare/workers-sdk/tree/main/packages/vitest-pool-workers#readme |
-| @emdash-cms/cloudflare            | dependency    | MIT               | ^0.29.0                            | 0.29.0            | Matt Kane               | https://github.com/emdash-cms/emdash                                                    |
-| @lucide/astro                     | dependency    | ISC               | ^1.25.0                            | 1.25.0            | Moustapha Kebe          | https://lucide.dev                                                                      |
-| @playwright/test                  | devDependency | Apache-2.0        | ^1.61.1                            | 1.61.1            | Microsoft Corporation   | https://playwright.dev                                                                  |
-| @portabletext/react               | dependency    | MIT               | ~6.2.0                             | 6.2.0             | Sanity.io               | https://github.com/portabletext/react-portabletext#readme                               |
-| @puckeditor/core                  | dependency    | MIT               | ~0.22.2                            | 0.22.2            | Chris Villa             | https://puckeditor.com                                                                  |
-| @tiptap/core                      | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-blockquote      | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-bold            | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-code            | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-code-block      | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-document        | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-hard-break      | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-heading         | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-horizontal-rule | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-italic          | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-link            | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-list            | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-paragraph       | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-strike          | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-text            | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-text-align      | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/extension-underline       | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
-| @tiptap/html                      | dependency    | MIT               | ^3.28.0                            | 3.28.0            |                         | https://tiptap.dev                                                                      |
+| @cloudflare/vitest-pool-workers   | devDependency | MIT               | ^0.20.3                            | 0.20.3            |                         | https://github.com/cloudflare/workers-sdk/tree/main/packages/vitest-pool-workers#readme |
+| @emdash-cms/cloudflare            | dependency    | MIT               | ^0.32.0                            | 0.32.0            | Matt Kane               | https://github.com/emdash-cms/emdash                                                    |
+| @lucide/astro                     | dependency    | ISC               | ^1.31.0                            | 1.31.0            | Moustapha Kebe          | https://lucide.dev                                                                      |
+| @playwright/test                  | devDependency | Apache-2.0        | ^1.62.1                            | 1.62.1            | Microsoft Corporation   | https://playwright.dev                                                                  |
+| @portabletext/react               | dependency    | MIT               | ~7.0.1                             | 7.0.1             | Sanity.io               | https://github.com/portabletext/react-portabletext#readme                               |
+| @puckeditor/core                  | dependency    | MIT               | ~0.23.0                            | 0.23.0            | Chris Villa             | https://puckeditor.com                                                                  |
+| @tiptap/core                      | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-blockquote      | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-bold            | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-code            | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-code-block      | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-document        | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-hard-break      | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-heading         | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-horizontal-rule | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-italic          | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-link            | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-list            | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-paragraph       | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-strike          | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-text            | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-text-align      | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/extension-underline       | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
+| @tiptap/html                      | dependency    | MIT               | ^3.29.2                            | 3.29.2            |                         | https://tiptap.dev                                                                      |
 | @types/he                         | devDependency | MIT               | ^1.2.3                             | 1.2.3             |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/he                 |
-| @types/node                       | devDependency | MIT               | ^26.1.1                            | 26.1.1            |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node               |
-| @types/react                      | dependency    | MIT               | ^19.2.17                           | 19.2.17           |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react              |
-| @types/react-dom                  | dependency    | MIT               | ^19.2.3                            | 19.2.3            |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom          |
+| @types/node                       | devDependency | MIT               | ^26.2.0                            | 26.2.0            |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node               |
+| @types/react                      | dependency    | MIT               | ^19.2.18                           | 19.2.18           |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react              |
+| @types/react-dom                  | dependency    | MIT               | ^19.2.4                            | 19.2.4            |                         | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom          |
 | @typescript/native                | devDependency | Apache-2.0        | npm:typescript@^7.0.2              | 7.0.2             | Microsoft Corp.         | https://www.typescriptlang.org/                                                         |
-| astro                             | dependency    | MIT               | ^7.1.1                             | 7.1.1             | withastro               | https://astro.build                                                                     |
-| emdash                            | dependency    | MIT               | ^0.29.0                            | 0.29.0            | Matt Kane               | https://github.com/emdash-cms/emdash                                                    |
+| astro                             | dependency    | MIT               | ^7.2.0                             | 7.2.0             | withastro               | https://astro.build                                                                     |
+| emdash                            | dependency    | MIT               | ^0.32.0                            | 0.32.0            | Matt Kane               | https://github.com/emdash-cms/emdash                                                    |
 | he                                | dependency    | MIT               | ^1.2.0                             | 1.2.0             | Mathias Bynens          | https://mths.be/he                                                                      |
-| jose                              | dependency    | MIT               | ^6.2.3                             | 6.2.3             | Filip Skokan            | https://github.com/panva/jose                                                           |
+| jose                              | dependency    | MIT               | ^6.2.8                             | 6.2.8             | Filip Skokan            | https://github.com/panva/jose                                                           |
 | kysely                            | dependency    | MIT               | ^0.29.4                            | 0.29.4            | Sami Koskimäki          | https://kysely.dev                                                                      |
 | minisearch                        | dependency    | MIT               | ^7.2.0                             | 7.2.0             | Luca Ongaro             | https://lucaong.github.io/minisearch/                                                   |
 | pagefind                          | devDependency | MIT               | ^1.5.2                             | 1.5.2             | Pagefind                | https://github.com/Pagefind/pagefind#readme                                             |
-| prettier                          | devDependency | MIT               | ^3.9.5                             | 3.9.5             | James Long              | https://prettier.io                                                                     |
+| prettier                          | devDependency | MIT               | ^3.9.6                             | 3.9.6             | James Long              | https://prettier.io                                                                     |
 | prettier-plugin-astro             | devDependency | MIT               | ^0.14.1                            | 0.14.1            |                         | https://github.com/withastro/prettier-plugin-astro/                                     |
-| react                             | dependency    | MIT               | ^19.2.7                            | 19.2.7            |                         | https://react.dev/                                                                      |
-| react-dom                         | dependency    | MIT               | ^19.2.7                            | 19.2.7            |                         | https://react.dev/                                                                      |
+| react                             | dependency    | MIT               | ^19.2.8                            | 19.2.8            |                         | https://react.dev/                                                                      |
+| react-dom                         | dependency    | MIT               | ^19.2.8                            | 19.2.8            |                         | https://react.dev/                                                                      |
 | sharp                             | devDependency | Apache-2.0        | ^0.35.3                            | 0.35.3            | Lovell Fuller           | https://sharp.pixelplumbing.com                                                         |
-| typescript                        | devDependency | Apache-2.0        | npm:@typescript/typescript6@^6.0.2 | 6.0.2             | Microsoft Corp.         | https://www.typescriptlang.org/                                                         |
+| typescript                        | devDependency | Apache-2.0        | npm:@typescript/typescript6@^6.0.2 | 6.0.3             | Microsoft Corp.         | https://www.typescriptlang.org/                                                         |
 | vitest                            | devDependency | MIT               | ^4.1.10                            | 4.1.10            | Anthony Fu              | https://vitest.dev                                                                      |
-| wrangler                          | devDependency | MIT OR Apache-2.0 | ^4.112.0                           | 4.112.0           | wrangler@cloudflare.com | https://github.com/cloudflare/workers-sdk#readme                                        |
+| wrangler                          | devDependency | MIT OR Apache-2.0 | ^4.120.0                           | 4.120.0           | wrangler@cloudflare.com | https://github.com/cloudflare/workers-sdk#readme                                        |
 
 Three license types are in use above: MIT, Apache License 2.0, and ISC. Full texts follow.
+
+### Self-hosted fonts
+
+This repository also self-hosts (vendors) the following typefaces as static font files, separate from the npm packages listed above. Each is licensed under the SIL Open Font License, version 1.1, whose full text follows.
+
+| Font                                     | Files                                                                          | License | Author(s)                  | Homepage              |
+| :---------------------------------------- | :------------------------------------------------------------------------------- | :------- | :--------------------------- | :---------------------- |
+| Inter (admin UI typeface, variable font) | `public/fonts/InterVariable.woff2`, `public/fonts/InterVariable-Italic.woff2` | OFL-1.1 | The Inter Project Authors  | https://rsms.me/inter/ |
+
+Public-facing theme fonts (`public/fonts/theme/*.woff2`) are self-hosted at build time from Google Fonts, per the site's Design theme configuration (`lib/build/theme-fonts.ts`); the specific families vary by deployment and are downloaded from Google Fonts, each under its own upstream open-source license (typically OFL-1.1 or Apache-2.0), rather than vendored in source control.
 
 ### The MIT License (MIT)
 
@@ -918,3 +928,93 @@ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+### SIL Open Font License
+
+Version 1.1, 26 February 2007
+
+#### Preamble
+
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+#### Definitions
+
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical writer
+or other person who contributed to the Font Software.
+
+#### Permission and Conditions
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1. Neither the Font Software nor any of its individual components, in
+Original or Modified Versions, may be sold by itself.
+
+2. Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3. No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4. The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any Modified
+Version, except to acknowledge the contribution(s) of the Copyright
+Holder(s) and the Author(s) or with their explicit written permission.
+
+5. The Font Software, modified or unmodified, in part or in whole, must
+be distributed entirely under this license, and must not be distributed
+under any other license. The requirement for fonts to remain under this
+license does not apply to any document created using the Font Software.
+
+#### Termination
+
+This license becomes null and void if any of the above conditions are not
+met.
+
+#### Disclaimer
+
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
