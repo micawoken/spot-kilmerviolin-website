@@ -81,6 +81,8 @@ import type { CollectionField } from "../build/design-api"
 // entity-records.ts's build-side functions.
 import type { RelatedWork } from "../build/entity-records"
 import { mediaPickerRender } from "./catalog-media-picker"
+import { renderRichTextInlineMenu, renderRichTextMenu, richTextLinkSelector } from "./catalog-richtext-link"
+import { COMPOSITOR_LINK } from "./richtext-extensions"
 import {
     DEFAULT_RELATED_LIMIT,
     fieldPlacementClass,
@@ -629,9 +631,23 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
         RichText: {
             label: "Rich text",
             fields: {
-                // Editor: the native richtext field (ProseMirror working value). Build: a passthrough so the
-                // render receives the raw PT array (see header — Puck would otherwise blank it at build).
-                body: isEditor ? { type: "richtext" as const, label: "Body" } : { type: "text" as const, label: "Body" }
+                // Editor: the native richtext field (ProseMirror working value), with a link control added
+                // beside Puck's own toolbar (catalog-richtext-link.tsx) — Puck's stock richtext field has
+                // none. `options.link: false` (not `{...}`) because Puck calls `Link.configure(options.link)`,
+                // which deep-merges onto Tiptap's `target: "_blank"` default rather than clearing it;
+                // COMPOSITOR_LINK is the one Link extension actually used, supplied via `tiptap.extensions`.
+                // Build: a passthrough so the render receives the raw PT array (see header — Puck would
+                // otherwise blank it at build).
+                body: isEditor
+                    ? {
+                          type: "richtext" as const,
+                          label: "Body",
+                          options: { link: false },
+                          tiptap: { extensions: [COMPOSITOR_LINK], selector: richTextLinkSelector },
+                          renderMenu: renderRichTextMenu,
+                          renderInlineMenu: renderRichTextInlineMenu
+                      }
+                    : { type: "text" as const, label: "Body" }
             },
             defaultProps: { body: [] },
             render: ({ body }: RichTextProps) => (
