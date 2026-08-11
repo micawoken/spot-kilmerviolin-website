@@ -90,6 +90,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composition-name" class="sr-only">Name</label>
                     <input
                         type="text"
                         id="form-composition-name"
@@ -122,6 +123,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composition-composer_id" class="sr-only">Composer</label>
                     {/* single ID fields are integers; use a number input with an integer step to enforce that client-side */}
                     <input
                         type="number"
@@ -161,6 +163,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Secondary Authors</legend>
                 <div class="field-row">
+                    <label for="form-composition-author_secondary" class="sr-only">Secondary Authors</label>
                     <input
                         type="text"
                         id="form-composition-author_secondary"
@@ -188,6 +191,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <h3 class="form-section-title">Notes</h3>
             <fieldset>
                 <legend>Historical Notes</legend>
+                <label for="form-composition-notes_historical" class="sr-only">Historical Notes</label>
                 <textarea id="form-composition-notes_historical" name="notes_historical"
                     >{composition?.notes_historical ?? ""}</textarea
                 >
@@ -209,6 +213,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Pedagogical Notes</legend>
+                <label for="form-composition-notes_pedagogical" class="sr-only">Pedagogical Notes</label>
                 <textarea id="form-composition-notes_pedagogical" name="notes_pedagogical"
                     >{composition?.notes_pedagogical ?? ""}</textarea
                 >
@@ -230,6 +235,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Other Notes</legend>
+                <label for="form-composition-notes_other" class="sr-only">Other Notes</label>
                 <textarea id="form-composition-notes_other" name="notes_other"
                     >{composition?.notes_other ?? ""}</textarea
                 >
@@ -263,6 +269,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     }</legend
                 >
                 <div class="field-row">
+                    <label for="form-composition-type" class="sr-only">Composition Type</label>
                     <select id="form-composition-type" name="type" class="form-config-horizflow" required={required}>
                         {
                             work_types.map((type) => (
@@ -286,6 +293,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Part</legend>
                 <div class="field-row">
+                    <label for="form-composition-part" class="sr-only">Part</label>
                     <input type="text" id="form-composition-part" name="part" value={composition?.part ?? ""} />
                     {
                         patch ? (
@@ -304,6 +312,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Key</legend>
                 <div class="field-row">
+                    <label for="form-composition-key" class="sr-only">Key</label>
                     <select id="form-composition-key" name="key" class="form-config-horizflow">
                         <option value="" selected={!composition?.key}>None</option>
                         {
@@ -328,6 +337,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Range</legend>
                 <div class="field-row">
+                    <label for="form-composition-range" class="sr-only">Range</label>
                     <input type="text" id="form-composition-range" name="range" value={composition?.range ?? ""} />
                     {
                         patch ? (
@@ -343,6 +353,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Highest Position</legend>
                 <div class="field-row">
+                    <label for="form-composition-position_highest" class="sr-only">Highest Position</label>
                     <input
                         type="text"
                         id="form-composition-position_highest"
@@ -498,6 +509,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <fieldset>
                     <legend>Primary Contributor</legend>
                     <div class="field-row">
+                        <label for="form-composition-contrib_primary_1" class="sr-only">Primary Contributor</label>
                         <input
                             type="number"
                             step="1"
@@ -536,6 +548,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <fieldset>
                     <legend>Additional Contributors</legend>
                     <div class="field-row">
+                        <label for="form-composition-contrib_addl" class="sr-only">Additional Contributors</label>
                         <input
                             type="text"
                             id="form-composition-contrib_addl"
@@ -565,6 +578,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <fieldset>
                     <legend>Additional Primary Contributor</legend>
                     <div class="field-row">
+                        <label for="form-composition-contrib_primary_2" class="sr-only">
+                            Additional Primary Contributor
+                        </label>
                         <input
                             type="number"
                             step="1"
@@ -604,6 +620,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Phases</legend>
                 <div class="field-row">
+                    <label for="form-composition-phases" class="sr-only">Phases</label>
                     <input type="text" id="form-composition-phases" name="phases" value={joined(composition?.phases)} />
                     <small class="general-infohelp field-inline-help">comma-separated numbers</small>
                     {
@@ -627,6 +644,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Image URL</legend>
                 <div class="field-row">
+                    <label for="form-composition-image" class="sr-only">Image URL</label>
                     <input type="url" id="form-composition-image" name="image" value={composition?.image ?? ""} />
                     <small class="general-infohelp field-inline-help"
                         >Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a
@@ -657,6 +675,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Tags</legend>
                 <div class="field-row">
+                    <label for="form-composition-tags" class="sr-only">Tags</label>
                     <input type="text" id="form-composition-tags" name="tags" value={joined(composition?.tags)} />
                     <small class="general-infohelp field-inline-help">comma-separated</small>
                     {
@@ -676,6 +695,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Citations</legend>
                 <div class="field-row field-row-textarea">
+                    <label for="form-composition-citations" class="sr-only">Citations</label>
                     <textarea
                         id="form-composition-citations"
                         name="citations"

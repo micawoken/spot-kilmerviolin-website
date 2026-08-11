@@ -93,8 +93,8 @@ const authorized = contributor !== null && "identity_email" in contributor
                     elements are ALWAYS present (with placeholder markers when unset) so the client-side
                     READ flow (populateInfo) can fill them; conditionally omitting them would leave
                     populateInfo with no target and strand the SSR placeholder text in the DOM. */}
-                <p id="contributor-class_year">{disp(contributor?.class_year, "(no class year set)")}</p>
-                <p id="contributor-major">{disp(contributor?.major, "(no major set)")}</p>
+                <p id="contributor-class_year">Class year: {disp(contributor?.class_year, "(no class year set)")}</p>
+                <p id="contributor-major">Major: {disp(contributor?.major, "(no major set)")}</p>
                 <p id="contributor-phases">Phases {disp(contributor?.phases, "(no phases specified)")}</p>
             </div>
             {/* the bio sits directly below the class line within the header */}

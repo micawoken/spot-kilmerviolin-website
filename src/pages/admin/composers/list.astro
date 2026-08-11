@@ -70,7 +70,7 @@ const formatted_composers = composers.map((composer) => ({
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>List Composers</h2>
             <ListResults noun="composer" enviro="admin" results={formatted_composers} />
         </main>

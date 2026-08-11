@@ -58,7 +58,7 @@ function formatBytes(bytes: number): string {
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>List Files</h2>
             <p class="general-infohelp">
                 Files are either bundled <strong>local</strong> assets (src/files, served from the build) or uploaded <strong

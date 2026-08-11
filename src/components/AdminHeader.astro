@@ -35,8 +35,12 @@ const display_name = identity?.userinfo?.ok ? identity.userinfo.name : identity?
 const name_defined = identity?.userinfo?.ok || identity?.email
 ---
 
+{/* the first focusable element on every admin page (this component is rendered at the top of <body> on
+    every admin page and layout — see AdminDocument.astro/DocInfo.astro and the ~60 hand-rolled admin
+    pages, all of which give their <main> the matching id="admin-main-content") */}
+<a class="skip-link" href="#admin-main-content">Skip to content</a>
 <header role="banner">
-    <h1><a href="/admin" style="outline: none;">Administrative Services</a></h1>
+    <h1><a href="/admin">Administrative Services</a></h1>
     <nav class="admin-header-actions" aria-label="Account">
         <span class="admin-header-name">{name_defined ? display_name : "Unknown user"}</span>
         <span class="admin-header-sep" aria-hidden="true">&middot;</span>

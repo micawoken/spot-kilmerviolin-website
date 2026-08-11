@@ -48,7 +48,7 @@ if (denied) {
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Purge the Database Cache</h2>
             <p class="general-warning">
                 Unless you encounter stale data, you should not purge the cache. The cache will automatically update

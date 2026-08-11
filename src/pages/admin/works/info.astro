@@ -87,7 +87,7 @@ const imageAlt = await resolveEntityImageAlt(
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>View a Composition</h2>
             <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
             <CompositionInfo

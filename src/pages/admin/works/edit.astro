@@ -80,7 +80,7 @@ const prefill_failed = Boolean(id) && !use_id
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Edit a Composition</h2>
             <p class="general-infohelp">
                 Only the primary contributors of a composition (or users with the reviewer role) may edit it.

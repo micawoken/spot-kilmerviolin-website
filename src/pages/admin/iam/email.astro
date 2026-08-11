@@ -47,7 +47,7 @@ const prefill_email = emailFromParam(Astro.url)
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Change a User's Login Email</h2>
             <p class="general-infohelp">
                 Changes the login (identity) email for the contributor record with the provided current email. This

@@ -76,6 +76,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Name{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
                 <div class="field-row">
+                    <label for="form-contributors-name" class="sr-only">Name</label>
                     <input type="text" id="form-contributors-name" name="name" required={required} value={contributor?.name ?? ""} />
                     {
                         patch ? (
@@ -93,6 +94,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <div class="field-row">
                     {/* class_year is a nullable column: a blank input is submitted as null. Optionality is
                         conveyed by the absence of a required (*) marker, not a placeholder. */}
+                    <label for="form-contributors-class_year" class="sr-only">Class Year</label>
                     <input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
                     {
                         patch ? (
@@ -109,6 +111,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <legend>Major</legend>
                 <div class="field-row">
                     {/* major is a nullable column: a blank input is submitted as null */}
+                    <label for="form-contributors-major" class="sr-only">Major</label>
                     <input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
                     {
                         patch ? (
@@ -124,6 +127,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Public Email</legend>
                 <div class="field-row">
+                    <label for="form-contributors-public_email" class="sr-only">Public Email</label>
                     <input type="email" id="form-contributors-public_email" name="public_email" value={contributor?.public_email ?? ""} />
                     {
                         patch ? (
@@ -140,6 +144,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 <legend>Phases</legend>
                 <div class="field-row">
                     {/* phases is a nullable column: a blank input is submitted as null */}
+                    <label for="form-contributors-phases" class="sr-only">Phases</label>
                     <input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
                     <small class="general-infohelp field-inline-help">comma-separated numbers</small>
                     {
@@ -158,6 +163,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <h3 class="form-section-title">Biography</h3>
             <fieldset>
                 <legend>Biography</legend>
+                <label for="form-contributors-bio" class="sr-only">Biography</label>
                 <textarea id="form-contributors-bio" name="bio">{contributor?.bio ?? ""}</textarea>
                 {
                     patch ? (
@@ -174,6 +180,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Image URL</legend>
                 <div class="field-row">
+                    <label for="form-contributors-image" class="sr-only">Image URL</label>
                     <input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
                     <small class="general-infohelp field-inline-help">Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.</small>
                     {
@@ -205,6 +212,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     <fieldset>
                         <legend>Identity Email</legend>
                         <div class="field-row">
+                            <label for="form-contributors-identity_email" class="sr-only">Identity Email</label>
                             <input type="email" id="form-contributors-identity_email" name="identity_email" value={contributor?.identity_email ?? ""} />
                             {
                                 patch ? (
@@ -228,6 +236,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     <fieldset>
                         <legend>Roles</legend>
                         <div class="field-row">
+                            <label for="form-contributors-roles" class="sr-only">Roles</label>
                             <input type="text" id="form-contributors-roles" name="roles" placeholder="role1,role2,role3" value={joined(contributor?.roles)} />
                             <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
                         </div>
@@ -239,6 +248,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Active Status</legend>
                 <div class="field-row">
+                    <label for="form-contributors-active" class="sr-only">Active Status</label>
                     <select id="form-contributors-active" name="active">
                         <option value="true" selected={contributor?.active === true}>Active</option>
                         <option value="false" selected={contributor ? contributor.active === false : true}>Inactive</option>
@@ -261,6 +271,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     <fieldset>
                         <legend>Account Type</legend>
                         <div class="field-row">
+                            <label for="form-contributors-admin" class="sr-only">Account Type</label>
                             {/* the option values stay the literal admin booleans ("true"/"false") so this still
                                 maps to the `admin` field sent to the API; only the labels are humanized */}
                             <select id="form-contributors-admin" name="admin">
@@ -283,6 +294,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <fieldset>
                 <legend>Tags</legend>
                 <div class="field-row">
+                    <label for="form-contributors-tags" class="sr-only">Tags</label>
                     <input type="text" id="form-contributors-tags" name="tags" value={joined(contributor?.tags)} />
                     <small class="general-infohelp field-inline-help">comma-separated</small>
                     {

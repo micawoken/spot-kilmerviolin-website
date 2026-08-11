@@ -46,7 +46,7 @@ const is_admin = Astro.locals.identity?.admin === true
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Delete a Composition</h2>
             <p class="general-warning">
                 Deletion is permanent. Only the primary contributors of a composition (or users with the reviewer role)

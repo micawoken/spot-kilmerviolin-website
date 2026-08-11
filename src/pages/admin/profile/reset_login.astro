@@ -44,7 +44,7 @@ const has_record = identity?.id !== undefined && identity?.id !== null
 </head>
 <body>
     <AdminHeader identity={identity} welcome={false}/>
-    <main class="admin-main" role="main">
+    <main id="admin-main-content" class="admin-main" role="main">
     <h2>Change Sign-In Email</h2>
     {
         has_record ? (

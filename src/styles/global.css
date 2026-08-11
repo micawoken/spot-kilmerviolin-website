@@ -99,8 +99,28 @@ h2 {
 .hidden {
 	display: none;
 }
-/*
- .sr-only {
+/* Skip-to-content link: the first focusable element on every public/admin page, so a keyboard user
+ * doesn't have to tab through the header nav to reach the main content. Off-screen until focused,
+ * mirroring the pattern already used on the CMS-outage fallback page (lib/templates/error.html). */
+.skip-link {
+	position: absolute;
+	left: -9999px;
+	top: 0;
+	background: var(--color-bg);
+	color: var(--color-link);
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--shade-7);
+	border-radius: 4px;
+	z-index: 100;
+}
+.skip-link:focus {
+	left: 0.5rem;
+	top: 0.5rem;
+}
+
+/* visually hides content while keeping it exposed to assistive technology (e.g. a form label whose
+   visible text already appears elsewhere, such as a fieldset's own legend) */
+.sr-only {
 	border: 0;
 	padding: 0;
 	margin: 0;
@@ -108,16 +128,10 @@ h2 {
 	height: 1px;
 	width: 1px;
 	overflow: hidden;
-	/* IE6, IE7 - a 0 height clip, off to the bottom right of the visible 1px box 
-	clip: rect(1px 1px 1px 1px);
-	/* maybe deprecated but we need to support legacy browsers 
-	clip: rect(1px, 1px, 1px, 1px);
-	/* modern browsers, clip-path works inwards from each corner
+	clip: rect(1px, 1px, 1px, 1px); /* legacy browsers; clip-path below is the modern replacement */
 	clip-path: inset(50%);
-	/* added line to stop words getting smushed together (as they go onto separate lines and some screen readers do not understand line feeds as a space
-	white-space: nowrap;
+	white-space: nowrap; /* keep words from merging together for screen readers that ignore line breaks */
 }
-*/
 
 input, textarea, select, button {
   font-family: inherit;

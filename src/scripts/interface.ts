@@ -182,6 +182,23 @@ function toggleContributorAuthSection(record: object): void {
     document.getElementById("contributor-authinfo")?.classList.toggle("hidden", !("identity_email" in record))
 }
 
+/**
+ * Static label prefixes for the compact "infoline" fields in the entity Info components' read view
+ * (composer role/country, contributor class year/major, composition type/part), keyed by element id.
+ * These fields have no visible label of their own otherwise (mirrors the "ID #"/"Phases" prefixing
+ * elsewhere in populateInfo) — without one, a screen reader user hears an unlabeled value with no
+ * indication of what it represents. Kept in sync with the matching SSR render in ComposerInfo.astro,
+ * ContributorInfo.astro, and CompositionInfo.astro.
+ */
+const READ_INFOLINE_LABELS: Partial<Record<string, string>> = {
+    "composer-role": "Role: ",
+    "composer-country": "Country: ",
+    "contributor-class_year": "Class year: ",
+    "contributor-major": "Major: ",
+    "composition-type": "Work type: ",
+    "composition-part": "Part: "
+}
+
 export async function populateInfo(
     noun: keyof typeof interface_data,
     data: object,
@@ -271,6 +288,12 @@ export async function populateInfo(
                         ? "(no phases specified)"
                         : String(value)
             elem.textContent = `Phases ${body}`
+            continue
+        }
+        // static infoline labels (role, country, class year, major, work type, part) precede the generic
+        // assignment below so their prefix survives a live lookup — see READ_INFOLINE_LABELS
+        if (force_prefix === undefined && elem_id in READ_INFOLINE_LABELS) {
+            elem.textContent = READ_INFOLINE_LABELS[elem_id] + formatInfoValue(type_name, key, value, true)
             continue
         }
         // mirror the SSR `disp` helper in the entity Info components: a null/undefined/blank/empty-array

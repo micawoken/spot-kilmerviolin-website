@@ -53,6 +53,7 @@ const hidden: boolean = Astro.props.hidden ?? false
             database_select ? (
                 <fieldset>
                     <legend>Database</legend>
+                    <label for={`${id_prefix}-database`} class="sr-only">Database</label>
                     <select id={`${id_prefix}-database`}>
                         <option value="">All databases</option>
                         <option value="compositions">Compositions</option>
@@ -64,6 +65,7 @@ const hidden: boolean = Astro.props.hidden ?? false
         }
         <fieldset>
             <legend>{label}</legend>
+            <label for={`${id_prefix}-input`} class="sr-only">{label}</label>
             <input type="text" id={`${id_prefix}-input`} name="keyword" />
         </fieldset>
         <button type="submit" id={`${id_prefix}-button`}>Search</button>

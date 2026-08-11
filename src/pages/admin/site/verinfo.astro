@@ -124,7 +124,7 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
     </head>
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
-        <main class="admin-main" role="main">
+        <main id="admin-main-content" class="admin-main" role="main">
             <h2>Site Information</h2>
             <div class="entity-result-container site-info-card">
                 <h3 class="entity-result-name">Site Information</h3>
