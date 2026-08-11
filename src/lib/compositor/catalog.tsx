@@ -193,7 +193,8 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     Button: { variant: "buttonVariants", shadow: "shadows" },
     Image: { radius: "radius", border: "borders", shadow: "shadows" },
     ContentImage: { radius: "radius", border: "borders", shadow: "shadows" },
-    MediaText: { radius: "radius", border: "borders", shadow: "shadows" }
+    MediaText: { radius: "radius", border: "borders", shadow: "shadows" },
+    RelatedEntries: { typography: "typography" }
 }
 
 /**
@@ -434,6 +435,8 @@ interface PagefindSearchProps {
 interface RelatedEntriesProps {
     heading: string
     limit: number
+    /** a `typography` token name, or "" for no styling (the pre-existing, unstyled default). */
+    typography: string
 }
 interface MediaTextProps {
     field: string
@@ -793,11 +796,12 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             label: "Related entries",
             fields: {
                 heading: { type: "text" as const, label: "Heading" },
-                limit: { type: "number" as const, label: "Max tiles to show" }
+                limit: { type: "number" as const, label: "Max tiles to show" },
+                typography: tokenSelect(theme, "typography", "Heading typography", true)
             },
-            defaultProps: { heading: "Related Works", limit: DEFAULT_RELATED_LIMIT },
-            render: ({ heading, limit }: RelatedEntriesProps) =>
-                renderRelatedEntriesTag(context?.relatedEntries, heading, limit, isEditor)
+            defaultProps: { heading: "Related Works", limit: DEFAULT_RELATED_LIMIT, typography: "" },
+            render: ({ heading, limit, typography }: RelatedEntriesProps) =>
+                renderRelatedEntriesTag(context?.relatedEntries, heading, limit, isEditor, typography || "")
         },
         PagefindSearch: {
             label: "Search box",
