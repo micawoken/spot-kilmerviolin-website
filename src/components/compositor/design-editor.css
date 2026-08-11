@@ -150,17 +150,21 @@
     justify-content: space-between;
 }
 
-.design-editor__drawer label {
+.design-editor__drawer label,
+.design-editor__modal label {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.9rem;
 }
 
-/* The fields read as inset into the drawer panel: --color-bg is a step DOWN from the drawer's --shade-2
- * on dark (#1a1a1a into #262626) and the familiar white-on-gray on light. One token, both behaviors. */
+/* The fields read as inset into the drawer/modal panel: --color-bg is a step DOWN from --shade-2 on dark
+ * (#1a1a1a into #262626) and the familiar white-on-gray on light. One token, both behaviors. */
 .design-editor__drawer input,
-.design-editor__drawer textarea {
+.design-editor__drawer textarea,
+.design-editor__modal input,
+.design-editor__modal select,
+.design-editor__modal textarea {
     padding: 0.4rem;
     font: inherit;
     color: var(--color-text);
