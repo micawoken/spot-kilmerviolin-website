@@ -57,7 +57,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.20.3",
+    "@cloudflare/vitest-pool-workers": "^0.21.0",
     "@playwright/test": "^1.62.1",
     "@types/he": "^1.2.3",
     "@types/node": "^26.2.0",
