@@ -702,10 +702,11 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         expect(html).not.toContain(">Name<")
     })
 
-    it("hides the label when showLabel is no", () => {
+    it("visually hides the label when showLabel is no, but keeps it for assistive tech", () => {
         const config = buildConfig(theme, "build", { entry, fields })
         const html = render(config, "ContentField", { ...base, field: "name", showLabel: "no" })
-        expect(html).not.toContain("cmp-field__label")
+        expect(html).not.toContain('class="cmp-field__label"')
+        expect(html).toContain("cmp-field__label sr-only")
         expect(html).toContain("Ada")
     })
 

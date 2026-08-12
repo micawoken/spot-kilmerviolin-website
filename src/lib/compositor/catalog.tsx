@@ -1033,7 +1033,14 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     !rendersOwnAnchors(value, catalogField?.type)
                 const formatted =
                     empty && onEmpty === "placeholder" ? emptyValue : formatFieldValue(value, catalogField?.type, linked)
-                const hideLabel = showLabel === "no" || displayLabel === "" || (empty && onEmpty === "hideLabel")
+                const labelSuppressed = displayLabel === "" || (empty && onEmpty === "hideLabel")
+                const hideLabel = showLabel === "no" || labelSuppressed
+                // An author-chosen showLabel:"no" hides the label visually but the field still has
+                // a real accessible name (WCAG 1.3.1) — render it off-screen instead of dropping it
+                // entirely. When the label is suppressed for its own reasons (blank label text, or
+                // onEmpty:"hideLabel" on an empty value) there's nothing meaningful to announce, so no
+                // sr-only fallback is rendered either.
+                const srOnlyLabel = showLabel === "no" && !labelSuppressed
                 // Prefix is used verbatim (a trailing space is how an author encodes "Op. ") and
                 // suppressed on empty so every onEmpty outcome, including "placeholder", renders without it.
                 const prefixText = !empty && prefix ? prefix : ""
@@ -1060,6 +1067,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     >
                         {!hideLabel && (
                             <strong className="cmp-field__label" data-pagefind-ignore="all">
+                                {displayLabel}
+                            </strong>
+                        )}
+                        {srOnlyLabel && (
+                            <strong className="cmp-field__label sr-only" data-pagefind-ignore="all">
                                 {displayLabel}
                             </strong>
                         )}
