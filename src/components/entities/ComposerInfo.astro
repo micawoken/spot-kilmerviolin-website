@@ -69,7 +69,7 @@ const dispDeath = (value: number | null | undefined): string =>
                 {/* data-bearing elements carry the composer-{key} id used by populateInfo; birth/death are split into
                     their own spans (the ndash stays as static text) so each maps to a single record key */}
                 <strong
-                    >Country: <span id="composer-country"
+                    ><span class="sr-only">Country: </span><span id="composer-country"
                         >{
                             disp(
                                 composer?.country ? countryCodeName(composer.country) : composer?.country,
@@ -78,12 +78,12 @@ const dispDeath = (value: number | null | undefined): string =>
                         }</span
                     ></strong
                 >
-                <p id="composer-role">Role: {disp(composer?.role, "(role not provided)")}</p>
+                <p id="composer-role"><span class="sr-only">Role: </span>{disp(composer?.role, "(role not provided)")}</p>
                 {/* the label sits in the wrapping <p>, not either id'd span, so a client-side lookup
                     (populateInfo, which sets textContent directly on #composer-birth_year/#composer-death_year)
                     cannot clobber it */}
                 <p id="composer-details-infoline-birthdeath">
-                    Years active: <span id="composer-birth_year"
+                    <span class="sr-only">Years active: </span><span id="composer-birth_year"
                         >{disp(composer?.birth_year, "(birth year not provided)")}</span
                     >&ndash;<span id="composer-death_year">{dispDeath(composer?.death_year)}</span>
                 </p>

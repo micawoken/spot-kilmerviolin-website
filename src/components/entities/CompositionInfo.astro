@@ -70,8 +70,8 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                 so populateInfo can still fill it. */}
             <div id="composition-details-infoline">
                 <p id="composition-id">ID #{composition?.id}</p>
-                <p id="composition-type">Work type: {disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}</p>
-                <p id="composition-part">Part: {disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}</p>
+                <p id="composition-type"><span class="sr-only">Work Type: </span>{disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}</p>
+                <p id="composition-part"><span class="sr-only">Part: </span>{disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}</p>
             </div>
         </div>
         <div id="composition-image-container" class="entity-result-image-container">
