@@ -1079,6 +1079,14 @@ header[role="banner"] + .callout-emphasis {
 .list-result-container.list-result-self {
 	background: var(--shade-3);
 }
+/* --color-text-muted only reaches ~4.2:1 on --shade-3 (below the 4.5:1 AA minimum for this small
+ * text), even though it passes comfortably on every other background it's used against; the darker
+ * --color-text-secondary clears shade-3 with room to spare, so scope the fix to this tinted card
+ * rather than changing the muted token everywhere. */
+.list-result-container.list-result-self .list-result-id,
+.list-result-container.list-result-self .list-result-self-tag {
+	color: var(--color-text-secondary);
+}
 
 /* de-emphasized "(you)" marker on the caller's own card, anchored bottom-right (mirroring the
  * bottom-left edit link) in the same small text style; bottom-right is otherwise unoccupied */

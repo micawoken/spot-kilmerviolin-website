@@ -301,7 +301,7 @@
     margin-block: 0.25rem 0.5rem;
     max-width: 60ch;
     font-size: 0.9em;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 /* Rows of fields (typography, spacing, button variants, …) used to be a `<table>`: one column per
@@ -343,7 +343,7 @@
 .theme-editor__field-label {
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 /* A boolean field (italic/bold/…) is one inline control, not a caption stacked over a cell — the
@@ -355,7 +355,7 @@
     gap: 0.4rem;
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 .theme-editor__row input,
@@ -593,7 +593,7 @@
     flex: 0 0 auto;
     width: 1.1rem;
     height: 1.1rem;
-    border: 1px solid var(--shade-6);
+    border: 1px solid var(--shade-7);
     border-radius: 0.15rem;
 }
 
@@ -623,7 +623,7 @@
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 .theme-preview__grid {
@@ -647,7 +647,7 @@
 
 .theme-preview__caption {
     font-size: 0.75rem;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 /* Colors, in context: the color as a background, real page text laid over it. */
@@ -762,7 +762,7 @@
 .theme-preview__scale-value {
     font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
     white-space: nowrap;
 }
 
@@ -817,7 +817,7 @@
     border: none;
     background: var(--color-bg);
     font-size: 0.8rem;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
     cursor: pointer;
 }
 
@@ -871,7 +871,7 @@
 .theme-preview__contrast-swatch[data-empty="true"] {
     align-items: center;
     background: var(--shade-1);
-    color: var(--shade-6);
+    color: var(--color-text-muted);
     font-size: 0.75rem;
     text-align: center;
 }
@@ -903,7 +903,7 @@
 
 .theme-preview__contrast-unknown {
     font-size: 0.8rem;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 .theme-preview__contrast-badges {
@@ -939,7 +939,7 @@
     gap: 0.25rem;
     max-width: 32rem;
     font-size: 0.8rem;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
 }
 
 .theme-preview__text-input input {
@@ -973,7 +973,7 @@
     border: none;
     background: var(--color-bg);
     font-size: 0.8rem;
-    color: var(--shade-6);
+    color: var(--color-text-muted);
     cursor: pointer;
 }
 
