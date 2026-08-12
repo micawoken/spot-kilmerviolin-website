@@ -72,18 +72,26 @@
 
     /* Borders. --shade-3 is the app's default divider and lands within a hair of Puck's own #dcdcdc on
      * light, so light mode is visually unchanged; dark mode gets a border that is lighter than its
-     * surface instead of darker. */
+     * surface instead of darker. --shade-6 (Puck's own choice here) falls under WCAG 1.4.11's 3:1
+     * non-text minimum against the editor's surfaces in light mode — border-hover marks a focused/
+     * hovered field, a real interactive affordance, so it's bumped to --shade-7, which clears 3:1 in
+     * both schemes. */
     --puck-color-border: var(--shade-3);
     --puck-color-border-muted: var(--shade-2);
-    --puck-color-border-hover: var(--shade-6);
-    --puck-color-border-inverse: var(--shade-6);
+    --puck-color-border-hover: var(--shade-7);
+    --puck-color-border-inverse: var(--shade-7);
 
     /* Text: the app's four-level hierarchy, mapped onto Puck's four. --puck-color-text-inverse rides on
-     * surface-inverse above, so it flips with it (reading --color-bg backwards is exactly right here). */
+     * surface-inverse above, so it flips with it (reading --color-bg backwards is exactly right here).
+     * --puck-color-text-subtle maps to --color-text-muted, not a dimmer tier below it: Puck uses this
+     * token for real readable text (e.g. the outline panel's helper captions), and shade-7 — a plausible
+     * "one step dimmer than muted" choice — only reaches 3.54:1 in light mode, short of the 4.5:1 body-text
+     * minimum. The app's palette has nothing between --color-text-muted and a border-only shade, so
+     * "subtle" and "muted" render identically here rather than trade a WCAG failure for a fourth tier. */
     --puck-color-text: var(--color-text);
     --puck-color-text-secondary: var(--color-text-secondary);
     --puck-color-text-muted: var(--color-text-muted);
-    --puck-color-text-subtle: var(--shade-7);
+    --puck-color-text-subtle: var(--color-text-muted);
     --puck-color-text-inverse: var(--color-bg);
 
     /* Disabled: a filled, low-contrast control. The point is that the label is HARD to read against its
