@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -76,13 +76,17 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                         <div class="field-row">
                             <input type="file" id="file-upload-input" name="file" accept="image/*" required />
                         </div>
-                        {/* crop interface: appears once an image is chosen; lets the operator pick orientation and frame */}
+                        {
+                            /* crop interface: appears once an image is chosen; lets the operator pick orientation and frame */
+                        }
                         <ImageCrop inputId="file-upload-input" id="image-crop" />
                     </fieldset>
                     <fieldset>
                         <legend>Name</legend>
                         <div class="field-row">
-                            {/* optional: a blank name falls back to the uploaded file's own name (no required marker) */}
+                            {
+                                /* optional: a blank name falls back to the uploaded file's own name (no required marker) */
+                            }
                             <input
                                 type="text"
                                 id="file-upload-name"
@@ -99,13 +103,14 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                                 name="alt"
                                 maxlength={MAX_ALT_TEXT_LENGTH}
                                 placeholder="Describe the image for screen readers and search engines"
-                                required
-                            ></textarea>
+                                required></textarea>
                         </div>
                     </fieldset>
-                    {/* live storage figure (mirrors /admin/files); updates with a projection once a file is chosen.
+                    {
+                        /* live storage figure (mirrors /admin/files); updates with a projection once a file is chosen.
                         used/max bytes are carried in data attributes for the client estimate (a define:vars script
-                        cannot also use module imports, so the values are read from the DOM instead). */}
+                        cannot also use module imports, so the values are read from the DOM instead). */
+                    }
                     <p id="file-storage-usage" class="general-infohelp" data-used={usage.used} data-max={usage.max}>
                         Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
                     </p>

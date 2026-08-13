@@ -6,9 +6,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -81,7 +81,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
             if (data === null) {
                 return constructResponse(request, null, 500, "Unknown state: list composition operation returned null")
             }
-            return constructResponse(request, data, 200, undefined, { ...lastModifiedHeader(data), ...createdAtHeader(data) })
+            return constructResponse(request, data, 200, undefined, {
+                ...lastModifiedHeader(data),
+                ...createdAtHeader(data)
+            })
         } catch (error) {
             return constructResponseErrorHook(request, error, 500, "Unknown error")
         }

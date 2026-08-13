@@ -60,19 +60,23 @@ export const prerender = true
             />
             <button type="submit">Search</button>
         </form>
-        {/* Fixed above the content-type filter: leaving the page and jumping down it are both new actions,
+        {
+            /* Fixed above the content-type filter: leaving the page and jumping down it are both new actions,
             while content type only filters the results already on screen — see the fieldset below. The
             jump summary sits opposite the link (search-form.css's .search-actions) so a completed search
-            reports itself without the visitor scrolling past the filters to find out. */}
+            reports itself without the visitor scrolling past the filters to find out. */
+        }
         <div class="search-actions">
             <p class="search-advanced-link">
                 <a href="/search/advanced" id="search-advanced-link">Advanced search →</a>
             </p>
             <p id="search-jump" class="search-jump" hidden></p>
         </div>
-        {/* Populated by the client script from Pagefind's own `filters()` counts, and only once a search has
+        {
+            /* Populated by the client script from Pagefind's own `filters()` counts, and only once a search has
             actually run — a type absent from the index this build (zero pages of that kind) never renders a
-            dead checkbox, and the control stays out of the way until there are results to filter. */}
+            dead checkbox, and the control stays out of the way until there are results to filter. */
+        }
         <fieldset id="search-type-filters" class="search-type-filters" hidden>
             <legend>Content type</legend>
         </fieldset>
@@ -388,7 +392,9 @@ export const prerender = true
             const toggle = document.createElement("button")
             toggle.type = "button"
             toggle.textContent = pageWindow.showingAll ? "Show paginated" : `Show all ${pageWindow.totalCount}`
-            toggle.addEventListener("click", () => goTo(pageWindow.showingAll ? withPage(params, 1) : withShowAll(params)))
+            toggle.addEventListener("click", () =>
+                goTo(pageWindow.showingAll ? withPage(params, 1) : withShowAll(params))
+            )
             nav.appendChild(toggle)
             paginationEl.appendChild(nav)
         }

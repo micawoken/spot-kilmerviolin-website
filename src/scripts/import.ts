@@ -13,9 +13,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -48,14 +48,7 @@ import {
     flagCompositionDuplicates,
     flagNameDuplicates
 } from "./import_build"
-import {
-    listComposer,
-    listContributor,
-    listWork,
-    bulkDryRun,
-    bulkCreate,
-    type BulkDryRunReport
-} from "./connector"
+import { listComposer, listContributor, listWork, bulkDryRun, bulkCreate, type BulkDryRunReport } from "./connector"
 
 export type { ImportType }
 
@@ -441,8 +434,7 @@ export function initImport(type: ImportType): void {
                 // composers/contributors: load existing (name[, role]) keys so preview can flag collisions
                 // mirroring idx_composers_name_role — composers key on (name, role), contributors on name alone
                 const list = (await (type === "composers" ? listComposer(true) : listContributor(true))) as
-                    | NamedRecordLike[]
-                    | null
+                    NamedRecordLike[] | null
                 existingNames = new Set<string>(
                     (list ?? []).map((record) =>
                         typeof record.role === "string"

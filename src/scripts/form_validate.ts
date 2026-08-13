@@ -9,9 +9,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -260,13 +260,11 @@ export function clearFieldError(control: FormControl): void {
  */
 export function attachFormValidation(form: HTMLFormElement): void {
     form.querySelectorAll("input, select, textarea").forEach((control) => {
-        if (
-            !(
-                control instanceof HTMLInputElement ||
-                control instanceof HTMLSelectElement ||
-                control instanceof HTMLTextAreaElement
-            )
-        )
+        if (!(
+            control instanceof HTMLInputElement ||
+            control instanceof HTMLSelectElement ||
+            control instanceof HTMLTextAreaElement
+        ))
             return
         const validator = FIELD_VALIDATORS[control.name]
         if (!validator) return
@@ -322,13 +320,11 @@ export function attachFormValidation(form: HTMLFormElement): void {
 export function validateFormFields(form: HTMLFormElement, patch: boolean = false): boolean {
     let valid = true
     form.querySelectorAll("input, select, textarea").forEach((control) => {
-        if (
-            !(
-                control instanceof HTMLInputElement ||
-                control instanceof HTMLSelectElement ||
-                control instanceof HTMLTextAreaElement
-            )
-        )
+        if (!(
+            control instanceof HTMLInputElement ||
+            control instanceof HTMLSelectElement ||
+            control instanceof HTMLTextAreaElement
+        ))
             return
         const validator = FIELD_VALIDATORS[control.name]
         if (!validator) return

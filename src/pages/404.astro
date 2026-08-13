@@ -16,9 +16,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -38,7 +38,12 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../layouts/PublicPage.astro"
 import CompositorStyles from "../components/CompositorStyles.astro"
-import { fetchPublishedDesignPages, fetchPublishedTheme, NOT_FOUND_PAGE_SLUG, partitionDesignPages } from "../lib/build/design-api"
+import {
+    fetchPublishedDesignPages,
+    fetchPublishedTheme,
+    NOT_FOUND_PAGE_SLUG,
+    partitionDesignPages
+} from "../lib/build/design-api"
 import { buildConfig, OUTLET_PROPS, TOKEN_PROPS } from "../lib/compositor/catalog"
 import { hasBlockingError, lintDesign } from "../lib/compositor/lint"
 import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
@@ -88,7 +93,9 @@ const description = notFoundPage?.description || "The page you requested does no
         <PublicPage title={title} description={description}>
             <article>
                 <h1>Page not found</h1>
-                <p>The page you requested does not exist. <a href="/">Return home</a>.</p>
+                <p>
+                    The page you requested does not exist. <a href="/">Return home</a>.
+                </p>
             </article>
         </PublicPage>
     )

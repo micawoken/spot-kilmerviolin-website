@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -77,7 +77,7 @@ const tz_label: string = tz || "UTC"
                     under email <a href={`mailto:${identity.email}`}>{identity.email}</a>.{" "}
                 </>
             ) : (
-                <> as an unauthenticated user.{" "}</>
+                <> as an unauthenticated user. </>
             )
         }
         The time is {time_display} ({tz_label}).{" "}
@@ -85,9 +85,8 @@ const tz_label: string = tz || "UTC"
     </p>
     <p>
         Thank you for using administrative services. Administrative services are &copy; {today.getFullYear()}{" "}
-        <a href="https://michaelwongmusic.com" target="_blank" rel="noopener noreferrer">Michael Wong</a>, licensed under <a href="/admin/license" rel="license"
-            >GNU AGPLv3 and additional terms</a
-        >.
+        <a href="https://michaelwongmusic.com" target="_blank" rel="noopener noreferrer">Michael Wong</a>, licensed
+        under <a href="/admin/license" rel="license">GNU AGPLv3 and additional terms</a>.
     </p>
 </footer>
 

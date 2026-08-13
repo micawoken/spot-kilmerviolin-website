@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -49,25 +49,33 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-{/* Paints the real background before global.css (network-fetched) loads, so view transitions never
+{
+    /* Paints the real background before global.css (network-fetched) loads, so view transitions never
     flash the wrong scheme. color-scheme sets the UA default for unstyled controls; the inline style
     paints the exact --color-bg value (not just the UA's approximate dark canvas), both parsed
     synchronously with no network round-trip. Keep these hex values in sync with --color-bg in
-    global.css (also duplicated in lib/templates/error.html). */}
+    global.css (also duplicated in lib/templates/error.html). */
+}
 <meta name="color-scheme" content="light dark" />
 <style>
-    html { background: #ffffff; }
+    html {
+        background: #ffffff;
+    }
     @media (prefers-color-scheme: dark) {
-        html { background: #1a1a1a; }
+        html {
+            background: #1a1a1a;
+        }
     }
 </style>
 
-{/* No @view-transition rule here, deliberately: the UA crossfade flashes white ~230ms on every admin
+{
+    /* No @view-transition rule here, deliberately: the UA crossfade flashes white ~230ms on every admin
     nav (measured 3/3 in Trace-20260726T223908.json; Chrome root cause still unknown). Overriding
     mix-blend-mode to fix it breaks the UA's alpha-exact blend and dims navigations instead — worse.
     Public pages get their own theme-toggled copy (tokens.ts's viewTransitionCss via PublicPage.astro);
     admin has no theme to toggle from, so it opts out. Don't reintroduce without re-tracing a deploy
-    first. */}
+    first. */
+}
 
 <title>{title}</title>
 <meta name="title" content={title} />
@@ -90,14 +98,16 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 <meta property="twitter:description" content={description} />
 {image && <meta property="twitter:image" content={new URL(image, Astro.url)} />}
 
-{/* EmDash injects its visual-editing toolbar into every HTML response (no path/env gate, no opt-out) —
+{
+    /* EmDash injects its visual-editing toolbar into every HTML response (no path/env gate, no opt-out) —
     meant for editing public pages, but dead weight on admin: CSP blocks its script and it floats over
     the UI. Only BaseHead (admin) hides it; PublicHead doesn't. is:global since the toolbar lives outside
     this tree; !important since EmDash's stylesheet loads later and would otherwise win.
 
     Gotcha: EmDash finds its insertion point via a plain string-replace on the first closing body tag —
     writing that tag literally anywhere earlier, even in a comment, redirects the injection here. Don't
-    spell it out. */}
+    spell it out. */
+}
 <style is:global>
     #emdash-toolbar {
         display: none !important;

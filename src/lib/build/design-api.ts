@@ -15,9 +15,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -37,7 +37,13 @@
 import { ENTITY_NOUNS, isEntityNoun, type EntityNoun } from "../compositor/entity-fields"
 import { migrateDesign } from "../compositor/migrations"
 import { isTokenCatalog, lintTokenCatalog, lintTokenValues, type TokenCatalog } from "../compositor/tokens"
-import { cmsBoolean, isTemplateCollection, TEMPLATE_COLLECTIONS, type DesignDoc, type TemplateCollection } from "../compositor/types"
+import {
+    cmsBoolean,
+    isTemplateCollection,
+    TEMPLATE_COLLECTIONS,
+    type DesignDoc,
+    type TemplateCollection
+} from "../compositor/types"
 import { emdashGet, normalizeSlug, type ApiListResult } from "./emdash-api"
 
 /** A published design page, flattened to what the public route needs to render it. */
@@ -371,9 +377,7 @@ export function fetchPublishedTheme(): Promise<TokenCatalog | null> {
 let themeCache: Promise<TokenCatalog | null> | null = null
 
 async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
-    const result = await emdashGet<ApiListResult>(
-        "/_emdash/api/content/design_theme?status=published&limit=1"
-    )
+    const result = await emdashGet<ApiListResult>("/_emdash/api/content/design_theme?status=published&limit=1")
     const item = result?.items?.[0]
     if (!item) {
         console.warn(

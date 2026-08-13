@@ -6,9 +6,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -169,16 +169,7 @@ export const interface_data: Record<
  */
 export const CSV_LIST_SEPARATOR = ";"
 
-export const composer_csv_columns = [
-    "name",
-    "role",
-    "birth_year",
-    "death_year",
-    "country",
-    "bio",
-    "image",
-    "tags"
-]
+export const composer_csv_columns = ["name", "role", "birth_year", "death_year", "country", "bio", "image", "tags"]
 
 // contributors import as name-only inactive placeholders; extra columns are permitted but ignored
 export const contributor_csv_columns = ["name"]

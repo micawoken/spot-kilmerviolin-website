@@ -236,10 +236,9 @@ interface BuildTokenLookupRow {
 }
 
 export async function lookupBuildTokenByHash(token_hash: string): Promise<BuildTokenLookupRow | null> {
-    const result = await exec_string(
-        "SELECT id, revoked_date, expires_date FROM build_tokens WHERE token_hash = ?;",
-        [token_hash]
-    )
+    const result = await exec_string("SELECT id, revoked_date, expires_date FROM build_tokens WHERE token_hash = ?;", [
+        token_hash
+    ])
     if (!result.success || result.results.length === 0) {
         return null
     }

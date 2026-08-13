@@ -54,10 +54,7 @@ export function isUploadedFilePath(value: string): string | null {
  * per render target), or an already-public absolute URL (external provider or bundled `/files/`
  * asset, passed through untouched). `null` when nothing usable — every caller renders "no image". */
 export type MediaSource =
-    | { kind: "key"; storageKey: string }
-    | { kind: "file"; key: string }
-    | { kind: "url"; url: string }
-    | null
+    { kind: "key"; storageKey: string } | { kind: "file"; key: string } | { kind: "url"; url: string } | null
 
 /** Reads the media source out of a raw field value. EmDash media object wire shape is `{id, src?,
  * alt?, width?, height?, provider?, meta?}`; for local media `src` is absent, key lives at

@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -143,8 +143,10 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                     {info.tag && <span>Tag {info.tag}</span>}
                 </div>
                 <div class="site-info-details entity-result-details">
-                    {/* details are grouped by data type rather than subsystem: booleans, then durations,
-                        then other numeric quantities, then strings */}
+                    {
+                        /* details are grouped by data type rather than subsystem: booleans, then durations,
+                        then other numeric quantities, then strings */
+                    }
                     <div class="site-info-group">
                         <strong>Self-enrollment enabled:</strong>
                         <span>{yesno(info.settings.selfenroll)}</span>

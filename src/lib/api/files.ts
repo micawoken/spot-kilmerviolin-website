@@ -16,9 +16,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -465,7 +465,14 @@ export async function updateFileAlt(ctx: ExecutionContext, key: string, alt: str
     if (data === null) {
         throw new Error(`No file exists at key "${key}"`)
     }
-    const custom = _buildCustomMetadata(data.content_type, existing.uploader, existing.width, existing.height, existing.optimized, alt)
+    const custom = _buildCustomMetadata(
+        data.content_type,
+        existing.uploader,
+        existing.width,
+        existing.height,
+        existing.optimized,
+        alt
+    )
     // re-writing the same bytes does not change total usage, so the budget excludes this object's own
     // size; EMDASH_MEDIA's usage is still included since the capacity ceiling is shared (see r2.ts)
     const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())

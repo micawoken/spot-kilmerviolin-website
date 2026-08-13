@@ -11,9 +11,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -87,8 +87,7 @@ export function emptyDesignDoc(): DesignDoc {
  * unambiguous: an envelope always carries `schemaVersion`/`puck`, a Puck tree always carries
  * `content`. Drop this once no pre-envelope documents remain in the CMS. */
 function wrapPreEnvelopeDesign(raw: Record<string, unknown>): Record<string, unknown> {
-    const isPreEnvelope =
-        raw.schemaVersion === undefined && raw.puck === undefined && Array.isArray(raw.content)
+    const isPreEnvelope = raw.schemaVersion === undefined && raw.puck === undefined && Array.isArray(raw.content)
     return isPreEnvelope ? { schemaVersion: 1, puck: raw } : raw
 }
 
@@ -141,9 +140,7 @@ export function migrateDesign(raw: unknown): DesignDoc {
     while (version < CURRENT_SCHEMA_VERSION) {
         const transform = TRANSFORMS.find((candidate) => candidate.from === version)
         if (!transform) {
-            throw new Error(
-                `No migration path from design schemaVersion ${version} to ${CURRENT_SCHEMA_VERSION}`
-            )
+            throw new Error(`No migration path from design schemaVersion ${version} to ${CURRENT_SCHEMA_VERSION}`)
         }
         puck = transform.migrate(puck)
         version += 1

@@ -29,9 +29,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -124,7 +124,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 >
                 <div class="field-row">
                     <label for="form-composition-composer_id" class="sr-only">Composer</label>
-                    {/* single ID fields are integers; use a number input with an integer step to enforce that client-side */}
+                    {
+                        /* single ID fields are integers; use a number input with an integer step to enforce that client-side */
+                    }
                     <input
                         type="number"
                         step="1"
@@ -380,7 +382,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <h3 class="form-section-title">Rating</h3>
             <fieldset>
                 <legend>Rating</legend>
-                {/* two level fields aligned on the shared label/control grid (see .field-grid in admin-entities.css) */}
+                {
+                    /* two level fields aligned on the shared label/control grid (see .field-grid in admin-entities.css) */
+                }
                 <div class="field-grid">
                     <label for="form-composition-rating_suzuki">Suzuki Level</label>
                     <input
@@ -423,10 +427,12 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <h3 class="form-section-title">Publication</h3>
             <fieldset>
                 <legend>Publication Information</legend>
-                {/* .field-grid aligns every label/control pair on a shared two-column grid: labels share the
+                {
+                    /* .field-grid aligns every label/control pair on a shared two-column grid: labels share the
                     left column and the controls all start (and end) at the same x, so the inputs line up with
                     one another. It also keeps each label beside its own control instead of inline flow
-                    stranding a label at the end of a row. Collapses to a single column on narrow viewports. */}
+                    stranding a label at the end of a row. Collapses to a single column on narrow viewports. */
+                }
                 <div class="field-grid">
                     <label for="form-composition-publish_name">Publisher Name</label>
                     <input
@@ -467,8 +473,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     </select>
 
                     <label for="form-composition-uri">URI</label>
-                    {/* the URI control cell groups the input with its format help into one grid cell so the help
-                        sits under the input while the input still fills (and aligns to) the control column */}
+                    {
+                        /* the URI control cell groups the input with its format help into one grid cell so the help
+                        sits under the input while the input still fills (and aligns to) the control column */
+                    }
                     <span class="field-control">
                         <input
                             type="text"
@@ -477,8 +485,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                             required={required}
                             value={composition?.publication_info?.uri ?? ""}
                         />
-                        {/* help text describing the format expected for the selected URI type; kept in sync with
-                            the URI Type selector by attachUriTypeHelp (scripts/interface.ts) */}
+                        {
+                            /* help text describing the format expected for the selected URI type; kept in sync with
+                            the URI Type selector by attachUriTypeHelp (scripts/interface.ts) */
+                        }
                         <small id="form-composition-uri-help" class="general-infohelp"></small>
                     </span>
                 </div>
@@ -503,8 +513,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
         <div class="form-section">
             <h3 class="form-section-title">Contributors</h3>
-            {/* contrib_primary_1 / contrib_addl are managed by attachContributorManagement: hidden by default and
-                revealed only for direct (admin) editing */}
+            {
+                /* contrib_primary_1 / contrib_addl are managed by attachContributorManagement: hidden by default and
+                revealed only for direct (admin) editing */
+            }
             <div id="form-composition-contributor-fields" class="hidden">
                 <fieldset>
                     <legend>Primary Contributor</legend>
@@ -572,8 +584,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 </fieldset>
             </div>
 
-            {/* the additional-primary slot is addable by anyone; attachContributorManagement shows it on create,
-                when empty on edit, and always for direct (admin) editing */}
+            {
+                /* the additional-primary slot is addable by anyone; attachContributorManagement shows it on create,
+                when empty on edit, and always for direct (admin) editing */
+            }
             <div id="form-composition-primary-2-field">
                 <fieldset>
                     <legend>Additional Primary Contributor</legend>

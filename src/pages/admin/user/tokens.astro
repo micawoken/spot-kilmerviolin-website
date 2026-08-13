@@ -1,7 +1,7 @@
 ---
 /**
  * pages/admin/user/tokens.astro
- * 
+ *
  * Manages issuance/revocation of user-scoped API tokens
  *
  * Copyright (C) 2026 Michael Wong.
@@ -77,29 +77,39 @@ try {
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>API Tokens</h2>
-            <p class="general-warning">API tokens are like passwords - never share them with anyone else. Keep them safe.</p>
+            <p class="general-warning">
+                API tokens are like passwords - never share them with anyone else. Keep them safe.
+            </p>
             <p class="general-infohelp">
-                Issue and revoke API tokens scoped to your user account permissions.
-                Usage requires presentation of both an API token and a Cloudflare
-                Access Service Token. 
+                Issue and revoke API tokens scoped to your user account permissions. Usage requires presentation of both
+                an API token and a Cloudflare Access Service Token.
             </p>
             <h3>Issue a new token</h3>
             <form id="token-issue-form" class="generic-form">
                 <fieldset>
                     <legend>Label</legend>
                     <div class="field-row">
-                        <input type="text" id="token-label" name="label" required maxlength="100" placeholder="e.g. build script" />
+                        <input
+                            type="text"
+                            id="token-label"
+                            name="label"
+                            required
+                            maxlength="100"
+                            placeholder="e.g. build script"
+                        />
                     </div>
                 </fieldset>
                 <fieldset>
                     <legend>Expires in</legend>
                     <div class="field-row">
                         <select id="token-expiry" name="expiry_days">
-                            {EXPIRY_WINDOWS_DAYS.map((days) => (
-                                <option value={days} selected={days === 30}>
-                                    {days} days
-                                </option>
-                            ))}
+                            {
+                                EXPIRY_WINDOWS_DAYS.map((days) => (
+                                    <option value={days} selected={days === 30}>
+                                        {days} days
+                                    </option>
+                                ))
+                            }
                         </select>
                     </div>
                 </fieldset>
@@ -107,9 +117,7 @@ try {
             </form>
 
             <div id="token-issued-panel" hidden>
-                <p class="general-warning">
-                    Copy this token now — it will not be shown again.
-                </p>
+                <p class="general-warning">Copy this token now — it will not be shown again.</p>
                 <input type="text" id="token-issued-secret" readonly />
                 <button type="button" id="token-issued-copy">Copy</button>
             </div>
@@ -132,7 +140,7 @@ try {
                                     <th>Issued</th>
                                     <th>Expires</th>
                                     <th>Status</th>
-                                    <th></th>
+                                    <th />
                                 </tr>
                             </thead>
                             <tbody>

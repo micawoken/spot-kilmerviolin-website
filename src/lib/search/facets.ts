@@ -540,7 +540,11 @@ function readNumber(params: URLSearchParams, key: string): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined
 }
 
-function readTextCriterion(params: URLSearchParams, param: string, operators: readonly FacetOperatorOption[]): TextCriterion | undefined {
+function readTextCriterion(
+    params: URLSearchParams,
+    param: string,
+    operators: readonly FacetOperatorOption[]
+): TextCriterion | undefined {
     const value = readString(params, param)
     if (value === undefined) return undefined
     const opRaw = params.get(`${param}_op`)
@@ -548,7 +552,11 @@ function readTextCriterion(params: URLSearchParams, param: string, operators: re
     return { op, value }
 }
 
-function readNumberCriterion(params: URLSearchParams, param: string, operators: readonly FacetOperatorOption[]): NumberCriterion | undefined {
+function readNumberCriterion(
+    params: URLSearchParams,
+    param: string,
+    operators: readonly FacetOperatorOption[]
+): NumberCriterion | undefined {
     const opRaw = params.get(`${param}_op`)
     const op = (operators.find((candidate) => candidate.value === opRaw)?.value ?? operators[0].value) as NumberOperator
     // "Alive" needs no value at all (see matchesNumber) — read it before the value check below, which would
@@ -614,7 +622,8 @@ export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
         // would just be noise in the URL.
         if (criterion.op === "alive") return
         params.set(param, String(criterion.value))
-        if (criterion.op === "between" && criterion.valueTo !== undefined) params.set(`${param}To`, String(criterion.valueTo))
+        if (criterion.op === "between" && criterion.valueTo !== undefined)
+            params.set(`${param}To`, String(criterion.valueTo))
     }
     setNumber("year", criteria.year)
     setNumber("suzuki", criteria.suzuki)

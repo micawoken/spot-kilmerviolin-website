@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -97,7 +97,9 @@ const is_admin = Astro.locals.identity?.admin === true
                 const message = getTransactionElem()
                 // absent entirely for a non-admin (see is_admin in the frontmatter); the server independently
                 // re-checks admin status on the meta.elevate flag, so this checkbox is a UI convenience only
-                const overrideCheckbox = document.getElementById("site-rebuild-admin-override") as HTMLInputElement | null
+                const overrideCheckbox = document.getElementById(
+                    "site-rebuild-admin-override"
+                ) as HTMLInputElement | null
 
                 /**
                  * Detects whether the page is being served from a local development build, mirroring the

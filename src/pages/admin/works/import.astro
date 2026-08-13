@@ -6,9 +6,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -50,8 +50,10 @@ export const prerender = false
             <h2>Import Compositions from CSV</h2>
             <p class="general-infohelp">
                 Upload a CSV file with these header columns (in any order):{" "}
-                <code>{composition_csv_columns.join(", ")}</code>. The <code>composer</code> and <code>contributor</code> columns
-                reference existing records by <strong>name</strong>. List cells (<code>contrib_addl</code>,{" "}
+                <code>{composition_csv_columns.join(", ")}</code>. The <code>composer</code> and <code>contributor</code
+                > columns reference existing records by <strong>name</strong>. List cells (<code>contrib_addl</code>,{
+                    " "
+                }
                 <code>author_secondary</code>, <code>tags</code>) separate multiple values with a semicolon{" "}
                 (<code>;</code>). Map each distinct <code>contribution_period</code> to phase number(s) in the{" "}
                 preview. Max 999 rows per transaction.

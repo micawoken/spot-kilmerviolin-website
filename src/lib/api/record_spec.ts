@@ -11,9 +11,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -60,7 +60,12 @@ export type RecordSpec = { [field: string]: FieldRule }
  *
  * @returns true if the record satisfies the spec, otherwise a string error message
  */
-export function assertRecordBySpec(record: unknown, spec: RecordSpec, partial: boolean, expect_id: boolean): true | string {
+export function assertRecordBySpec(
+    record: unknown,
+    spec: RecordSpec,
+    partial: boolean,
+    expect_id: boolean
+): true | string {
     // type guard
     if (typeof record !== "object" || record === null) {
         return "Record is not an object"
@@ -112,10 +117,12 @@ export const _invalidBoolean = (v: any) => typeof v !== "boolean"
 export const _invalidNullableImage = (v: any) =>
     v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidImageUrl(v)))
 // a nullable email field: null, or a string that (when non-blank) is a valid email address
-export const _invalidNullableEmail = (v: any) => v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidEmail(v)))
+export const _invalidNullableEmail = (v: any) =>
+    v !== null && (typeof v !== "string" || (v.trim() !== "" && !isValidEmail(v)))
 // an optional key-value object field (citations): undefined/null is valid (the field is optional); a
 // present value must be a non-array object, with per-entry format errors surfaced via elementCheck
-export const _invalidOptionalObject = (v: any) => v !== undefined && v !== null && (typeof v !== "object" || Array.isArray(v))
+export const _invalidOptionalObject = (v: any) =>
+    v !== undefined && v !== null && (typeof v !== "object" || Array.isArray(v))
 // every element of an array is a positive integer (used for id and phase-number lists)
 export const _allPositiveIntegers = (v: any[]) =>
     v.every((item: any) => typeof item === "number" && Number.isInteger(item) && item >= 1)
@@ -160,4 +167,5 @@ export function cleanStringField(record: Record<string, any>, field: string): vo
     }
 }
 
-export const isPlainObject = (v: unknown): v is Record<string, any> => typeof v === "object" && v !== null && !Array.isArray(v)
+export const isPlainObject = (v: unknown): v is Record<string, any> =>
+    typeof v === "object" && v !== null && !Array.isArray(v)

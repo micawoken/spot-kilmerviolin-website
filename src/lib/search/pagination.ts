@@ -54,7 +54,11 @@ export function readShowAll(params: URLSearchParams): boolean {
 /** Everything a pagination-controls renderer needs to know, given the full (unsliced) result count and
  *  the current URL params. A `page` past the end clamps to the last page rather than producing an empty
  *  window, so a stale bookmark/back-navigation still shows results. */
-export function computePageWindow(totalCount: number, params: URLSearchParams, pageSize: number = SEARCH_PAGE_SIZE): PageWindow {
+export function computePageWindow(
+    totalCount: number,
+    params: URLSearchParams,
+    pageSize: number = SEARCH_PAGE_SIZE
+): PageWindow {
     if (readShowAll(params) || totalCount <= pageSize) {
         return { start: 0, end: totalCount, page: 1, totalPages: 1, showingAll: true, totalCount }
     }

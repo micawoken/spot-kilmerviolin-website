@@ -70,7 +70,8 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
 ---
 
 <PublicPage title={title} pagefindFilter="scope:database" pagefindIgnore>
-    {/* Single wrapper, not four bare children directly under <main>: public-chrome.css's
+    {
+        /* Single wrapper, not four bare children directly under <main>: public-chrome.css's
         `main > :not(.cmp-section, article)` rule insets each direct child individually via
         `var(--dtk-space-md)`. That token can be authored as a font-relative expression (e.g. a
         `clamp(..., (100vw - 66ch) / 2, ...)` reading-width trick) — a custom property's relative units
@@ -79,15 +80,18 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         the header at some viewport widths. Applying the inset once, on one wrapper that inherits the
         body's own font size, keeps this page's whole content column aligned with the header at every
         width — the same reasoning, and the same `main > :not(.cmp-section, article)` rule, that a
-        Puck-rendered page's `.cmp-root` wrapper (catalog.tsx) relies on. */}
+        Puck-rendered page's `.cmp-root` wrapper (catalog.tsx) relies on. */
+    }
     <div class="entity-index-body">
         <div class="entity-index-listing">
-            {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+            {
+                /* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
                 not a Puck design, so the component can never be placed here. Follows the same
                 Home / [...ancestor pages] / [current page] convention as route-authority.ts's
                 breadcrumbAncestors: "Database" is the one real ancestor page (its own root, canonical at
                 /database — see this component's header), and this index's own title is the final,
-                unlinked crumb. */}
+                unlinked crumb. */
+            }
             <nav class="entity-breadcrumbs" aria-label="Breadcrumb">
                 <ol>
                     <li><a href="/">Home</a></li>

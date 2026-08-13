@@ -1,7 +1,7 @@
 ---
 /**
  * pages/admin/user/tokens/build.astro
- * 
+ *
  * Manage issuance of API tokens used during the Astro build process
  *
  * Copyright (C) 2026 Michael Wong.
@@ -31,7 +31,11 @@ import AdminHeader from "../../../../components/AdminHeader.astro"
 import AdminFooter from "../../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../../consts"
 import { guardPage } from "../../../../lib/api/page_auth"
-import { EXPIRY_WINDOWS_DAYS, listBuildTokens as listBuildTokenRows, type BuildTokenRow } from "../../../../lib/api/tokens"
+import {
+    EXPIRY_WINDOWS_DAYS,
+    listBuildTokens as listBuildTokenRows,
+    type BuildTokenRow
+} from "../../../../lib/api/tokens"
 
 export const prerender = false
 
@@ -77,10 +81,12 @@ try {
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Build Tokens</h2>
-            <p class="general-warning">Build tokens are ownerless and like passwords - never share them with anyone else. Keep them safe.</p>
+            <p class="general-warning">
+                Build tokens are ownerless and like passwords - never share them with anyone else. Keep them safe.
+            </p>
             <p class="general-infohelp">
-                Build tokens grant admin-level read access to the database for the page prerendering system during
-                the Astro build process. They do not confer any additional permissions.
+                Build tokens grant admin-level read access to the database for the page prerendering system during the
+                Astro build process. They do not confer any additional permissions.
             </p>
 
             <h3>Issue a new token</h3>
@@ -88,18 +94,27 @@ try {
                 <fieldset>
                     <legend>Label</legend>
                     <div class="field-row">
-                        <input type="text" id="token-label" name="label" required maxlength="100" placeholder="e.g. production build" />
+                        <input
+                            type="text"
+                            id="token-label"
+                            name="label"
+                            required
+                            maxlength="100"
+                            placeholder="e.g. production build"
+                        />
                     </div>
                 </fieldset>
                 <fieldset>
                     <legend>Expires in</legend>
                     <div class="field-row">
                         <select id="token-expiry" name="expiry_days">
-                            {EXPIRY_WINDOWS_DAYS.map((days) => (
-                                <option value={days} selected={days === 30}>
-                                    {days} days
-                                </option>
-                            ))}
+                            {
+                                EXPIRY_WINDOWS_DAYS.map((days) => (
+                                    <option value={days} selected={days === 30}>
+                                        {days} days
+                                    </option>
+                                ))
+                            }
                             <option value="never">Never</option>
                         </select>
                     </div>
@@ -109,8 +124,8 @@ try {
 
             <div id="token-issued-panel" hidden>
                 <p class="general-warning">
-                    Copy this token now — it will not be shown again. It grants read access to the complete
-                    dataset to whoever holds it.
+                    Copy this token now — it will not be shown again. It grants read access to the complete dataset to
+                    whoever holds it.
                 </p>
                 <input type="text" id="token-issued-secret" readonly />
                 <button type="button" id="token-issued-copy">Copy</button>
@@ -134,7 +149,7 @@ try {
                                     <th>Issued</th>
                                     <th>Expires</th>
                                     <th>Status</th>
-                                    <th></th>
+                                    <th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -145,7 +160,11 @@ try {
                                             <code>{token.token_prefix}…</code>
                                         </td>
                                         <td>{new Date(token.entry_date).toLocaleString("en-US")}</td>
-                                        <td>{token.expires_date === null ? "Never" : new Date(token.expires_date).toLocaleString("en-US")}</td>
+                                        <td>
+                                            {token.expires_date === null
+                                                ? "Never"
+                                                : new Date(token.expires_date).toLocaleString("en-US")}
+                                        </td>
                                         <td>{token.status_label}</td>
                                         <td>
                                             {!token.revoked_date && (

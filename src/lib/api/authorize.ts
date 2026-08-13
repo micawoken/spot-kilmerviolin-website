@@ -8,9 +8,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -109,7 +109,9 @@ const PERMISSION_KEYS = [
 // compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in
 // PERMISSION_KEYS, the conditional resolves to `false` and this type fails its `extends true` constraint
 type _Assert<T extends true> = T
-export type _PermissionKeysExhaustive = _Assert<keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false>
+export type _PermissionKeysExhaustive = _Assert<
+    keyof RoleProfile extends (typeof PERMISSION_KEYS)[number] ? true : false
+>
 
 /**
  * Filters a list of role names down to those defined in {@link roles}. This is the server-side guard
