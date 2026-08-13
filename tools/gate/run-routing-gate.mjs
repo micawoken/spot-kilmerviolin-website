@@ -1,9 +1,10 @@
 /**
- * tools/gate/run-phase-b-gate.mjs
+ * tools/gate/run-routing-gate.mjs
  *
- * The compositor pivot's Phase B and C gate (plan §6, gates 2, 5 and 6), executable and re-runnable:
+ * The compositor template-routing gate (originally the compositor pivot's Phase B and C gate; plan §6,
+ * gates 2, 5 and 6), executable and re-runnable:
  *
- *   npm run gate:phase-b
+ *   npm run gate:compositor-routing
  *
  * It builds the site four times against a frozen fixture CMS (tools/gate/fixtures.mjs) and asserts:
  *
@@ -327,7 +328,7 @@ console.log("─".repeat(72))
 
 const failed = results.filter((result) => !result.passed)
 if (failed.length > 0) {
-    console.error(`\nPHASE B/C GATE FAILED — ${failed.length} of ${results.length} assertion(s)\n`)
+    console.error(`\nCOMPOSITOR ROUTING GATE FAILED — ${failed.length} of ${results.length} assertion(s)\n`)
     process.exit(1)
 }
-console.log("\nPHASE B/C GATE PASSED (plan §6 gates 2, 5 and 6)\n")
+console.log("\nCOMPOSITOR ROUTING GATE PASSED (plan §6 gates 2, 5 and 6)\n")

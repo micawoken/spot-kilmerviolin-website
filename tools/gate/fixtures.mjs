@@ -1,7 +1,7 @@
 /**
  * tools/gate/fixtures.mjs
  *
- * The frozen CMS content the Phase B gate builds against, as three variants that differ in exactly one
+ * The frozen CMS content the compositor routing gate builds against, as three variants that differ in exactly one
  * dimension each. Derived from one shared body of content rather than three hand-copied files, so a
  * variant cannot silently drift away from the others and quietly weaken the comparison.
  *
