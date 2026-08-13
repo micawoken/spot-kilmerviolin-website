@@ -150,6 +150,9 @@ export interface SiteChromeRoles {
     footerBackground?: string
     /** names a `borders` token; header/footer hairline rule */
     hairlineBorder?: string
+    /** names a `typography` token; page-title `<h1>` on static pages and Portable Text (Puck pages
+     * bind their own heading separately). Unset falls back to `display` by magic name. */
+    headingTypography?: string
     /** names a `space` token; DEPRECATED, superseded by the three split roles below. Kept only so a
      * pre-split catalog has a value to migrate from — `toEditable` seeds the three split roles from
      * this one time when unset, `tokensToCss` falls back to it per-role the same way, so an
@@ -487,6 +490,14 @@ export function tokensToCss(catalog: TokenCatalog): string {
             emit("--dtk-chrome-hairline-style", tokenVar("borders", name, "style"))
             emit("--dtk-chrome-hairline-color", tokenVar("borders", name, "color"))
         }
+        if (chrome.headingTypography) {
+            const name = chrome.headingTypography
+            emit("--dtk-chrome-heading-family", tokenVar("typography", name, "family"))
+            emit("--dtk-chrome-heading-size", tokenVar("typography", name, "size"))
+            emit("--dtk-chrome-heading-weight", tokenVar("typography", name, "weight"))
+            emit("--dtk-chrome-heading-line-height", tokenVar("typography", name, "line-height"))
+            emit("--dtk-chrome-heading-letter-spacing", tokenVar("typography", name, "letter-spacing"))
+        }
         // Each split role falls back to the deprecated singular `horizontalSpace` when unset, so a
         // pre-split catalog keeps rendering identically until its owner adjusts the roles independently.
         const horizontalSpaceRoles: Array<[string, string | undefined]> = [
@@ -643,6 +654,7 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.mutedText === undefined || typeof value.mutedText === "string") &&
         (value.footerBackground === undefined || typeof value.footerBackground === "string") &&
         (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string") &&
+        (value.headingTypography === undefined || typeof value.headingTypography === "string") &&
         (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string") &&
         (value.horizontalSpaceInset === undefined || typeof value.horizontalSpaceInset === "string") &&
         (value.horizontalSpaceContentInset === undefined || typeof value.horizontalSpaceContentInset === "string") &&
