@@ -153,8 +153,9 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
     }
 ]
 
-/** Site Chrome roles in render order. 4 tables: colors/borders under Site Chrome; `typography`
- * under Typography; `space` split H/V under Spacing — each next to the tokens it references. */
+/** Site Chrome roles in render order. 3 tables: colors/borders/typography all under Site Chrome (one
+ * place for every interface-component binding); `space` split H/V under Spacing next to the tokens it
+ * references. */
 const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" | "typography" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
     { key: "bodyText", label: "Body text", kind: "colors" },
@@ -776,16 +777,6 @@ export default function ThemeEditor() {
                     </span>
                 </div>
             )}
-            {section.kind === "typography" && (
-                <div className="theme-editor__spacing-group">
-                    <h4>Site Chrome</h4>
-                    <p className="theme-editor__hint">
-                        Bind the public site frame's page heading (pre-generated static pages, Portable Text
-                        pages/posts) to a typography token above.
-                    </p>
-                    {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind === "typography"))}
-                </div>
-            )}
             {section.kind === "space" && (
                 <div className="theme-editor__spacing-groups">
                     <div className="theme-editor__spacing-group">
@@ -1045,9 +1036,10 @@ export default function ThemeEditor() {
                 />
                 {!collapsed.has("site-chrome") && <>
                 <p className="theme-editor__hint">
-                    Control which colors are connected to which interface components.
+                    Control which colors, borders, and typography are connected to which interface components — including
+                    the public site frame's page heading (pre-generated static pages, Portable Text pages/posts).
                 </p>
-                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space" && role.kind !== "typography"))}
+                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space"))}
 
                 <div className="theme-preview">
                     <h4 className="theme-preview__heading">Contrast check</h4>
