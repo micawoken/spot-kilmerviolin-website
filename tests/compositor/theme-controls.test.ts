@@ -26,6 +26,7 @@ import { describe, it, expect } from "vitest"
 
 import {
     bestTextColorFor,
+    buttonHoverBrightness,
     contrastRatio,
     formatClamp,
     formatLength,
@@ -246,5 +247,74 @@ describe("contrastRatio", () => {
         const ratio = contrastRatio(parseCssColorToRgb("#767676")!, parseCssColorToRgb("#ffffff")!)
         expect(ratio).toBeGreaterThanOrEqual(WCAG_AA_MIN_CONTRAST)
         expect(ratio).toBeLessThan(WCAG_AAA_MIN_CONTRAST)
+    })
+})
+
+describe("buttonHoverBrightness", () => {
+    /** Baseline vs. post-`filter: brightness(factor)` contrast, both schemes of a `light-dark()` pair
+     * (or the same plain color for both, when neither argument is wrapped). Mirrors the simulation
+     * `buttonHoverBrightness` runs internally, so tests can check its "never regresses" contract
+     * without re-implementing the picking logic. */
+    function contrastAfter(text: string, background: string, factor: number) {
+        const scale = (rgb: ReturnType<typeof parseCssColorToRgb>) =>
+            rgb && { r: Math.min(255, Math.round(rgb.r * factor)), g: Math.min(255, Math.round(rgb.g * factor)), b: Math.min(255, Math.round(rgb.b * factor)) }
+        const textPair = parseLightDark(text)
+        const bgPair = parseLightDark(background)
+        const light = [textPair ? textPair.light : text, bgPair ? bgPair.light : background]
+        const dark = [textPair ? textPair.dark : text, bgPair ? bgPair.dark : background]
+        return {
+            light: contrastRatio(scale(parseCssColorToRgb(light[0]))!, scale(parseCssColorToRgb(light[1]))!),
+            dark: contrastRatio(scale(parseCssColorToRgb(dark[0]))!, scale(parseCssColorToRgb(dark[1]))!)
+        }
+    }
+
+    it("returns 1 (no-op) when either color can't be parsed", () => {
+        expect(buttonHoverBrightness("var(--dtk-color-ink)", "#cf5965")).toBe(1)
+        expect(buttonHoverBrightness("#16110f", "papayawhip")).toBe(1)
+    })
+
+    it("picks the live theme's primary-button pairing's verified direction (1.08), improving both schemes", () => {
+        // light-dark(#f7f4ee, #16110f) text on light-dark(#6e1f2a, #cf5965) background — the site's actual
+        // primary Button variant, captured 2026-08-11 from kilmer.nrnnet.xyz. Regression lock: confirmed by
+        // hand-simulation that 0.92 (tried first) fails both schemes and 1.08 improves both.
+        const text = "light-dark(#f7f4ee, #16110f)"
+        const background = "light-dark(#6e1f2a, #cf5965)"
+        const brightness = buttonHoverBrightness(text, background)
+        expect(brightness).toBe(1.08)
+
+        const baselineLight = contrastRatio(parseCssColorToRgb("#f7f4ee")!, parseCssColorToRgb("#6e1f2a")!)
+        const baselineDark = contrastRatio(parseCssColorToRgb("#16110f")!, parseCssColorToRgb("#cf5965")!)
+        const after = contrastAfter(text, background, brightness)
+        expect(after.light).toBeGreaterThanOrEqual(baselineLight)
+        expect(after.dark).toBeGreaterThanOrEqual(baselineDark)
+    })
+
+    it("never lowers contrast in either scheme, across a spread of plain and light-dark() pairings", () => {
+        const cases: Array<[text: string, background: string]> = [
+            ["#000000", "#ffffff"],
+            ["#ffffff", "#000000"],
+            ["#767676", "#ffffff"],
+            ["light-dark(#1a1917, #e9e6df)", "light-dark(#f7f4ee, #16110f)"],
+            ["light-dark(#f7f4ee, #16110f)", "light-dark(#6e1f2a, #cf5965)"],
+            ["#123456", "#123456"] // identical colors: contrast is always 1, trivially non-regressing
+        ]
+        for (const [text, background] of cases) {
+            const brightness = buttonHoverBrightness(text, background)
+            expect([1, 0.92, 1.08, 0.85, 1.15]).toContain(brightness)
+            if (brightness === 1) continue
+            const textPair = parseLightDark(text)
+            const bgPair = parseLightDark(background)
+            const baselineLight = contrastRatio(
+                parseCssColorToRgb(textPair ? textPair.light : text)!,
+                parseCssColorToRgb(bgPair ? bgPair.light : background)!
+            )
+            const baselineDark = contrastRatio(
+                parseCssColorToRgb(textPair ? textPair.dark : text)!,
+                parseCssColorToRgb(bgPair ? bgPair.dark : background)!
+            )
+            const after = contrastAfter(text, background, brightness)
+            expect(after.light).toBeGreaterThanOrEqual(baselineLight)
+            expect(after.dark).toBeGreaterThanOrEqual(baselineDark)
+        }
     })
 })

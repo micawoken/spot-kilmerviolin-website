@@ -187,6 +187,7 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
                 "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
                 "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
                 "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color"),
+                "--cmp-button-hover-brightness": tokenVar("buttonVariants", variant, "hover-brightness"),
                 ...(shadow ? { "--cmp-button-shadow": tokenVar("shadows", shadow) } : {})
             })}
         >
