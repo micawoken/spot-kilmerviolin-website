@@ -6,9 +6,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -29,12 +29,7 @@ import { env } from "cloudflare:workers"
 import { createAPIPayload, sanitizeInputStrings } from "./common"
 import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
-import {
-    checkSQLiteErrorHook,
-    convertSQLiteError,
-    isMissingTableError,
-    missingTableName
-} from "./sqlite_error"
+import { checkSQLiteErrorHook, convertSQLiteError, isMissingTableError, missingTableName } from "./sqlite_error"
 
 // the generic HTTP error page lives in its own file (error.html) and is inlined as a raw string at
 // build time; the {errorCode}/{errorName}/{errorDescription} tokens, plus the AdminFooter-mirroring

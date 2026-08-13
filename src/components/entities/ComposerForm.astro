@@ -19,9 +19,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -103,8 +103,7 @@ const patch: boolean = Astro.props.patch || false
                         >
                         <option
                             value="transcriber"
-                            selected={composer !== null ? composer.role === "transcriber" : false}
-                            >Transcriber</option
+                            selected={composer !== null ? composer.role === "transcriber" : false}>Transcriber</option
                         >
                         <option value="editor" selected={composer !== null ? composer.role === "editor" : false}
                             >Editor</option
@@ -140,8 +139,10 @@ const patch: boolean = Astro.props.patch || false
                         required={required}
                         value={composer?.country ?? ""}
                     />
-                    {/* filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
-                        guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised */}
+                    {
+                        /* filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
+                        guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised */
+                    }
                     <small id="form-composers-country-help" class="general-infohelp field-inline-help"
                         >ISO 3166-1 alpha-2 code or country name</small
                     >

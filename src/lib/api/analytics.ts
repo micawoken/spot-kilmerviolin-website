@@ -14,9 +14,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -101,7 +101,11 @@ export async function getWebAnalyticsSummary(range: AnalyticsRange): Promise<Ana
     // read as text first: error responses from the Cloudflare edge are not always JSON
     const response_text = await response.text()
     if (!response.ok) {
-        return { ok: false, reason: "error", message: `Cloudflare API error: ${response.status} ${response.statusText} - ${response_text}` }
+        return {
+            ok: false,
+            reason: "error",
+            message: `Cloudflare API error: ${response.status} ${response.statusText} - ${response_text}`
+        }
     }
     const parsed: CfGraphqlAnalyticsResponse = JSON.parse(response_text)
     if (parsed.errors && parsed.errors.length > 0) {

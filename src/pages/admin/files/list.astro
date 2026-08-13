@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -100,7 +100,9 @@ function formatBytes(bytes: number): string {
                     )
                 }
             </div>
-            {/* current storage usage sits at the foot of the listing (bundled local assets do not count toward the R2 ceiling) */}
+            {
+                /* current storage usage sits at the foot of the listing (bundled local assets do not count toward the R2 ceiling) */
+            }
             <p id="file-storage-usage" class="general-infohelp">
                 Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
             </p>

@@ -12,9 +12,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -106,7 +106,10 @@ export function buildReferenceIndex(
 
     const contributor = new Map<number, ReferenceTarget>()
     for (const record of allContributors ?? []) {
-        contributor.set(record.id, { name: record.name, hasPage: nounHasPage.contributor && !isHiddenContributor(record) })
+        contributor.set(record.id, {
+            name: record.name,
+            hasPage: nounHasPage.contributor && !isHiddenContributor(record)
+        })
     }
 
     return { composer, contributor }
@@ -259,7 +262,11 @@ function randomShuffle<T>(items: T[]): T[] {
 }
 
 /** Resolves a single nullable foreign key to a display reference, or null when the key itself is null. */
-function resolveRef(index: Map<number, ReferenceTarget>, id: number | null, noun: EntityNoun): ResolvedReference | null {
+function resolveRef(
+    index: Map<number, ReferenceTarget>,
+    id: number | null,
+    noun: EntityNoun
+): ResolvedReference | null {
     if (id === null) return null
     const target = index.get(id)
     if (!target) return { id, name: "", href: null } // unresolvable id — mirrors the prior "" fallback
@@ -339,8 +346,14 @@ export function entityRecords(
                 } as unknown as Record<string, unknown>
             }))
         case "contributor":
-            return (contributors ?? []).map((record) => ({ id: String(record.id), entry: record as unknown as Record<string, unknown> }))
+            return (contributors ?? []).map((record) => ({
+                id: String(record.id),
+                entry: record as unknown as Record<string, unknown>
+            }))
         case "composition":
-            return (compositions ?? []).map((record) => ({ id: String(record.id), entry: flattenComposition(record, refs) }))
+            return (compositions ?? []).map((record) => ({
+                id: String(record.id),
+                entry: flattenComposition(record, refs)
+            }))
     }
 }

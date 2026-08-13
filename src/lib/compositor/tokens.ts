@@ -12,9 +12,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -279,14 +279,7 @@ export const EMPTY_TOKEN_CATALOG: TokenCatalog = Object.freeze({
 
 /** The catalog keys a component field can select from. Drives `tokenVar` / `tokenSelectOptions`. */
 export type TokenKind =
-    | "colors"
-    | "typography"
-    | "space"
-    | "radius"
-    | "shadows"
-    | "borders"
-    | "breakpoints"
-    | "buttonVariants"
+    "colors" | "typography" | "space" | "radius" | "shadows" | "borders" | "breakpoints" | "buttonVariants"
 
 /**
  * Registry mapping a component `type` to each of its token-select props and the token kind that prop
@@ -735,7 +728,10 @@ function numericFontWeight(weight: string): string {
 /** Stable `family|weight` key for one font face. Family is the first entry of a CSS font stack (the web
  *  font itself; the rest are local fallbacks, never fetched), compared case-insensitively. */
 export function fontFaceKey(family: string, weight: string): string {
-    const primary = family.split(",")[0].trim().replace(/^["']|["']$/g, "")
+    const primary = family
+        .split(",")[0]
+        .trim()
+        .replace(/^["']|["']$/g, "")
     return `${primary.toLowerCase()}|${numericFontWeight(weight)}`
 }
 

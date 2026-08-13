@@ -22,9 +22,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -53,8 +53,10 @@ import "../styles/admin-entities.css"
     }
 </style>
 
-{/* Same-origin static file (public/js/emdash-toolbar-strip.js) via is:inline + src, NOT an Astro
+{
+    /* Same-origin static file (public/js/emdash-toolbar-strip.js) via is:inline + src, NOT an Astro
     <script>: the bundler inlines small Astro scripts directly into the document, which the admin CSP
     (script-src 'self', no 'unsafe-inline'/nonce/hash) then blocks. An external same-origin script is
-    covered by 'self'. See components/AdminFooter.astro for the same pattern. */}
+    covered by 'self'. See components/AdminFooter.astro for the same pattern. */
+}
 <script is:inline src="/js/emdash-toolbar-strip.js"></script>

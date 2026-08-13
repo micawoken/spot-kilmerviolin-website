@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -35,9 +35,11 @@ const display_name = identity?.userinfo?.ok ? identity.userinfo.name : identity?
 const name_defined = identity?.userinfo?.ok || identity?.email
 ---
 
-{/* the first focusable element on every admin page (this component is rendered at the top of <body> on
+{
+    /* the first focusable element on every admin page (this component is rendered at the top of <body> on
     every admin page and layout — see AdminDocument.astro/DocInfo.astro and the ~60 hand-rolled admin
-    pages, all of which give their <main> the matching id="admin-main-content") */}
+    pages, all of which give their <main> the matching id="admin-main-content") */
+}
 <a class="skip-link" href="#admin-main-content">Skip to content</a>
 <header role="banner">
     <h1><a href="/admin">Administrative Services</a></h1>

@@ -12,9 +12,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -500,9 +500,7 @@ async function resolveMenu(name: string): Promise<BuildMenuItem[]> {
         return []
     }
 
-    const hrefMap = items.some((item) => item.type === "page" || item.type === "post")
-        ? await getPageHrefMap()
-        : null
+    const hrefMap = items.some((item) => item.type === "page" || item.type === "post") ? await getPageHrefMap() : null
 
     const resolved: BuildMenuItem[] = []
     for (const item of items) {

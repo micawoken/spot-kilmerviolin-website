@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -39,7 +39,11 @@ if (denied) {
     return denied
 }
 
-const RANGE_LABELS: Record<AnalyticsRange, string> = { "1d": "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days" }
+const RANGE_LABELS: Record<AnalyticsRange, string> = {
+    "1d": "Last 24 hours",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days"
+}
 const ranges = Object.keys(RANGE_LABELS) as AnalyticsRange[]
 
 const requested = Astro.url.searchParams.get("range")
@@ -59,8 +63,8 @@ const summary = await getWebAnalyticsSummary(range)
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Site Analytics</h2>
             <p class="general-infohelp">
-                Pageview and visit counts reported by the public site's Cloudflare Web Analytics beacon. This
-                data is cookieless and requires no visitor consent banner.
+                Pageview and visit counts reported by the public site's Cloudflare Web Analytics beacon. This data is
+                cookieless and requires no visitor consent banner.
             </p>
             {
                 summary.ok ? (
@@ -92,9 +96,9 @@ const summary = await getWebAnalyticsSummary(range)
                     </>
                 ) : summary.reason === "unconfigured" ? (
                     <p>
-                        Site analytics is not configured yet. Create a Web Analytics site for this domain in
-                        the Cloudflare dashboard, then set CF_ANALYTICS_SITE_TAG and CF_ANALYTICS_TOKEN (see
-                        DEPLOY.md) and redeploy.
+                        Site analytics is not configured yet. Create a Web Analytics site for this domain in the
+                        Cloudflare dashboard, then set CF_ANALYTICS_SITE_TAG and CF_ANALYTICS_TOKEN (see DEPLOY.md) and
+                        redeploy.
                     </p>
                 ) : (
                     <p>Could not read analytics data: {summary.message}</p>

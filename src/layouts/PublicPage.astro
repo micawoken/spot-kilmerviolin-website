@@ -12,9 +12,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -98,21 +98,28 @@ const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].f
 <html lang="en">
     <head>
         <PublicHead title={title} description={description} image={image} />
-        {/* Site-wide web fonts (design theme → fonts), self-hosted at build time (theme-fonts.ts) so the
+        {
+            /* Site-wide web fonts (design theme → fonts), self-hosted at build time (theme-fonts.ts) so the
             font file can be preloaded directly instead of routing through fonts.googleapis.com — see
             theme-fonts.ts for why that round trip made the theme font unreliable on a cold cache. Omitted
-            entirely when no font is authored or self-hosting it failed for this build. */}
-        {themeHead.fontFaceCss &&
-            themeHead.preloadHrefs.map((href) => (
-                <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
-            ))}
-        {/* The theme's @font-face rules and --dtk-* custom properties (site-wide, so both public-chrome.css
+            entirely when no font is authored or self-hosting it failed for this build. */
+        }
+        {
+            themeHead.fontFaceCss &&
+                themeHead.preloadHrefs.map((href) => (
+                    <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+                ))
+        }
+        {
+            /* The theme's @font-face rules and --dtk-* custom properties (site-wide, so both public-chrome.css
             and any compositor design page resolve their token references) — linked, not inlined, since
             they're identical across every page of a build (theme-head.css.ts's doc header). Omitted
             entirely when no theme is published (both are "" then, same as fontFaceCss's preload guard
-            above). */}
+            above). */
+        }
         {(themeHead.fontFaceCss || themeHead.tokenCss) && <link rel="stylesheet" href="/theme-head.css" />}
-        {/* Optional per-page head content beyond the above (e.g. EntityOgMeta, CompositorStyles). Kept
+        {
+            /* Optional per-page head content beyond the above (e.g. EntityOgMeta, CompositorStyles). Kept
             before the fused theme <style> below for readability, but this order is NOT load-bearing for
             the cascade: CompositorStyles.astro's compositor.css reaches <head> via a plain side-effect
             `import`, which Astro/Vite bundles into its own hashed `<link>` positioned by its static
@@ -120,19 +127,22 @@ const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].f
             below. .cmp-columns' base rule is `:where()`-wrapped (compositor.css) specifically so the
             @media override always wins on specificity regardless of which one the bundler emits first;
             see that rule's comment for the live bug this replaced (confirmed on /privacy-policy: the
-            bundled <link> landed AFTER this inline <style> despite this source order). */}
+            bundled <link> landed AFTER this inline <style> despite this source order). */
+        }
         <slot name="head" />
-        {/* The Columns single-column stacking breakpoint (always present — it replaces what used to be a
+        {
+            /* The Columns single-column stacking breakpoint (always present — it replaces what used to be a
             rule hardcoded into compositor.css, and is harmless on a page with no .cmp-columns element) and
             the @view-transition rule (enabled by default, matching the site's original always-on
             global.css rule; unsupported browsers just fall back to a normal navigation) — see themeCss
             above for why these two stay inline instead of joining theme-head.css. Wins the cascade via
-            :where() on the base rule, not via this position — see the slot comment above. */}
-        <style set:html={themeCss} />
+            :where() on the base rule, not via this position — see the slot comment above. */
+        }
+        <style set:html={themeCss}></style>
     </head>
     <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>
         {/* Own element, not comma-joined onto <body>'s type: filter — see pagefindFilter's doc comment above. */}
-        {pagefindFilter && <span hidden data-pagefind-filter={pagefindFilter}></span>}
+        {pagefindFilter && <span hidden data-pagefind-filter={pagefindFilter} />}
         <a class="skip-link" href="#main-content">Skip to content</a>
         <PublicHeader />
         <main id="main-content">

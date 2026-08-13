@@ -18,9 +18,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -357,8 +357,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
                     rule: "content-image-alt",
                     path,
                     message:
-                        `${type}'s image (field "${field}") has no alt text — ` +
-                        "set it on the media item in the CMS"
+                        `${type}'s image (field "${field}") has no alt text — ` + "set it on the media item in the CMS"
                 })
             }
             break
@@ -382,7 +381,8 @@ function lintRichText(body: unknown, path: string, findings: LintFinding[]): voi
                 severity: "error",
                 rule: "richtext-not-portable-text",
                 path,
-                message: "Rich text body is not a Portable Text array and will render as literal text instead of formatted content"
+                message:
+                    "Rich text body is not a Portable Text array and will render as literal text instead of formatted content"
             })
         }
         return

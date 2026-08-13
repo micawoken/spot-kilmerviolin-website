@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -81,7 +81,11 @@ const imageAlt = await resolveEntityImageAlt(
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>View a Composer</h2>
             <IDEntryForm output_div={undefined} hidden={use_id} search={true} />
-            <ComposerInfo composer={use_id ? (composer_data as ComposerRecord) : null} hidden={!use_id} imageAlt={use_id ? imageAlt : undefined} />
+            <ComposerInfo
+                composer={use_id ? (composer_data as ComposerRecord) : null}
+                hidden={!use_id}
+                imageAlt={use_id ? imageAlt : undefined}
+            />
             <p id="transaction-status">
                 {
                     use_id

@@ -157,7 +157,9 @@ async function fetchFullCollection<T>(path: string): Promise<T[] | null> {
 
     for (let attempt = 1; attempt <= READ_ATTEMPTS; attempt++) {
         if (attempt > 1) {
-            console.warn(`[build/d1-api] GET ${path} failed (${reason}); retrying (attempt ${attempt} of ${READ_ATTEMPTS})`)
+            console.warn(
+                `[build/d1-api] GET ${path} failed (${reason}); retrying (attempt ${attempt} of ${READ_ATTEMPTS})`
+            )
             await sleep(RETRY_BACKOFF_MS * (attempt - 1))
         }
 

@@ -12,8 +12,8 @@ import AdminDocument from "../../layouts/AdminDocument.astro"
 
     <h3>Overview</h3>
     <p>
-        This security policy governs your use of the "Diversifying the Violin Curriculum for Private
-        Teaching" website administrative services, accessible at:
+        This security policy governs your use of the "Diversifying the Violin Curriculum for Private Teaching" website
+        administrative services, accessible at:
     </p>
     <ul>
         <li>kilmer.nrnnet.xyz/admin,</li>
@@ -23,21 +23,23 @@ import AdminDocument from "../../layouts/AdminDocument.astro"
         <li>staging-spot-kilmerviolin.nrnnet.workers.dev.</li>
     </ul>
     <p>
-        This policy outlines what measures we take to protect your information, how to report security
-        vulnerabilities, and how we will respond to such reports.
+        This policy outlines what measures we take to protect your information, how to report security vulnerabilities,
+        and how we will respond to such reports.
     </p>
 
     <h3>Security Measures</h3>
-    <p>We use industry-standard security measures to protect your information. These include, but are not limited to:</p>
+    <p>
+        We use industry-standard security measures to protect your information. These include, but are not limited to:
+    </p>
     <ul>
         <li>
-            Authentication using Cloudflare Access, which requires you to sign in with Google before
-            accessing the administrative services;
+            Authentication using Cloudflare Access, which requires you to sign in with Google before accessing the
+            administrative services;
         </li>
         <li>JWT re-validation on all admin page visits and API requests, proving again the identity of the user;</li>
         <li>
-            Row-level security on contributor records, ensuring authorization data cannot be modified by
-            unauthorized users; and
+            Row-level security on contributor records, ensuring authorization data cannot be modified by unauthorized
+            users; and
         </li>
         <li>Encryption of data at rest and in transit by our service providers.</li>
     </ul>
@@ -47,34 +49,38 @@ import AdminDocument from "../../layouts/AdminDocument.astro"
     <ol>
         <li>Do not modify or delete any data on the service;</li>
         <li>
-            Do not steal or exfiltrate any data from the service, including, but not limited to, any data
-            you are not authorized to access; and
+            Do not steal or exfiltrate any data from the service, including, but not limited to, any data you are not
+            authorized to access; and
         </li>
         <li>Do not attempt to deny the availability of the service for general users.</li>
     </ol>
 
     <p>
-        All security vulnerabilities in the administrative services should be reported to the system
-        administrator at <a href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a>.
+        All security vulnerabilities in the administrative services should be reported to the system administrator at <a
+            href="mailto:kilmer_security@mwmsc.net">kilmer_security@mwmsc.net</a
+        >.
     </p>
 
-    <p>When you make a report, please provide a detailed description of the vulnerability, including the steps to reproduce it if possible.</p>
+    <p>
+        When you make a report, please provide a detailed description of the vulnerability, including the steps to
+        reproduce it if possible.
+    </p>
 
     <h3>How We Will Respond to Vulnerability Reports</h3>
     <p>
-        We will acknowledge receipt of your report with 72 hours and begin our investigation. If we
-        determine that the report is valid, we will work to resolve the vulnerability as quickly as
-        possible. We may contact you for additional information during our investigation.
+        We will acknowledge receipt of your report with 72 hours and begin our investigation. If we determine that the
+        report is valid, we will work to resolve the vulnerability as quickly as possible. We may contact you for
+        additional information during our investigation.
     </p>
 
     <p>
-        While we investigate, we ask that you do not publicly disclose the vulnerability to allow us to
-        address it. Once we have resolved the vulnerability, we will inform you and may publicly disclose
-        the vulnerability and our response to it.
+        While we investigate, we ask that you do not publicly disclose the vulnerability to allow us to address it. Once
+        we have resolved the vulnerability, we will inform you and may publicly disclose the vulnerability and our
+        response to it.
     </p>
 
     <p>
-        So long as you comply with the above guidelines, we will not take any legal action against you for
-        searching for or reporting security vulnerabilities in the administrative services.
+        So long as you comply with the above guidelines, we will not take any legal action against you for searching for
+        or reporting security vulnerabilities in the administrative services.
     </p>
 </AdminDocument>

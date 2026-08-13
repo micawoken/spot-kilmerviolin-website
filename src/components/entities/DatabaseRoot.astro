@@ -87,12 +87,16 @@ const availableNouns = resolutions
     pagefindFilter="scope:database"
     pagefindIgnore
 >
-    {/* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
+    {
+        /* Single wrapper so the horizontal inset (var(--dtk-space-md), which may be authored as a
         font-relative expression) is computed once instead of once per differently-sized child — see the
-        matching comment in entity/[noun]/index.astro for the full reasoning. */}
+        matching comment in entity/[noun]/index.astro for the full reasoning. */
+    }
     <div class="entity-index-body">
-        {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
-            not a Puck design, so the component can never be placed here. */}
+        {
+            /* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
+            not a Puck design, so the component can never be placed here. */
+        }
         <StaticBreadcrumbs current="Database" />
         <h1>Database</h1>
         <p>What can we help you find?</p>
@@ -110,9 +114,11 @@ const availableNouns = resolutions
                 <button type="submit">Search</button>
             </div>
         </form>
-        {/* Was an inline `<details>` criteria panel duplicating /search/advanced's own form — replaced by a
+        {
+            /* Was an inline `<details>` criteria panel duplicating /search/advanced's own form — replaced by a
             plain link there, since the panel meant advanced search was always "triggering" here rather
-            than being an explicit, separate action a visitor opts into. */}
+            than being an explicit, separate action a visitor opts into. */
+        }
         <p class="search-advanced-link"><a href="/search/advanced">Advanced search →</a></p>
 
         {

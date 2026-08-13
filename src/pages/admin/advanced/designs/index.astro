@@ -56,10 +56,13 @@ if (denied) {
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Designs</h2>
-            <p class="general-warning">In most cases, a CMS page will work better. Only use designed pages when you need full design control.</p>
+            <p class="general-warning">
+                In most cases, a CMS page will work better. Only use designed pages when you need full design control.
+            </p>
             <p class="general-infohelp">
                 This system allows you to create custom pages with full design control.{" "}
-                They are rendered as-is and not passed through templates.</p>
+                They are rendered as-is and not passed through templates.
+            </p>
             <section class="design-create" aria-labelledby="design-create-heading">
                 <h3 id="design-create-heading">Create a design</h3>
                 <form id="design-create-form">
@@ -92,7 +95,13 @@ if (denied) {
                 // A real module import forces Astro to emit this as an external hashed module (never inlined),
                 // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
                 import { emptyDesignDoc } from "../../../../lib/compositor/migrations"
-                import { fetchItems, statusLabel, titleOf, errorMessage, type DesignItem } from "../../../../lib/compositor/design-list"
+                import {
+                    fetchItems,
+                    statusLabel,
+                    titleOf,
+                    errorMessage,
+                    type DesignItem
+                } from "../../../../lib/compositor/design-list"
 
                 const CONTENT_ENDPOINT = "/_emdash/api/content/design_page"
                 const EDITOR_PATH = "/admin/advanced/designs/edit"

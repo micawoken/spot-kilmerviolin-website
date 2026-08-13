@@ -84,7 +84,11 @@ export const GET: APIRoute = async () => {
 
     if (availableNouns.has("composition")) {
         for (const record of compositions ?? []) {
-            const entry: FacetEntry = { url: entityHref("composition", record.id), noun: "composition", name: record.name }
+            const entry: FacetEntry = {
+                url: entityHref("composition", record.id),
+                noun: "composition",
+                name: record.name
+            }
             const composerName = composerNames.get(record.composer_id)
             if (composerName) {
                 entry.composer = composerName
@@ -101,7 +105,11 @@ export const GET: APIRoute = async () => {
 
     if (availableNouns.has("contributor")) {
         for (const record of contributors ?? []) {
-            const entry: FacetEntry = { url: entityHref("contributor", record.id), noun: "contributor", name: record.name }
+            const entry: FacetEntry = {
+                url: entityHref("contributor", record.id),
+                noun: "contributor",
+                name: record.name
+            }
             if (typeof record.class_year === "number") entry.classYear = record.class_year
             entries.push(entry)
         }

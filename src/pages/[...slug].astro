@@ -23,9 +23,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -183,12 +183,7 @@ const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
             </article>
         </PublicPage>
     ) : (
-        <PublicPage
-            title={props.title}
-            description={props.description}
-            image={image}
-            contentType={contentType}
-        >
+        <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
             <CompositorStyles slot="head" />
             {/* Puck's config holds React render functions, can't travel through getStaticPaths props
                 (serialized) — rebuilt here from the serializable theme. "build" target swaps the two

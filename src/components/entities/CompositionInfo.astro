@@ -17,9 +17,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -58,26 +58,36 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
 ---
 
 <div id="generic-result-composition" class={`entity-result-container${hidden ? " hidden" : ""}`}>
-    {/* head: the name/ID header sits top-left, the detail groups (composer, work properties,
+    {
+        /* head: the name/ID header sits top-left, the detail groups (composer, work properties,
         characteristics, ratings, publisher, contribution, tags) flow into columns beneath it, and the
         image occupies the top-right; the bulkier notes span the full card width below. Source order is
-        header → image → groups so the image stacks directly below the title on narrow viewports. */}
+        header → image → groups so the image stacks directly below the title on narrow viewports. */
+    }
     <div class="entity-result-head">
         <div class="entity-result-header">
             <h2 id="composition-name" class="entity-result-name">{composition?.name}</h2>
-            {/* infobar: the ID leads a middot-separated line that also carries the work type and part (the
+            {
+                /* infobar: the ID leads a middot-separated line that also carries the work type and part (the
                 standalone type/part group is folded in here). Each datum keeps its own composition-{key} id
-                so populateInfo can still fill it. */}
+                so populateInfo can still fill it. */
+            }
             <div id="composition-details-infoline">
                 <p id="composition-id">ID #{composition?.id}</p>
-                <p id="composition-type"><span class="sr-only">Work Type: </span>{disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}</p>
-                <p id="composition-part"><span class="sr-only">Part: </span>{disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}</p>
+                <p id="composition-type">
+                    <span class="sr-only">Work Type: </span>{disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}
+                </p>
+                <p id="composition-part">
+                    <span class="sr-only">Part: </span>{disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}
+                </p>
             </div>
         </div>
         <div id="composition-image-container" class="entity-result-image-container">
-            {/* the <img> is always present (hidden when there is no image) so the client-side READ flow
+            {
+                /* the <img> is always present (hidden when there is no image) so the client-side READ flow
                 (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
-                src is omitted when absent to avoid a broken-image request. */}
+                src is omitted when absent to avoid a broken-image request. */
+            }
             <img
                 id="composition-image"
                 class={`entity-result-image${composition?.image ? "" : " hidden"}`}
@@ -94,8 +104,10 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
         </div>
         <div class="entity-result-groups">
             <div id="composition-details-composer" class="entity-result-group entity-result-details">
-                {/* the composer name and secondary-author names link to their composer info pages; the link
-                    target is the corresponding composer id. Mirrored client-side in interface.ts. */}
+                {
+                    /* the composer name and secondary-author names link to their composer info pages; the link
+                    target is the corresponding composer id. Mirrored client-side in interface.ts. */
+                }
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.composer}:</strong>
                     <span
@@ -108,10 +120,12 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.composerId}:</strong> <span id="composition-composer_id">{disp(composition?.composer_id)}</span>
+                    <strong>{COMPOSITION_LABELS.composerId}:</strong>
+                    <span id="composition-composer_id">{disp(composition?.composer_id)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.secondaryAuthors}:</strong> <span
+                    <strong>{COMPOSITION_LABELS.secondaryAuthors}:</strong>
+                    <span
                         id="composition-author_secondary_names"
                         set:html={renderComposerNameLinks(
                             composition?.author_secondary,
@@ -121,18 +135,22 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.secondaryAuthorIds}:</strong> <span id="composition-author_secondary"
+                    <strong>{COMPOSITION_LABELS.secondaryAuthorIds}:</strong>
+                    <span id="composition-author_secondary"
                         >{disp(composition?.author_secondary, COMPOSITION_PLACEHOLDERS.secondaryAuthorIds)}</span
                     >
                 </div>
             </div>
             <div id="composition-details-contribution" class="entity-result-group entity-result-details">
-                {/* contribution sits beside the composer group (same row when there is room); contributor
+                {
+                    /* contribution sits beside the composer group (same row when there is room); contributor
                     references render inline as "id (name)" links to each contributor's info page; the names
                     come from the resolved CompositionNames (see attachCompositionNames) and are mirrored
-                    client-side in interface.ts */}
+                    client-side in interface.ts */
+                }
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.primaryContributor}:</strong> <span
+                    <strong>{COMPOSITION_LABELS.primaryContributor}:</strong>
+                    <span
                         id="composition-contrib_primary_1"
                         set:html={renderContributorRefLink(
                             composition?.contrib_primary_1,
@@ -142,7 +160,8 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.additionalPrimaryContributor}:</strong> <span
+                    <strong>{COMPOSITION_LABELS.additionalPrimaryContributor}:</strong>
+                    <span
                         id="composition-contrib_primary_2"
                         set:html={renderContributorRefLink(
                             composition?.contrib_primary_2,
@@ -152,7 +171,8 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.additionalContributors}:</strong> <span
+                    <strong>{COMPOSITION_LABELS.additionalContributors}:</strong>
+                    <span
                         id="composition-contrib_addl"
                         set:html={renderContributorRefLinks(
                             composition?.contrib_addl,
@@ -162,54 +182,68 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                     />
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.phases}:</strong> <span id="composition-phases">{disp(composition?.phases, COMPOSITION_PLACEHOLDERS.phases)}</span>
+                    <strong>{COMPOSITION_LABELS.phases}:</strong>
+                    <span id="composition-phases">{disp(composition?.phases, COMPOSITION_PLACEHOLDERS.phases)}</span>
                 </div>
             </div>
             <div id="composition-details-characteristics" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.key}:</strong> <span id="composition-key">{disp(composition?.key, COMPOSITION_PLACEHOLDERS.key)}</span>
+                    <strong>{COMPOSITION_LABELS.key}:</strong>
+                    <span id="composition-key">{disp(composition?.key, COMPOSITION_PLACEHOLDERS.key)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.range}:</strong> <span id="composition-range">{disp(composition?.range, COMPOSITION_PLACEHOLDERS.range)}</span>
+                    <strong>{COMPOSITION_LABELS.range}:</strong>
+                    <span id="composition-range">{disp(composition?.range, COMPOSITION_PLACEHOLDERS.range)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.highestPosition}:</strong> <span id="composition-position_highest"
+                    <strong>{COMPOSITION_LABELS.highestPosition}:</strong>
+                    <span id="composition-position_highest"
                         >{disp(composition?.position_highest, COMPOSITION_PLACEHOLDERS.highestPosition)}</span
                     >
                 </div>
             </div>
             <div id="composition-details-ratings" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.suzukiRating}:</strong> <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span>
+                    <strong>{COMPOSITION_LABELS.suzukiRating}:</strong>
+                    <span id="composition-rating-suzuki">{disp(composition?.rating?.suzuki)}</span>
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.nyssmaRating}:</strong> <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span>
+                    <strong>{COMPOSITION_LABELS.nyssmaRating}:</strong>
+                    <span id="composition-rating-nyssma">{disp(composition?.rating?.nyssma)}</span>
                 </div>
             </div>
             <div id="composition-details-publisher" class="entity-result-group entity-result-details">
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publisherName}:</strong> <span id="composition-publication_info-name"
+                    <strong>{COMPOSITION_LABELS.publisherName}:</strong>
+                    <span id="composition-publication_info-name"
                         >{disp(composition?.publication_info?.name, COMPOSITION_PLACEHOLDERS.publisherName)}</span
                     >
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publicationLocation}:</strong> <span id="composition-publication_info-location"
-                        >{disp(composition?.publication_info?.location, COMPOSITION_PLACEHOLDERS.publicationLocation)}</span
+                    <strong>{COMPOSITION_LABELS.publicationLocation}:</strong>
+                    <span id="composition-publication_info-location"
+                        >{
+                            disp(composition?.publication_info?.location, COMPOSITION_PLACEHOLDERS.publicationLocation)
+                        }</span
                     >
                 </div>
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publicationYear}:</strong> <span id="composition-publication_info-year"
+                    <strong>{COMPOSITION_LABELS.publicationYear}:</strong>
+                    <span id="composition-publication_info-year"
                         >{disp(composition?.publication_info?.year, COMPOSITION_PLACEHOLDERS.publicationYear)}</span
                     >
                 </div>
-                {/* the publication URI is rendered according to its declared uri_type (the type is authoritative):
+                {
+                    /* the publication URI is rendered according to its declared uri_type (the type is authoritative):
                     a clickable link for https, the bare ISBN linked to its WorldCat lookup for isbn, and the bare
                     DOI linked to its doi.org resolver for doi. renderPublicationUri returns markup-safe HTML (every
                     value is escapeHtml-encoded), so it is emitted via set:html rather than the auto-escaped `{}`.
                     The separate URI-type field is intentionally omitted here since the type is conveyed by the
-                    render itself. Mirrored client-side in populateInfo. */}
+                    render itself. Mirrored client-side in populateInfo. */
+                }
                 <div class="entity-field">
-                    <strong>{COMPOSITION_LABELS.publicationUri}:</strong> <span
+                    <strong>{COMPOSITION_LABELS.publicationUri}:</strong>
+                    <span
                         id="composition-publication_info-uri"
                         set:html={renderPublicationUri(
                             composition?.publication_info?.uri_type,
@@ -221,9 +255,11 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
             </div>
         </div>
     </div>
-    {/* notes span the full card width below the head and lay their three sub-notes side by side when there
+    {
+        /* notes span the full card width below the head and lay their three sub-notes side by side when there
         is room (stacking when narrow). The tags follow the notes as a fourth grid cell so they land in the
-        first column, directly beneath the historical notes. */}
+        first column, directly beneath the historical notes. */
+    }
     <div id="composition-details-notes" class="entity-result-notes-group">
         <div id="composition-details-notes-historical">
             <p id="composition-notes_historical" class="entity-result-notes">
@@ -242,16 +278,17 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
         </div>
         <div id="composition-details-tags" class="entity-result-details">
             <div class="entity-field">
-                <strong>{COMPOSITION_LABELS.tags}:</strong> <span id="composition-tags">{disp(composition?.tags)}</span>
+                <strong>{COMPOSITION_LABELS.tags}:</strong>
+                <span id="composition-tags">{disp(composition?.tags)}</span>
             </div>
-            {/* citations render as a comma-separated list of hyperlinks (key as display text);
+            {
+                /* citations render as a comma-separated list of hyperlinks (key as display text);
                 renderCitationsList returns markup-safe HTML, so it is emitted via set:html. Mirrored client-side
-                in populateInfo. */}
+                in populateInfo. */
+            }
             <div class="entity-field">
-                <strong>{COMPOSITION_LABELS.citations}:</strong> <span
-                    id="composition-citations"
-                    set:html={renderCitationsList(composition?.citations, NOT_PROVIDED)}
-                />
+                <strong>{COMPOSITION_LABELS.citations}:</strong>
+                <span id="composition-citations" set:html={renderCitationsList(composition?.citations, NOT_PROVIDED)} />
             </div>
         </div>
     </div>

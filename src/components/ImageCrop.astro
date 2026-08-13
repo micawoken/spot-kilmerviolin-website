@@ -15,9 +15,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -47,8 +47,10 @@ const { inputId, id = "image-crop" } = Astro.props
         <button type="button" class="image-crop-aspect is-active" data-aspect="portrait">Portrait 4:5</button>
         <button type="button" class="image-crop-aspect" data-aspect="landscape">Landscape 5:4</button>
     </div>
-    {/* the stage and the too-small caution share a row so the caution aligns to the top of the image
-        (not the controls above it); the caution reserves no space while hidden, so it shifts no layout. */}
+    {
+        /* the stage and the too-small caution share a row so the caution aligns to the top of the image
+        (not the controls above it); the caution reserves no space while hidden, so it shifts no layout. */
+    }
     <div class="image-crop-body">
         <div class="image-crop-stage">
             <img class="image-crop-img" alt="Crop preview" />

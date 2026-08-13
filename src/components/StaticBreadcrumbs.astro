@@ -50,9 +50,13 @@ const { crumbs = [], current }: Props = Astro.props
 <nav class="static-breadcrumbs" aria-label="Breadcrumb">
     <ol>
         <li><a href="/">Home</a></li>
-        {crumbs.map((crumb) => (
-            <li><a href={crumb.href}>{crumb.label}</a></li>
-        ))}
+        {
+            crumbs.map((crumb) => (
+                <li>
+                    <a href={crumb.href}>{crumb.label}</a>
+                </li>
+            ))
+        }
         <li aria-current="page">{current}</li>
     </ol>
 </nav>

@@ -4,9 +4,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -76,8 +76,10 @@ export const prerender = false
                         </p>
                     </fieldset>
                     <div id="advanced-command-danger" class="command-danger hidden">
-                        {/* shown only when the command looks destructive (see detectDangerousSql); the user must
-                            acknowledge before the command can be sent */}
+                        {
+                            /* shown only when the command looks destructive (see detectDangerousSql); the user must
+                            acknowledge before the command can be sent */
+                        }
                         <p class="general-warning" id="advanced-command-danger-text"></p>
                         <label class="command-danger-ack">
                             <input type="checkbox" id="advanced-command-danger-ack" name="danger_ack" />

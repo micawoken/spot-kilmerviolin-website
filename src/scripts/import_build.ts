@@ -300,7 +300,8 @@ function parseSecondaryAuthorEntry(raw: string): { name: string; role: string } 
     }
     const name = cleanText(match[1])
     const roleRaw = cleanText(match[2])
-    const role = roleRaw === "" ? AuthorRole.ARRANGER : (canonicalEnumValue(roleRaw, Object.values(AuthorRole)) ?? roleRaw)
+    const role =
+        roleRaw === "" ? AuthorRole.ARRANGER : (canonicalEnumValue(roleRaw, Object.values(AuthorRole)) ?? roleRaw)
     return { name, role }
 }
 
@@ -464,7 +465,9 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
     // secondary authors resolve on (name, role), not name alone — see resolveSecondaryAuthor
-    const secondary = splitList(cells.author_secondary).map((entry) => resolveSecondaryAuthor(entry, ctx, "author_secondary"))
+    const secondary = splitList(cells.author_secondary).map((entry) =>
+        resolveSecondaryAuthor(entry, ctx, "author_secondary")
+    )
     for (const resolved of secondary) {
         if (resolved.issue !== null) {
             issues.push(resolved.issue)
@@ -656,9 +659,13 @@ export function flagCompositionDuplicates(results: BuildResult[], existingKeys: 
         const key = keyOf(result)
         if (key !== null) {
             if (existingKeys.has(key)) {
-                result.issues.push({ message: "a composition with this name and part already exists for this composer" })
+                result.issues.push({
+                    message: "a composition with this name and part already exists for this composer"
+                })
             } else if ((keyCounts.get(key) ?? 0) > 1) {
-                result.issues.push({ message: "duplicate composition (same name, composer, and part) within this file" })
+                result.issues.push({
+                    message: "duplicate composition (same name, composer, and part) within this file"
+                })
             }
         }
     }

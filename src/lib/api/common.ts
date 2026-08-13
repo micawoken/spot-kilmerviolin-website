@@ -6,9 +6,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -494,7 +494,17 @@ export function formatWorkFromD1(record: D1Composition): CompositionRecord {
 export function formatWorkToD1(record: Composition | CompositionRecord): D1Composition {
     // converts a Composition object to D1Composition
     // if the supplied object is a Composition, and not a CompositionRecord, the id, entry_date, and change_date fields are set to null equivalents
-    let author_secondary, contrib_addl, rating, phases, publication_info, id, entry_date, change_date, tags, citations, data
+    let author_secondary,
+        contrib_addl,
+        rating,
+        phases,
+        publication_info,
+        id,
+        entry_date,
+        change_date,
+        tags,
+        citations,
+        data
     switch ("id" in record) {
         case true:
             // record is a CompositionRecord, so it has the id, entry_date, and change_date fields, which are used in the output
