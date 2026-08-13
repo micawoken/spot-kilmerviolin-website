@@ -46,8 +46,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check formatting
+        run: pnpm run format:check
+
+      - name: Run tests
+        run: pnpm test
+
       - name: Build Astro site
         run: pnpm run build
+
+      - name: Type check
+        # Mirrors the local `pnpm run check` script: tsc must run after the build so
+        # .astro/types.d.ts exists.
+        run: pnpm exec tsc
 
       - name: Upload staging preview version to Cloudflare Workers
         # Dependabot PRs resolve secrets against the Dependabot store, never the Actions store, so
