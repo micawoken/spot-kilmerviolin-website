@@ -338,29 +338,34 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
         expect(buildRelatedWorksIndex(null, null, ALL_PAGES).size).toBe(0)
     })
 
-    it("composition -> related works: same-name siblings (other parts of the same piece) lead the list, ahead of the randomized rest", () => {
-        // prelude/preludeMvt2 share a name, differing only by part — the same signal the
-        // composer_id+name+part unique index keys on — and must sort before fugue/gavotte.
+    it("composition -> related works: same-name siblings (other parts of the same piece) lead the list, sorted alphabetically by part, ahead of the randomized rest", () => {
+        // prelude/preludeMvt2/preludeMvt1 share a name, differing only by part — the same signal the
+        // composer_id+name+part unique index keys on — and must sort before fugue/gavotte, in part order
+        // ("I" before "II") rather than encounter/id order (21 was pushed before 24).
         const prelude: D1Composition = { ...composition, composition_id: 20, name: "Prelude", part: null }
         const preludeMvt2: D1Composition = { ...composition, composition_id: 21, name: "Prelude", part: "II" }
         const fugue: D1Composition = { ...composition, composition_id: 22, name: "Fugue" }
         const gavotte: D1Composition = { ...composition, composition_id: 23, name: "Gavotte" }
+        const preludeMvt1: D1Composition = { ...composition, composition_id: 24, name: "Prelude", part: "I" }
         const nameIndex = buildRelatedWorksIndex(
             [formatCompFromD1(composer)],
-            [prelude, preludeMvt2, fugue, gavotte].map(formatWorkFromD1),
+            [prelude, preludeMvt2, fugue, gavotte, preludeMvt1].map(formatWorkFromD1),
             ALL_PAGES
         )
 
         const related = nameIndex.get("composition:20")
-        // Automatic disambiguation: id 21 shares (composer, name) with id 20, so its own `part` ("II")
-        // surfaces in parentheses — the composer subtitle alone can't tell the two "Prelude"s apart.
-        expect(related?.[0]).toEqual({ id: 21, name: "Prelude (II)", href: "/entity/work/21", composer: "Bach" })
-        expect(related?.slice(1)).toEqual(
+        // Automatic disambiguation: ids 21/24 share (composer, name) with id 20, so their own `part`
+        // surfaces in parentheses — the composer subtitle alone can't tell the "Prelude"s apart.
+        expect(related?.slice(0, 2)).toEqual([
+            { id: 24, name: "Prelude (I)", href: "/entity/work/24", composer: "Bach" },
+            { id: 21, name: "Prelude (II)", href: "/entity/work/21", composer: "Bach" }
+        ])
+        expect(related?.slice(2)).toEqual(
             expect.arrayContaining([
                 { id: 22, name: "Fugue", href: "/entity/work/22", composer: "Bach" },
                 { id: 23, name: "Gavotte", href: "/entity/work/23", composer: "Bach" }
             ])
         )
-        expect(related).toHaveLength(3)
+        expect(related).toHaveLength(4)
     })
 })
