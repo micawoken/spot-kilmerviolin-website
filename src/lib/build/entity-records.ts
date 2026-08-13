@@ -146,6 +146,9 @@ export function buildRelatedWorksIndex(
         composer: composerNames.get(record.composer_id) ?? ""
     })
 
+    const worksById = new Map<number, CompositionRecord>()
+    for (const record of works) worksById.set(record.id, record)
+
     const index = new Map<string, RelatedWork[]>()
     const push = (key: string, work: RelatedWork) => {
         const list = index.get(key)
@@ -187,8 +190,9 @@ export function buildRelatedWorksIndex(
     //  - composer: seeded by the composer id, so the order is reproducible across rebuilds as long as
     //    that composer's related-works list is unchanged (a new/removed work naturally reshuffles it).
     //  - composition: exact-name matches (other parts/movements of the same piece — the same signal the
-    //    composer_id+name+part unique index already keys on) lead, in their encountered order; the
-    //    remaining same-composer works are truly randomized, so they vary on every build.
+    //    composer_id+name+part unique index already keys on) lead, sorted alphabetically by `part` (the
+    //    one field that actually differs between them — `name` is identical within this subgroup by
+    //    definition); the remaining same-composer works are truly randomized, so they vary on every build.
     //  - contributor: truly randomized, so they vary on every build.
     for (const [key, list] of index) {
         const [noun, idStr] = key.split(":")
@@ -197,7 +201,11 @@ export function buildRelatedWorksIndex(
         } else if (noun === "composition") {
             const record = works.find((w) => w.id === Number(idStr))
             const targetName = record?.name.trim()
-            const exact = list.filter((work) => work.name.trim() === targetName)
+            const exact = list
+                .filter((work) => work.name.trim() === targetName)
+                .sort((a, b) =>
+                    (worksById.get(a.id)?.part ?? "").localeCompare(worksById.get(b.id)?.part ?? "")
+                )
             const rest = list.filter((work) => work.name.trim() !== targetName)
             index.set(key, [...exact, ...randomShuffle(rest)])
         } else if (noun === "contributor") {
@@ -212,8 +220,6 @@ export function buildRelatedWorksIndex(
     // (lib/api/database.ts) for the admin works list; duplicated rather than imported so this build-time
     // module doesn't pull in the worker-only D1 access layer. A part-less work stays ambiguous — there is
     // nothing to disambiguate it WITH — even when its same-named sibling has its own part.
-    const worksById = new Map<number, CompositionRecord>()
-    for (const record of works) worksById.set(record.id, record)
     const nameCollisionCounts = new Map<string, number>()
     for (const record of works) {
         const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
