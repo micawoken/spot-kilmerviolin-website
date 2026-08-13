@@ -221,24 +221,45 @@ header .site-title {
 }
 header #search-toggle {
 	grid-area: toggle;
-	display: inline-flex;
-	align-items: center;
+	display: inline-grid;
+	place-items: center;
 	padding: var(--dtk-space-xs, 0.25rem);
 	border: none;
 	background: none;
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 	cursor: pointer;
 }
-/* Both icons render (so no client-side icon swap is needed); CSS shows exactly one at a time based on the
- * toggle's open/closed state, kept in sync with aria-expanded by the header's own script. */
+/* Both icons render (so no client-side icon swap is needed) and share the same grid cell, crossfading via
+ * opacity/visibility on the same 0.15s timing as #header-search-form's own open/close transition (below) —
+ * previously this swapped via `display`, which can't be transitioned, so the icon snapped instantly while
+ * the search bar it announces was still fading in. */
+header #search-toggle .icon-search,
 header #search-toggle .icon-close {
-	display: none;
+	grid-area: 1 / 1;
+	opacity: 1;
+	visibility: visible;
+	transition: opacity 0.15s ease, visibility 0s linear 0s;
+}
+header #search-toggle .icon-close {
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
 header #search-toggle.is-open .icon-search {
-	display: none;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
 header #search-toggle.is-open .icon-close {
-	display: inline;
+	opacity: 1;
+	visibility: visible;
+	transition: opacity 0.15s ease, visibility 0s linear 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+	header #search-toggle .icon-search,
+	header #search-toggle .icon-close {
+		transition: none;
+	}
 }
 /* nav-area doubles as the search overlay's anchor at/above 720px (below it, the media query further up
  * switches to a grid-stacking approach instead — see its comment): opening search covers only this area
