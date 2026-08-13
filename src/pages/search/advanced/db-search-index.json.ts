@@ -1,8 +1,8 @@
 /**
- * pages/database-facets.json.ts
+ * pages/search/advanced/db-search-index.json.ts
  *
  * Build-time facet index for advanced database search — prerendered once to
- * dist/client/database-facets.json, one row per D1 entity record that actually gets
+ * dist/client/search/advanced/db-search-index.json, one row per D1 entity record that actually gets
  * a public page this build. Pagefind's own filters are discrete-value only (no ranges, no comparisons),
  * so /search/advanced and /search's query-syntax path fetch this JSON and filter it directly with
  * lib/search/facets.ts's `matchesFacets`, rather than relying on anything in the rendered page HTML —
@@ -36,13 +36,13 @@
 
 import type { APIRoute } from "astro"
 
-import { normalizeKeyForSearch } from "../lib/api/common"
-import { fetchComposers, fetchCompositions, fetchContributors } from "../lib/build/d1-api"
-import { fetchPublishedEntityTemplates } from "../lib/build/design-api"
-import { resolveEntityTemplates } from "../lib/build/entity-routes"
-import { entityHref } from "../lib/compositor/composition-fields"
-import type { EntityNoun } from "../lib/compositor/entity-fields"
-import type { FacetEntry } from "../lib/search/facets"
+import { normalizeKeyForSearch } from "../../../lib/api/common"
+import { fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
+import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
+import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
+import { entityHref } from "../../../lib/compositor/composition-fields"
+import type { EntityNoun } from "../../../lib/compositor/entity-fields"
+import type { FacetEntry } from "../../../lib/search/facets"
 
 export const prerender = true
 

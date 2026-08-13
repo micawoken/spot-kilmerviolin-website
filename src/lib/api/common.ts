@@ -172,7 +172,7 @@ const KEY_PITCH_CLASS: Record<Key, number> = {
  * but musically identical keys compare equal.
  *
  * Used by the advanced search feature — lib/search/facets.ts's `keyOptions`/`parseFacetQuery` and the
- * database-facets.json.ts build endpoint — to match/group
+ * search/advanced/db-search-index.json.ts build endpoint — to match/group
  * compositions by key using this reference instead of the raw Key string.
  *
  * @param {Key} key - the key to normalize
