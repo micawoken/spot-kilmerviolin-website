@@ -132,23 +132,17 @@ main a:hover {
 	color: var(--dtk-chrome-link-hover, var(--color-link-hover));
 }
 
-/* Untemplated page titles — the pre-generated "static" pages (entity/database index, search,
- * search/advanced, the fallback 404) and Portable Text pages/posts all render a plain `<h1>` with no
- * typography binding of their own, so without this it falls through to the UA default (`2em`/bold on top
- * of the body size) instead of the theme's own heading scale — visibly smaller and heavier than a
- * Puck-templated page's own top-level heading, which binds to a typography token via `.cmp-heading`
- * (compositor.css). Bound to the `display` token, matching what a Puck design's own page-title `Heading`
- * component is authored with on this site. `main h1` (specificity 0,0,2) beats both global.css's
- * `h1, h2, h3, h4, h5, h6` reset and `.cmp-heading`'s class selector never applies here (a Puck-rendered
- * heading keeps its own `.cmp-heading` binding regardless — class beats element, so this never overrides
- * it). Fallback values reproduce the pre-existing UA look, so an unmigrated theme with no `display` token
- * renders unchanged. */
+/* Untemplated page titles (static pages, Portable Text) render a plain `<h1>` — no typography
+ * binding, so it'd fall through to the UA default instead of the theme's scale. Binds to the
+ * `headingTypography` role, then `display` by magic name (unmigrated themes). `main h1` beats
+ * global.css's reset; never overrides a Puck heading's own `.cmp-heading` binding (class > element).
+ * Innermost fallbacks preserve the pre-existing look when unset. */
 main h1 {
-	font-family: var(--dtk-type-display-family, inherit);
-	font-size: var(--dtk-type-display-size, 2em);
-	font-weight: var(--dtk-type-display-weight, bold);
-	line-height: var(--dtk-type-display-line-height, 1.2);
-	letter-spacing: var(--dtk-type-display-letter-spacing, normal);
+	font-family: var(--dtk-chrome-heading-family, var(--dtk-type-display-family, inherit));
+	font-size: var(--dtk-chrome-heading-size, var(--dtk-type-display-size, 2em));
+	font-weight: var(--dtk-chrome-heading-weight, var(--dtk-type-display-weight, bold));
+	line-height: var(--dtk-chrome-heading-line-height, var(--dtk-type-display-line-height, 1.2));
+	letter-spacing: var(--dtk-chrome-heading-letter-spacing, var(--dtk-type-display-letter-spacing, normal));
 }
 
 /* ---- Header ---- */
