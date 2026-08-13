@@ -30,6 +30,9 @@ Non-trivial work should have a design plan written covering the scope, assumptio
 
 ## 5. Pre-PR verification
 
+`pnpm run fix` applies the mechanical fixes below automatically (Prettier, and an SBOM regen when
+`pnpm-lock.yaml` changed on the branch) so a PR doesn't fail the gate on formatting or a stale SBOM.
+
 The following checks must be run before a PR is opened:
 
 - `pnpm run format:check` - prettier code formatting

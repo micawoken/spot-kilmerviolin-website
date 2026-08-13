@@ -81,6 +81,7 @@
     "check": "astro build && tsc && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "dev": "astro dev",
+    "fix": "node tools/apply-fixes.mjs",
     "format": "prettier --write \"src/**/*.{ts,astro}\"",
     "format:check": "prettier --check \"src/**/*.{ts,astro}\"",
     "gate:compositor-routing": "node tools/gate/run-routing-gate.mjs",
