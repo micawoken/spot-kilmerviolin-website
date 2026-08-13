@@ -143,15 +143,15 @@ const authorized = contributor !== null && "identity_email" in contributor
                     admin-entities.css). */
                 }
                 <p>
-                    <strong>Identity Email:</strong>
+                    <strong>Identity Email: </strong>
                     <span id="contributor-identity_email">{disp(contributor?.identity_email)}</span>
                 </p>
                 <p>
-                    <strong>Roles:</strong>
+                    <strong>Roles: </strong>
                     <span id="contributor-roles">{disp(contributor?.roles, "(no roles specified)")}</span>
                 </p>
                 <p>
-                    <strong>Account type:</strong>
+                    <strong>Account type: </strong>
                     <span id="contributor-admin"
                         >{
                             contributor?.admin === undefined || contributor?.admin === null
@@ -163,7 +163,7 @@ const authorized = contributor !== null && "identity_email" in contributor
                     >
                 </p>
                 <p id="contributor-tags-container">
-                    <strong>Tags:</strong>
+                    <strong>Tags: </strong>
                     <span id="contributor-tags">{disp(contributor?.tags)}</span>
                 </p>
             </div>
