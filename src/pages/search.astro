@@ -174,7 +174,14 @@ export const prerender = true
 <script>
     import { matchesFacets, parseFacetQuery, type FacetEntry } from "../lib/search/facets"
     import { clearJumpLink, renderJumpLink } from "../lib/search/jump"
-    import { computePageWindow, withPage, withShowAll, type PageWindow } from "../lib/search/pagination"
+    import {
+        computePageWindow,
+        dedupeByUrl,
+        normalizeUrl,
+        withPage,
+        withShowAll,
+        type PageWindow
+    } from "../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — only exists at `/pagefind/pagefind.js` once a build has indexed the
      * site (see the "build" npm script), so it is dynamically imported (never bundled: the path does not
@@ -200,7 +207,7 @@ export const prerender = true
     let facetsCache: FacetEntry[] | null = null
     async function loadFacets(): Promise<FacetEntry[]> {
         if (!facetsCache) {
-            const response = await fetch("/database-facets.json")
+            const response = await fetch("/search/advanced/db-search-index.json")
             facetsCache = response.ok ? ((await response.json()) as FacetEntry[]) : []
         }
         return facetsCache
@@ -431,16 +438,24 @@ export const prerender = true
                 )
                 return
             }
-            const matchedByUrl = new Map(matched.map((entry) => [entry.url, entry]))
+            // Keyed by normalizeUrl, not the raw url string — see that function's doc comment for why an
+            // exact-string join between a Pagefind result and a db-search-index.json entry always misses.
+            const matchedByUrl = new Map(matched.map((entry) => [normalizeUrl(entry.url), entry]))
             const pf = await loadPagefind()
             const search = await pf.search(text, { filters: { scope: ["database"] } })
-            const items: ResultItem[] = []
-            for (const result of search.results) {
-                const data = await result.data()
-                const entry = matchedByUrl.get(data.url)
-                if (!entry) continue
-                items.push({ url: data.url, title: data.meta.title || entry.name, excerptHtml: data.excerpt })
-            }
+            // Resolved and deduped up front, not sliced-then-resolved like runPlainSearch below — this path
+            // already has to see every hit's data() to intersect it against matchedByUrl, so there's no lazy
+            // option here (matching /search/advanced's identical hybrid keyword+filter path).
+            const rawItems = await Promise.all(
+                search.results.map(async (result): Promise<ResultItem | null> => {
+                    const data = await result.data()
+                    const entry = matchedByUrl.get(normalizeUrl(data.url))
+                    return entry
+                        ? { url: entry.url, title: data.meta.title || entry.name, excerptHtml: data.excerpt }
+                        : null
+                })
+            )
+            const items = dedupeByUrl(rawItems.filter((item): item is ResultItem => item !== null))
             renderItemsPaged(items, params)
         }
 
@@ -448,20 +463,29 @@ export const prerender = true
             const pf = await loadPagefind()
             const search = await pf.search(query, buildSearchOptions())
             updateTypeFilters(search.filters.type ?? {})
-            renderJumpLink(jumpEl, statusEl, search.results.length)
-            if (search.results.length === 0) {
+            // Every hit is resolved up front (not sliced-to-the-visible-page first, as this used to do) so
+            // dedupeByUrl can collapse same-page chunk hits before the count/page math ever sees them — a
+            // very short or generic query (e.g. "a") can rank several chunks of the same long page highest,
+            // which otherwise rendered as duplicate results differing only in which part of the page their
+            // excerpt matched. The lazy slice-then-resolve approach traded away here can't tell duplicates
+            // apart from distinct results without already knowing every hit's URL.
+            const items: ResultItem[] = dedupeByUrl(
+                await Promise.all(
+                    search.results.map(async (result) => {
+                        const data = await result.data()
+                        return { url: data.url, title: data.meta.title || data.url, excerptHtml: data.excerpt }
+                    })
+                )
+            )
+            renderJumpLink(jumpEl, statusEl, items.length)
+            if (items.length === 0) {
                 statusEl.textContent = "No results found."
                 return
             }
-            // Pagefind's results are lightweight refs until `.data()` is called — slicing to the current
-            // page's window BEFORE fetching data means only the visible page's worth of results is ever
-            // resolved, unlike the database-mode path above (which must resolve every hit up front to
-            // intersect it against the JSON-matched URL set).
-            const pageWindow = computePageWindow(search.results.length, params)
+            const pageWindow = computePageWindow(items.length, params)
             statusEl.textContent = pageStatusText(pageWindow)
-            for (const result of search.results.slice(pageWindow.start, pageWindow.end)) {
-                const data = await result.data()
-                renderResult(data.url, data.meta.title || data.url, data.excerpt)
+            for (const item of items.slice(pageWindow.start, pageWindow.end)) {
+                renderResult(item.url, item.title, item.excerptHtml)
             }
             renderPagination(pageWindow, params)
         }

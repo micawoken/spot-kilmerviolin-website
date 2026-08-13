@@ -14,7 +14,7 @@
  * own type filter), but "composers and works" is a legitimate combined search here.
  *
  * Hybrid engine: structured criteria (year ranges, rating minimums, etc.) are impossible to express as
- * Pagefind filters (discrete values only), so they run against the build-time database-facets.json
+ * Pagefind filters (discrete values only), so they run against the build-time db-search-index.json
  * instead. With no keywords, results are the JSON filter alone (Pagefind returns nothing for an empty
  * query, so this is what makes filter-only browsing work); with keywords, Pagefind supplies the ranked
  * matches and their excerpts, intersected against the JSON-matched URL set. The composer/country text
@@ -381,7 +381,14 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 <script>
     import { matchesFacets, parseFacetParams, validateFacetCriteria, type FacetEntry } from "../../lib/search/facets"
     import { clearJumpLink, renderJumpLink } from "../../lib/search/jump"
-    import { computePageWindow, withPage, withShowAll, type PageWindow } from "../../lib/search/pagination"
+    import {
+        computePageWindow,
+        dedupeByUrl,
+        normalizeUrl,
+        withPage,
+        withShowAll,
+        type PageWindow
+    } from "../../lib/search/pagination"
 
     /** Lazily loaded Pagefind module — see pages/search.astro's own copy of this pattern for why the
      *  path is a runtime string, not a static import. */
@@ -401,17 +408,10 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
     let facetsCache: FacetEntry[] | null = null
     async function loadFacets(): Promise<FacetEntry[]> {
         if (!facetsCache) {
-            const response = await fetch("/database-facets.json")
+            const response = await fetch("/search/advanced/db-search-index.json")
             facetsCache = response.ok ? ((await response.json()) as FacetEntry[]) : []
         }
         return facetsCache
-    }
-
-    // Strips a single trailing slash (except the bare root) so a Pagefind-crawled result URL and a
-    // database-facets.json entry URL can be compared for equality despite differing trailing-slash
-    // conventions — see runSearch's Pagefind branch for why they differ.
-    function normalizeUrl(url: string): string {
-        return url.length > 1 && url.endsWith("/") ? url.slice(0, -1) : url
     }
 
     // "page"/"perPage" are paging state, not search criteria — ignored here so a bare `?page=2` (never
@@ -694,25 +694,32 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                     //
                     // Keyed by normalizeUrl, not the raw url string: Pagefind derives a result's URL from the
                     // prerendered file's on-disk path (always folder/index.html, so always trailing-slash),
-                    // while database-facets.json's url comes from entityHref, which follows this site's
+                    // while db-search-index.json's url comes from entityHref, which follows this site's
                     // `trailingSlash: "never"` convention and so never has one — an exact-string join between
                     // the two silently matched nothing before this normalization, dropping every combined
                     // keyword+filter result (confirmed against a real build, 2026-07-27).
                     const matchedByUrl = new Map(matched.map((entry) => [normalizeUrl(entry.url), entry]))
                     const pf = await loadPagefind()
                     const search = await pf.search(query, { filters: { scope: ["database"] } })
-                    items = []
-                    for (const result of search.results) {
-                        const data = await result.data()
-                        const entry = matchedByUrl.get(normalizeUrl(data.url))
-                        if (!entry) continue
-                        items.push({
-                            url: entry.url,
-                            title: data.meta.title || entry.name,
-                            subtitle: entry.composer ?? "",
-                            excerptHtml: data.excerpt
+                    // Deduped by URL: a very short or generic query can rank several text chunks of the same
+                    // long entity page highest, which Pagefind returns as separate hits (see
+                    // dedupeByUrl's doc comment) — without this, they'd render as duplicate results
+                    // differing only in which part of the page their excerpt happened to match.
+                    const rawItems = await Promise.all(
+                        search.results.map(async (result): Promise<ResultItem | null> => {
+                            const data = await result.data()
+                            const entry = matchedByUrl.get(normalizeUrl(data.url))
+                            return entry
+                                ? {
+                                      url: entry.url,
+                                      title: data.meta.title || entry.name,
+                                      subtitle: entry.composer ?? "",
+                                      excerptHtml: data.excerpt
+                                  }
+                                : null
                         })
-                    }
+                    )
+                    items = dedupeByUrl(rawItems.filter((item): item is ResultItem => item !== null))
                 }
 
                 renderJumpLink(jumpEl, statusEl, items.length)

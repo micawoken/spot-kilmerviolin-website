@@ -226,7 +226,7 @@ export interface BuildEntityTemplate {
  * `fetchPublishedEntityTemplates` (entity nouns), never the undifferentiated raw list.
  *
  * Cached for the build's lifetime, same rationale as {@link fetchPublishedTheme}: `[...slug].astro`,
- * `DatabaseRoot.astro` (rendered at both /entity and /database), `database-facets.json.ts`, and every
+ * `DatabaseRoot.astro` (rendered at both /entity and /database), `search/advanced/db-search-index.json.ts`, and every
  * entity route's `getStaticPaths` all resolve templates through this one way or another — without a
  * cache, one build fires that many redundant cursor-paginated reads of the same collection.
  */

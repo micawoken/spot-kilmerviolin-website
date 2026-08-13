@@ -2,7 +2,7 @@
  * lib/search/facets.ts
  *
  * Shared core for advanced database search. Pure and dependency-light — imported by the build-time
- * facet endpoint (database-facets.json.ts) and the
+ * facet endpoint (search/advanced/db-search-index.json.ts) and the
  * `/search` and `/search/advanced` client scripts. `ADVANCED_FIELDS` is the criteria form's single
  * field-definition list, rendered only by pages/search/advanced.astro — the Puck `PagefindSearch`
  * component and `DatabaseRoot.astro` used to duplicate that form inline, but now just link to that page
@@ -19,7 +19,7 @@
  *
  * Pagefind's own filters are discrete-value only — no ranges, no comparisons — so structured filtering
  * (year ranges, rating minimums) runs off `FacetEntry`/`matchesFacets` instead, against a build-time JSON
- * index (database-facets.json.ts) rather than the rendered page HTML: entity pages render through
+ * index (search/advanced/db-search-index.json.ts) rather than the rendered page HTML: entity pages render through
  * editor-authored Puck templates, so a field's presence in the DOM depends on whether a designer placed
  * it — facets are built from the D1 records themselves.
  *
@@ -53,7 +53,7 @@ import { countryCodeName } from "../../scripts/format"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../compositor/entity-fields"
 
 /**
- * One row of the build-time facet index (database-facets.json.ts). Absent fields are omitted from the
+ * One row of the build-time facet index (search/advanced/db-search-index.json.ts). Absent fields are omitted from the
  * JSON entirely, not emitted as `null` — keeps the payload small and lets {@link matchesFacets} treat
  * "absent" and "not applicable to this noun" the same way.
  */
@@ -292,7 +292,7 @@ const ANY_OPTION: AdvancedFieldOption = { label: "Any", value: "" }
 /** Sentinel option value for "this field is unset on the entry" — distinct from {@link ANY_OPTION}'s empty
  *  string, which means "no filter applied" (matches every entry regardless of the field). Only meaningful
  *  for a select field whose underlying data can genuinely be absent (key/type/role — see
- *  database-facets.json.ts's conditional `if (record.key) …`/`if (record.type) …`/`if (record.role) …`);
+ *  search/advanced/db-search-index.json.ts's conditional `if (record.key) …`/`if (record.type) …`/`if (record.role) …`);
  *  never collides with a real value since it's neither a `Key`/`WorkType`/`AuthorRole` enum member nor a
  *  `normalizeKeyForSearch` pitch-class reference. */
 export const NONE_VALUE = "none"
@@ -322,7 +322,7 @@ const RATING_OPERATORS: readonly FacetOperatorOption[] = [
 
 // Death year's own operator list, distinct from YEAR_OPERATORS (used by birth/publication year): adds
 // "Alive" so a living composer (the -1 sentinel, omitted from the facets JSON entirely — see
-// database-facets.json.ts) can be filtered for without a year value.
+// search/advanced/db-search-index.json.ts) can be filtered for without a year value.
 const DEATH_YEAR_OPERATORS: readonly FacetOperatorOption[] = [...YEAR_OPERATORS, { value: "alive", label: "Alive" }]
 
 function authorRoleOptions(): AdvancedFieldOption[] {
@@ -449,7 +449,7 @@ function matchesCountry(entry: FacetEntry, criterion: TextCriterion): boolean {
 
 function matchesNumber(entryValue: number | undefined, criterion: NumberCriterion): boolean {
     // "Alive" is the inverse of every other operator here: a living composer has no deathYear at all (the
-    // -1 sentinel is omitted from the facets JSON — see database-facets.json.ts), so this is the one case
+    // -1 sentinel is omitted from the facets JSON — see search/advanced/db-search-index.json.ts), so this is the one case
     // where "value absent" is the match, not an automatic non-match.
     if (criterion.op === "alive") return entryValue === undefined
     if (entryValue === undefined) return false
@@ -471,7 +471,7 @@ function matchesNumber(entryValue: number | undefined, criterion: NumberCriterio
     }
 }
 
-// key/type/role are all optional on FacetEntry (database-facets.json.ts only sets them when the D1 record
+// key/type/role are all optional on FacetEntry (search/advanced/db-search-index.json.ts only sets them when the D1 record
 // has a truthy value) — NONE_VALUE (a select option distinct from ANY_OPTION's "no filter" empty string)
 // asks for entries where the field is absent, rather than for a literal value equal to it.
 function matchesNullableSelect(entryValue: string | undefined, criterionValue: string): boolean {
@@ -479,19 +479,78 @@ function matchesNullableSelect(entryValue: string | undefined, criterionValue: s
     return entryValue === criterionValue
 }
 
+// Maps each non-noun FacetCriteria key to the ADVANCED_FIELDS entry it's read from, so criterionApplies
+// below can reuse that field's `nouns` list instead of duplicating it. "key"/"keyRef" is the one param/
+// criteria-key spelling mismatch (every other pair shares a name).
+const CRITERION_PARAM: Record<Exclude<keyof FacetCriteria, "nouns">, string> = {
+    composer: "composer",
+    keyRef: "key",
+    type: "type",
+    year: "year",
+    suzuki: "suzuki",
+    nyssma: "nyssma",
+    country: "country",
+    role: "role",
+    birthYear: "birthYear",
+    deathYear: "deathYear"
+}
+
+const CRITERION_NOUNS = new Map<string, readonly EntityNoun[]>(
+    ADVANCED_FIELDS.map((field) => [field.param, field.nouns])
+)
+
+/**
+ * Whether `criterionKey` is meaningful for `noun` at all, per ADVANCED_FIELDS (e.g. "composer" is
+ * composition-only, "country" is composer-only). A criterion whose field doesn't apply to an entry's noun
+ * is treated as satisfied rather than as a mismatch — needed because /search/advanced hides (but does not
+ * disable) fields that don't apply to the checked entity-type checkboxes, so a value typed before switching
+ * nouns still arrives as a URL param; without this gate it would otherwise always fail to match (the field
+ * is simply absent from that noun's FacetEntry data), zeroing out results for an entity type the visitor
+ * never meant to filter by that criterion.
+ */
+function criterionApplies(criterionKey: Exclude<keyof FacetCriteria, "nouns">, noun: EntityNoun): boolean {
+    const nouns = CRITERION_NOUNS.get(CRITERION_PARAM[criterionKey])
+    return !nouns || nouns.includes(noun)
+}
+
 /** The single predicate every search surface uses to test one facet entry against submitted criteria. */
 export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boolean {
     if (criteria.nouns && criteria.nouns.length > 0 && !criteria.nouns.includes(entry.noun)) return false
-    if (criteria.composer && !matchesText(entry.composer, criteria.composer)) return false
-    if (criteria.keyRef && !matchesNullableSelect(entry.keyRef, criteria.keyRef)) return false
-    if (criteria.type && !matchesNullableSelect(entry.type, criteria.type)) return false
-    if (criteria.year && !matchesNumber(entry.year, criteria.year)) return false
-    if (criteria.suzuki && !matchesNumber(entry.suzuki, criteria.suzuki)) return false
-    if (criteria.nyssma && !matchesNumber(entry.nyssma, criteria.nyssma)) return false
-    if (criteria.country && !matchesCountry(entry, criteria.country)) return false
-    if (criteria.role && !matchesNullableSelect(entry.role, criteria.role)) return false
-    if (criteria.birthYear && !matchesNumber(entry.birthYear, criteria.birthYear)) return false
-    if (criteria.deathYear && !matchesNumber(entry.deathYear, criteria.deathYear)) return false
+    if (
+        criteria.composer &&
+        criterionApplies("composer", entry.noun) &&
+        !matchesText(entry.composer, criteria.composer)
+    )
+        return false
+    if (
+        criteria.keyRef &&
+        criterionApplies("keyRef", entry.noun) &&
+        !matchesNullableSelect(entry.keyRef, criteria.keyRef)
+    )
+        return false
+    if (criteria.type && criterionApplies("type", entry.noun) && !matchesNullableSelect(entry.type, criteria.type))
+        return false
+    if (criteria.year && criterionApplies("year", entry.noun) && !matchesNumber(entry.year, criteria.year)) return false
+    if (criteria.suzuki && criterionApplies("suzuki", entry.noun) && !matchesNumber(entry.suzuki, criteria.suzuki))
+        return false
+    if (criteria.nyssma && criterionApplies("nyssma", entry.noun) && !matchesNumber(entry.nyssma, criteria.nyssma))
+        return false
+    if (criteria.country && criterionApplies("country", entry.noun) && !matchesCountry(entry, criteria.country))
+        return false
+    if (criteria.role && criterionApplies("role", entry.noun) && !matchesNullableSelect(entry.role, criteria.role))
+        return false
+    if (
+        criteria.birthYear &&
+        criterionApplies("birthYear", entry.noun) &&
+        !matchesNumber(entry.birthYear, criteria.birthYear)
+    )
+        return false
+    if (
+        criteria.deathYear &&
+        criterionApplies("deathYear", entry.noun) &&
+        !matchesNumber(entry.deathYear, criteria.deathYear)
+    )
+        return false
     return true
 }
 

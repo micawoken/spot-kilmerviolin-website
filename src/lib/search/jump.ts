@@ -6,7 +6,8 @@
  * Both pages put their results below a tall control block (the advanced page's filter grid especially),
  * so on a short viewport a completed search can leave the result list entirely below the fold with no
  * on-screen change — the search reads as having done nothing. This renders a summary right under the
- * form that says how many results landed, and scrolls to them when clicked.
+ * form that says how many results landed, and auto-scrolls to them (unless prefers-reduced-motion is set,
+ * in which case the visitor stays put and can still reach them via the button this also renders).
  *
  * Shown after every completed search regardless of viewport, deliberately: the alternative (measure
  * whether results are already visible) has to pick a moment to measure, and any moment is wrong as soon
@@ -37,7 +38,9 @@
  * Renders the jump summary for a completed search.
  *
  * A zero count renders as plain text, not a link: "No results" that scrolls you to "No results found."
- * is a wasted click. Any other count renders a button that scrolls `target` into view.
+ * is a wasted click, and there is nothing to auto-scroll to either. Any other count renders a button that
+ * scrolls `target` into view on click, and — unless prefers-reduced-motion is set — also scrolls there
+ * immediately on its own.
  *
  * @param {HTMLElement} container - the wrapper to fill; hidden by `clearJumpLink` until a search completes
  * @param {HTMLElement} target - the element scrolled to, normally the status line above the result list
@@ -62,6 +65,15 @@ export function renderJumpLink(container: HTMLElement, target: HTMLElement, coun
     })
     container.appendChild(button)
     container.hidden = false
+    // Every completed search with results scrolls the visitor to them without requiring the click above —
+    // the whole reason this container exists (see the module doc) is that a completed search can otherwise
+    // leave the result list off-screen with no visible change. Skipped entirely, not just made instant,
+    // under prefers-reduced-motion: an unrequested jump elsewhere on the page is itself the kind of
+    // disruption that preference exists to avoid, not only the smoothness of getting there — the button
+    // above still lets that visitor jump there themselves.
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
 }
 
 /** Empties and hides the jump summary — for a cleared query, or while a search is still running. */

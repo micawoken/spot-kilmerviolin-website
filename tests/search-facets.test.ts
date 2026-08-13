@@ -92,7 +92,7 @@ describe("matchesFacets", () => {
         noun: "composer",
         name: "Living Composer",
         country: "US"
-        // no birthYear/deathYear — mirrors database-facets.json.ts omitting the -1 "living" sentinel
+        // no birthYear/deathYear — mirrors search/advanced/db-search-index.json.ts omitting the -1 "living" sentinel
     }
 
     it("matches on an empty criteria object (no filters applied)", () => {
@@ -145,7 +145,7 @@ describe("matchesFacets", () => {
         expect(matchesFacets(livingComposer, { role: NONE_VALUE })).toBe(true)
     })
 
-    it("number fields support is/before/after/between/around, excluding entries missing the field", () => {
+    it("number fields support is/before/after/between/around", () => {
         expect(matchesFacets(work, { year: { op: "is", value: 1723 } })).toBe(true)
         expect(matchesFacets(work, { year: { op: "before", value: 1800 } })).toBe(true)
         expect(matchesFacets(work, { year: { op: "before", value: 1700 } })).toBe(false)
@@ -154,7 +154,9 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { year: { op: "between", value: 1800, valueTo: 1850 } })).toBe(false)
         expect(matchesFacets(work, { year: { op: "around", value: 1725 } })).toBe(true)
         expect(matchesFacets(work, { year: { op: "around", value: 2000 } })).toBe(false)
-        expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(false) // composer entries carry no year field
+        // year is composition-only (ADVANCED_FIELDS) — a composer entry is unaffected by it rather than
+        // excluded, so a leftover/irrelevant year criterion can't zero out an unrelated noun's results.
+        expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(true)
     })
 
     it("ratings support is/atLeast/atMost/between", () => {
@@ -164,7 +166,21 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { suzuki: { op: "is", value: 4 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "between", value: 3, valueTo: 5 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "between", value: 5, valueTo: 6 } })).toBe(false)
-        expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(false) // composer entries carry no suzuki field
+        // suzuki is composition-only — see the year case above for why a composer entry isn't excluded.
+        expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(true)
+    })
+
+    it("a criterion for a field that doesn't apply to the entry's noun is ignored, not treated as a mismatch", () => {
+        // Regression: /search/advanced hides (but doesn't disable) fields that don't apply to the checked
+        // entity-type checkboxes, so a value typed before switching nouns still arrives as a URL param and
+        // reaches matchesFacets. Before this fix, a leftover composer/country/etc. criterion against the
+        // "wrong" noun always failed to match (the field is absent from that noun's data), silently zeroing
+        // out results for an entity type the visitor never meant to filter by that criterion.
+        expect(matchesFacets(composer, { composer: { op: "contains", value: "bach" } })).toBe(true)
+        expect(matchesFacets(work, { country: { op: "contains", value: "de" } })).toBe(true)
+        expect(matchesFacets(work, { role: "composer" })).toBe(true)
+        expect(matchesFacets(composer, { keyRef: "7-minor" })).toBe(true)
+        expect(matchesFacets(composer, { type: "Chamber" })).toBe(true)
     })
 
     it("birthYear/deathYear support the same operators as publication year", () => {

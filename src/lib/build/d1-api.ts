@@ -215,7 +215,7 @@ export function fetchComposers(): Promise<ComposerRecord[] | null> {
 /**
  * Build-time cache backing {@link fetchComposers}, same rationale as design-api.ts's `themeCache`/
  * `pageHrefCache`: `astro build` runs prerendering as one Node process, and DatabaseRoot.astro (rendered
- * at both /entity and /database), database-facets.json.ts, and every entity route's `getStaticPaths`
+ * at both /entity and /database), search/advanced/db-search-index.json.ts, and every entity route's `getStaticPaths`
  * each call this — without a cache, one build fires that many redundant reads of the same collection.
  */
 let composersCache: Promise<ComposerRecord[] | null> | null = null

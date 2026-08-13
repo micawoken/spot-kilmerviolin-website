@@ -222,7 +222,7 @@ describe("fetchPublishedTemplates / fetchPublishedEntityTemplates — the pages/
 
     it("fetchPublishedTemplates and fetchPublishedEntityTemplates share ONE network read, not one each", async () => {
         // The memoized reader behind both (fetchAllPublishedTemplates) is what collapses the historical
-        // duplication: entity/index.astro, database/index.astro, database-facets.json.ts, every entity
+        // duplication: entity/index.astro, database/index.astro, search/advanced/db-search-index.json.ts, every entity
         // route's getStaticPaths, and [...slug].astro all resolved templates independently before this cache
         // existed, each paying its own cursor-paginated read of the same collection.
         const { fetchPublishedEntityTemplates, fetchPublishedTemplates } = await freshApis()
