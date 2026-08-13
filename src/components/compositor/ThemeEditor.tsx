@@ -153,11 +153,9 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
     }
 ]
 
-/** Site Chrome roles, in render order, with which token kind each selects from. Rendered as three
- * tables: colors/borders under "Site Chrome"; `"space"`-kind roles split by `horizontalSpace`/
- * `verticalSpace` prefix into "Horizontal spacing"/"Vertical spacing" under Spacing, next to the
- * tokens they reference. */
-const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" }> = [
+/** Site Chrome roles in render order. 4 tables: colors/borders under Site Chrome; `typography`
+ * under Typography; `space` split H/V under Spacing — each next to the tokens it references. */
+const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: "colors" | "borders" | "space" | "typography" }> = [
     { key: "pageBackground", label: "Page background", kind: "colors" },
     { key: "bodyText", label: "Body text", kind: "colors" },
     { key: "linkColor", label: "Link color", kind: "colors" },
@@ -165,6 +163,11 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     { key: "mutedText", label: "Muted text (nav / footer)", kind: "colors" },
     { key: "footerBackground", label: "Footer background", kind: "colors" },
     { key: "hairlineBorder", label: "Hairline border", kind: "borders" },
+    {
+        key: "headingTypography",
+        label: "Page heading (static pages, Portable Text — Puck page titles use their own Heading field instead)",
+        kind: "typography"
+    },
     { key: "horizontalSpaceInset", label: "Page edge inset (header, footer)", kind: "space" },
     {
         key: "horizontalSpaceContentInset",
@@ -233,6 +236,7 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     mutedText: ["slate"],
     footerBackground: ["surface"],
     hairlineBorder: ["hairline"],
+    headingTypography: ["display"],
     // No legacy magic name for these: an old singular `horizontalSpace` value is handled separately in
     // toEditable (seeds all three), not via this candidate list.
     horizontalSpaceInset: [],
@@ -276,7 +280,8 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
     const colorNames = new Set(catalog.colors.map((token) => token.name))
     const borderNames = new Set(catalog.borders.map((token) => token.name))
     const spaceNames = new Set(catalog.space.map((token) => token.name))
-    const namesByKind = { colors: colorNames, borders: borderNames, space: spaceNames }
+    const typographyNames = new Set(catalog.typography.map((token) => token.name))
+    const namesByKind = { colors: colorNames, borders: borderNames, space: spaceNames, typography: typographyNames }
     const siteChrome = Object.fromEntries(
         SITE_CHROME_ROLES.map(({ key, kind }) => {
             if (chrome?.[key]) return [key, chrome[key]]
@@ -771,6 +776,16 @@ export default function ThemeEditor() {
                     </span>
                 </div>
             )}
+            {section.kind === "typography" && (
+                <div className="theme-editor__spacing-group">
+                    <h4>Site Chrome</h4>
+                    <p className="theme-editor__hint">
+                        Bind the public site frame's page heading (pre-generated static pages, Portable Text
+                        pages/posts) to a typography token above.
+                    </p>
+                    {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind === "typography"))}
+                </div>
+            )}
             {section.kind === "space" && (
                 <div className="theme-editor__spacing-groups">
                     <div className="theme-editor__spacing-group">
@@ -1032,7 +1047,7 @@ export default function ThemeEditor() {
                 <p className="theme-editor__hint">
                     Control which colors are connected to which interface components.
                 </p>
-                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space"))}
+                {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space" && role.kind !== "typography"))}
 
                 <div className="theme-preview">
                     <h4 className="theme-preview__heading">Contrast check</h4>
