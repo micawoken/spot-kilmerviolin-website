@@ -32,6 +32,7 @@
  */
 
 import { isRecord } from "./types"
+import { buttonHoverBrightness } from "./theme-controls"
 
 /** A named CSS value token (colors, space, radius, shadows). `value` is any CSS value string. */
 export interface ValueToken {
@@ -456,6 +457,18 @@ export function tokensToCss(catalog: TokenCatalog): string {
             emit(tokenVarName("buttonVariants", variant.name, "border-width"), tokenVar("borders", border, "width"))
             emit(tokenVarName("buttonVariants", variant.name, "border-style"), tokenVar("borders", border, "style"))
             emit(tokenVarName("buttonVariants", variant.name, "border-color"), tokenVar("borders", border, "color"))
+        }
+        // Hover cue: a `filter: brightness()` multiplier computed from the variant's own resolved
+        // colors (not its var() references — brightness() needs real RGB to simulate), emitted only
+        // when it actually helps. Unresolvable colors or no safe direction leave this unset, so
+        // compositor.css's `var(…, 1)` fallback is a no-op hover — fail-soft, never a guess.
+        const bgColor = catalog.colors.find((token) => token.name === variant.background)?.value
+        const textColor = catalog.colors.find((token) => token.name === variant.text)?.value
+        if (bgColor !== undefined && textColor !== undefined) {
+            const brightness = buttonHoverBrightness(textColor, bgColor)
+            if (brightness !== 1) {
+                emit(tokenVarName("buttonVariants", variant.name, "hover-brightness"), String(brightness))
+            }
         }
     }
     // Site Chrome roles: emitted only when set, as `--dtk-chrome-<role>` pointing at the chosen

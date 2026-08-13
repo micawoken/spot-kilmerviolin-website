@@ -334,3 +334,52 @@ export function contrastRatio(a: RgbColor, b: RgbColor): number {
     const darker = Math.min(luminanceA, luminanceB)
     return (lighter + 0.05) / (darker + 0.05)
 }
+
+/** `filter: brightness()` multipliers tried for a button's hover cue, subtlest first. `brightness()`
+ * multiplies each RGB channel directly (spec-defined, not gamma-corrected), so scaling text and
+ * background by the same factor moves them apart, together, or not at all depending on which one
+ * starts closer to black — {@link buttonHoverBrightness} picks whichever direction actually helps. */
+const HOVER_BRIGHTNESS_CANDIDATES = [0.92, 1.08, 0.85, 1.15] as const
+
+/** Simulates `filter: brightness(factor)` on one RGB channel: a direct multiply, clamped to a byte —
+ * matches the CSS spec's definition, not a gamma-aware scale. */
+function scaleChannel(value: number, factor: number): number {
+    return Math.min(255, Math.max(0, Math.round(value * factor)))
+}
+
+function scaleRgb(rgb: RgbColor, factor: number): RgbColor {
+    return { r: scaleChannel(rgb.r, factor), g: scaleChannel(rgb.g, factor), b: scaleChannel(rgb.b, factor) }
+}
+
+/** Resolves a possibly-`light-dark()` color to its light and dark channel (a plain color is used for
+ * both), then parses each to RGB — `null` for a channel this module's parsers can't confidently read
+ * (`var()`, a named color, `color-mix()`, …), so the caller can fail soft rather than guess. */
+function resolveSchemeRgb(value: string): { light: RgbColor | null; dark: RgbColor | null } {
+    const pair = parseLightDark(value)
+    const light = pair ? pair.light : value
+    const dark = pair ? pair.dark : value
+    return { light: parseCssColorToRgb(light), dark: parseCssColorToRgb(dark) }
+}
+
+/** The `filter: brightness()` multiplier for a button's `:hover` state, chosen so it never lowers the
+ * button's own text/background WCAG contrast in either light or dark scheme (checked against the
+ * theme's actual resolved colors, not guessed) — `1` (no visible change) if neither text nor
+ * background can be parsed, or if no candidate factor helps (or is at least neutral) in both schemes
+ * at once. Text and background scale by the same factor since both are inside the same button
+ * element; the picked direction is whichever pushes the already-brighter one further from the
+ * already-darker one. */
+export function buttonHoverBrightness(text: string, background: string): number {
+    const textRgb = resolveSchemeRgb(text)
+    const bgRgb = resolveSchemeRgb(background)
+    if (!textRgb.light || !textRgb.dark || !bgRgb.light || !bgRgb.dark) return 1
+
+    const baselineLight = contrastRatio(textRgb.light, bgRgb.light)
+    const baselineDark = contrastRatio(textRgb.dark, bgRgb.dark)
+
+    for (const factor of HOVER_BRIGHTNESS_CANDIDATES) {
+        const lightOk = contrastRatio(scaleRgb(textRgb.light, factor), scaleRgb(bgRgb.light, factor)) >= baselineLight
+        const darkOk = contrastRatio(scaleRgb(textRgb.dark, factor), scaleRgb(bgRgb.dark, factor)) >= baselineDark
+        if (lightOk && darkOk) return factor
+    }
+    return 1
+}

@@ -223,8 +223,12 @@
  * a background chosen to pair with --cmp-button-text may not pair with the site's link-hover color at
  * all, and hovering any themed button could turn its own text unreadable against its own background.
  * `.cmp-button:hover` (0,2,0) restores this component's precedence over that rule. */
+/* `--cmp-button-hover-brightness` is theme-computed (tokens.ts's `buttonHoverBrightness`): whichever
+ * `filter: brightness()` direction the variant's own resolved colors proved safe, or unset (a no-op
+ * `1`) when neither direction could be verified — never a guessed value. */
 .cmp-button:hover {
 	color: var(--cmp-button-text, currentColor);
+	filter: brightness(var(--cmp-button-hover-brightness, 1));
 }
 
 /* Spacer — empty vertical space. */
