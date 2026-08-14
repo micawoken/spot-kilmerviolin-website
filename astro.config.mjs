@@ -47,8 +47,16 @@ export default defineConfig({
     integrations: [
         // Admin pages are prerendered too (Access-gated, not secret, but not public content either), so
         // the default crawl would otherwise list the entire admin route tree in the public sitemap.
+        // /search and /search/advanced are excluded too: both render an empty static shell (results are
+        // client-side Pagefind/JSON-facet lookups, see PublicPage's `noindex` prop on those two pages) —
+        // listing them would just spend crawl budget on a page with no server-rendered content.
         sitemap({
-            filter: (page) => !new URL(page).pathname.startsWith("/admin")
+            filter: (page) => {
+                const pathname = new URL(page).pathname
+                return (
+                    !pathname.startsWith("/admin") && pathname !== "/search" && pathname !== "/search/advanced"
+                )
+            }
         }),
         optimizeFiles(),
         // Re-encodes EmDash-sourced media (compositor Image/ContentImage/MediaText) referenced by the

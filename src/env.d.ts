@@ -73,6 +73,9 @@ interface ImportMetaEnv {
     // PublicHead.astro and .env.example. Unset by default — the tags are omitted, not pointed at a
     // placeholder.
     readonly SITE_DEFAULT_OG_IMAGE?: string
+    // Whether the built robots.txt (pages/robots.txt.ts) permits crawling. Unset/anything other than
+    // "true" keeps the pre-launch default (Disallow: /) — see that file and .env.example.
+    readonly SITE_ALLOW_INDEXING?: string
 }
 
 declare module "jose" {

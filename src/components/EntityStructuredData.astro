@@ -1,0 +1,117 @@
+---
+/**
+ * components/EntityStructuredData.astro
+ *
+ * schema.org JSON-LD for entity detail pages (composer/composition/contributor) — Person for composer/
+ * contributor, MusicComposition for composition. Injected into PublicPage's "head" slot by
+ * pages/entity/[noun]/[id].astro only, alongside EntityOgMeta.
+ *
+ * `type="application/ld+json"` is a data block, not executable script — integrations/csp-guard.mjs
+ * explicitly exempts it (DATA_BLOCK_TYPES) from the public CSP's script-src 'self' (no 'unsafe-inline'),
+ * so this needs no external module/hash unlike a real inline <script>.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import { countryCodeName, titleCaseRole } from "../scripts/format"
+import { isRecord } from "../lib/compositor/types"
+import type { EntityNoun } from "../lib/compositor/entity-fields"
+
+interface Props {
+    noun: EntityNoun
+    /** the record's normalized entry (entity-records.ts) — same object passed to Render as `entry` */
+    entry: Record<string, unknown>
+    /** entityMetaDescription's per-record description, reused rather than re-derived here */
+    description: string
+    /** resolvePublicImageUrl's output, same as PublicPage's `image` prop — absolute or site-relative */
+    image?: string
+}
+
+const { noun, entry, description, image } = Astro.props
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site)
+const imageURL = image ? new URL(image, Astro.url).href : undefined
+
+/** Non-blank string field, or undefined. */
+function str(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined
+}
+
+/** A resolved composer/contributor reference (entity-records.ts's ResolvedReference) as a schema.org
+ *  Person, or undefined when unresolved/nameless. `href` is only present when the target has a public
+ *  page (ResolvedReference.href is null otherwise) — omit `url` rather than link a page that 404s. */
+function personRef(value: unknown): Record<string, unknown> | undefined {
+    if (!isRecord(value)) return undefined
+    const name = str(value.name)
+    if (!name) return undefined
+    const href = typeof value.href === "string" ? value.href : undefined
+    return {
+        "@type": "Person",
+        name,
+        url: href ? new URL(href, Astro.url).href : undefined
+    }
+}
+
+const name = str(entry.name) ?? ""
+
+let jsonLd: Record<string, unknown>
+
+if (noun === "composer") {
+    const birthYear = typeof entry.birth_year === "number" ? entry.birth_year : undefined
+    // -1 is the living-composer sentinel (formatDeathYear) — not a real year, omit rather than emit it
+    const deathYear = typeof entry.death_year === "number" && entry.death_year !== -1 ? entry.death_year : undefined
+    const country = str(entry.country)
+    const role = str(entry.role)
+    jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name,
+        description,
+        url: canonicalURL.href,
+        image: imageURL,
+        birthDate: birthYear !== undefined ? String(birthYear) : undefined,
+        deathDate: deathYear !== undefined ? String(deathYear) : undefined,
+        nationality: country ? countryCodeName(country) : undefined,
+        jobTitle: role ? titleCaseRole(role) : undefined
+    }
+} else if (noun === "contributor") {
+    jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name,
+        description,
+        url: canonicalURL.href,
+        image: imageURL
+    }
+} else {
+    jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "MusicComposition",
+        name,
+        description,
+        url: canonicalURL.href,
+        image: imageURL,
+        composer: personRef(entry.composer),
+        musicCompositionForm: str(entry.type)
+    }
+}
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} is:inline />

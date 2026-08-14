@@ -65,6 +65,12 @@ interface Props {
      *  Defaults to "page" so every existing/future public page is tagged automatically with no caller
      *  change required — only [...slug].astro (posts) and entity/[noun]/[id].astro override it. */
     contentType?: string
+    /** true for pages with no unique indexable content of their own — their prerendered HTML is always
+     *  the same empty shell regardless of URL (e.g. /search, /search/advanced: results render client-side
+     *  from Pagefind/the JSON facet index, never server-rendered). Emits a page-level `noindex` meta tag
+     *  via PublicHead — a separate mechanism from staging's edge-level X-Robots-Tag (PublicHead's header
+     *  comment), which applies site-wide regardless of this prop. */
+    noindex?: boolean
 }
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
@@ -81,7 +87,8 @@ const {
     image,
     pagefindFilter,
     pagefindIgnore,
-    contentType = "page"
+    contentType = "page",
+    noindex
 } = Astro.props
 
 // The Columns single-column breakpoint and the @view-transition rule target disjoint at-rules, so their
@@ -97,7 +104,7 @@ const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].f
 <!doctype html>
 <html lang="en">
     <head>
-        <PublicHead title={title} description={description} image={image} />
+        <PublicHead title={title} description={description} image={image} noindex={noindex} />
         {
             /* Site-wide web fonts (design theme → fonts), self-hosted at build time (theme-fonts.ts) so the
             font file can be preloaded directly instead of routing through fonts.googleapis.com — see
