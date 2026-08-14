@@ -370,6 +370,102 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
     })
 })
 
+describe("buildRelatedWorksIndex — same-publication cross-composer matches (isbn/doi source)", () => {
+    const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
+    const mozart: D1Composer = { ...composer, composer_id: 4, name: "Mozart" }
+    const haydn: D1Composer = { ...composer, composer_id: 6, name: "Haydn" }
+    const composers = [formatCompFromD1(bach), formatCompFromD1(mozart), formatCompFromD1(haydn)]
+
+    it("appends other-composer works sharing the same isbn/doi source AFTER same-composer works, and ISBN comparison ignores hyphens/spaces/case", () => {
+        const target: D1Composition = {
+            ...composition,
+            composition_id: 40,
+            name: "Etude",
+            composer_id: 1,
+            uri_type: "isbn",
+            uri: "978-0-13-149505-0"
+        }
+        const sameComposerSibling: D1Composition = {
+            ...composition,
+            composition_id: 41,
+            name: "Caprice",
+            composer_id: 1,
+            uri_type: "https",
+            uri: "https://example.test/other"
+        }
+        const samePublicationOtherComposer: D1Composition = {
+            ...composition,
+            composition_id: 42,
+            name: "Nocturne",
+            composer_id: 4,
+            uri_type: "isbn",
+            uri: "9780131495050" // same ISBN, hyphens/spaces stripped
+        }
+        const samePublicationCaseVariant: D1Composition = {
+            ...composition,
+            composition_id: 43,
+            name: "Fantasia",
+            composer_id: 6,
+            uri_type: "isbn",
+            uri: "978 0 13 149505 0"
+        }
+        const differentIsbn: D1Composition = {
+            ...composition,
+            composition_id: 44,
+            name: "Rhapsody",
+            composer_id: 4,
+            uri_type: "isbn",
+            uri: "0-306-40615-2"
+        }
+        const works = [
+            target,
+            sameComposerSibling,
+            samePublicationOtherComposer,
+            samePublicationCaseVariant,
+            differentIsbn
+        ].map(formatWorkFromD1)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const related = index.get("composition:40") ?? []
+
+        expect(related).toHaveLength(3)
+        // Same-composer match(es) lead; same-publication cross-composer matches trail. Order within each
+        // group is randomized, so only membership+partition is asserted, not exact order.
+        expect(related[0]).toEqual({ id: 41, name: "Caprice", href: "/entity/work/41", composer: "Bach" })
+        expect(related.slice(1)).toEqual(
+            expect.arrayContaining([
+                { id: 42, name: "Nocturne", href: "/entity/work/42", composer: "Mozart" },
+                { id: 43, name: "Fantasia", href: "/entity/work/43", composer: "Haydn" }
+            ])
+        )
+        // id 44 (a different ISBN) never appears — not the same publication.
+        expect(related.some((work) => work.id === 44)).toBe(false)
+    })
+
+    it("a bare https source never triggers same-publication matching", () => {
+        const target: D1Composition = {
+            ...composition,
+            composition_id: 50,
+            name: "Sonata",
+            composer_id: 1,
+            uri_type: "https",
+            uri: "https://example.test/shared"
+        }
+        const otherComposerSameUrl: D1Composition = {
+            ...composition,
+            composition_id: 51,
+            name: "Ballade",
+            composer_id: 4,
+            uri_type: "https",
+            uri: "https://example.test/shared"
+        }
+        const works = [target, otherComposerSameUrl].map(formatWorkFromD1)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        expect(index.get("composition:50")).toBeUndefined()
+    })
+})
+
 describe("buildRelatedWorksIndex — multi-movement grouping (shuffle units, not just tiles)", () => {
     const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
 
