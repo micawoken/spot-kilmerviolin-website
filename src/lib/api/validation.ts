@@ -102,16 +102,47 @@ export function isDeathYearConsistent(birth_year: number, death_year: number): b
  * "B", so "Bb" is B-flat. This is why normalization (see normalizePitchRange) uppercases only the note
  * letter and never the accidental — uppercasing the whole string would corrupt flats.
  */
-export const PITCH_RANGE_PATTERN = /^[A-Ga-g][#b]?\d{1,2}-[A-Ga-g][#b]?\d{1,2}$/
+export const PITCH_RANGE_PATTERN = /^([A-Ga-g])([#b]?)(\d{1,2})-([A-Ga-g])([#b]?)(\d{1,2})$/
+
+/** Semitone value (0=C .. 11=B) of each natural note letter, using scientific pitch notation's convention
+ *  that the octave begins at C (so B is the last note of an octave, not the first). Also used by
+ *  {@link ../sanitize.ts} to respell double-accidental notes. */
+export const NOTE_SEMITONE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
 
 /**
- * Whether a string is a valid two-note pitch range (see PITCH_RANGE_PATTERN)
+ * Semitone offset of an accidental marker: "#" raises a pitch class by one, "b" lowers it by one, and no
+ * marker leaves it unchanged.
+ *
+ * @param {string} accidental - "#", "b", or ""
+ * @returns {number} the semitone offset
+ */
+function accidentalOffset(accidental: string): number {
+    return accidental === "#" ? 1 : accidental === "b" ? -1 : 0
+}
+
+/**
+ * Whether a string is a valid two-note pitch range (see PITCH_RANGE_PATTERN) whose left (low) note is
+ * strictly lower in pitch than its right (high) note. Notes are compared by octave first; when the octaves
+ * are equal, they're compared by pitch class (so enharmonic ties, e.g. "C#3-Db3", are rejected as not
+ * strictly ascending).
  *
  * @param {string} value - the candidate range
- * @returns {boolean} - true if the trimmed value is a valid pitch range
+ * @returns {boolean} - true if the trimmed value is a valid, ascending pitch range
  */
 export function isValidPitchRange(value: string): boolean {
-    return PITCH_RANGE_PATTERN.test(value.trim())
+    const match = PITCH_RANGE_PATTERN.exec(value.trim())
+    if (match === null) {
+        return false
+    }
+    const [, lowLetter, lowAccidental, lowOctave, highLetter, highAccidental, highOctave] = match
+    const lowOctaveNum = parseInt(lowOctave, 10)
+    const highOctaveNum = parseInt(highOctave, 10)
+    if (lowOctaveNum !== highOctaveNum) {
+        return lowOctaveNum < highOctaveNum
+    }
+    const lowPitchClass = NOTE_SEMITONE[lowLetter.toUpperCase()] + accidentalOffset(lowAccidental)
+    const highPitchClass = NOTE_SEMITONE[highLetter.toUpperCase()] + accidentalOffset(highAccidental)
+    return lowPitchClass < highPitchClass
 }
 
 /**
