@@ -39,6 +39,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { mediaSource } from "./media"
 import { isRecord } from "./types"
 
 /** The three D1-backed object types a template can render one record of, once Step 5 wires them in. */
@@ -188,9 +189,15 @@ export function entityFields(noun: EntityNoun): readonly EntityField[] {
 }
 
 /** Whether a resolved entity-field value counts as "empty" for a field kind — single source of truth
- * shared by `lint.ts`'s empty-outlet warning and `catalog.tsx`'s `ContentField` on-empty display
- * control; the two must agree. `kind` is `string | undefined`, not `EntityFieldKind`, because callers
- * also pass a `CollectionField.type` (pages/posts schemas) — those exercise the default branch. */
+ * shared by `lint.ts`'s empty-outlet warning, `catalog.tsx`'s `ContentField` on-empty display control,
+ * and `Spacer`'s linked-field collapse; all three must agree. `kind` is `string | undefined`, not
+ * `EntityFieldKind`, because callers also pass a `CollectionField.type` (pages/posts schemas) — those
+ * exercise the default branch.
+ *
+ * `portableText`/`image` mirror `ContentRichText`'s/`ContentImage`'s own render-time emptiness checks
+ * (catalog.tsx) exactly — those two outlets don't call this function themselves (they need the actual
+ * PT array / resolved `MediaSource` for rendering, not just a boolean), but `Spacer` only needs the
+ * boolean, for any field kind an outlet can bind. */
 export function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
     if (value === null || value === undefined) return true
     switch (kind) {
@@ -208,6 +215,10 @@ export function isEmptyFieldValue(value: unknown, kind: string | undefined): boo
         case "yearOrLiving":
         case "date": // entry_date/change_date are epoch-millisecond numbers
             return typeof value !== "number"
+        case "portableText":
+            return !Array.isArray(value) || value.length === 0
+        case "image":
+            return mediaSource(value) === null
         case "string":
         case "text":
         case "countryCode":

@@ -169,6 +169,12 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
     MediaText: ["image"]
 }
 
+/** Every field kind some outlet can bind, de-duplicated — `Spacer`'s "link to field" picker draws from
+ * this rather than any one outlet's list, since it isn't paired with a specific outlet type. Derived so
+ * a new outlet kind (registered in `OUTLET_PROPS` per the contributor rule above) is automatically
+ * pickable, no second registration to forget. */
+const ANY_OUTLET_FIELD_KIND = Array.from(new Set(Object.values(OUTLET_PROPS).flat()))
+
 /** Component type → the names of its rich-text props. Drives `convert.ts`'s PT ↔ ProseMirror walks; a
  * component absent here has no rich-text props. Phase 1 has exactly `RichText.body`. Contributor rule:
  * a new rich-text prop MUST be registered here. */
@@ -350,6 +356,11 @@ interface ButtonProps {
 }
 interface SpacerProps {
     size: string
+    /** Optional: a schema field slug. When set and an entry is routed, the Spacer checks that field's
+     *  value the same way `ContentField`/`ContentText`/etc. do (`isEmptyFieldValue`) and renders nothing
+     *  if it's empty — pairs a Spacer with the outlet beside it so an empty field doesn't leave an
+     *  orphaned gap. "" (the default) always renders, the pre-existing behavior. */
+    linkedField?: string
 }
 interface DividerProps {
     spaceAround: string
@@ -479,15 +490,24 @@ function OutletPlaceholder({ field }: { field: string }) {
  * The `field` select for an outlet: options are the template collection's schema fields (from the
  * config context — editor-only; the build never renders field UIs), filtered to the types the outlet
  * accepts (D5), so a design cannot bind a field that does not exist or has the wrong type.
+ *
+ * `label`/`blankLabel` default to the outlet phrasing; `Spacer`'s linked-field picker (optional, unlike
+ * an outlet's required binding) overrides both to read as "no field chosen" rather than "you must
+ * choose one".
  */
-function outletFieldSelect(fields: CollectionField[] | undefined, accepted: readonly string[]) {
+function outletFieldSelect(
+    fields: CollectionField[] | undefined,
+    accepted: readonly string[],
+    label = "Field",
+    blankLabel = "— choose a field —"
+) {
     const options = (fields ?? [])
         .filter((candidate) => accepted.includes(candidate.type))
         .map((candidate) => ({ label: candidate.label, value: candidate.slug }))
     return {
         type: "select" as const,
-        label: "Field",
-        options: [{ label: "— choose a field —", value: "" }, ...options]
+        label,
+        options: [{ label: blankLabel, value: "" }, ...options]
     }
 }
 
@@ -729,11 +749,22 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
         },
         Spacer: {
             label: "Spacer",
-            fields: { size: tokenSelect(theme, "space", "Size") },
-            defaultProps: { size: "md" },
-            render: ({ size }: SpacerProps) => (
-                <div className="cmp-spacer" aria-hidden="true" style={vars({ "--cmp-spacer-size": tokenVar("space", size) })} />
-            )
+            fields: {
+                size: tokenSelect(theme, "space", "Size"),
+                linkedField: outletFieldSelect(context?.fields, ANY_OUTLET_FIELD_KIND, "Hide when field is empty", "None (always show)")
+            },
+            // ""/unlinked preserves this component's pre-existing behavior (always renders).
+            defaultProps: { size: "md", linkedField: "" },
+            render: ({ size, linkedField }: SpacerProps) => {
+                // No entry to check (template editor before a preview entry is picked, or a design_page,
+                // which can't reach a linked field at all — its picker has no options) → render normally,
+                // same "nothing to evaluate yet" default `ContentField`'s own editor placeholder follows.
+                if (linkedField && context?.entry) {
+                    const catalogField = context.fields?.find((candidate) => candidate.slug === linkedField)
+                    if (isEmptyFieldValue(context.entry[linkedField], catalogField?.type)) return null
+                }
+                return <div className="cmp-spacer" aria-hidden="true" style={vars({ "--cmp-spacer-size": tokenVar("space", size) })} />
+            }
         },
         Divider: {
             label: "Divider",

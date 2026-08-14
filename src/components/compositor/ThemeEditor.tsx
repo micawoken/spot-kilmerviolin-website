@@ -115,6 +115,7 @@ const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> =
             { key: "weight", label: "Weight", control: "weight" },
             { key: "lineHeight", label: "Line height", control: "length", allowUnitless: true },
             { key: "letterSpacing", label: "Letter spacing", optional: true, control: "length" },
+            { key: "paragraphSpacing", label: "Paragraph spacing", optional: true, control: "length" },
             { key: "italic", label: "Italic", control: "checkbox", valueType: "boolean" },
             // Overrides `weight` above for this property only, when checked; unchecking restores it.
             { key: "bold", label: "Bold", control: "checkbox", valueType: "boolean" },
@@ -167,6 +168,11 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     {
         key: "headingTypography",
         label: "Page heading (static pages, Portable Text — Puck page titles use their own Heading field instead)",
+        kind: "typography"
+    },
+    {
+        key: "paragraphTypography",
+        label: "Paragraph spacing (gap between RichText paragraphs/headings/code blocks, and between stacked components generally — unset uses each container's own built-in gap, unaffected by ContentField's label/value stacking)",
         kind: "typography"
     },
     { key: "horizontalSpaceInset", label: "Page edge inset (header, footer)", kind: "space" },
@@ -238,6 +244,9 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     footerBackground: ["surface"],
     hairlineBorder: ["hairline"],
     headingTypography: ["display"],
+    // Brand new role — RichText's paragraphs and the component-stack gap had no themed value at all
+    // before this shipped, so there is no prior magic name to migrate from.
+    paragraphTypography: [],
     // No legacy magic name for these: an old singular `horizontalSpace` value is handled separately in
     // toEditable (seeds all three), not via this candidate list.
     horizontalSpaceInset: [],
