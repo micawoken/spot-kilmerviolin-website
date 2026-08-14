@@ -29,7 +29,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { isValidISBN } from "./validation"
+import { isValidISBN, NOTE_SEMITONE } from "./validation"
 
 /**
  * Whether a character is a non-printable control character: a C0 control other than tab/LF/CR, the DEL
@@ -211,10 +211,6 @@ export function extractFirstValidToken(text: string, isValid: (token: string) =>
     }
     return null
 }
-
-/** Semitone value (0=C .. 11=B) of each natural note letter, using scientific pitch notation's convention
- *  that the octave begins at C (so B is the last note of an octave, not the first). */
-const NOTE_SEMITONE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
 
 /** The seven diatonic letters in pitch order, starting at C (mirrors {@link NOTE_SEMITONE}'s octave convention). */
 const LETTER_ORDER = ["C", "D", "E", "F", "G", "A", "B"] as const

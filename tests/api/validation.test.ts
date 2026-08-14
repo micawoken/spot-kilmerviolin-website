@@ -24,7 +24,12 @@
 
 import { describe, it, expect } from "vitest"
 
-import { classifyCitationValue, validateAltText, validateCitations } from "../../src/lib/api/validation"
+import {
+    classifyCitationValue,
+    isValidPitchRange,
+    validateAltText,
+    validateCitations
+} from "../../src/lib/api/validation"
 import { MAX_ALT_TEXT_LENGTH } from "../../src/consts"
 
 describe("validateAltText", () => {
@@ -43,6 +48,42 @@ describe("validateAltText", () => {
     it("rejects a value over the length limit", () => {
         const error = validateAltText("x".repeat(MAX_ALT_TEXT_LENGTH + 1))
         expect(error).toContain(String(MAX_ALT_TEXT_LENGTH))
+    })
+})
+
+describe("isValidPitchRange", () => {
+    it("accepts a range where the low note's octave is below the high note's", () => {
+        expect(isValidPitchRange("G3-A5")).toBe(true)
+    })
+
+    it("rejects a range where the low note's octave is above the high note's", () => {
+        expect(isValidPitchRange("A5-G3")).toBe(false)
+    })
+
+    it("accepts a same-octave range where the low note's pitch class is below the high note's", () => {
+        expect(isValidPitchRange("C4-G4")).toBe(true)
+    })
+
+    it("rejects a same-octave range where the low note's pitch class is above the high note's", () => {
+        expect(isValidPitchRange("G4-C4")).toBe(false)
+    })
+
+    it("rejects a range of two identical notes (not strictly ascending)", () => {
+        expect(isValidPitchRange("G3-G3")).toBe(false)
+    })
+
+    it("rejects a same-octave, same-pitch-class enharmonic tie", () => {
+        expect(isValidPitchRange("C#3-Db3")).toBe(false)
+    })
+
+    it("accepts an accidental correctly narrowing a same-letter, same-octave range", () => {
+        expect(isValidPitchRange("Gb3-G3")).toBe(true)
+        expect(isValidPitchRange("G3-G#3")).toBe(true)
+    })
+
+    it("rejects a structurally malformed range regardless of note order", () => {
+        expect(isValidPitchRange("not a range")).toBe(false)
+        expect(isValidPitchRange("")).toBe(false)
     })
 })
 
