@@ -186,7 +186,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
     })
 })
 
-describe("isEmptyFieldValue — shared by lint.ts and catalog.tsx's ContentField onEmpty control", () => {
+describe("isEmptyFieldValue — shared by lint.ts, catalog.tsx's ContentField onEmpty control, and Spacer's linked-field collapse", () => {
     it("treats null/undefined as empty regardless of kind", () => {
         expect(isEmptyFieldValue(null, "string")).toBe(true)
         expect(isEmptyFieldValue(undefined, "yearOrLiving")).toBe(true)
@@ -202,5 +202,19 @@ describe("isEmptyFieldValue — shared by lint.ts and catalog.tsx's ContentField
         expect(isEmptyFieldValue("DE", "countryCode")).toBe(false)
         expect(isEmptyFieldValue("  ", "countryCode")).toBe(true)
         expect(isEmptyFieldValue("", "countryCode")).toBe(true)
+    })
+
+    it("a portableText value is empty only when it is not a non-empty array, mirroring ContentRichText's render check", () => {
+        expect(isEmptyFieldValue([{ _type: "block" }], "portableText")).toBe(false)
+        expect(isEmptyFieldValue([], "portableText")).toBe(true)
+        expect(isEmptyFieldValue("not an array", "portableText")).toBe(true)
+    })
+
+    it("an image value follows mediaSource resolvability, mirroring ContentImage's/MediaText's render check", () => {
+        expect(isEmptyFieldValue("https://example.test/violin.jpg", "image")).toBe(false)
+        expect(isEmptyFieldValue({ meta: { storageKey: "med_1.jpg" } }, "image")).toBe(false)
+        // A bare media id with no storage key/src/url is NOT a usable handle (media.ts) — empty.
+        expect(isEmptyFieldValue({ id: "med_1" }, "image")).toBe(true)
+        expect(isEmptyFieldValue("", "image")).toBe(true)
     })
 })
