@@ -292,6 +292,9 @@ function contentField(field: string) {
 function mediaText(field: string) {
     return { type: "MediaText", props: { field, aspect: "original", imagePosition: "start", content: [] } }
 }
+function spacer(linkedField = "") {
+    return { type: "Spacer", props: { size: "md", linkedField } }
+}
 
 /** Lints in template mode against the standard schema/entry (overridable per test). */
 function lintTemplate(content: unknown[], context: Partial<LintPairingContext> = {}) {
@@ -335,6 +338,30 @@ describe("lintDesign — dangling-outlet-field", () => {
     it("skips the check when the schema could not be read (schemaFields null)", () => {
         const findings = lintTemplate([contentText("subtitle")], { schemaFields: null, entry: null })
         expect(rules(findings)).not.toContain("dangling-outlet-field")
+    })
+})
+
+describe("lintDesign — dangling-spacer-field", () => {
+    it("is not an outlet: an unlinked Spacer outside a template raises no findings at all", () => {
+        expect(lint([heading("h1"), spacer()])).toEqual([])
+    })
+
+    it("does not warn when unlinked (the default) or bound to a real schema field", () => {
+        expect(rules(lintTemplate([heading("h1"), spacer()]))).not.toContain("dangling-spacer-field")
+        expect(rules(lintTemplate([heading("h1"), spacer("title")]))).not.toContain("dangling-spacer-field")
+    })
+
+    it("warns when linked to a field slug absent from the schema", () => {
+        const findings = lintTemplate([heading("h1"), spacer("no-such-field")])
+        const dangling = findings.filter((f) => f.rule === "dangling-spacer-field")
+        expect(dangling).toHaveLength(1)
+        expect(dangling[0].message).toContain("never render")
+        expect(hasBlockingError(findings)).toBe(false) // advisory, unlike dangling-outlet-field
+    })
+
+    it("skips the check when the schema could not be read (schemaFields null)", () => {
+        const findings = lintTemplate([spacer("no-such-field")], { schemaFields: null, entry: null })
+        expect(rules(findings)).not.toContain("dangling-spacer-field")
     })
 })
 
