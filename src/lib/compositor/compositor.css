@@ -190,15 +190,18 @@
 
 /* Image size presets (D9, catalog.tsx's ImageSizePreset) — a max-width cap, not a fixed width, so a
  * naturally-smaller image never stretches up to fill the preset. "full" matches the base rule above
- * (max-width: 100%) and is only ever present because it is Image/ContentImage's explicit default. */
+ * (max-width: 100%) and is only ever present because it is Image/ContentImage's explicit default.
+ * Each cap is `min(Nrem, 100%)`, not a bare rem value: the attribute selector's higher specificity
+ * overrides the base rule's `max-width: 100%`, so on a viewport narrower than the preset (e.g. "medium"'s
+ * 24rem on a 375px phone) a bare rem value let the image overflow its container. */
 .cmp-image[data-size="small"] {
-	max-width: 12rem;
+	max-width: min(12rem, 100%);
 }
 .cmp-image[data-size="medium"] {
-	max-width: 24rem;
+	max-width: min(24rem, 100%);
 }
 .cmp-image[data-size="large"] {
-	max-width: 40rem;
+	max-width: min(40rem, 100%);
 }
 
 /* Button — a theme-authored variant (§4.3 buttonVariants) resolved by catalog.tsx into these `--cmp-button-*`
