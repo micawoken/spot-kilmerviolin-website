@@ -254,6 +254,69 @@ describe("buildConfig — outlet field pickers (editor context)", () => {
             { label: "— choose a field —", value: "" }
         ])
     })
+
+    it("Spacer's linked-field picker offers every field kind any outlet accepts, not just one outlet's list", () => {
+        expect(field(config, "Spacer", "linkedField")).toMatchObject({
+            label: "Hide when field is empty",
+            options: [
+                { label: "None (always show)", value: "" },
+                { label: "Title", value: "title" },
+                { label: "Body", value: "body" },
+                { label: "Cover", value: "cover" }
+            ]
+        })
+    })
+})
+
+describe("buildConfig — Spacer (linked-field collapse)", () => {
+    const fields: CollectionField[] = [
+        { slug: "note", label: "Note", type: "string" },
+        { slug: "body", label: "Body", type: "portableText" },
+        { slug: "cover", label: "Cover", type: "image" }
+    ]
+
+    it("always renders when unlinked, the pre-existing behavior", () => {
+        const config = buildConfig(theme, "build", { entry: { note: "" }, fields })
+        expect(render(config, "Spacer", { size: "md", linkedField: "" })).toContain("cmp-spacer")
+    })
+
+    it("renders when the linked field has a value", () => {
+        const config = buildConfig(theme, "build", { entry: { note: "Op. 27" }, fields })
+        expect(render(config, "Spacer", { size: "md", linkedField: "note" })).toContain("cmp-spacer")
+    })
+
+    it("renders nothing when the linked field's value is empty", () => {
+        const config = buildConfig(theme, "build", { entry: { note: "" }, fields })
+        expect(render(config, "Spacer", { size: "md", linkedField: "note" })).toBe("")
+    })
+
+    it("checks a portableText-linked field the same way ContentRichText does (empty array = empty)", () => {
+        const config = buildConfig(theme, "build", { entry: { body: [] }, fields })
+        expect(render(config, "Spacer", { size: "md", linkedField: "body" })).toBe("")
+    })
+
+    it("checks an image-linked field the same way ContentImage/MediaText do (bare id = no usable handle)", () => {
+        const config = buildConfig(theme, "build", { entry: { cover: { id: "med_1" } }, fields })
+        expect(render(config, "Spacer", { size: "md", linkedField: "cover" })).toBe("")
+        const withSource = buildConfig(theme, "build", {
+            entry: { cover: { meta: { storageKey: "med_1.jpg" } } },
+            fields
+        })
+        expect(render(withSource, "Spacer", { size: "md", linkedField: "cover" })).toContain("cmp-spacer")
+    })
+
+    it("renders normally with no entry to check (design_page, or template editor before a preview entry)", () => {
+        const configNoContext = buildConfig(theme, "build")
+        expect(render(configNoContext, "Spacer", { size: "md", linkedField: "note" })).toContain("cmp-spacer")
+
+        const configNoEntry = buildConfig(theme, "editor", { fields })
+        expect(render(configNoEntry, "Spacer", { size: "md", linkedField: "note" })).toContain("cmp-spacer")
+    })
+
+    it("treats a linkedField that no longer exists in the schema as empty (degrades to always-hidden, not a crash)", () => {
+        const config = buildConfig(theme, "build", { entry: { note: "Op. 27" }, fields })
+        expect(render(config, "Spacer", { size: "md", linkedField: "no-such-field" })).toBe("")
+    })
 })
 
 describe("buildConfig — Button drives theme-authored variants through --cmp-button-* locals", () => {

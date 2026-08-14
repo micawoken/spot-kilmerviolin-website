@@ -133,7 +133,7 @@ function collectPtHeadings(body: unknown, path: string, headings: HeadingRef[]):
  */
 function lintComponent(component: PuckComponent, path: string, state: LintState): void {
     const { type, props } = component
-    const { theme, findings, headings } = state
+    const { theme, context, findings, headings } = state
 
     // Token references: a stored token name that no longer exists in the theme. On a PUBLISHED document
     // this is an error — it ships a visibly-unstyled element, the failure the 2026-07-14 homepage incident
@@ -201,6 +201,27 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
         case "RichText": {
             lintRichText(props.body, path, findings)
             collectPtHeadings(props.body, path, headings)
+            break
+        }
+        case "Spacer": {
+            // Unlike an outlet's `field`, "" is Spacer's valid default (always renders) — only a
+            // non-blank reference that no longer resolves is worth flagging. Skipped template-alone
+            // (schemaFields unread/unreadable) same as `dangling-outlet-field`.
+            const linkedField = typeof props.linkedField === "string" ? props.linkedField : ""
+            if (
+                linkedField &&
+                context?.schemaFields &&
+                !context.schemaFields.some((candidate) => candidate.slug === linkedField)
+            ) {
+                findings.push({
+                    severity: "warning",
+                    rule: "dangling-spacer-field",
+                    path,
+                    message:
+                        `Spacer is linked to field "${linkedField}", which does not exist in the collection schema — ` +
+                        "it will always be treated as empty and never render"
+                })
+            }
             break
         }
     }
