@@ -72,11 +72,15 @@ describe("matchesFacets", () => {
         noun: "composition",
         name: "Test Concerto",
         composer: "Johann Sebastian Bach",
+        secondaryAuthors: "Fritz Kreisler",
+        part: "violin",
         keyRef: "7-minor",
         type: "Chamber",
         year: 1723,
+        publisher: "Schirmer",
         suzuki: 4,
-        nyssma: 5
+        nyssma: 5,
+        tags: "recital, advanced"
     }
     const composer: FacetEntry = {
         url: "/entity/composer/1",
@@ -85,7 +89,8 @@ describe("matchesFacets", () => {
         country: "DE",
         role: "composer",
         birthYear: 1685,
-        deathYear: 1750
+        deathYear: 1750,
+        tags: "baroque"
     }
     const livingComposer: FacetEntry = {
         url: "/entity/composer/2",
@@ -134,13 +139,19 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { type: "Solo" })).toBe(false)
     })
 
-    it("NONE_VALUE matches entries where the field is absent, distinct from any real value", () => {
-        // `work` carries keyRef/type; composer/livingComposer entries never do (composition-only fields).
+    it("NONE_VALUE matches an applicable entry with the field unset, but never an entry of a noun the field doesn't apply to", () => {
+        const workNoKeyOrType: FacetEntry = { url: "/entity/work/2", noun: "composition", name: "Untitled Sketch" }
+        // `work` carries keyRef/type; `workNoKeyOrType` is composition too but has neither set.
         expect(matchesFacets(work, { keyRef: NONE_VALUE })).toBe(false)
-        expect(matchesFacets(composer, { keyRef: NONE_VALUE })).toBe(true)
+        expect(matchesFacets(workNoKeyOrType, { keyRef: NONE_VALUE })).toBe(true)
         expect(matchesFacets(work, { type: NONE_VALUE })).toBe(false)
-        expect(matchesFacets(composer, { type: NONE_VALUE })).toBe(true)
-        // `composer` has a role set; `livingComposer` doesn't.
+        expect(matchesFacets(workNoKeyOrType, { type: NONE_VALUE })).toBe(true)
+        // keyRef/type are composition-only — a composer entry can't satisfy NONE_VALUE either, since the
+        // field isn't merely unset for it, it doesn't apply to composers at all.
+        expect(matchesFacets(composer, { keyRef: NONE_VALUE })).toBe(false)
+        expect(matchesFacets(composer, { type: NONE_VALUE })).toBe(false)
+        // `composer` has a role set; `livingComposer` doesn't — role applies to both, so this is a genuine
+        // "unset" case, not a noun mismatch.
         expect(matchesFacets(composer, { role: NONE_VALUE })).toBe(false)
         expect(matchesFacets(livingComposer, { role: NONE_VALUE })).toBe(true)
     })
@@ -154,9 +165,9 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { year: { op: "between", value: 1800, valueTo: 1850 } })).toBe(false)
         expect(matchesFacets(work, { year: { op: "around", value: 1725 } })).toBe(true)
         expect(matchesFacets(work, { year: { op: "around", value: 2000 } })).toBe(false)
-        // year is composition-only (ADVANCED_FIELDS) — a composer entry is unaffected by it rather than
-        // excluded, so a leftover/irrelevant year criterion can't zero out an unrelated noun's results.
-        expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(true)
+        // year is composition-only (ADVANCED_FIELDS) — a composer entry has no publish_year at all, so a
+        // year criterion excludes it rather than passing it through untouched.
+        expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(false)
     })
 
     it("ratings support is/atLeast/atMost/between", () => {
@@ -166,21 +177,45 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { suzuki: { op: "is", value: 4 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "between", value: 3, valueTo: 5 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "between", value: 5, valueTo: 6 } })).toBe(false)
-        // suzuki is composition-only — see the year case above for why a composer entry isn't excluded.
-        expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(true)
+        // suzuki is composition-only — see the year case above for why a composer entry is excluded.
+        expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(false)
     })
 
-    it("a criterion for a field that doesn't apply to the entry's noun is ignored, not treated as a mismatch", () => {
-        // Regression: /search/advanced hides (but doesn't disable) fields that don't apply to the checked
-        // entity-type checkboxes, so a value typed before switching nouns still arrives as a URL param and
-        // reaches matchesFacets. Before this fix, a leftover composer/country/etc. criterion against the
-        // "wrong" noun always failed to match (the field is absent from that noun's data), silently zeroing
-        // out results for an entity type the visitor never meant to filter by that criterion.
-        expect(matchesFacets(composer, { composer: { op: "contains", value: "bach" } })).toBe(true)
-        expect(matchesFacets(work, { country: { op: "contains", value: "de" } })).toBe(true)
-        expect(matchesFacets(work, { role: "composer" })).toBe(true)
-        expect(matchesFacets(composer, { keyRef: "7-minor" })).toBe(true)
-        expect(matchesFacets(composer, { type: "Chamber" })).toBe(true)
+    it("secondaryAuthors/part/publisher/tags are free-text, contains/is/regex/fuzzy like composer/country", () => {
+        expect(matchesFacets(work, { secondaryAuthors: { op: "contains", value: "kreisler" } })).toBe(true)
+        expect(matchesFacets(work, { secondaryAuthors: { op: "contains", value: "handel" } })).toBe(false)
+        expect(matchesFacets(work, { part: { op: "is", value: "violin" } })).toBe(true)
+        expect(matchesFacets(work, { part: { op: "is", value: "viola" } })).toBe(false)
+        expect(matchesFacets(work, { publisher: { op: "contains", value: "schirmer" } })).toBe(true)
+        // tags applies to both composer and composition entries.
+        expect(matchesFacets(work, { tags: { op: "contains", value: "recital" } })).toBe(true)
+        expect(matchesFacets(composer, { tags: { op: "contains", value: "baroque" } })).toBe(true)
+        expect(matchesFacets(composer, { tags: { op: "contains", value: "recital" } })).toBe(false)
+    })
+
+    it("a criterion for a field that doesn't apply to the entry's noun is a hard mismatch, excluding the entry", () => {
+        // Regression coverage for the noun-leak bug: a noun-specific filter (e.g. "Work type: Chamber") must
+        // narrow results to nouns the field applies to, not pass every other noun's entries through
+        // untouched — a composer/contributor has no `type` at all, so it can never satisfy that filter.
+        // /search/advanced's own form is what keeps a *stale* value (typed before switching entity-type
+        // checkboxes) from ever reaching this function in the first place — see updateFieldVisibility's
+        // disabled-controls handling in advanced.astro.
+        expect(matchesFacets(composer, { composer: { op: "contains", value: "bach" } })).toBe(false)
+        expect(matchesFacets(work, { country: { op: "contains", value: "de" } })).toBe(false)
+        expect(matchesFacets(work, { role: "composer" })).toBe(false)
+        expect(matchesFacets(composer, { keyRef: "7-minor" })).toBe(false)
+        expect(matchesFacets(composer, { type: "Chamber" })).toBe(false)
+        expect(matchesFacets(composer, { part: { op: "contains", value: "violin" } })).toBe(false)
+        expect(matchesFacets(composer, { publisher: { op: "contains", value: "schirmer" } })).toBe(false)
+        expect(matchesFacets(composer, { secondaryAuthors: { op: "contains", value: "kreisler" } })).toBe(false)
+    })
+
+    it("no explicit noun restriction plus a noun-specific filter still excludes entries the field doesn't apply to", () => {
+        // The exact bug report: selecting a composition-only filter (e.g. Work type) with no noun checkboxes
+        // checked must not leak composer/contributor entries into the results.
+        const criteria = { type: "Chamber" }
+        expect(matchesFacets(work, criteria)).toBe(true)
+        expect(matchesFacets(composer, criteria)).toBe(false)
     })
 
     it("birthYear/deathYear support the same operators as publication year", () => {
@@ -200,11 +235,15 @@ describe("parseFacetParams / criteriaToParams round-trip", () => {
         const criteria: FacetCriteria = {
             nouns: ["composition", "composer"],
             composer: { op: "is", value: "Bach" },
+            secondaryAuthors: { op: "contains", value: "Kreisler" },
+            part: { op: "is", value: "violin" },
             keyRef: "7-minor",
             type: "Chamber",
             year: { op: "between", value: 1700, valueTo: 1750 },
+            publisher: { op: "contains", value: "Schirmer" },
             suzuki: { op: "atLeast", value: 4 },
             nyssma: { op: "is", value: 3 },
+            tags: { op: "contains", value: "recital" },
             country: { op: "contains", value: "DE" },
             role: "arranger",
             birthYear: { op: "before", value: 1750 },
@@ -233,13 +272,19 @@ describe("parseFacetParams / criteriaToParams round-trip", () => {
     })
 
     it("a text/number field with no explicit operator param falls back to that field's default operator", () => {
-        expect(parseFacetParams(new URLSearchParams("composer=bach")).composer).toEqual({ op: "contains", value: "bach" })
+        expect(parseFacetParams(new URLSearchParams("composer=bach")).composer).toEqual({
+            op: "contains",
+            value: "bach"
+        })
         expect(parseFacetParams(new URLSearchParams("suzuki=4")).suzuki).toEqual({ op: "atLeast", value: 4 })
         expect(parseFacetParams(new URLSearchParams("year=1700")).year).toEqual({ op: "is", value: 1700 })
     })
 
     it("an unrecognized operator param falls back to the default rather than producing an invalid criterion", () => {
-        expect(parseFacetParams(new URLSearchParams("year=1700&year_op=nonsense")).year).toEqual({ op: "is", value: 1700 })
+        expect(parseFacetParams(new URLSearchParams("year=1700&year_op=nonsense")).year).toEqual({
+            op: "is",
+            value: 1700
+        })
     })
 
     it("valueTo is only read (and only round-tripped) when the operator is 'between'", () => {
@@ -297,6 +342,17 @@ describe("parseFacetQuery", () => {
             type: "chamber",
             country: { op: "contains", value: "france" },
             role: "arranger"
+        })
+        expect(result.text).toBe("")
+    })
+
+    it("part:/publisher:/tags:/secondaryAuthors: tokens carry their value through verbatim as 'contains'", () => {
+        const result = parseFacetQuery("part:violin publisher:schirmer tags:recital secondaryAuthors:kreisler")
+        expect(result.criteria).toMatchObject({
+            part: { op: "contains", value: "violin" },
+            publisher: { op: "contains", value: "schirmer" },
+            tags: { op: "contains", value: "recital" },
+            secondaryAuthors: { op: "contains", value: "kreisler" }
         })
         expect(result.text).toBe("")
     })

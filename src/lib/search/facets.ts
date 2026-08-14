@@ -54,8 +54,11 @@ import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../compo
 
 /**
  * One row of the build-time facet index (search/advanced/db-search-index.json.ts). Absent fields are omitted from the
- * JSON entirely, not emitted as `null` — keeps the payload small and lets {@link matchesFacets} treat
- * "absent" and "not applicable to this noun" the same way.
+ * JSON entirely, not emitted as `null` — keeps the payload small. A field absent because it's not
+ * applicable to this entry's noun (e.g. `type` on a composer) and a field absent because the underlying
+ * D1 record just doesn't have one set (e.g. a composition with no `type` chosen) are indistinguishable in
+ * the JSON itself; {@link matchesFacets} tells them apart via each criterion's declared `nouns`
+ * (ADVANCED_FIELDS), not via this shape.
  */
 export interface FacetEntry {
     url: string
@@ -64,14 +67,22 @@ export interface FacetEntry {
     /** composition only — composer's display name, for substring matching and result subtitles */
     composer?: string
     composerId?: number
+    /** composition only — resolved display names of `author_secondary`, joined with ", " */
+    secondaryAuthors?: string
+    /** composition only — instrument part (e.g. "violin"), free text rather than an enum */
+    part?: string
     /** composition only — {@link normalizeKeyForSearch} pitch-class reference, e.g. "7-minor" */
     keyRef?: string
     /** composition only — raw WorkType value */
     type?: string
     /** composition only — publish_year */
     year?: number
+    /** composition only — publication_info.name */
+    publisher?: string
     suzuki?: number
     nyssma?: number
+    /** composer and composition — free-form tags, joined with ", " */
+    tags?: string
     /** composer only — ISO 3166-1 alpha-2 code (matched against both the code and its resolved name) */
     country?: string
     /** composer only — raw role text */
@@ -108,11 +119,15 @@ const AROUND_YEAR_TOLERANCE = 5
 export interface FacetCriteria {
     nouns?: EntityNoun[]
     composer?: TextCriterion
+    secondaryAuthors?: TextCriterion
+    part?: TextCriterion
     keyRef?: string
     type?: string
     year?: NumberCriterion
+    publisher?: TextCriterion
     suzuki?: NumberCriterion
     nyssma?: NumberCriterion
+    tags?: TextCriterion
     country?: TextCriterion
     role?: string
     birthYear?: NumberCriterion
@@ -346,6 +361,22 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         nouns: ["composition"]
     },
     {
+        param: "secondaryAuthors",
+        label: "Secondary authors",
+        control: "text",
+        placeholder: "e.g. Kreisler",
+        operators: TEXT_OPERATORS,
+        nouns: ["composition"]
+    },
+    {
+        param: "part",
+        label: "Part",
+        control: "text",
+        placeholder: "e.g. violin",
+        operators: TEXT_OPERATORS,
+        nouns: ["composition"]
+    },
+    {
         param: "key",
         label: "Key",
         control: "select",
@@ -360,6 +391,14 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         nouns: ["composition"]
     },
     { param: "year", label: "Publication year", control: "number", operators: YEAR_OPERATORS, nouns: ["composition"] },
+    {
+        param: "publisher",
+        label: "Publisher",
+        control: "text",
+        placeholder: "e.g. Schirmer",
+        operators: TEXT_OPERATORS,
+        nouns: ["composition"]
+    },
     {
         param: "suzuki",
         label: "Suzuki rating",
@@ -377,6 +416,14 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         min: 1,
         max: 6,
         nouns: ["composition"]
+    },
+    {
+        param: "tags",
+        label: "Tags",
+        control: "text",
+        placeholder: "e.g. recital",
+        operators: TEXT_OPERATORS,
+        nouns: ["composer", "composition"]
     },
     {
         param: "country",
@@ -484,11 +531,15 @@ function matchesNullableSelect(entryValue: string | undefined, criterionValue: s
 // criteria-key spelling mismatch (every other pair shares a name).
 const CRITERION_PARAM: Record<Exclude<keyof FacetCriteria, "nouns">, string> = {
     composer: "composer",
+    secondaryAuthors: "secondaryAuthors",
+    part: "part",
     keyRef: "key",
     type: "type",
     year: "year",
+    publisher: "publisher",
     suzuki: "suzuki",
     nyssma: "nyssma",
+    tags: "tags",
     country: "country",
     role: "role",
     birthYear: "birthYear",
@@ -502,11 +553,13 @@ const CRITERION_NOUNS = new Map<string, readonly EntityNoun[]>(
 /**
  * Whether `criterionKey` is meaningful for `noun` at all, per ADVANCED_FIELDS (e.g. "composer" is
  * composition-only, "country" is composer-only). A criterion whose field doesn't apply to an entry's noun
- * is treated as satisfied rather than as a mismatch — needed because /search/advanced hides (but does not
- * disable) fields that don't apply to the checked entity-type checkboxes, so a value typed before switching
- * nouns still arrives as a URL param; without this gate it would otherwise always fail to match (the field
- * is simply absent from that noun's FacetEntry data), zeroing out results for an entity type the visitor
- * never meant to filter by that criterion.
+ * is a hard mismatch, not a pass-through: e.g. a "Work type" filter must exclude composers/contributors
+ * entirely, not just leave them untouched (matching intuition — a composition-only filter should narrow
+ * results to compositions). /search/advanced's own form is what keeps this from misfiring on a stale
+ * value: `updateFieldVisibility` (advanced.astro) disables a field's controls whenever it hides them for
+ * the checked entity-type checkboxes, so FormData never carries a criterion the visitor can't currently
+ * see or edit — the two have to move together, or a leftover value from before a noun switch would
+ * silently zero out that noun's own results again.
  */
 function criterionApplies(criterionKey: Exclude<keyof FacetCriteria, "nouns">, noun: EntityNoun): boolean {
     const nouns = CRITERION_NOUNS.get(CRITERION_PARAM[criterionKey])
@@ -518,37 +571,49 @@ export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boole
     if (criteria.nouns && criteria.nouns.length > 0 && !criteria.nouns.includes(entry.noun)) return false
     if (
         criteria.composer &&
-        criterionApplies("composer", entry.noun) &&
-        !matchesText(entry.composer, criteria.composer)
+        (!criterionApplies("composer", entry.noun) || !matchesText(entry.composer, criteria.composer))
     )
+        return false
+    if (
+        criteria.secondaryAuthors &&
+        (!criterionApplies("secondaryAuthors", entry.noun) ||
+            !matchesText(entry.secondaryAuthors, criteria.secondaryAuthors))
+    )
+        return false
+    if (criteria.part && (!criterionApplies("part", entry.noun) || !matchesText(entry.part, criteria.part)))
         return false
     if (
         criteria.keyRef &&
-        criterionApplies("keyRef", entry.noun) &&
-        !matchesNullableSelect(entry.keyRef, criteria.keyRef)
+        (!criterionApplies("keyRef", entry.noun) || !matchesNullableSelect(entry.keyRef, criteria.keyRef))
     )
         return false
-    if (criteria.type && criterionApplies("type", entry.noun) && !matchesNullableSelect(entry.type, criteria.type))
+    if (criteria.type && (!criterionApplies("type", entry.noun) || !matchesNullableSelect(entry.type, criteria.type)))
         return false
-    if (criteria.year && criterionApplies("year", entry.noun) && !matchesNumber(entry.year, criteria.year)) return false
-    if (criteria.suzuki && criterionApplies("suzuki", entry.noun) && !matchesNumber(entry.suzuki, criteria.suzuki))
+    if (criteria.year && (!criterionApplies("year", entry.noun) || !matchesNumber(entry.year, criteria.year)))
         return false
-    if (criteria.nyssma && criterionApplies("nyssma", entry.noun) && !matchesNumber(entry.nyssma, criteria.nyssma))
+    if (
+        criteria.publisher &&
+        (!criterionApplies("publisher", entry.noun) || !matchesText(entry.publisher, criteria.publisher))
+    )
         return false
-    if (criteria.country && criterionApplies("country", entry.noun) && !matchesCountry(entry, criteria.country))
+    if (criteria.suzuki && (!criterionApplies("suzuki", entry.noun) || !matchesNumber(entry.suzuki, criteria.suzuki)))
         return false
-    if (criteria.role && criterionApplies("role", entry.noun) && !matchesNullableSelect(entry.role, criteria.role))
+    if (criteria.nyssma && (!criterionApplies("nyssma", entry.noun) || !matchesNumber(entry.nyssma, criteria.nyssma)))
+        return false
+    if (criteria.tags && (!criterionApplies("tags", entry.noun) || !matchesText(entry.tags, criteria.tags)))
+        return false
+    if (criteria.country && (!criterionApplies("country", entry.noun) || !matchesCountry(entry, criteria.country)))
+        return false
+    if (criteria.role && (!criterionApplies("role", entry.noun) || !matchesNullableSelect(entry.role, criteria.role)))
         return false
     if (
         criteria.birthYear &&
-        criterionApplies("birthYear", entry.noun) &&
-        !matchesNumber(entry.birthYear, criteria.birthYear)
+        (!criterionApplies("birthYear", entry.noun) || !matchesNumber(entry.birthYear, criteria.birthYear))
     )
         return false
     if (
         criteria.deathYear &&
-        criterionApplies("deathYear", entry.noun) &&
-        !matchesNumber(entry.deathYear, criteria.deathYear)
+        (!criterionApplies("deathYear", entry.noun) || !matchesNumber(entry.deathYear, criteria.deathYear))
     )
         return false
     return true
@@ -569,6 +634,10 @@ export function hasCriteria(criteria: FacetCriteria): boolean {
 export function validateFacetCriteria(criteria: FacetCriteria): string | undefined {
     const fields: Array<[value: string | undefined, label: string]> = [
         [criteria.composer?.op === "regex" ? criteria.composer.value : undefined, "composer"],
+        [criteria.secondaryAuthors?.op === "regex" ? criteria.secondaryAuthors.value : undefined, "secondary authors"],
+        [criteria.part?.op === "regex" ? criteria.part.value : undefined, "part"],
+        [criteria.publisher?.op === "regex" ? criteria.publisher.value : undefined, "publisher"],
+        [criteria.tags?.op === "regex" ? criteria.tags.value : undefined, "tags"],
         [criteria.country?.op === "regex" ? criteria.country.value : undefined, "composer country"]
     ]
     for (const [pattern, label] of fields) {
@@ -643,16 +712,24 @@ export function parseFacetParams(params: URLSearchParams): FacetCriteria {
     if (nouns.length > 0) criteria.nouns = nouns
     const composer = readTextCriterion(params, "composer", TEXT_OPERATORS)
     if (composer) criteria.composer = composer
+    const secondaryAuthors = readTextCriterion(params, "secondaryAuthors", TEXT_OPERATORS)
+    if (secondaryAuthors) criteria.secondaryAuthors = secondaryAuthors
+    const part = readTextCriterion(params, "part", TEXT_OPERATORS)
+    if (part) criteria.part = part
     const key = readString(params, "key")
     if (key) criteria.keyRef = key
     const type = readString(params, "type")
     if (type) criteria.type = type
     const year = readNumberCriterion(params, "year", YEAR_OPERATORS)
     if (year) criteria.year = year
+    const publisher = readTextCriterion(params, "publisher", TEXT_OPERATORS)
+    if (publisher) criteria.publisher = publisher
     const suzuki = readNumberCriterion(params, "suzuki", RATING_OPERATORS)
     if (suzuki) criteria.suzuki = suzuki
     const nyssma = readNumberCriterion(params, "nyssma", RATING_OPERATORS)
     if (nyssma) criteria.nyssma = nyssma
+    const tags = readTextCriterion(params, "tags", TEXT_OPERATORS)
+    if (tags) criteria.tags = tags
     const country = readTextCriterion(params, "country", TEXT_OPERATORS)
     if (country) criteria.country = country
     const role = readString(params, "role")
@@ -672,6 +749,14 @@ export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
         params.set("composer", criteria.composer.value)
         params.set("composer_op", criteria.composer.op)
     }
+    if (criteria.secondaryAuthors) {
+        params.set("secondaryAuthors", criteria.secondaryAuthors.value)
+        params.set("secondaryAuthors_op", criteria.secondaryAuthors.op)
+    }
+    if (criteria.part) {
+        params.set("part", criteria.part.value)
+        params.set("part_op", criteria.part.op)
+    }
     if (criteria.keyRef) params.set("key", criteria.keyRef)
     if (criteria.type) params.set("type", criteria.type)
     const setNumber = (param: string, criterion: NumberCriterion | undefined): void => {
@@ -685,8 +770,16 @@ export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
             params.set(`${param}To`, String(criterion.valueTo))
     }
     setNumber("year", criteria.year)
+    if (criteria.publisher) {
+        params.set("publisher", criteria.publisher.value)
+        params.set("publisher_op", criteria.publisher.op)
+    }
     setNumber("suzuki", criteria.suzuki)
     setNumber("nyssma", criteria.nyssma)
+    if (criteria.tags) {
+        params.set("tags", criteria.tags.value)
+        params.set("tags_op", criteria.tags.op)
+    }
     if (criteria.country) {
         params.set("country", criteria.country.value)
         params.set("country_op", criteria.country.op)
@@ -721,7 +814,8 @@ function parseMinToken(value: string): NumberCriterion | undefined {
     return op === ">" ? { op: "after", value: n } : { op: "atLeast", value: n }
 }
 
-const QUERY_TOKEN = /^(noun|composer|key|type|year|suzuki|nyssma|country|role):(.+)$/i
+const QUERY_TOKEN =
+    /^(noun|composer|secondaryAuthors|part|key|type|year|publisher|suzuki|nyssma|tags|country|role):(.+)$/i
 
 /**
  * The `/search` free-text query syntax parser: strips recognized `field:value` tokens out of `raw`,
@@ -749,6 +843,12 @@ export function parseFacetQuery(raw: string): { text: string; criteria: FacetCri
             case "composer":
                 criteria.composer = { op: "contains", value }
                 break
+            case "secondaryauthors":
+                criteria.secondaryAuthors = { op: "contains", value }
+                break
+            case "part":
+                criteria.part = { op: "contains", value }
+                break
             case "key": {
                 const ref = parseKeyToken(value)
                 if (ref) criteria.keyRef = ref
@@ -764,6 +864,9 @@ export function parseFacetQuery(raw: string): { text: string; criteria: FacetCri
                 else leftover.push(word)
                 break
             }
+            case "publisher":
+                criteria.publisher = { op: "contains", value }
+                break
             case "suzuki": {
                 const criterion = parseMinToken(value)
                 if (criterion) criteria.suzuki = criterion
@@ -776,6 +879,9 @@ export function parseFacetQuery(raw: string): { text: string; criteria: FacetCri
                 else leftover.push(word)
                 break
             }
+            case "tags":
+                criteria.tags = { op: "contains", value }
+                break
             case "country":
                 criteria.country = { op: "contains", value }
                 break
