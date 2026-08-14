@@ -203,9 +203,7 @@ export function buildRelatedWorksIndex(
             const targetName = record?.name.trim()
             const exact = list
                 .filter((work) => work.name.trim() === targetName)
-                .sort((a, b) =>
-                    (worksById.get(a.id)?.part ?? "").localeCompare(worksById.get(b.id)?.part ?? "")
-                )
+                .sort((a, b) => (worksById.get(a.id)?.part ?? "").localeCompare(worksById.get(b.id)?.part ?? ""))
             const rest = list.filter((work) => work.name.trim() !== targetName)
             index.set(key, [...exact, ...randomShuffle(rest)])
         } else if (noun === "contributor") {
