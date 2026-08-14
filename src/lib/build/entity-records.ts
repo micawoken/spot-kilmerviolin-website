@@ -194,10 +194,15 @@ export function buildRelatedWorksIndex(
     //    one field that actually differs between them — `name` is identical within this subgroup by
     //    definition); the remaining same-composer works are truly randomized, so they vary on every build.
     //  - contributor: truly randomized, so they vary on every build.
+    // Before either shuffle runs, movements of the same unstandardized multi-movement work (see
+    // groupMovements) collapse into one shuffle unit, so they land — and stay ordered — together instead
+    // of being scattered across the list as unrelated tiles. The routed record itself is never a candidate
+    // here: the composition bucket's build loop above already excludes `sibling.id === record.id`, so it
+    // can never be swept into a group.
     for (const [key, list] of index) {
         const [noun, idStr] = key.split(":")
         if (noun === "composer") {
-            index.set(key, seededShuffle(list, Number(idStr)))
+            index.set(key, seededShuffle(groupMovements(list, worksById), Number(idStr)).flat())
         } else if (noun === "composition") {
             const record = works.find((w) => w.id === Number(idStr))
             const targetName = record?.name.trim()
@@ -205,9 +210,9 @@ export function buildRelatedWorksIndex(
                 .filter((work) => work.name.trim() === targetName)
                 .sort((a, b) => (worksById.get(a.id)?.part ?? "").localeCompare(worksById.get(b.id)?.part ?? ""))
             const rest = list.filter((work) => work.name.trim() !== targetName)
-            index.set(key, [...exact, ...randomShuffle(rest)])
+            index.set(key, [...exact, ...randomShuffle(groupMovements(rest, worksById)).flat()])
         } else if (noun === "contributor") {
-            index.set(key, randomShuffle(list))
+            index.set(key, randomShuffle(groupMovements(list, worksById)).flat())
         }
     }
 
@@ -263,6 +268,106 @@ function randomShuffle<T>(items: T[]): T[] {
         ;[result[i], result[j]] = [result[j], result[i]]
     }
     return result
+}
+
+// Movement grouping — collapses the unstandardized movements of a single multi-movement work (see
+// buildRelatedWorksIndex's "before either shuffle runs" comment) into one shuffle unit, ordered by
+// movement number, so a bucket's shuffle treats the whole work as a single candidate and — since a shuffle
+// unit is itself a RelatedWork[] — expansion in the flattened output falls out for free.
+
+/** Matches a movement marker: an explicit separator (comma/semicolon/colon/dash) or the "Mvt"/"Movement"
+ *  keyword, optionally followed by that keyword again (covers ", Mvt. II:"), then a roman or arabic
+ *  numeral. A bare space alone does NOT count as a separator — "Sonata No. 5" must not be misread as a
+ *  movement marker — so the keyword or explicit punctuation is required. Global, so {@link splitMovementMarker}
+ *  can find every candidate occurrence and take the last (closest to the end), in case an earlier colon
+ *  elsewhere in the title (e.g. "Concerto: Homage to...") isn't the real marker. */
+const MOVEMENT_MARKER =
+    /(?:[,;:\-–—]\s*|\b(?:mvt|mov(?:t|ement)?)\.?\s+)(?:(?:mvt|mov(?:t|ement)?)\.?\s*)?([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
+
+/** Splits a work name into its base title and movement number at the last {@link MOVEMENT_MARKER} match,
+ *  or returns null when no marker is found (a normal, non-movement work name). */
+function splitMovementMarker(name: string): { base: string; number: number } | null {
+    const matches = [...name.matchAll(MOVEMENT_MARKER)]
+    if (matches.length === 0) return null
+    const match = matches[matches.length - 1]
+    const base = name.slice(0, match.index).trim()
+    if (!base) return null
+    const number = romanOrArabicToNumber(match[1])
+    return number === null ? null : { base, number }
+}
+
+const ROMAN_VALUES: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 }
+
+/** Parses a movement-marker numeral token as an arabic number or a roman numeral. Returns null for
+ *  neither — defensive; {@link MOVEMENT_MARKER} should never actually capture one. */
+function romanOrArabicToNumber(token: string): number | null {
+    if (/^\d+$/.test(token)) return Number(token)
+    let total = 0
+    const letters = token.toLowerCase().split("")
+    for (let i = 0; i < letters.length; i++) {
+        const value = ROMAN_VALUES[letters[i]]
+        if (value === undefined) return null
+        const next = ROMAN_VALUES[letters[i + 1]]
+        total += next !== undefined && value < next ? -value : value
+    }
+    return total > 0 ? total : null
+}
+
+// Documented middle-ground default — no real movement-titled data was available in-repo to calibrate
+// against (see handoff). Requiring BOTH the percentage AND the absolute floor means a long shared prefix
+// still needs most of the title to match (not just a fragment), while a short title needs proportionally
+// more than the bare percentage, guarding against trivial short-prefix false positives.
+const PARTIAL_MATCH_PERCENT = 0.5
+const PARTIAL_MATCH_MIN_CHARS = 12
+
+/** Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix,
+ *  case-insensitive, to count as movements of the same work. */
+function baseTitlesMatch(a: string, b: string): boolean {
+    const x = a.toLowerCase()
+    const y = b.toLowerCase()
+    const shorterLen = Math.min(x.length, y.length)
+    if (shorterLen === 0) return false
+    let prefixLen = 0
+    while (prefixLen < shorterLen && x[prefixLen] === y[prefixLen]) prefixLen++
+    return prefixLen / shorterLen >= PARTIAL_MATCH_PERCENT && prefixLen >= PARTIAL_MATCH_MIN_CHARS
+}
+
+/** Groups a related-works list into shuffle units: a lone work (no movement marker, or no matching
+ *  sibling) is its own single-item unit; works detected as movements of the same multi-movement work
+ *  (same composer, {@link baseTitlesMatch} base title, movement-marker-shaped name — see
+ *  {@link splitMovementMarker}) collapse into one unit, sorted by movement number. */
+function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionRecord>): RelatedWork[][] {
+    interface Candidate {
+        work: RelatedWork
+        composerId: number
+        base: string
+        movementNumber: number
+    }
+    const candidates: Candidate[] = []
+    const units: RelatedWork[][] = []
+
+    for (const work of list) {
+        const record = worksById.get(work.id)
+        const split = record && splitMovementMarker(record.name)
+        if (record && split)
+            candidates.push({ work, composerId: record.composer_id, base: split.base, movementNumber: split.number })
+        else units.push([work])
+    }
+
+    const clusters: Candidate[][] = []
+    for (const candidate of candidates) {
+        const cluster = clusters.find(
+            (c) => c[0].composerId === candidate.composerId && baseTitlesMatch(c[0].base, candidate.base)
+        )
+        if (cluster) cluster.push(candidate)
+        else clusters.push([candidate])
+    }
+    for (const cluster of clusters) {
+        cluster.sort((a, b) => a.movementNumber - b.movementNumber)
+        units.push(cluster.map((c) => c.work))
+    }
+
+    return units
 }
 
 /** Resolves a single nullable foreign key to a display reference, or null when the key itself is null. */

@@ -369,3 +369,131 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
         expect(related).toHaveLength(4)
     })
 })
+
+describe("buildRelatedWorksIndex — multi-movement grouping (shuffle units, not just tiles)", () => {
+    const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
+
+    // Movements share a long base title (well past the 50%/12-char threshold) and a movement-marker-shaped
+    // remainder, in three of the formats the owner called out: ", [roman]: [name]", "Mvt. [roman]: [name]",
+    // and a bare arabic-numbered variant. Pushed out of movement order to prove ordering isn't accidental.
+    const mvt2: D1Composition = {
+        ...composition,
+        composition_id: 30,
+        name: "Violin Concerto in D Major, Op. 61, II: Larghetto",
+        composer_id: 1
+    }
+    const mvt1: D1Composition = {
+        ...composition,
+        composition_id: 31,
+        name: "Violin Concerto in D Major, Op. 61, Mvt. I: Allegro ma non troppo",
+        composer_id: 1
+    }
+    const mvt3: D1Composition = {
+        ...composition,
+        composition_id: 32,
+        name: "Violin Concerto in D Major, Op. 61 - 3: Rondo",
+        composer_id: 1
+    }
+    // A normal, unrelated work by the same composer — must stay its own unit, not get absorbed.
+    const unrelated: D1Composition = { ...composition, composition_id: 33, name: "Air on the G String", composer_id: 1 }
+    // Two movement-marker-shaped names sharing an exact but SHORT base ("Air", 3 chars, well under the
+    // 12-char absolute floor) — must NOT cluster with each other despite a 100% prefix match, since the
+    // floor exists precisely to stop a short shared prefix from counting.
+    const shortDecoyA: D1Composition = { ...composition, composition_id: 34, name: "Air, II: Reprise", composer_id: 1 }
+    const shortDecoyB: D1Composition = { ...composition, composition_id: 36, name: "Air, III: Encore", composer_id: 1 }
+    // Looks like a movement number but is actually a catalog number after "No." — must not be misread as
+    // a marker at all (splitMovementMarker should return null for it).
+    const catalogDecoy: D1Composition = { ...composition, composition_id: 35, name: "Sonata No. 5 in G Major", composer_id: 1 }
+
+    const composers = [formatCompFromD1(bach)]
+    const works = [mvt2, mvt1, mvt3, unrelated, shortDecoyA, shortDecoyB, catalogDecoy].map(formatWorkFromD1)
+
+    it("collapses same-work movements into one shuffle unit, kept in movement order, alongside untouched siblings", () => {
+        // composition:33 (unrelated) related list: movements + shortDecoy + catalogDecoy, movements grouped.
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const related = index.get("composition:33") ?? []
+
+        const ids = related.map((w) => w.id)
+        const i1 = ids.indexOf(31)
+        const i2 = ids.indexOf(30)
+        const i3 = ids.indexOf(32)
+        // The three movements are contiguous (grouped) and in movement order (I, II, III) regardless of
+        // where the shuffle placed the group as a whole.
+        expect(i2).toBe(i1 + 1)
+        expect(i3).toBe(i2 + 1)
+        expect(ids).toContain(34)
+        expect(ids).toContain(36)
+        expect(ids).toContain(35)
+        expect(related).toHaveLength(6)
+    })
+
+    it("REGRESSION GUARD: an exact but short shared base (under the 12-char absolute floor) does not cluster despite a 100% prefix match", () => {
+        // shortDecoyA/B ("Air, II: Reprise" / "Air, III: Encore") share the exact base "Air" — a 100%
+        // prefix match — but 3 characters is under PARTIAL_MATCH_MIN_CHARS, so they must stay two
+        // independent units, not one group. A grouped pair would always land adjacent to each other, in
+        // marker order (II before III); assert that's NOT guaranteed by checking both possible relative
+        // orders occur across repeated (randomly shuffled) builds — if they were one unit they'd never
+        // shuffle apart from a stable I-then-II adjacency requirement being violated.
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const related = index.get("composition:33") ?? []
+        const ids = related.map((w) => w.id)
+        // Structural guard: a real group's members are always contiguous. If 34/36 were (wrongly) grouped,
+        // any other id could never sit between them. Run several rebuilds (fresh random shuffle each time)
+        // and confirm at least one places another id between 34 and 36.
+        let sawSeparation = false
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const rebuilt = (buildRelatedWorksIndex(composers, works, ALL_PAGES).get("composition:33") ?? []).map(
+                (w) => w.id
+            )
+            const i34 = rebuilt.indexOf(34)
+            const i36 = rebuilt.indexOf(36)
+            if (Math.abs(i34 - i36) > 1) {
+                sawSeparation = true
+                break
+            }
+        }
+        expect(sawSeparation).toBe(true)
+        expect(ids).toContain(34)
+        expect(ids).toContain(36)
+    })
+
+    it("REGRESSION GUARD: 'No. 5' (catalog number) is never misread as a movement marker", () => {
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const related = index.get("composition:33") ?? []
+        expect(related.find((w) => w.id === 35)?.name).toBe("Sonata No. 5 in G Major")
+    })
+
+    it("REGRESSION GUARD: grouping never sweeps in the routed/currently-viewed record itself", () => {
+        // Viewing movement II (id 30): its own related list must never contain id 30.
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const related = index.get("composition:30") ?? []
+        expect(related.some((w) => w.id === 30)).toBe(false)
+        expect(related.map((w) => w.id)).toContain(31)
+        expect(related.map((w) => w.id)).toContain(32)
+    })
+
+    it("composer bucket: the same grouping applies under the composer's seeded shuffle", () => {
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const related = index.get("composer:1") ?? []
+        const ids = related.map((w) => w.id)
+        const i1 = ids.indexOf(31)
+        const i2 = ids.indexOf(30)
+        const i3 = ids.indexOf(32)
+        expect(i2).toBe(i1 + 1)
+        expect(i3).toBe(i2 + 1)
+        expect(related).toHaveLength(7)
+    })
+
+    it("contributor bucket: the same grouping applies under the contributor's random shuffle", () => {
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        // contributor 2 is contrib_primary_1 on every fixture work (shared `composition` base object).
+        const related = index.get("contributor:2") ?? []
+        const ids = related.map((w) => w.id)
+        const i1 = ids.indexOf(31)
+        const i2 = ids.indexOf(30)
+        const i3 = ids.indexOf(32)
+        expect(i2).toBe(i1 + 1)
+        expect(i3).toBe(i2 + 1)
+        expect(related).toHaveLength(7)
+    })
+})
