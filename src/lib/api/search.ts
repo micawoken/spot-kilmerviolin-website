@@ -29,6 +29,7 @@
 
 import MiniSearch from "minisearch"
 import { env } from "cloudflare:workers"
+import { compositionNameCollisionKey, disambiguatedCompositionName } from "./db_composition"
 import { countryCodeName } from "../../scripts/format"
 
 /** the tables the search endpoint accepts */
@@ -237,12 +238,23 @@ export function searchCompositions(
     composer_names: Map<number, string>,
     query: string
 ): SearchResult[] {
+    // Same-titled, same-composer works are otherwise indistinguishable among hits (composer + name is all
+    // that's shown) — see disambiguatedCompositionName's header (db_composition.ts). Only the displayed
+    // `display` string is disambiguated; the indexed `name` field stays raw so matching is unaffected.
+    const collisionCounts = new Map<string, number>()
+    for (const record of records) {
+        const key = compositionNameCollisionKey(record.composer_id, record.name)
+        collisionCounts.set(key, (collisionCounts.get(key) ?? 0) + 1)
+    }
     const buildDocs = (): SearchDoc[] =>
         records.map((record) => {
             const composer = composer_names.get(record.composer_id) ?? ""
+            const has_collision =
+                (collisionCounts.get(compositionNameCollisionKey(record.composer_id, record.name)) ?? 0) > 1
+            const display_name = disambiguatedCompositionName(record.name, record.part, has_collision)
             return {
                 id: record.id,
-                display: composer ? `${composer}: ${record.name}` : record.name,
+                display: composer ? `${composer}: ${display_name}` : display_name,
                 name: str(record.name),
                 composer: str(composer),
                 type: str(record.type),

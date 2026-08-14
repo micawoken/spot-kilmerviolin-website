@@ -39,6 +39,7 @@ import type { APIRoute } from "astro"
 import { normalizeKeyForSearch } from "../../../lib/api/common"
 import { fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
+import { disambiguatedCompositionNames } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { entityHref } from "../../../lib/compositor/composition-fields"
 import type { EntityNoun } from "../../../lib/compositor/entity-fields"
@@ -83,11 +84,15 @@ export const GET: APIRoute = async () => {
     }
 
     if (availableNouns.has("composition")) {
+        // Same-titled, same-composer works are otherwise indistinguishable in results (only name +
+        // composer are shown) — see disambiguatedCompositionNames' header. The entity page's own title is
+        // untouched; this only affects the name shown in search results.
+        const compositionNames = disambiguatedCompositionNames(compositions)
         for (const record of compositions ?? []) {
             const entry: FacetEntry = {
                 url: entityHref("composition", record.id),
                 noun: "composition",
-                name: record.name
+                name: compositionNames.get(record.id) ?? record.name
             }
             const composerName = composerNames.get(record.composer_id)
             if (composerName) {

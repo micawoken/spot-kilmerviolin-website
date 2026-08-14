@@ -44,7 +44,7 @@
 import EntityIndex from "../../../components/entities/EntityIndex.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
-import { buildReferenceIndex, entityRecords } from "../../../lib/build/entity-records"
+import { buildReferenceIndex, disambiguatedCompositionNames, entityRecords } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
 import { ENTITY_NOUN_SLUGS, type EntityNoun } from "../../../lib/compositor/entity-fields"
 
@@ -69,6 +69,10 @@ export async function getStaticPaths() {
         resolutions.map(({ noun, template }) => [noun, template !== null])
     ) as Record<EntityNoun, boolean>
     const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
+    // Same-titled, same-composer works are otherwise indistinguishable in this list (no other field is
+    // shown) — see disambiguatedCompositionNames' header. The composition's own detail-page title is
+    // untouched: entityRecords' entry.name stays raw, this only overrides the list item below.
+    const compositionNames = disambiguatedCompositionNames(compositions)
 
     // ListResults' ResultObject wants a numeric id, matching ListResult.astro's admin-list usage
     // (list.astro:51-55) — entityRecords stringifies id for Astro's route params, so it is parsed back here.
@@ -88,6 +92,9 @@ export async function getStaticPaths() {
         if (!template) continue // mirrors [id].astro's gate; no warning here to avoid duplicate build log noise
 
         const results = entityRecords(noun, composers, contributors, compositions, refs).map(toListItem)
+        if (noun === "composition") {
+            for (const item of results) item.name = compositionNames.get(item.id) ?? item.name
+        }
         if (results.length === 0) continue
 
         paths.push({ params: { noun: ENTITY_NOUN_SLUGS[noun] }, props: { noun, results } })
