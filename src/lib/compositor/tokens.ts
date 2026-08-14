@@ -55,6 +55,13 @@ export interface TypographyToken {
     weight: string
     lineHeight: string
     letterSpacing?: string
+    /** The gap AFTER a block set in this style, when it sits directly above another block of the same
+     * kind of content — RichText's own paragraphs/headings/code-blocks, and (via the `paragraphTypography`
+     * site-chrome role) the gap between stacked components generally. Deliberately distinct from
+     * `lineHeight`: line-height spaces WRAPPED LINES within one block, this spaces SEPARATE blocks placed
+     * adjacent to each other — conflating the two was the "unusual structure" this field exists to fix.
+     * Trap A: absent means the consuming CSS's own literal fallback applies (no token-name assumption). */
+    paragraphSpacing?: string
     /** `font-style: italic` when true. Trap A: absent means not italic. */
     italic?: boolean
     /** Forces the emitted weight to `"bold"`, overriding `weight` for that one property only (the
@@ -153,6 +160,18 @@ export interface SiteChromeRoles {
     /** names a `typography` token; page-title `<h1>` on static pages and Portable Text (Puck pages
      * bind their own heading separately). Unset falls back to `display` by magic name. */
     headingTypography?: string
+    /** names a `typography` token; its `paragraphSpacing` sub-value governs the gap between paragraphs/
+     * headings/code-blocks inside RichText, and the gap between stacked components generally (Section's
+     * content slot, a Columns column, MediaText's text side) — `compositor.css`'s single
+     * `--dtk-chrome-paragraph-spacing` property. Unlike the space roles below, unset does NOT fall back
+     * to any specific named token — the consuming CSS's own `var(…, <literal>)` fallback applies instead,
+     * so this role introduces no new magic-name assumption (mirrors `headingTypography`'s indirection,
+     * deliberately without its "old magic-name lookup" fallback tier: there was no prior per-declaration
+     * name to preserve here, `.cmp-root`/`.cmp-section`/`.cmp-columns__col` previously hardcoded
+     * `--dtk-space-md` and RichText's own paragraphs had no themed value at all). Never applies inside
+     * `ContentField`'s own label/value row — that row's `row-gap: 0` is intentionally untouched so a
+     * stacked label never gains a gap from its value. */
+    paragraphTypography?: string
     /** names a `space` token; DEPRECATED, superseded by the three split roles below. Kept only so a
      * pre-split catalog has a value to migrate from — `toEditable` seeds the three split roles from
      * this one time when unset, `tokensToCss` falls back to it per-role the same way, so an
@@ -418,6 +437,9 @@ export function tokensToCss(catalog: TokenCatalog): string {
         if (token.letterSpacing !== undefined) {
             emit(tokenVarName("typography", token.name, "letter-spacing"), token.letterSpacing)
         }
+        if (token.paragraphSpacing !== undefined) {
+            emit(tokenVarName("typography", token.name, "paragraph-spacing"), token.paragraphSpacing)
+        }
         // style/decoration/transform are chosen from fixed keyword sets, never free text
         emit(tokenVarName("typography", token.name, "style"), token.italic ? "italic" : "normal")
         emit(tokenVarName("typography", token.name, "decoration"), textDecorationLine(token))
@@ -497,6 +519,12 @@ export function tokensToCss(catalog: TokenCatalog): string {
             emit("--dtk-chrome-heading-weight", tokenVar("typography", name, "weight"))
             emit("--dtk-chrome-heading-line-height", tokenVar("typography", name, "line-height"))
             emit("--dtk-chrome-heading-letter-spacing", tokenVar("typography", name, "letter-spacing"))
+        }
+        if (chrome.paragraphTypography) {
+            emit(
+                "--dtk-chrome-paragraph-spacing",
+                tokenVar("typography", chrome.paragraphTypography, "paragraph-spacing")
+            )
         }
         // Each split role falls back to the deprecated singular `horizontalSpace` when unset, so a
         // pre-split catalog keeps rendering identically until its owner adjusts the roles independently.
@@ -604,6 +632,7 @@ function isTypographyToken(value: unknown): value is TypographyToken {
         typeof value.weight === "string" &&
         typeof value.lineHeight === "string" &&
         (value.letterSpacing === undefined || typeof value.letterSpacing === "string") &&
+        (value.paragraphSpacing === undefined || typeof value.paragraphSpacing === "string") &&
         // OPTIONAL, trap A: absent on every field below means "not styled that way", matching behavior
         // before these fields existed.
         (value.italic === undefined || typeof value.italic === "boolean") &&
@@ -655,6 +684,7 @@ function isSiteChromeRoles(value: unknown): value is SiteChromeRoles {
         (value.footerBackground === undefined || typeof value.footerBackground === "string") &&
         (value.hairlineBorder === undefined || typeof value.hairlineBorder === "string") &&
         (value.headingTypography === undefined || typeof value.headingTypography === "string") &&
+        (value.paragraphTypography === undefined || typeof value.paragraphTypography === "string") &&
         (value.horizontalSpace === undefined || typeof value.horizontalSpace === "string") &&
         (value.horizontalSpaceInset === undefined || typeof value.horizontalSpaceInset === "string") &&
         (value.horizontalSpaceContentInset === undefined || typeof value.horizontalSpaceContentInset === "string") &&
@@ -830,6 +860,7 @@ export function lintTokenValues(catalog: TokenCatalog): TokenValueFinding[] {
         check("typography", token.name, "weight", token.weight)
         check("typography", token.name, "lineHeight", token.lineHeight)
         check("typography", token.name, "letterSpacing", token.letterSpacing)
+        check("typography", token.name, "paragraphSpacing", token.paragraphSpacing)
     }
     for (const token of catalog.borders) {
         check("borders", token.name, "width", token.width)

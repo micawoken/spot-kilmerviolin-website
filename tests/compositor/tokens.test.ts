@@ -115,6 +115,16 @@ describe("tokensToCss emission", () => {
         expect(css).not.toContain("--dtk-type-body-letter-spacing")
         expect(css).toContain("--dtk-type-display-letter-spacing: -0.02em;")
     })
+    it("emits paragraphSpacing only when present", () => {
+        const withSpacing: TokenCatalog = {
+            ...catalog,
+            typography: [...catalog.typography, { ...catalog.typography[1], name: "prose", paragraphSpacing: "1.25em" }]
+        }
+        const withoutIt = tokensToCss(catalog)
+        expect(withoutIt).not.toContain("--dtk-type-body-paragraph-spacing")
+        expect(withoutIt).not.toContain("--dtk-type-display-paragraph-spacing")
+        expect(tokensToCss(withSpacing)).toContain("--dtk-type-prose-paragraph-spacing: 1.25em;")
+    })
     it("resolves a border's colorRef to the referenced color property", () => {
         expect(css).toContain("--dtk-border-default-width: 1px;")
         expect(css).toContain("--dtk-border-default-style: solid;")
@@ -171,6 +181,18 @@ describe("isTokenCatalog", () => {
         expect(isTokenCatalog({ ...catalog, borders: [{ name: "b", width: "1px", style: "solid" }] })).toBe(false)
         const { breakpoints: _omit, ...withoutBreakpoints } = catalog
         expect(isTokenCatalog(withoutBreakpoints)).toBe(false)
+    })
+    it("accepts a typography token's optional paragraphSpacing, and rejects a wrong-typed one", () => {
+        expect(
+            isTokenCatalog({ ...catalog, typography: [{ ...catalog.typography[0], paragraphSpacing: "1.5em" }] })
+        ).toBe(true)
+        expect(
+            isTokenCatalog({ ...catalog, typography: [{ ...catalog.typography[0], paragraphSpacing: 1.5 }] })
+        ).toBe(false)
+    })
+    it("accepts siteChrome's optional paragraphTypography, and rejects a wrong-typed one", () => {
+        expect(isTokenCatalog({ ...catalog, siteChrome: { paragraphTypography: "display" } })).toBe(true)
+        expect(isTokenCatalog({ ...catalog, siteChrome: { paragraphTypography: 1 } })).toBe(false)
     })
 })
 
@@ -230,6 +252,17 @@ describe("tokensToCss — button variants", () => {
     })
     it("emits nothing for a catalog with no variants", () => {
         expect(tokensToCss(catalog)).not.toContain("--dtk-btn")
+    })
+})
+
+describe("tokensToCss — site chrome paragraph spacing", () => {
+    it("emits --dtk-chrome-paragraph-spacing resolving to the named token's paragraph-spacing sub-value", () => {
+        const withRole: TokenCatalog = { ...catalog, siteChrome: { paragraphTypography: "display" } }
+        expect(tokensToCss(withRole)).toContain("--dtk-chrome-paragraph-spacing: var(--dtk-type-display-paragraph-spacing);")
+    })
+    it("emits nothing when the role is unset — no magic token name is assumed", () => {
+        expect(tokensToCss(catalog)).not.toContain("--dtk-chrome-paragraph-spacing")
+        expect(tokensToCss({ ...catalog, siteChrome: {} })).not.toContain("--dtk-chrome-paragraph-spacing")
     })
 })
 
@@ -400,7 +433,8 @@ describe("emitted CSS cannot break out of its <style> element", () => {
                 size: BREAKOUT,
                 weight: BREAKOUT,
                 lineHeight: BREAKOUT,
-                letterSpacing: BREAKOUT
+                letterSpacing: BREAKOUT,
+                paragraphSpacing: BREAKOUT
             }
         ],
         space: [{ name: "md", value: BREAKOUT }],
@@ -462,6 +496,7 @@ describe("emitted CSS cannot break out of its <style> element", () => {
         expect(findings.length).toBeGreaterThan(0)
         expect(findings).toContainEqual({ kind: "colors", name: "accent", field: "value" })
         expect(findings).toContainEqual({ kind: "typography", name: "body", field: "family" })
+        expect(findings).toContainEqual({ kind: "typography", name: "body", field: "paragraphSpacing" })
         expect(findings).toContainEqual({ kind: "breakpoints", name: "md", field: "minWidth" })
     })
 
