@@ -320,26 +320,35 @@ export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; 
                     onChange={(event) => setSampleText(event.target.value)}
                 />
             </label>
-            {rows.map((token) => (
-                <div key={token.name} className="theme-preview__specimen">
-                    <span className="theme-preview__caption">{token.name}</span>
-                    <p
-                        className="theme-preview__specimen-sample"
-                        style={{
-                            fontFamily: tokenVar("typography", token.name, "family"),
-                            fontSize: tokenVar("typography", token.name, "size"),
-                            fontWeight: tokenVar("typography", token.name, "weight"),
-                            lineHeight: tokenVar("typography", token.name, "line-height"),
-                            letterSpacing: tokenVar("typography", token.name, "letter-spacing"),
-                            fontStyle: tokenVar("typography", token.name, "style"),
-                            textDecoration: tokenVar("typography", token.name, "decoration"),
-                            textTransform: tokenVar("typography", token.name, "transform") as CSSProperties["textTransform"]
-                        }}
-                    >
-                        {sample}
-                    </p>
-                </div>
-            ))}
+            {rows.map((token) => {
+                const sampleStyle: CSSProperties = {
+                    fontFamily: tokenVar("typography", token.name, "family"),
+                    fontSize: tokenVar("typography", token.name, "size"),
+                    fontWeight: tokenVar("typography", token.name, "weight"),
+                    lineHeight: tokenVar("typography", token.name, "line-height"),
+                    letterSpacing: tokenVar("typography", token.name, "letter-spacing"),
+                    fontStyle: tokenVar("typography", token.name, "style"),
+                    textDecoration: tokenVar("typography", token.name, "decoration"),
+                    textTransform: tokenVar("typography", token.name, "transform") as CSSProperties["textTransform"]
+                }
+                return (
+                    <div key={token.name} className="theme-preview__specimen">
+                        <span className="theme-preview__caption">{token.name}</span>
+                        {/* Two stacked lines, not one: paragraph spacing only has an effect BETWEEN blocks, so a
+                         * single sample line (sufficient for every other sub-value here) would leave this one
+                         * invisible. Second line reuses the same style; only the first carries the gap. */}
+                        <p
+                            className="theme-preview__specimen-sample"
+                            style={{ ...sampleStyle, marginBottom: tokenVar("typography", token.name, "paragraph-spacing") }}
+                        >
+                            {sample}
+                        </p>
+                        <p className="theme-preview__specimen-sample" style={sampleStyle}>
+                            {sample}
+                        </p>
+                    </div>
+                )
+            })}
             <p className="theme-editor__hint">
                 Web fonts (Google Fonts) can't load inside this editor, so a fallback is shown for now.
             </p>

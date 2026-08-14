@@ -51,7 +51,7 @@
 .cmp-root {
 	display: flex;
 	flex-direction: column;
-	gap: var(--dtk-space-md, 1rem);
+	gap: var(--dtk-chrome-paragraph-spacing, 1rem);
 }
 
 /* Section — full-width band; also a stacking container for its own content slot. Horizontal inset reads
@@ -61,7 +61,7 @@
 .cmp-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--dtk-space-md, 1rem);
+	gap: var(--dtk-chrome-paragraph-spacing, 1rem);
 	background: var(--cmp-section-bg, transparent);
 	padding-block: var(--cmp-section-py, 0);
 	padding-inline: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-space-md, 1rem));
@@ -98,7 +98,7 @@
 .cmp-columns__col {
 	display: flex;
 	flex-direction: column;
-	gap: var(--dtk-space-md, 1rem);
+	gap: var(--dtk-chrome-paragraph-spacing, 1rem);
 	min-width: 0;
 }
 
@@ -136,6 +136,16 @@
 	text-decoration: var(--dtk-type-body-decoration, none);
 	text-transform: var(--dtk-type-body-transform, none);
 }
+/* Paragraph spacing (impl: theme-authored `paragraphTypography` role) replaces every direct child's own
+ * UA-default block margin with one themed value, top zeroed so rhythm never doubles between two adjacent
+ * blocks (margin-block-end alone would let both a block's own top margin and its predecessor's bottom
+ * margin add up — flex/grid contexts elsewhere in this file avoid that by using `gap` instead of margin,
+ * but RichText's inner markup is plain block flow owned by richtext.tsx, not a flex stack this file
+ * controls). `line-height` (above) spaces WRAPPED LINES within one block; this spaces SEPARATE blocks —
+ * deliberately a different value, not reused. */
+.cmp-richtext > * {
+	margin-block: 0 var(--dtk-chrome-paragraph-spacing, 1em);
+}
 .cmp-richtext > :last-child {
 	margin-block-end: 0;
 }
@@ -147,17 +157,13 @@
 	display: none;
 }
 
-/* Code blocks (richtext.tsx's `code` type) are the one `.cmp-richtext` child whose own UA-default vertical
- * rhythm lives on a DESCENDANT, not on itself: `.emdash-code` is a plain, unstyled div, and `pre`'s margin
- * is what actually pushes it apart from its neighbours. Margin collapsing takes the LARGER of two adjoining
- * margins, not their sum — so when a code block is `.cmp-richtext`'s last child, the `:last-child` rule
- * above zeroing `.emdash-code`'s own (already-zero) margin-block-end does nothing to stop `pre`'s 1em
- * escaping through it, and the trailing gap the rule exists to remove reappears. Moving the block's rhythm
- * onto `.emdash-code` itself — and zeroing `pre`'s — makes it own margin the `:last-child` rule can actually
- * reach, same as every other block type here. */
-.cmp-richtext .emdash-code {
-	margin-block: 1em;
-}
+/* Code blocks (richtext.tsx's `code` type) are the one `.cmp-richtext` child whose own vertical rhythm
+ * would otherwise live on a DESCENDANT, not on itself: `.emdash-code` is a plain, unstyled div, and `pre`
+ * carries its own UA margin, which would push it apart from its neighbours independently of the rule
+ * above. The rule above already sets `.emdash-code`'s own margin (it is a direct `.cmp-richtext` child
+ * like every other block type here) — zeroing `pre`'s here stops its margin from escaping through
+ * `.emdash-code` and adding on top, and lets the `:last-child` rule reach a trailing code block through
+ * `.emdash-code`'s own (now themed) margin the same way it reaches every other block type. */
 .cmp-richtext .emdash-code pre {
 	margin: 0;
 }
@@ -449,7 +455,7 @@ a.cmp-related__tile:hover .cmp-related__name {
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--dtk-space-sm, 0.75rem);
+	gap: var(--dtk-chrome-paragraph-spacing, 0.75rem);
 }
 .cmp-media-text__content > .cmp-button {
 	align-self: flex-start;
