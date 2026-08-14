@@ -546,6 +546,14 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         // with a composition) — each field's `.search-advanced__field` carries the noun slugs it applies to
         // (data-nouns, set from ADVANCED_FIELDS' `nouns` in the template above); hide fields that don't
         // apply to ANY checked noun, and show everything again once no noun (or every noun) is checked.
+        //
+        // Hiding a field also disables its controls (input/select), not just its visual display: matchesFacets
+        // (facets.ts) now treats a criterion for a field that doesn't apply to an entry's noun as a hard
+        // mismatch (narrowing results to nouns where it's meaningful, e.g. "Work type" excludes composers),
+        // rather than the old "ignore it" gate — so a value left over from before a noun switch must never
+        // reach FormData, or it would zero out the very noun the visitor switched to. Disabled (not cleared):
+        // matches this file's own existing convention for the "to"/alive-value inputs, and lets a value survive
+        // if the visitor switches back.
         function updateFieldVisibility(): void {
             const nouns = selectedNouns()
             let anyFieldVisible = false
@@ -555,11 +563,19 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                 const fieldNouns = (field.dataset.nouns ?? "").split(" ").filter(Boolean)
                 const hidden = nouns.length > 0 && !fieldNouns.some((noun) => nouns.includes(noun))
                 field.hidden = hidden
+                for (const control of field.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")) {
+                    control.disabled = hidden
+                }
                 if (!hidden) anyFieldVisible = true
             }
             // Only contributor can reach this today (no ADVANCED_FIELDS entry carries "contributor" in its
             // `nouns` — see facets.ts) — nouns.length === 0 always shows every field, so this never fires then.
             noFieldsEl.hidden = anyFieldVisible || nouns.length === 0
+            // Re-enabling every control above is coarser than what a "between"/"alive" operator wants (its
+            // "to" input, or its own value input, should often stay disabled even once the field itself is
+            // visible again) — updateOperatorControls (below) is the single source of truth for that, so
+            // defer to it once field-level enablement has settled.
+            updateOperatorControls()
         }
         for (const checkbox of form.querySelectorAll<HTMLInputElement>('input[name="noun"]')) {
             checkbox.addEventListener("change", updateFieldVisibility)
@@ -577,18 +593,23 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             // takes no arguments) — see scripts/common.ts's FormControl comment for the same quirk.
             for (const opSelect of formEl.querySelectorAll(".search-advanced__op")) {
                 if (!(opSelect instanceof HTMLSelectElement)) continue
+                // A hidden field's controls must stay disabled no matter what its operator says — otherwise
+                // this would re-enable a "between" field's "to" input (or an "alive" field's value input)
+                // the moment updateFieldVisibility calls this, undoing the disable it just applied for a
+                // field the visitor can't currently see or edit.
+                const fieldHidden = opSelect.closest<HTMLElement>(".search-advanced__field")?.hidden ?? false
                 const param = opSelect.name.replace(/_op$/, "")
                 const isBetween = opSelect.value === "between"
                 const isAlive = opSelect.value === "alive"
                 const toInput = document.getElementById(`adv-${param}-to`)
                 if (toInput instanceof HTMLInputElement) {
                     toInput.classList.toggle("is-inactive", !isBetween)
-                    toInput.disabled = !isBetween
+                    toInput.disabled = fieldHidden || !isBetween
                 }
                 const valueInput = document.getElementById(`adv-${param}`)
                 if (valueInput instanceof HTMLInputElement) {
                     valueInput.classList.toggle("is-inactive", isAlive)
-                    valueInput.disabled = isAlive
+                    valueInput.disabled = fieldHidden || isAlive
                     // Only a field with a "to" input (hasBetween in the template above) ever pairs "from"/"to" —
                     // toInput is null for every other field, so this never touches their placeholder, and its
                     // value input already carries search-advanced__value--full from the server render (always

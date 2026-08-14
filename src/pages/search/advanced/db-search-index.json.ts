@@ -79,6 +79,7 @@ export const GET: APIRoute = async () => {
             // -1 is the "living composer" sentinel (format.ts's formatDeathYear) — not a real death year
             // to filter on.
             if (typeof record.death_year === "number" && record.death_year !== -1) entry.deathYear = record.death_year
+            if (record.tags.length > 0) entry.tags = record.tags.join(", ")
             entries.push(entry)
         }
     }
@@ -99,11 +100,18 @@ export const GET: APIRoute = async () => {
                 entry.composer = composerName
                 entry.composerId = record.composer_id
             }
+            const secondaryAuthorNames = record.author_secondary
+                .map((id) => composerNames.get(id))
+                .filter((name): name is string => Boolean(name))
+            if (secondaryAuthorNames.length > 0) entry.secondaryAuthors = secondaryAuthorNames.join(", ")
+            if (record.part) entry.part = record.part
             if (record.key) entry.keyRef = normalizeKeyForSearch(record.key)
             if (record.type) entry.type = record.type
             if (typeof record.publication_info.year === "number") entry.year = record.publication_info.year
+            if (record.publication_info.name) entry.publisher = record.publication_info.name
             if (typeof record.rating.suzuki === "number") entry.suzuki = record.rating.suzuki
             if (typeof record.rating.nyssma === "number") entry.nyssma = record.rating.nyssma
+            if (record.tags.length > 0) entry.tags = record.tags.join(", ")
             entries.push(entry)
         }
     }
