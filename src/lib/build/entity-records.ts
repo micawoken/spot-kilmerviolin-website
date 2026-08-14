@@ -256,27 +256,43 @@ export function buildRelatedWorksIndex(
 
     // Automatic disambiguation, applied last so it never disturbs the exact-name-match ordering above: a
     // tile's composer subtitle (catalog.tsx) can't tell two same-titled works by the same composer apart
-    // — the compositions table's UNIQUE index is (composer_id, name, COALESCE(part,'')), so `part` is the
-    // one field that does. Mirrors compositionNameCollisionKey/disambiguatedCompositionName
-    // (lib/api/database.ts) for the admin works list; duplicated rather than imported so this build-time
-    // module doesn't pull in the worker-only D1 access layer. A part-less work stays ambiguous — there is
-    // nothing to disambiguate it WITH — even when its same-named sibling has its own part.
-    const nameCollisionCounts = new Map<string, number>()
-    for (const record of works) {
-        const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
-        nameCollisionCounts.set(key, (nameCollisionCounts.get(key) ?? 0) + 1)
-    }
+    // — see disambiguatedCompositionNames' header.
+    const disambiguatedNames = disambiguatedCompositionNames(works)
     for (const list of index.values()) {
         for (const work of list) {
-            const record = worksById.get(work.id)
-            if (!record) continue
-            const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
-            const hasCollision = (nameCollisionCounts.get(key) ?? 0) > 1
-            if (hasCollision && record.part) work.name = `${record.name} (${record.part})`
+            work.name = disambiguatedNames.get(work.id) ?? work.name
         }
     }
 
     return index
+}
+
+/**
+ * id → display name, with `part` appended in parentheses when it collides with a same-composer,
+ * same-name sibling — the compositions table's UNIQUE index is (composer_id, name, COALESCE(part,'')),
+ * so `part` is the one field that reliably tells two same-titled works apart. For list/tile contexts
+ * (RelatedEntries tiles, the entity index pages) that show a composition's name next to its composer but
+ * have no other way to surface the distinction. Mirrors compositionNameCollisionKey/
+ * disambiguatedCompositionName (lib/api/db_composition.ts) for the admin works list; duplicated rather
+ * than imported so this build-time module doesn't pull in the worker-only D1 access layer. A part-less
+ * work stays ambiguous — there is nothing to disambiguate it WITH — even when its same-named sibling has
+ * its own part.
+ */
+export function disambiguatedCompositionNames(compositions: CompositionRecord[] | null): Map<number, string> {
+    const works = compositions ?? []
+    const collisionCounts = new Map<string, number>()
+    for (const record of works) {
+        const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
+        collisionCounts.set(key, (collisionCounts.get(key) ?? 0) + 1)
+    }
+
+    const names = new Map<number, string>()
+    for (const record of works) {
+        const key = `${record.composer_id} ${record.name.trim().toLowerCase()}`
+        const hasCollision = (collisionCounts.get(key) ?? 0) > 1
+        names.set(record.id, hasCollision && record.part ? `${record.name} (${record.part})` : record.name)
+    }
+    return names
 }
 
 /** Deterministic Fisher-Yates shuffle seeded by `seed` (mulberry32): the same seed and input list always
