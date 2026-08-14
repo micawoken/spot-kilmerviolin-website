@@ -37,9 +37,13 @@ interface Props {
     title: string
     description: string
     image?: string
+    /** true for pages with no unique indexable content of their own (e.g. /search, /search/advanced —
+     *  their results render client-side from Pagefind, so the prerendered HTML a crawler fetches is
+     *  always the empty shell) — see layouts/PublicPage.astro's identical prop. */
+    noindex?: boolean
 }
 
-const { title, description, image } = Astro.props
+const { title, description, image, noindex } = Astro.props
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 
@@ -114,6 +118,8 @@ const imageOrigins = [
 <title>{title}</title>
 <meta name="title" content={title} />
 <meta name="description" content={description} />
+
+{noindex && <meta name="robots" content="noindex" />}
 
 <link rel="canonical" href={canonicalURL} />
 

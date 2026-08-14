@@ -1,5 +1,0 @@
-#  robots.txt config
-
-#  this config is temp until finalized
-User-agent: *
-Disallow: /
