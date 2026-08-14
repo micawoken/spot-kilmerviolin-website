@@ -115,14 +115,32 @@ export function buildReferenceIndex(
     return { composer, contributor }
 }
 
+/** A composition's normalized "same publication" identity, or null when it declares no isbn/doi source
+ *  (a bare `https` link is a citation, not a shared publication two different works could both belong
+ *  to). ISBN comparison strips whitespace/hyphens — the same normalization `publication.ts` applies to
+ *  build the WorldCat link — so "978-0-13-1" and "9780131" match; both types compare case-insensitively
+ *  (an ISBN-10 check digit may be stored as "x" or "X", and DOI comparison is conventionally
+ *  case-insensitive). Prefixed with the type so an isbn and a doi can never collide on the same key. */
+function publicationKey(record: CompositionRecord): string | null {
+    const { uri_type, uri } = record.publication_info
+    if (uri_type !== "isbn" && uri_type !== "doi") return null
+    const trimmed = uri?.trim()
+    if (!trimmed) return null
+    const normalized = uri_type === "isbn" ? trimmed.replace(/[\s-]/g, "") : trimmed
+    return `${uri_type}:${normalized.toLowerCase()}`
+}
+
 /**
  * Builds the id→related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles —
  * related entries are always works, regardless of which noun's detail page shows them: a composer's
  * tiles are their works, a
  * contributor's tiles are works they contributed to, a work's tiles are other works by the same
- * composer. Keyed `"{noun}:{id}"` so one map serves all three nouns.
+ * composer, plus — when the work declares an isbn/doi source — other works published under that exact
+ * same source (see {@link publicationKey}), regardless of composer. Keyed `"{noun}:{id}"` so one map
+ * serves all three nouns.
  *
- * Owner decision (v1 scope): a work's related list is same-composer-only, no editor-curated list yet.
+ * Owner decision (v1 scope): a work's related list is same-composer (+ same-publication) only, no
+ * editor-curated list yet.
  *
  * `nounHasPage` only checks "composition" — every related tile links to a work, so only that flag
  * matters. Result order: composer keys list primary credits before secondary-author credits.
@@ -167,10 +185,23 @@ export function buildRelatedWorksIndex(
         }
     }
 
-    // composition -> related works (v1: same composer only, excludes itself; see header).
+    // composition -> related works (v1: same composer, plus same-publication; excludes itself; see header).
     for (const record of works) {
         for (const sibling of works) {
             if (sibling.id === record.id || sibling.composer_id !== record.composer_id) continue
+            push(`composition:${record.id}`, toRelatedWork(sibling))
+        }
+    }
+    // composition -> same-publication works (isbn/doi source only): other works sharing the exact same
+    // source, from a DIFFERENT composer (a same-composer match is already covered by the pass above, so
+    // excluding it here avoids a duplicate tile). The ordering pass below keeps these behind the
+    // same-composer matches.
+    for (const record of works) {
+        const key = publicationKey(record)
+        if (key === null) continue
+        for (const sibling of works) {
+            if (sibling.id === record.id || sibling.composer_id === record.composer_id) continue
+            if (publicationKey(sibling) !== key) continue
             push(`composition:${record.id}`, toRelatedWork(sibling))
         }
     }
@@ -192,7 +223,8 @@ export function buildRelatedWorksIndex(
     //  - composition: exact-name matches (other parts/movements of the same piece — the same signal the
     //    composer_id+name+part unique index already keys on) lead, sorted alphabetically by `part` (the
     //    one field that actually differs between them — `name` is identical within this subgroup by
-    //    definition); the remaining same-composer works are truly randomized, so they vary on every build.
+    //    definition); the remaining same-composer works are truly randomized, so they vary on every build;
+    //    same-publication works from OTHER composers (see publicationKey) come last, also randomized.
     //  - contributor: truly randomized, so they vary on every build.
     // Before either shuffle runs, movements of the same unstandardized multi-movement work (see
     // groupMovements) collapse into one shuffle unit, so they land — and stay ordered — together instead
@@ -206,11 +238,17 @@ export function buildRelatedWorksIndex(
         } else if (noun === "composition") {
             const record = works.find((w) => w.id === Number(idStr))
             const targetName = record?.name.trim()
-            const exact = list
+            const sameComposer = list.filter((work) => worksById.get(work.id)?.composer_id === record?.composer_id)
+            const otherPublication = list.filter((work) => worksById.get(work.id)?.composer_id !== record?.composer_id)
+            const exact = sameComposer
                 .filter((work) => work.name.trim() === targetName)
                 .sort((a, b) => (worksById.get(a.id)?.part ?? "").localeCompare(worksById.get(b.id)?.part ?? ""))
-            const rest = list.filter((work) => work.name.trim() !== targetName)
-            index.set(key, [...exact, ...randomShuffle(groupMovements(rest, worksById)).flat()])
+            const rest = sameComposer.filter((work) => work.name.trim() !== targetName)
+            index.set(key, [
+                ...exact,
+                ...randomShuffle(groupMovements(rest, worksById)).flat(),
+                ...randomShuffle(groupMovements(otherPublication, worksById)).flat()
+            ])
         } else if (noun === "contributor") {
             index.set(key, randomShuffle(groupMovements(list, worksById)).flat())
         }
