@@ -29,7 +29,7 @@ import { interface_data } from "./types"
 import { NOT_PROVIDED } from "../consts"
 import { formatInfoValue } from "./format"
 import { renderPublicationUri } from "./publication"
-import { renderCitationsList } from "./citations"
+import { renderCitationsList, citationsToTextarea } from "./citations"
 import {
     renderContributorRefLink,
     renderContributorRefLinks,
@@ -845,6 +845,14 @@ export function prefillForm(noun: keyof typeof interface_data, record: Record<st
             flat["publish_year"] = (value as any).year
             flat["uri_type"] = (value as any).uri_type
             flat["uri"] = (value as any).uri
+            continue
+        }
+        // citations is a dynamically-keyed object (source name -> https link/DOI/ISBN), not a fixed
+        // sub-field group; the generic String(value) fallback below would render it as "[object Object]"
+        // (even when empty), so it needs the same textarea serialization the citations input expects on
+        // submit (parseCitationsTextarea in scripts/common.ts).
+        if (key === "citations" && value && typeof value === "object") {
+            flat["citations"] = citationsToTextarea(value as Record<string, string>)
             continue
         }
         flat[key] = value
