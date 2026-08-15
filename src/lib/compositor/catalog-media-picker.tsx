@@ -123,8 +123,8 @@ export const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ v
                     <div
                         onClick={(e) => e.stopPropagation()}
                         style={{
-                            background: "#fff",
-                            color: "#111",
+                            background: "var(--color-bg)",
+                            color: "var(--color-text)",
                             width: "min(720px, 90vw)",
                             maxHeight: "80vh",
                             overflow: "auto",
