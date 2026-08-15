@@ -1,24 +1,8 @@
 /**
  * lib/api/emdash_design_access.ts
  *
- * Allowlist of /_emdash paths the visual design system calls — the set a `design_editor` may reach
- * WITHOUT holding `cms_editor`. Applied by src/middleware/emdash_access.ts.
- *
- * Why this exists: the design system (/admin/advanced/designs — design list, Puck editor, theme editor) is a
- * browser-side EmDash API client, talking to /_emdash directly from the page. "Let a design editor use
- * the design system without handing them the CMS" can't be a page gate — has to be expressed over the
- * paths/methods that page actually calls. That's this module.
- *
- * DEFAULT-DENY: a path no rule matches is refused, so a new EmDash endpoint is unreachable to a
- * design_editor until someone adds it here on purpose.
- *
- * The ONLY thing standing between a design_editor and the rest of the CMS. Their EmDash *role* is
- * Editor (astro.config.mjs `defaultRole: 40`, required by the design system's `schema:read`) — EmDash
- * itself would happily honor a write to `pages` from them. Loosening a rule here — widening a method,
- * dropping a segment-count check — hands a design editor the CMS. tests/emdash_access.test.ts pins the
- * DENY side for exactly that reason; keep it that way.
- *
- * Kept separate from the middleware so it's testable as a pure function, no Astro/environment imports.
+ * Allows certain emdash pages to be accessed by design_editors when using the
+ * compositor system
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -48,9 +32,7 @@ const DESIGN_COLLECTIONS = ["design_page", "design_template", "design_theme"]
 
 /**
  * An EmDash content item id: a ULID (`ulidx`, used everywhere EmDash mints a content row) — 26 characters
- * of Crockford base32, which excludes I, L, O and U. Distinguishing an id from a static sub-route name is
- * what lets the collection rules stay default-deny; see rule 2. If EmDash ever changes its id format this
- * fails CLOSED — the preview-entry picker 403s visibly rather than the allowlist quietly widening.
+ * of Crockford base32, which excludes I, L, O and U
  */
 const CONTENT_ID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/
 
@@ -68,9 +50,7 @@ interface EmdashRequest {
 }
 
 /**
- * One allowlist rule. `why` is not decoration: it names the single call the rule exists to permit, so a
- * later reader can tell whether a change to the design system makes a rule obsolete (delete it) or merely
- * moves it (edit it) — rather than widening it "to be safe".
+ * One allowlist rule
  */
 interface DesignSystemRule {
     why: string
@@ -78,12 +58,7 @@ interface DesignSystemRule {
 }
 
 /**
- * The paths a design_editor may reach, nothing else. Each rule is the narrowest expression of one call
- * the design system actually makes; re-derive with
- * `grep -rn "_emdash" src/components/compositor src/lib/compositor src/pages/admin/advanced/designs`.
- *
- * Read-only rules pinned to GET deliberately — the design system never writes to a content collection
- * other than its own, so admitting any other method there would grant the CMS by accident.
+ * The paths a design_editor may reach; otherwise, default-deny
  */
 const DESIGN_SYSTEM_RULES: readonly DesignSystemRule[] = [
     {
@@ -94,12 +69,7 @@ const DESIGN_SYSTEM_RULES: readonly DesignSystemRule[] = [
     },
     {
         why: "the preview-entry picker — list a template's collection, then load one entry to render through it",
-        // GET /api/content/<template collection> or /<id>: READ-ONLY, only a collection a template targets.
-        // The id must be ID-SHAPED, not merely present: EmDash defines sibling static routes at this depth
-        // (authors.ts, trash.ts) that a bare `length <= 4` bound admitted — /authors returns author emails
-        // and reveals the authors of unpublished entries, /trash returns deleted content. Neither is a call
-        // the design system makes. Matching the id format instead of naming those two routes keeps the rule
-        // default-deny, so a static sub-route EmDash adds later is closed too.
+        // GET /api/content/<template collection> or /<id>: READ-ONLY, only a collection a template targets
         allows: ({ method, segments }) =>
             method === "GET" &&
             segments[0] === "api" &&
@@ -121,9 +91,7 @@ const DESIGN_SYSTEM_RULES: readonly DesignSystemRule[] = [
     },
     {
         why: "the Image component's media picker — list the library and load a file",
-        // GET /api/media and GET /api/media/file/<id>: read-only; a design editor cannot UPLOAD media.
-        // Bounded to those two shapes — an unbounded /api/media/* also handed over sibling routes the
-        // picker never calls (/providers discloses storage configuration, /upload-url is an upload path).
+        // GET /api/media and GET /api/media/file/<id>: read-only; a design editor cannot UPLOAD media
         allows: ({ method, segments }) =>
             method === "GET" &&
             segments[0] === "api" &&

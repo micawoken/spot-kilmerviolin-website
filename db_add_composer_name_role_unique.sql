@@ -10,7 +10,7 @@ CURRENT db_init.sql already has this shape and does not need this file.
 SQLite (D1) cannot drop a column-level UNIQUE constraint with ALTER TABLE, so this rebuilds the table:
 create composers_new without the constraint, copy every row across (verbatim, so no existing composer_id
 changes), drop the old table, and rename the new one into place. Existing rows were already unique by name
-alone under the old constraint, so they are a fortiori unique under the new (name, role) index — this
+alone under the old constraint, so they are a fortiori unique under the new (name, role) index - this
 migration cannot fail on the data copy.
 
 Run: npx wrangler d1 execute (your database name) --remote --file="./db_add_composer_name_role_unique.sql"

@@ -89,11 +89,7 @@ export const roles: Record<string, RoleProfile> = {
 }
 
 /**
- * The canonical list of permission keys, mirroring the boolean fields of RoleProfile. It is the base for
- * aggregating an identity's permissions (every key starts false before each held role's grants are OR-ed
- * in) and exists because RoleProfile, being a type, has no runtime key list. The `satisfies` clause
- * rejects a typo'd or non-permission key here, and the compile-time guard below rejects forgetting a key,
- * so this stays in lockstep with RoleProfile.
+ * The list of acceptable permission keys
  */
 const PERMISSION_KEYS = [
     "overrides_lockout",
@@ -114,11 +110,7 @@ export type _PermissionKeysExhaustive = _Assert<
 >
 
 /**
- * Filters a list of role names down to those defined in {@link roles}. This is the server-side guard
- * applied on every write to the contributor roles column (see usermgmt setRoles/assignRole): only known
- * roles are ever persisted, which keeps stale or malicious role strings out of storage and bounds the
- * role iteration in {@link permissionsFromRoles} to the defined role set. Input order and duplicates are
- * preserved.
+ * Filters down a list of roles to a list of valid roles
  *
  * @param role_names - the candidate role names
  * @returns the subset of role_names that are defined roles
@@ -128,11 +120,7 @@ export function filterValidRoles(role_names: string[]): string[] {
 }
 
 /**
- * Aggregates the permission set granted by a list of role names: the union (logical OR) across the
- * RoleProfile of every *valid* role in the list. An unknown role string (stale/legacy data) carries no
- * profile and contributes nothing; the write path filters these out (see {@link filterValidRoles}), so
- * this is a second line of defense. The returned object always carries every permission key, defaulting
- * to false when no held role grants it.
+ * Computes the derived permissions given from roles
  *
  * @param role_names - the identity's role names
  * @returns the flattened Permissions set
@@ -154,28 +142,13 @@ export function permissionsFromRoles(role_names: string[]): IdentityPermissions 
 }
 
 /**
- * The identity-record cache TTL, in milliseconds, is sourced from the `IDENTITY_CACHE_TTL_MS` wrangler var.
- * The contributor record backing an Identity is read on every authenticated request (the identity
- * middleware authorizes before the endpoint runs), so caching it for a short window collapses repeated
- * reads from the same caller to a single D1 query. The window is deliberately small: it is the upper bound
- * on how long an authorization change (a role/admin/active edit, or a deactivation) can take to take
- * effect, so it is kept to seconds rather than minutes.
- *
- * Per-isolate cache of contributor records keyed by (lowercased) identity email. There is no cross-isolate
- * invalidation, so `env.IDENTITY_CACHE_TTL_MS` is the only bound on staleness; the email key derives from
- * a verified Access JWT, so its cardinality is bounded by the org's enrolled users.
+ * A short cache on the Contributor database used to briefly store identity information for authentication
+ * (kept short to allow for fast revocation, and used to reduce D1 hits)
  */
 const _identityCache = new Map<string, { record: D1Contributor | null; expires: number }>()
 
 /**
- * Drops every entry from the per-isolate identity cache. Called by the data layer when a contributor
- * record is written (see database.ts `_exec_wrap`): a contributor mutation can change an entry's
- * authorization-relevant fields (roles/admin/active) or remap an identity_email, and the cache is keyed
- * by email — not by the contributor id a write carries — so it cannot be evicted per row. Contributor
- * writes are rare relative to the authenticated reads this cache serves and the map is bounded by the
- * org's enrolled users, so clearing it wholesale is cheap; the cleared entries simply re-read from D1 on
- * their next request. Invalidation is per-isolate only (like the cache itself), so a write in one isolate
- * does not evict another's copy — `env.IDENTITY_CACHE_TTL_MS` remains the cross-isolate staleness bound.
+ * Clears the identity cache
  */
 export function invalidateIdentityCache(): void {
     _identityCache.clear()
@@ -183,15 +156,10 @@ export function invalidateIdentityCache(): void {
 
 /**
  * Returns the contributor record associated with the BaseIdentity, or null if no such record exists
- *
- * The lookup is the most frequent D1 read in the system, so a confirmed result (a found record or a
- * confirmed-absent one) is cached per isolate for `env.IDENTITY_CACHE_TTL_MS`. A thrown D1 error is left
- * uncached so a transient failure is retried on the next request rather than pinned (as not-enrolled) for
- * the whole TTL.
+ * Cached in the identity cache
  *
  * @param identity - the BaseIdentity object to find a matching contributor record for
  * @returns - a promise that resolves to the matching contributor record, or null if no match is found
- *
  */
 async function _getIdentityRecord(identity: BaseIdentity): Promise<D1Contributor | null> {
     // returns the contributor record whose identity email aligns with the BaseIdentity email;
@@ -259,9 +227,7 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
                 : [],
         entry_date: record ? record.entry_date : null,
         // the remaining non-authorization profile fields are stashed here so self-service flows can read
-        // the acting user's own record straight from the identity rather than issuing a second lookup
-        // (authorization state — roles/admin/active/id and the sign-in identity_email — is excluded; it
-        // lives on the Identity proper). Nullable columns default to null, including entry_date/change_date when no record.
+        // the acting user's own record straight from the identity
         class_year: record ? record.class_year : null,
         major: record ? record.major : null,
         bio: record ? record.bio : null,
@@ -279,9 +245,7 @@ function buildIdentity(identity: BaseIdentity, record: D1Contributor | null): Id
         id: id,
         admin: admin,
         userinfo: user_info,
-        // flatten the held roles into their aggregate permission set once, here, so downstream access
-        // screening reads a single precomputed set. Iteration is bounded to the stored roles, which the
-        // write path filters to defined roles (see filterValidRoles); unknown roles confer nothing.
+        // flatten the held roles into their aggregate permission set
         permissions: permissionsFromRoles(roles)
     }
 }
@@ -301,12 +265,7 @@ export default async function authorize(identity: BaseIdentity): Promise<Identit
 }
 
 /**
- * Constructs an Identity for a contributor known by id rather than by an Access JWT email — the resolution
- * path for a user-scoped API token (plan-prelaunch-features.md §2), which carries a `contributor_id` on its
- * DB row instead of a credential to verify. Synthesizes a permanent BaseIdentity (nbf/exp are irrelevant
- * here; the token's own expiry is checked by the caller) and reuses buildIdentity so a token-authenticated
- * request is indistinguishable from a cookie-authenticated one downstream: same roles, permissions, and
- * active/allowed/admin flags.
+ * Constructs an Identity for a contributor known by id rather than by an Access JWT email
  *
  * @param contributor_id - the contributor id recorded on the presented token's row
  * @returns the constructed Identity, or null if the id no longer resolves to a contributor record
@@ -336,6 +295,7 @@ export async function authorizeContributorId(contributor_id: number): Promise<Id
 
 /**
  * Checks if a given identity has a required permission based on their assigned roles
+ *
  * @param permission - the permission to check for
  * @param identity - the Identity object to check permissions for
  * @return - true if the identity has the required permission, false otherwise
@@ -348,6 +308,7 @@ export function requires(permission: keyof RoleProfile, identity: Identity): boo
 
 /**
  * Checks if a given identity has at least one of the required permissions based on their assigned roles
+ *
  * @param permissions - the permissions to check for
  * @param identity - the Identity object to check permissions for
  * @return - true if the identity has at least one of the required permissions, false otherwise
@@ -362,6 +323,7 @@ export function requiresOneOf(
 
 /**
  * Checks if a given identity has all of the required permissions based on their assigned roles
+ *
  * @param permissions - the permissions to check for
  * @param identity - the Identity object to check permissions for
  * @return - true if the identity has all of the required permissions, false otherwise
@@ -375,18 +337,7 @@ export function requiresAllOf(
 }
 
 /**
- * Shared role/permission check for {@link requiresOneOf} and {@link requiresAllOf}. With an empty
- * permission set the result depends on fail_closed (admins only when closed, everyone when open).
- * Otherwise the identity passes if its AGGREGATE permissions satisfy the request under `match`: "some"
- * requires any one of them, "every" requires all of them.
- *
- * Evaluated against identity.permissions — the flattened set permissionsFromRoles ORs together across
- * every role held — rather than role by role. Requiring all permissions to come from a SINGLE role
- * rejected a user whose two roles covered the set between them, which contradicts the aggregate model
- * used everywhere else: permissionsFromRoles unions across roles, and satisfiesAccess (the page gate)
- * reads that flattened set. So the API and the page gate disagreed on the same question. No current call
- * site passes more than one permission, so nothing behaved differently in practice — but the next
- * multi-permission check would have behaved one way on a page and another on its endpoint.
+ * Shared role/permission check for {@link requiresOneOf} and {@link requiresAllOf}
  *
  * @param match - whether the identity must hold some or every requested permission
  */
@@ -494,8 +445,8 @@ export function canAct(
 
 /**
  * Detects whether a proposed update modifies or removes a primary contributor slot that currently
- * holds a defined contributor other than the acting user. Filling an empty (null) slot and leaving a
- * slot unchanged are both permitted; changing or clearing a non-self contributor is not.
+ * holds a defined contributor other than the acting user; filling an empty (null) slot and leaving a
+ * slot unchanged are both permitted; changing or clearing a non-self contributor is not
  *
  * @param record - the current database record
  * @param new_record - the proposed (possibly partial) update in API format

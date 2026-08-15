@@ -4,7 +4,7 @@
  * Build-time accessor for the design theme's whole-page head contribution: the site-wide, self-hosted
  * web-font `@font-face`/preload markup (`design_theme.tokens.fonts`, localized by `theme-fonts.ts`) and
  * the `--dtk-*` custom-property block (`tokensToCss`). Both are site-wide concerns — the fonts because a
- * family is loaded once for the document, and the tokens because the public chrome (layouts/PublicPage →
+ * family is loaded once for the document, and the tokens because the public chrome (layouts/PublicPage ->
  * styles/public-chrome.css) now binds `body`, the header, and the footer to them, not only the
  * compositor's design pages. So this is consumed by layouts/PublicPage.astro (every public page) from a
  * single `fetchPublishedTheme()` read.

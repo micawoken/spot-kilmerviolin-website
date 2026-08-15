@@ -1,25 +1,8 @@
 /**
  * lib/compositor/richtext.tsx
  *
- * React Portable Text renderer for the compositor's RichText component (impl §6.4). Output-parity
- * target: the existing `pages` rendering (emdash/ui `PortableText` → astro-portabletext). Rendering
- * pure Portable Text through a whitelist of components — no raw-HTML path — is the sanitization
- * boundary; link hrefs are scheme-checked here and in lint (§6.7), and their target resolved by
- * `opensInNewTab`. Used by the build renderer and,
- * for already-Portable-Text values, the editor canvas.
- *
- * Parity notes (kept current as differences are found; drives the Phase 2 `pages` retirement gate):
- * - Blocks: `normal`→<p>, `h1`–`h6`, `blockquote`, each carrying a `has-text-align-{center|right|
- *   justify}` class when `textAlign` is set (left/default emits no class), matching emdash's Block.
- * - Marks: strong/em/code use the library defaults (<strong>/<em>/<code>); underline→<u>,
- *   strike-through→<s>, superscript→<sup>, subscript→<sub>, link→<a> (scheme-checked, target/rel on
- *   blank), matching emdash's mark components. (Sub/superscript can't be authored in the compositor —
- *   they don't round-trip, spike (d) — but are rendered for parity with legacy `pages` content.)
- * - `code` blocks mirror emdash's Code.astro DOM (div.emdash-code > optional filename > pre>code with
- *   `language-*` classes). Emdash ships scoped styles for it; here that styling comes from
- *   compositor.css (§6.3), so the visual code-block treatment is a known, accepted diff.
- * - Unsupported block/mark types render nothing and warn loudly (fail-soft, matching emdash-api.ts).
- *
+ * React Portable Text renderer for the compositor's RichText component
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 
@@ -47,8 +30,7 @@ import type { PortableTextBlock } from "emdash"
 
 /**
  * URLs safe to render into an href: http(s), mailto, tel, site-relative (single leading slash), or
- * a fragment. Protocol-relative `//host` is rejected. Mirrors emdash's `sanitizeHref` (utils/url.ts);
- * inlined so this renderer stays out of the emdash server-code dependency graph.
+ * a fragment
  */
 export const SAFE_URL_SCHEME_RE = /^(https?:|mailto:|tel:|\/(?!\/)|#)/i
 
@@ -61,19 +43,7 @@ export function sanitizeHref(url: string | undefined | null): string {
 const EXTERNAL_URL_SCHEME_RE = /^(https?:|mailto:|tel:)/i
 
 /**
- * Whether a link opens in a new tab. An explicit `target` ("_self"/"_blank") wins; otherwise links that
- * leave the site do and links within it don't. Pass an href already through `sanitizeHref`, so a rejected
- * URL ("#") is judged as the fragment it renders as. Shared by the catalog Button.
- *
- * The scheme rule is the default rather than the stored `blank` flag because `blank` records no author
- * intent anywhere. Tiptap's Link extension defaults `HTMLAttributes.target` to "_blank", and neither
- * editor overrides it: Puck exposes no link control at all, and emdash's link dialog sets only `href`
- * (its `Link.configure` merges with that default rather than replacing it — `configure` is a deep merge).
- * Every link either editor has ever produced therefore arrives here with `blank: true`, so honouring it
- * opens every internal link in a new tab.
- *
- * `target` is the seam for a link dialog we don't have yet: no content carries one today, and it wins
- * wherever one appears, so explicit per-link choices can start landing with no migration.
+ * Whether a link opens in a new tab
  */
 export function opensInNewTab(href: string, target?: string): boolean {
     if (target === "_blank") return true
@@ -82,9 +52,7 @@ export function opensInNewTab(href: string, target?: string): boolean {
 }
 
 /**
- * Maps a block's `textAlign` to emdash's WordPress-style class, or undefined for the default. Only
- * center/right/justify produce a class; `left`, missing, and unknown values render without one.
- * Allowlist-only so hand-edited PT can't inject an arbitrary class name.
+ * Maps a block's `textAlign` to emdash's WordPress-style class, or undefined for the default
  */
 const ALIGN_CLASS: Record<string, string> = {
     center: "has-text-align-center",

@@ -37,7 +37,7 @@
  * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain (main content's inset is a
  * five-deep chain, with the extra `-inset` middle fallback above): `var(--dtk-chrome-<axis>-space-<role>,
  * var(--dtk-space-<name>, <literal>))`. Ten `--dtk-chrome-*-space-*` roles total (tokens.ts
- * SiteChromeRoles, the theme editor's "Site Chrome" → "Horizontal spacing"/"Vertical spacing" tables) let
+ * SiteChromeRoles, the theme editor's "Site Chrome" -> "Horizontal spacing"/"Vertical spacing" tables) let
  * the owner scale this chrome's rhythm by category, per axis, instead of one dial for everything or
  * hand-picking a named space token per declaration:
  *   - horizontal `-inset`         header/footer edge padding

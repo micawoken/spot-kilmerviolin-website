@@ -29,7 +29,7 @@ import { env } from "cloudflare:workers"
 
 /**
  * Returns the reserved domain for fallback identity emails, read from the FALLBACK_EMAIL_DOMAIN
- * wrangler var so it isn't hardcoded to this deployment's domain.
+ * wrangler var so it isn't hardcoded to this deployment's domain
  *
  * @returns {string} - the configured fallback email domain
  */
@@ -39,7 +39,7 @@ export function fallbackEmailDomain(): string {
 
 /**
  * Escapes characters with special meaning in a regular expression, so an arbitrary string (such as a
- * configured domain) can be embedded literally in one.
+ * configured domain) can be embedded literally in one
  *
  * @param {string} str - the string to escape
  * @returns {string} - the escaped string
@@ -50,9 +50,7 @@ function escapeRegExp(str: string): string {
 
 /**
  * Builds the pattern matching any address whose local part begins with the "fallback+" subaddress
- * prefix at the reserved domain, case-insensitively. Built fresh from the configured domain on each
- * call rather than compiled once at module load, since env is not guaranteed to be populated yet at
- * that point.
+ * prefix at the reserved domain, case-insensitively
  *
  * @returns {RegExp} - the fallback email pattern
  */
@@ -61,9 +59,7 @@ function fallbackEmailPattern(): RegExp {
 }
 
 /**
- * Returns whether an email is (or could be) a system-generated fallback identity email. Any address in
- * the reserved fallback namespace matches, regardless of the specific slug/suffix, so every generated
- * variant — and any hand-crafted lookalike — is recognized and kept out of authentication and Access.
+ * Returns whether an email is (or could be) a system-generated fallback identity email
  *
  * @param {string} email - the email address to test
  * @returns {boolean} - true if the address belongs to the reserved fallback namespace

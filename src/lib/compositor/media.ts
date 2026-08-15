@@ -2,27 +2,27 @@
  * lib/compositor/media.ts
  *
  * Media URL resolution for the compositor's `Image` (picked media) and `ContentImage` (entry-fed image
- * field). Two constraints here, either one wrong emits a broken `<img>` into a live page:
+ * field)
  *
- * 1. **File route is keyed by storage key, not media id.** EmDash serves a file from
- *    `/_emdash/api/media/file/{storageKey}` — the `{ulid}{ext}` key the upload pipeline produced.
- *    For local (R2) media, EmDash also *strips* `src` on persist; the key lives at `meta.storageKey`.
- *    Key, not id, is the only durable handle on the file.
+ * Copyright (C) 2026 Michael Wong.
  *
- * 2. **Proxy route is unreachable for the public.** EmDash treats `/_emdash/api/media/file/` as
- *    public, but our Cloudflare Access application gates *all* of `/_emdash` — an anonymous visitor
- *    gets redirected to the Access login page. A prerendered public page must reference the
- *    **public media origin** (`EMDASH_MEDIA_PUBLIC_URL`, the R2 custom domain), never the proxy.
- *    Inside the admin editor the proxy is correct: that user is Access-authenticated, and the
- *    public origin isn't exposed to the client bundle (not a `PUBLIC_`-prefixed var).
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
  *
- * Mirrors EmDash's own `resolvePublicMediaUrl`/`buildRenderMediaUrl` — can't call those directly, the
- * build renders in Node against the HTTP API with no `Astro.locals.emdash.storage` binding.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
- * A D1 entity's `image` column (plain string, not an EmDash media object) can also carry a
- * same-origin `/api/v1/files/{key}` reference into our own R2_FILES bucket — same public-vs-proxy
- * split as EmDash media, against a separate public origin (`FILES_PUBLIC_URL`). See
- * `isUploadedFilePath`/`publicFileUrl` below.
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { isRecord } from "./types"
 

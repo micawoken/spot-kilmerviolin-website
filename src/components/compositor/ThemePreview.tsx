@@ -1,21 +1,7 @@
 /**
  * components/compositor/ThemePreview.tsx
  *
- * Live, per-section previews for the theme editor (`ThemeEditor.tsx`): small focused specimens, not one
- * master canvas — answers what a spacing value actually looks like, what a color/text pairing looks like,
- * neither obvious from a flat token table. Every specimen resolves through `tokenVar`/`tokenVarName`
- * (`lib/compositor/tokens.ts`) exactly as real components do (`catalog.tsx`) — same `--dtk-*` custom
- * properties `tokensToCss` emits, never a hand-rolled approximation that could drift from the published
- * site. The caller (`ThemeEditor.tsx`) injects that `:root { --dtk-*: … }` block plus `compositor.css`
- * once, live, from its in-progress unsaved state — a preview reflects the current edit, not the last save.
- *
- * Button variants reuse `renderButtonTag`, typography-adjacent headings could reuse `renderHeadingTag`
- * (both exported from `catalog.tsx`) instead of duplicating their JSX — same no-drift reason.
- *
- * Honest limit, not a bug: breakpoint tokens aren't wired into any component's responsive behavior
- * (`compositor.css`'s `.cmp-columns` hardcodes 768px — custom properties can't appear in `@media`
- * conditions). `BreakpointScale` is a labeled magnitude comparison, not a working responsive preview, and
- * says so.
+ * Generates preview components in the theme editor
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -54,7 +40,7 @@ import {
 import { tokenVar } from "../../lib/compositor/tokens"
 
 /**
- * One editable token row — same generic (kind → bag of string fields) shape `ThemeEditor.tsx` edits
+ * One editable token row — same generic (kind -> bag of string fields) shape `ThemeEditor.tsx` edits
  * every kind in. Every field read defensively (`row.x ?? ""`), matching that file's `toEditable`/
  * `toCatalog`, instead of a per-kind interface.
  */
@@ -65,7 +51,7 @@ const SAMPLE_LINE = "All human beings are born free and equal in dignity and rig
 
 /**
  * Colors, in context: each swatch is the color as a background with sample text laid over it. Typography
- * tokens carry no color (`tokens.ts`'s `TypographyToken` has no color field) — no real background→text
+ * tokens carry no color (`tokens.ts`'s `TypographyToken` has no color field) — no real background->text
  * binding to reproduce, so swatch text is set to whichever of black/white gives better WCAG contrast
  * against the swatch's own resolved value (`bestTextColorFor`, `theme-controls.ts`) — locked to the
  * selected light/dark side, flipping away from that side's usual convention only when the author's color
@@ -433,7 +419,7 @@ export function BorderSwatches({ borders }: { borders: Row[] }) {
                         }}
                     />
                     <span className="theme-preview__caption">
-                        {token.name} → {token.colorRef || "—"}
+                        {token.name} -> {token.colorRef || "—"}
                     </span>
                 </div>
             ))}

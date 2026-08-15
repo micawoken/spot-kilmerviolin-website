@@ -38,7 +38,7 @@ import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
 // here — it needs `node:vm`'s `Script`, which workerd doesn't expose). Mocked to a deterministic
 // stand-in so the "HTML string (§ Puck's actual richtext value)" tests below can verify convert.ts's
 // dispatch — a string is routed through the conversion pipeline, not passed through raw — without a
-// real DOM; the HTML→ProseMirror parsing itself (Puck's own @tiptap/html dependency) was verified
+// real DOM; the HTML->ProseMirror parsing itself (Puck's own @tiptap/html dependency) was verified
 // separately against the real implementation via a standalone Node script outside this harness.
 vi.mock("@tiptap/html", () => ({
     generateJSON: vi.fn((html: string) => ({

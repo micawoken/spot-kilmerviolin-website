@@ -1,30 +1,9 @@
 /**
  * components/compositor/DesignEditor.tsx
- *
- * The visual compositor's editor. Mounted client-side by `pages/admin/advanced/designs/edit.astro`, from a
- * module script rather than an Astro island — the admin CSP blocks Astro's inline island bootstrap.
- * Never runs on the build/RSC path (that uses `buildConfig(theme, "build")` + `<Render>`).
- *
- * Lifecycle: load the design item (draft-overlaid) and published theme → `migrateDesign` →
- * `designToEditorForm` (PT → ProseMirror) → mount `<Puck>` with `buildConfig(theme, "editor")`.
- * Autosave debounces a `PUT {status:"draft", _rev}` ~2s after the last change, chaining the fresh
- * `_rev` from each response; a stale `_rev` returns 409 and raises the conflict banner. Publish runs
- * the shared lint pass in a dialog — a11y errors block (they'd fail the build anyway) — then
- * `POST …/publish`, offering a rebuild through the same connector the manual rebuild page uses.
- *
- * Document kinds: `kind` parametrizes the same machinery over `design_page` (URL-owning layout) and
- * `design_template` (a layout entries of one collection render through). Template mode adds the
- * preview-entry picker — outlets resolve against a chosen entry, fetched draft-overlaid — and rebuilds
- * the config with `{entry, fields}` (Puck select options are static per config, so a preview change
- * remounts Puck from the current working tree). Its publish dialog blocks on the STRUCTURAL lint only
- * (entry: null); pairing rows against the preview entry are advisory — the preview is one sample, the
- * build is the real per-(template × entry) gate.
- *
- * Canvas styling: Puck renders the canvas in an iframe with `syncHostStyles: false`, so theme
- * `--dtk-*` properties and `compositor.css` are injected *inside* the iframe via the config's
- * `root.render` — no iframe/head override key exists. The editor previews against the *published*
- * theme, same tokens the build emits, so a theme edit only changes the canvas after publishing.
- *
+ * 
+ * Editor for the compositing system, loaded by the design editor at runtime by the client
+ * 
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 
@@ -62,11 +41,11 @@ import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../lib/compositor/migr
 import { columnsStackBreakpointCss, isTokenCatalog, tokensToCss, type TokenCatalog } from "../../lib/compositor/tokens"
 import { cmsBoolean, type DesignDoc } from "../../lib/compositor/types"
 // Vite `?raw` yields the file's text (typed via astro/client). Injected into the canvas iframe below,
-// where host styles are not synced — so this is how compositor.css reaches the preview. stripCssComments
-// keeps the source files' dev comments out of that iframe — see lib/compositor/css.ts.
+// where host styles are not synced - so this is how compositor.css reaches the preview. stripCssComments
+// keeps the source files' dev comments out of that iframe - see lib/compositor/css.ts.
 import { stripCssComments } from "../../lib/compositor/css"
 import rawCompositorCss from "../../lib/compositor/compositor.css?raw"
-// The PagefindSearch component's shared form styles (styles/search-form.css) — same `?raw` route, since
+// The PagefindSearch component's shared form styles (styles/search-form.css) - same `?raw` route, since
 // a bare `@import` in compositorCss would not survive that transform.
 import rawSearchFormCss from "../../styles/search-form.css?raw"
 import { rebuildSite } from "../../scripts/connector"
@@ -76,7 +55,7 @@ const searchFormCss = stripCssComments(rawSearchFormCss)
 
 // puck-theme.css rebinds Puck's own semantic color tokens to the app's palette (it ships no dark mode);
 // design-editor.css styles the chrome we wrap it in. Both are unlayered, so they win over Puck's
-// `@layer puck-tokens` defaults without !important — see puck-theme.css.
+// `@layer puck-tokens` defaults without !important - see puck-theme.css.
 import "./puck-theme.css"
 import "./design-editor.css"
 
@@ -115,7 +94,7 @@ interface PageMeta {
 
 /** The `PUT design_page/:id` / `PUT design_template/:id` body. Typed, not a loose record, so the
  * stored `design` value is held to the `DesignDoc` envelope every reader validates with
- * `migrateDesign` — writing the bare Puck tree here is what made a saved design unreadable on load. */
+ * `migrateDesign` - writing the bare Puck tree here is what made a saved design unreadable on load. */
 interface SavePayload {
     data: Record<string, unknown> & { title: string; design: DesignDoc }
     status: "draft"
@@ -166,7 +145,7 @@ interface EntryListItem {
     label: string
 }
 
-/** Lists entries of one collection for the preview picker (same-origin, first 100 — plenty here). */
+/** Lists entries of one collection for the preview picker (same-origin, first 100 - plenty here). */
 async function fetchEntryList(collection: string): Promise<EntryListItem[]> {
     const response = await fetch(`/_emdash/api/content/${encodeURIComponent(collection)}?limit=100`, {
         headers: { Accept: "application/json" }
@@ -215,7 +194,7 @@ async function fetchSchemaFields(collection: string): Promise<CollectionField[]>
 
 /**
  * The design island. `id` is the item id (resolved server-side from the URL query); `kind` selects
- * the collection edited — `design_page` (default) or `design_template` (`edit?…&type=template`).
+ * the collection edited - `design_page` (default) or `design_template` (`edit?…&type=template`).
  */
 export default function DesignEditor({ id, kind = "page" }: { id: string; kind?: DocumentKind }) {
     const endpoint = kind === "template" ? DESIGN_TEMPLATE : DESIGN_PAGE
@@ -245,10 +224,10 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     const [previewEntry, setPreviewEntry] = useState<Record<string, unknown> | null>(null)
     const [previewError, setPreviewError] = useState("")
     // Distinct from previewError: without the schema, no outlet can bind and the template can't pass
-    // its own publish lint — a blocking condition, must never read as "this collection has no bindable fields".
+    // its own publish lint - a blocking condition, must never read as "this collection has no bindable fields".
     const [schemaError, setSchemaError] = useState("")
 
-    // Refs are the source of truth for saving — the debounced timer never reads stale closures.
+    // Refs are the source of truth for saving - the debounced timer never reads stale closures.
     const workingRef = useRef<Data | null>(null)
     const revRef = useRef<string | undefined>(undefined)
     const metaRef = useRef<PageMeta>({ title: "", description: "", slug: "", isDefault: false })
@@ -266,14 +245,14 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
 
                 // Template mode: load the collection schema and entry list BEFORE mounting Puck, so the
                 // outlet field pickers are populated in the config the editor first renders with. Settled
-                // independently — a schema failure mustn't also cost the entry list (unrelated reads) —
+                // independently - a schema failure mustn't also cost the entry list (unrelated reads) -
                 // each reports its own consequence, an empty field picker must say why it's empty.
                 let fields: CollectionField[] | null = null
                 let entryList: EntryListItem[] = []
                 if (kind === "template" && loaded.collection) {
                     if (isEntityNoun(loaded.collection)) {
                         // Entity collections (composer/composition/contributor) are D1-backed, not
-                        // EmDash — no live schema-fields/entry-list endpoint to call. Field catalog is
+                        // EmDash - no live schema-fields/entry-list endpoint to call. Field catalog is
                         // static (entity-fields.ts); preview-entry picker left empty rather than a 404.
                         fields = [...entityFields(loaded.collection)]
                     } else {
@@ -342,7 +321,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
         const base = buildConfig(theme, "editor", context) as unknown as Record<string, unknown>
         const canvasCss = `${tokensToCss(theme)}\n${compositorCss}\n${searchFormCss}\n${columnsStackBreakpointCss(theme)}`
         // Overrides buildConfig's own `root.render` (the flow invariant's `.cmp-root` wrapper) rather than
-        // composing it — reproduce that same wrapper here so the canvas doesn't silently disagree with the
+        // composing it - reproduce that same wrapper here so the canvas doesn't silently disagree with the
         // build about top-level stacking behavior; the injected canvas CSS sits outside it as a sibling.
         const rootRender = ({ children }: { children?: ReactNode }) => (
             <>
@@ -360,7 +339,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
         const current = metaRef.current
         if (current.title.trim() === "") {
             setSaveState("error")
-            setSaveError("A title is required — set one in Page settings.")
+            setSaveError("A title is required - set one in Page settings.")
             return
         }
         setSaveState("saving")
@@ -463,7 +442,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
 
     // --- Preview entry (template mode) -------------------------------------------------------------
     // Puck select options are static per config, so a context change must rebuild the config AND
-    // remount Puck — from the CURRENT working tree (not loaded initialData), or unsaved canvas edits
+    // remount Puck - from the CURRENT working tree (not loaded initialData), or unsaved canvas edits
     // get silently dropped by the remount.
     const pickPreviewEntry = useCallback(
         async (entryId: string) => {
@@ -491,7 +470,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
 
     // --- Publish ---------------------------------------------------------------------------------
     // Template mode blocks on the STRUCTURAL pass only (entry: null); the pass against the preview
-    // entry is advisory — the preview is one sample, the build gates every real (template × entry)
+    // entry is advisory - the preview is one sample, the build gates every real (template × entry)
     // pairing. Page mode blocks on everything.
     //
     // `published` stays at its default (false), so `unknown-token` stays a WARNING here (DD2): an
@@ -533,7 +512,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                     <label className="design-editor__preview">
                         Preview entry{" "}
                         <select value={previewEntryId} onChange={(event) => void pickPreviewEntry(event.target.value)}>
-                            <option value="">— none —</option>
+                            <option value="">- none -</option>
                             {entries.map((entry) => (
                                 <option key={entry.id} value={entry.id}>
                                     {entry.label}
@@ -654,7 +633,7 @@ function SaveIndicator({ state, error }: { state: SaveState; error: string }) {
 }
 
 /** Settings drawer, saved through the design's autosave. Page mode: title, description, slug (a
- * route). Template mode: title, slug (an identifier, never a route), collection (read-only — changing
+ * route). Template mode: title, slug (an identifier, never a route), collection (read-only - changing
  * it would silently invalidate every outlet binding, recreate the template instead), default flag. */
 function PageSettingsDrawer({
     kind,
@@ -699,7 +678,7 @@ function PageSettingsDrawer({
             ) : (
                 <>
                     <p className="design-editor__hint">
-                        A template slug is an identifier, not a URL — entries keep their own addresses.
+                        A template slug is an identifier, not a URL - entries keep their own addresses.
                     </p>
                     <p className="design-editor__hint">
                         Renders entries of: <strong>{collection || "(unset)"}</strong>
@@ -714,7 +693,7 @@ function PageSettingsDrawer({
                     </label>
                     <p className="design-editor__hint">
                         Entries that name no template render through the collection default. Only one
-                        published template per collection may be the default — two fail the build.
+                        published template per collection may be the default - two fail the build.
                     </p>
                 </>
             )}
@@ -722,7 +701,7 @@ function PageSettingsDrawer({
     )
 }
 
-/** Publish dialog: shows lint findings, blocks publish per `blocked` (caller-computed — page mode
+/** Publish dialog: shows lint findings, blocks publish per `blocked` (caller-computed - page mode
  * blocks every error; template mode structural errors only, preview-entry pairing rows advisory), then
  * publishes and offers a rebuild. Flushes a last save first so the published revision is current. */
 function PublishDialog({
@@ -797,13 +776,13 @@ function PublishDialog({
 
                 {blocked && step === "review" && (
                     <p className="design-editor__blocked">
-                        Fix the errors above before publishing — they would otherwise fail the site build.
+                        Fix the errors above before publishing - they would otherwise fail the site build.
                     </p>
                 )}
 
                 {pairingAdvisory && !blocked && step === "review" && findings.some((f) => f.severity === "error") && (
                     <p className="design-editor__hint">
-                        The errors above come from pairing with the preview entry — they do not block
+                        The errors above come from pairing with the preview entry - they do not block
                         publishing this template, but the site build fails on any published entry that
                         pairs like this.
                     </p>

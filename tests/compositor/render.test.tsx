@@ -112,7 +112,7 @@ describe("build render path", () => {
 
     it("resolves token props to --dtk-* custom properties", () => {
         const html = render(theme)
-        // Kind prefixes are abbreviated by tokenVarName (colors → color, typography → type).
+        // Kind prefixes are abbreviated by tokenVarName (colors -> color, typography -> type).
         expect(html).toContain("var(--dtk-color-surface)")
         expect(html).toContain("var(--dtk-space-md)")
         expect(html).toContain("var(--dtk-type-display-size)")

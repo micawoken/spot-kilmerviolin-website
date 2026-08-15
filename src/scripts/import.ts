@@ -111,7 +111,7 @@ export function initImport(type: ImportType): void {
 
     // Maps a server/client field token to the CSV grid column(s) it should highlight. Most tokens are the
     // column itself; these are the composition-only cases where the API/D1 field name differs from the CSV
-    // column (composer_id → the "composer" name column; phases → the free-text period column; the nested
+    // column (composer_id -> the "composer" name column; phases -> the free-text period column; the nested
     // publication_info / rating objects fan out to their flattened D1 columns, which are the CSV columns).
     const fieldToColumns: Record<string, string[]> =
         type === "works"

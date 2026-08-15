@@ -26,36 +26,36 @@
 //
 // Astro integration that re-encodes EmDash-sourced media referenced by the built site, and adds a
 // responsive `srcset` of width variants so a narrow viewport downloads a correspondingly smaller file
-// instead of the same capped-at-1600px image every viewport gets — the LCP-relevant half of the
+// instead of the same capped-at-1600px image every viewport gets - the LCP-relevant half of the
 // optimization (the single-size webp re-encode was the byte-count half).
 //
 // EmDash (the CMS) manages its own media bucket (EMDASH_MEDIA, publicUrl EMDASH_MEDIA_PUBLIC_URL) and its
-// own upload pipeline — unlike this project's own R2_FILES bucket, which every upload already passes
+// own upload pipeline - unlike this project's own R2_FILES bucket, which every upload already passes
 // through optimizeImage (lib/api/images.ts, re-encoded to webp / capped at MAX_IMAGE_WIDTH). EmDash media
 // referenced by a compositor Image/ContentImage/MediaText component (lib/compositor/catalog.tsx) is
-// therefore the R2 original untouched — a Lighthouse audit on / flagged exactly this: a several-hundred-KB
+// therefore the R2 original untouched - a Lighthouse audit on / flagged exactly this: a several-hundred-KB
 // JPEG shipped at full resolution to every viewport.
 //
 // This mirrors optimize-files.mjs's approach (same sharp constants: TARGET_QUALITY, capped long edge) but
-// can't reuse its build-start timing or its input (a fixed local src/files directory) — the set of EmDash
+// can't reuse its build-start timing or its input (a fixed local src/files directory) - the set of EmDash
 // media a build actually references isn't known ahead of render; it depends on which designs are published
 // and what an editor picked in the compositor. Rather than duplicating getStaticPaths' page/template/entry
 // enumeration just to predict that set, this runs at astro:build:done and scans the ALREADY-RENDERED HTML
-// for `<img src="...">` pointing at the EmDash media origin — the emitted markup is authoritative for what
+// for `<img src="...">` pointing at the EmDash media origin - the emitted markup is authoritative for what
 // a page actually references, covers every current and future consumer (Image, ContentImage, MediaText)
 // uniformly, and needs no change to catalog.tsx/media.ts's render path. `og:image`/`twitter:image` meta
-// tags use `content=`, not `src=`, so they're untouched by design — those want full quality, not a capped
+// tags use `content=`, not `src=`, so they're untouched by design - those want full quality, not a capped
 // thumbnail.
 //
 // `srcset` width variants: for each referenced image, resize to every entry of WIDTH_TARGETS that's no
 // larger than the source's own natural width (sharp's `withoutEnlargement` would otherwise just emit the
-// same capped file repeatedly for a source narrower than a given target — read the metadata once and
+// same capped file repeatedly for a source narrower than a given target - read the metadata once and
 // filter instead of paying for redundant, identical output files). The `sizes` attribute this pairs with
 // is emitted unconditionally by catalog.tsx's renderImageTag (IMAGE_SIZE_HINTS) on every `<img>` it
-// produces, so every `<img src>` this integration finds at the EmDash media origin already has one — no
+// produces, so every `<img src>` this integration finds at the EmDash media origin already has one - no
 // separate check needed here, same "the emitted markup is authoritative" reasoning the src-origin filter
 // above already relies on. A source narrower than every WIDTH_TARGETS entry still gets exactly one
-// variant (its own capped width) — a one-candidate `srcset` is valid HTML and simply never has a smaller
+// variant (its own capped width) - a one-candidate `srcset` is valid HTML and simply never has a smaller
 // alternative to offer. `src` itself keeps pointing at the largest variant, so a browser with no `srcset`
 // support renders exactly what it did before this integration gained responsive variants.
 //
@@ -64,7 +64,7 @@
 // EMDASH_MEDIA_PUBLIC_URL (local dev without it configured) skips the integration entirely.
 //
 // Output is content-hashed (sha256 of the source URL + width, matching theme-fonts.ts's filename scheme)
-// under dist/client/images/emdash/ — public/_headers marks that path immutable, same as /fonts/*.
+// under dist/client/images/emdash/ - public/_headers marks that path immutable, same as /fonts/*.
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
@@ -74,9 +74,9 @@ import sharp from "sharp"
 
 // Mirrors optimize-files.mjs's TARGET_QUALITY (itself mirroring TARGET_IMAGE_QUALITY / lib/api/images.ts).
 const TARGET_QUALITY = 82
-// Mirrors the MAX_IMAGE_WIDTH wrangler var / CANON_* long edge in lib/api/images.ts — this project's
+// Mirrors the MAX_IMAGE_WIDTH wrangler var / CANON_* long edge in lib/api/images.ts - this project's
 // existing ceiling for "how big does a rendered image ever need to be". Also the largest `srcset`
-// candidate width — a source wider than this was already being downscaled before responsive variants
+// candidate width - a source wider than this was already being downscaled before responsive variants
 // existed, so it stays the ceiling here too.
 const MAX_LONG_EDGE = 1600
 // `srcset` candidate widths, largest first (the order variants are considered in, not the order they're
@@ -85,7 +85,7 @@ const MAX_LONG_EDGE = 1600
 // skipped for that target (see this file's header) rather than upscaled or redundantly re-emitted.
 const WIDTH_TARGETS = [480, 800, 1200, MAX_LONG_EDGE]
 const OUT_SUBDIR = "images/emdash"
-// EmDash storage keys are `{ulid}{ext}` (media.ts) — the extension is always present in the URL. Anything
+// EmDash storage keys are `{ulid}{ext}` (media.ts) - the extension is always present in the URL. Anything
 // outside this set (an SVG icon, an unrecognized type) passes through unrewritten rather than risk a bad
 // rasterization.
 const RASTER_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"])
@@ -175,7 +175,7 @@ export default function optimizeEmdashMedia() {
                         const metadata = await sharp(input).metadata()
                         const naturalWidth = metadata.width ?? MAX_LONG_EDGE
 
-                        // Widths no larger than the source's own — narrower than every WIDTH_TARGETS entry
+                        // Widths no larger than the source's own - narrower than every WIDTH_TARGETS entry
                         // still yields one variant (its own, capped-by-MAX_LONG_EDGE width) via the fallback.
                         const targets = WIDTH_TARGETS.filter((width) => width <= naturalWidth)
                         if (targets.length === 0) {
@@ -185,7 +185,7 @@ export default function optimizeEmdashMedia() {
                         const variants = []
                         for (const width of targets) {
                             // `height: MAX_LONG_EDGE` alongside `fit: "inside"` mirrors the pre-responsive
-                            // behavior's dual width/height cap — without it, an extreme-aspect portrait
+                            // behavior's dual width/height cap - without it, an extreme-aspect portrait
                             // source (e.g. a very tall crop) would resize to the requested WIDTH but an
                             // unbounded height, defeating the "no dimension exceeds MAX_LONG_EDGE" guarantee.
                             const out_bytes = await sharp(input)
@@ -206,7 +206,7 @@ export default function optimizeEmdashMedia() {
                     } catch (error) {
                         const reason = error instanceof Error ? error.message : String(error)
                         logger.warn(
-                            `could not optimize EmDash media "${url}" (${reason}) — page(s) referencing it keep the original R2 URL`
+                            `could not optimize EmDash media "${url}" (${reason}) - page(s) referencing it keep the original R2 URL`
                         )
                     }
                 }

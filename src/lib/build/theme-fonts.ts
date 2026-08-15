@@ -2,31 +2,7 @@
  * lib/build/theme-fonts.ts
  *
  * Self-hosts the design theme's Google Fonts (tokens.ts's `WebFont[]`) instead of linking straight to
- * fonts.googleapis.com.
- *
- * Root cause fixed: `webFontsHref`'s `display=optional` (kills theme-font initial-load layout shift)
- * gives the browser only ~100ms to have the
- * font ready at first paint, but Google's css2 stylesheet can't be `<link rel="preload">`d — the actual
- * font-file URL isn't known until that stylesheet's response resolves. Cold cache (first visit, or
- * evicted font): that round trip routinely blows past 100ms, browser abandons the custom font for the
- * rest of the page load. Self-hosting removes the round trip: each file downloaded once at build time,
- * page can preload it directly — same trick `AdminTypeface.astro` uses for the self-hosted admin Inter.
- *
- * MUST run from a real-Node context, never page-render code: `@astrojs/cloudflare` prerenders by
- * sending requests to an actual workerd instance (prerenderer.d.ts: "prerendering happens in the same
- * runtime that will serve the pages"), and workerd has no writable local disk. `node:fs`
- * `mkdir`/`writeFile` from a `.astro` page's frontmatter (runs inside that sandbox during both
- * `astro build`'s prerender step and `astro dev`) throws EPERM for every font block — confirmed live:
- * calling this straight from `theme-head.ts`/`PublicPage.astro` silently produced ZERO font files every
- * build, permanently falling back to the typography token's next stack entry. Why `getThemeHead` no
- * longer imports `localizeThemeFonts` directly — `integrations/theme-fonts.mjs` calls it instead from
- * `astro:build:start`/`astro:server:setup` hooks (always the real orchestrating Node process), writes
- * the result to `theme-fonts-manifest.generated.json` for `theme-head.ts` to pick up via a plain source
- * import — resolved by Vite while bundling server code, before the prerenderer's workerd ever starts,
- * so page-render code never touches the filesystem.
- *
- * Written to `public/fonts/theme/` only: the build-start hook fires before Vite's client-asset build
- * copies `publicDir` into `dist/client`, so that copy step picks the files up on its own.
+ * fonts.googleapis.com
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -55,18 +31,14 @@ import path from "node:path"
 
 import { fontFaceKey, webFontsHref, type WebFont } from "../compositor/tokens"
 
-// Google serves woff/ttf to an unrecognized User-Agent and only serves woff2 (what we want to
-// self-host) to a modern browser UA — Node's default fetch UA gets the legacy format.
+// Google serves woff/ttf to an unrecognized User-Agent and only serves woff2 to modern browsers
 const GOOGLE_FONTS_FETCH_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-// Preloaded + font-display: optional (no flash, only guaranteed ready by first paint). Picked for a
-// Western classical-music composer database — accented Latin (e.g. "Dvořák") routine, other scripts
-// not. Every other subset (cyrillic, greek, vietnamese, …) still self-hosts, via swap, no preload.
+// Preloaded + font-display
 const PRELOADED_SUBSETS = new Set(["latin", "latin-ext"])
 
-/** Whether this face is one the theme's typography tokens actually reference (`referencedFontFaces`).
- *  An empty set means the caller supplied none — preload every Latin face, the historical behavior. */
+/** Whether this face is one the theme's typography tokens actually reference (`referencedFontFaces`) */
 function isReferenced(referencedFaces: ReadonlySet<string>, block: ParsedFontFaceBlock): boolean {
     return referencedFaces.size === 0 || referencedFaces.has(fontFaceKey(block.family, block.weight))
 }
@@ -83,17 +55,7 @@ export interface LocalizedFonts {
 }
 
 /**
- * Font URLs declared `font-display: optional` that carry no matching preload — always empty for a
- * well-formed manifest.
- *
- * `optional` tells the browser it may skip the face entirely rather than delay or swap text, so a face
- * the browser was never told to fetch early routinely goes unrendered on a cold load: the page silently
- * falls back to the local stack while still claiming the web font in `--dtk-type-*-family`. The preload
- * and the `optional` display must therefore always be decided together.
- *
- * Re-derived from the emitted CSS rather than the flag that produced it (`localizeThemeFonts`'s
- * `preload`), so this still catches a later refactor that splits the two decisions apart — checking the
- * flag against itself would prove nothing.
+ * Font URLs declared `font-display: optional` that carry no matching preload
  *
  * @param {LocalizedFonts} fonts - a resolved manifest
  * @returns {string[]} offending font URLs, empty when the invariant holds
@@ -110,17 +72,7 @@ export function unpreloadedOptionalFaces(fonts: LocalizedFonts): string[] {
 }
 
 /**
- * Self-hosts the theme's web fonts. Call once per build/dev-server start (file header: must run from a
- * real-Node build hook, not page-render code) — does its own network I/O and disk writes each call, no
- * memoization of its own.
- *
- * Fails soft: fetch/parse/download problem resolves to `null` (+ console warning), never throws — the
- * theme font is skipped for this build rather than breaking every public page, matching
- * `fetchPublishedTheme`'s contract.
- *
- * Every authored weight still self-hosts; `referencedFaces` only narrows which ones are *preloaded*
- * (and so get `font-display: optional` — the two must stay in lockstep, or an optional face with no
- * preload can go unrendered on a cold first load). Pass `referencedFontFaces(catalog)`.
+ * Self-hosts the theme's web fonts
  *
  * @param {WebFont[]} fonts - the theme's authored web fonts
  * @param {ReadonlySet<string>} referencedFaces - `fontFaceKey` values worth preloading; empty preloads all
@@ -185,9 +137,7 @@ interface ParsedFontFaceBlock {
 }
 
 /**
- * Parses Google's css2 response into one entry per `/* subset *\/ @font-face { … }` block. Not a
- * general CSS parser — relies on Google's stable, machine-generated output shape (a subset comment
- * immediately before each block, exactly one `src: url(...)` per block).
+ * Parses Google's css2 response into one entry per `/* subset *\/ @font-face { … }` block
  */
 function parseFontFaceBlocks(css: string): ParsedFontFaceBlock[] {
     const blocks: ParsedFontFaceBlock[] = []
@@ -206,10 +156,7 @@ function parseFontFaceBlocks(css: string): ParsedFontFaceBlock[] {
 }
 
 /**
- * Downloads one Google-hosted font file, writes it to `public/fonts/theme/` (file header: why only
- * that directory, why this must run from a real-Node build hook). Filename is a hash of the remote
- * URL — Google versions the URL per family/weight/subset, so repeated downloads are naturally
- * content-addressed and idempotent.
+ * Downloads one Google-hosted font file, writes it to `public/fonts/theme/`
  */
 async function downloadFont(url: string): Promise<string> {
     const res = await fetch(url)

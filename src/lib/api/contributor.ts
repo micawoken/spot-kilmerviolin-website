@@ -1,10 +1,7 @@
 /**
  * lib/api/contributor.ts
  *
- * Everything specific to a Contributor record shape: field sanitization, the field spec, and the assert
- * wrappers the /api/v1/contributors and identity routes call.
- *
- * Built on record_spec.ts. d1.ts owns the CONTRIBUTOR schema constant and the D1 execution around it.
+ * Performs operations related to contributors
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -44,9 +41,9 @@ import {
     type RecordSpec
 } from "./record_spec.ts"
 
-/** Same purpose as {@link sanitizeComposerFields}, for a contributor record. `roles` is a
- *  permission-adjacent field (see database.ts's authorization note), so only whitespace/control-character
- *  cleanup is applied to it — no dedup or case change, to avoid altering its semantics. */
+/**
+ * Normalizes contributor fields
+ */
 function sanitizeContributorFields(record: Record<string, any>): void {
     if (typeof record.name === "string") {
         record.name = normalizeUnicodeForm(cleanText(record.name))

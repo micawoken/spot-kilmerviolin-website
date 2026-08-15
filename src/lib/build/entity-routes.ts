@@ -1,17 +1,7 @@
 /**
  * lib/build/entity-routes.ts
  *
- * Resolves the published default template for each D1-backed entity noun (composer, composition,
- * contributor) — entity analog of `route-authority.ts`'s `resolveTemplate`, simpler: no per-record
- * template pointer (no `design` reference field on a D1 schema — `entity-fields.ts`'s catalog is
- * fixed, not authorable in EmDash), so every record of one noun renders through exactly one layout,
- * that noun's published `is_default` design_template. No D3 "render bare" fallback like pages/posts —
- * a noun with no resolved default just gets no public pages this build (impl plan Step 6).
- *
- * Deliberately OUT of `route-authority.ts` (impl plan Step 5): that module owns the EmDash
- * `pages`/`posts`/`design_page` slug space and duplicate-slug rules, which entity records never enter
- * — an entity's route is `/entity/{noun}/{id}`, never authored, never collidable with a CMS slug.
- * Pure module (no network calls), like `route-authority.ts` — unit-testable without a console or CMS.
+ * Resolves the published default template for each D1-backed entity noun
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -45,9 +35,7 @@ export interface EntityTemplateResolution {
 }
 
 /**
- * Indexes published entity templates by the (at most one) `is_default` per noun — same ambiguous-default
- * rejection as `route-authority.ts`'s `indexTemplates` for pages/posts. Throws when a noun has two or
- * more published default templates.
+ * Indexes published entity templates by the (at most one) `is_default` per noun
  */
 function indexDefaults(templates: BuildEntityTemplate[]): Map<EntityNoun, BuildEntityTemplate> {
     const defaults = new Map<EntityNoun, BuildEntityTemplate>()
@@ -77,9 +65,7 @@ function indexDefaults(templates: BuildEntityTemplate[]): Map<EntityNoun, BuildE
 }
 
 /**
- * Resolves every entity noun's default template. Null when a noun has no published default (not yet
- * authored — Step 6 skips SSG for it) or its default is the "None" sentinel (same reserved slug
- * pages/posts use — an explicit "no public pages for this noun").
+ * Resolves every entity noun's default template
  */
 export function resolveEntityTemplates(templates: BuildEntityTemplate[]): EntityTemplateResolution[] {
     const defaults = indexDefaults(templates)

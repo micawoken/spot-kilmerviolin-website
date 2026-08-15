@@ -1,10 +1,7 @@
 /**
  * lib/api/composition.ts
  *
- * Everything specific to a Composition record shape: field sanitization, the nested rating and
- * publication-info validators, the field spec, and the assert wrappers the /api/v1/works routes call.
- *
- * Built on record_spec.ts. d1.ts owns the COMPOSITION schema constant and the D1 execution around it.
+ * Performs operations related to compositions
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -89,8 +86,7 @@ function sanitizeCompositionFields(record: Record<string, any>): void {
 }
 
 /**
- * Validates a single rating member (Suzuki or NYSSMA level). Each member is independently nullable: a
- * null is accepted (an unrated level), otherwise the value must be an integer within the member's range.
+ * Validates a single rating member (Suzuki or NYSSMA level)
  *
  * @param value the rating member value
  * @param min the inclusive lower bound for a present (non-null) level
@@ -105,10 +101,7 @@ function validateRatingMember(value: any, min: number, max: number): boolean {
 }
 
 /**
- * Given an unknown object from JSON, determine if it is a valid CompositionRating. The suzuki and nyssma
- * members are independently nullable; when present, suzuki must be an integer in 1–10 and nyssma in 1–6
- * (mirrors the client-side constructRating bounds). In complete mode both members must be present and
- * valid; in partial mode at least one must be present and valid.
+ * Given an unknown object from JSON, determine if it is a valid CompositionRating
  *
  * @param record the record to check
  * @param partial whether a partial rating (a single member) is acceptable
@@ -127,7 +120,9 @@ function validateCompRating(record: unknown, partial: boolean = false): boolean 
     return partial ? tests.some((test) => test) : tests.every((test) => test)
 }
 
-/** * Given an unknown object from JSON, determine if it is a complete PublicationInfo record and perform a type assertion
+/**
+ * Given an unknown object from JSON, determine if it is a complete PublicationInfo
+ * record and perform a type assertion
  *
  * @param record the record to check and assert
  * @returns the record as a PublicationInfo type if valid, or a string error message if invalid
@@ -146,9 +141,7 @@ function validatePubInfo(record: unknown, partial: boolean = false): boolean {
         "uri" in r ? typeof r.uri === "string" : false
     ]
     // The uri_type is authoritative: when present it must be a supported type, and a non-empty uri must
-    // match that type's shape. This is enforced regardless of partial/complete so an inconsistent
-    // type/URI pairing is always rejected (a blank uri carries nothing to validate against and is allowed,
-    // since the uri column is nullable). A missing uri_type defers to the type checks above.
+    // match that type's shape
     if ("uri_type" in r && typeof r.uri_type === "string") {
         if (!SUPPORTED_URI_TYPES.includes(r.uri_type)) {
             return false
@@ -161,10 +154,9 @@ function validatePubInfo(record: unknown, partial: boolean = false): boolean {
 }
 
 /**
- * Produces a granular error message for an invalid publication_info, naming the exact offending subproperty
- * using its D1 column name (publish_location / publish_name / publish_year / uri_type / uri) so the import
- * preview can highlight the specific input. This never changes the accept/reject decision — it defers to
- * {@link validatePubInfo} for that and only computes a message when the value is already known to be invalid.
+ * Produces a granular error message for an invalid publication_info, deferring to
+ * {@link validatePubInfo} for that and only computes a message when the value is
+ * already known to be invalid.
  *
  * @param record the publication_info value (already established to be an object by the field's base check)
  * @param partial whether a partial publication_info (at least one field) is acceptable
@@ -215,9 +207,7 @@ function validatePubInfoDetail(record: unknown, partial: boolean): string | null
 }
 
 /**
- * Produces a granular error message for an invalid rating, naming the offending member using its D1 column
- * name (rating_suzuki / rating_nyssma). Like {@link validatePubInfoDetail}, it defers the accept/reject
- * decision to {@link validateCompRating} and only computes a message for an already-invalid value.
+ * Produces a granular error message for an invalid rating
  *
  * @param record the rating value (already established to be a non-null object by the field's base check)
  * @param partial whether a partial rating (a single member) is acceptable
@@ -284,10 +274,7 @@ const COMPOSITION_SPEC: RecordSpec = {
     notes_historical: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
     notes_other: { invalid: _invalidNullableStringMaxLen(MAX_LONG_TEXT_LENGTH) },
     image: { invalid: _invalidNullableImage },
-    // rating is nullable only in complete mode; in partial mode a present rating must validate. The base
-    // check only rejects the hard cases (a non-object, or a null where null is not allowed); the granular
-    // per-member validation runs in elementCheck so the offending member (rating_suzuki / rating_nyssma) can
-    // be named. The union of the two reproduces the original accept/reject exactly.
+    // rating is nullable only in complete mode; in partial mode a present rating must validate
     rating: {
         invalid: (v, partial) => (partial ? typeof v !== "object" || v === null : v !== null && typeof v !== "object"),
         elementCheck: (v, partial) => (v === null ? null : validateCompRatingDetail(v, partial))

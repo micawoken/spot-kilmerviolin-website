@@ -1,14 +1,8 @@
 /**
  * lib/build/entity-records.ts
  *
- * Normalizes the three D1 readers' (d1-api.ts) return shapes into one uniform, FLAT record per entity
- * noun, for `src/pages/entity/[noun]/[id].astro` and `.../index.astro`. Reference-fold seam (unified
- * field-outlet rewrite): a composition's foreign keys (`composer_id`, `contrib_primary_1`/`_2`,
- * `contrib_addl`, `author_secondary`) resolved to `{id, name, href}` objects HERE, once — every outlet
- * downstream reads a plain `entry[field]`, no parallel `entryNames`/`CompositionNames` structure, no
- * per-noun render block to reach a reference. `formatWorkFromD1` (api/common.ts) nests D1's flat
- * columns into `rating.*`/`publication_info.*` for the runtime API's `Composition` shape; this module
- * flattens them back — every entity field, composer or composition, a plain top-level key.
+ * Normalizes the three D1 readers' (d1-api.ts) return shapes into one uniform, flat record
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -47,18 +41,13 @@ export interface EntityRecord {
 export interface ResolvedReference {
     id: number
     name: string
-    /** null when the target has no public page (unresolvable id, inactive contributor, or that noun has
-     *  no published default template this build) — the outlet renders the name as plain text, not a link
-     *  to a 404. */
+    /** null when the target has no public page */
     href: string | null
-    /** the composer's `role` (e.g. "arranger"), carried through only for composer references — undefined
-     *  for a contributor reference or an unresolvable id. Only the `author_secondary` outlet (catalog.tsx)
-     *  renders it; other composer-referencing fields (e.g. the primary `composer` field) ignore it. */
+    /** the composer's `role` (e.g. "arranger"), carried through only for composer references */
     role?: string
 }
 
-/** One tile in the `RelatedEntries` Puck block (catalog.tsx) — always a work, regardless of which noun's
- *  page it appears on (see `buildRelatedWorksIndex`'s header). */
+/** One tile in the `RelatedEntries` Puck block (catalog.tsx) */
 export interface RelatedWork {
     id: number
     name: string
@@ -76,23 +65,14 @@ interface ReferenceTarget {
     role?: string
 }
 
-/** id → {name, hasPage} for each of the two referenceable nouns (composer, contributor). */
+/** id -> {name, hasPage} for each of the two referenceable nouns (composer, contributor). */
 export interface EntityReferenceIndex {
     composer: Map<number, ReferenceTarget>
     contributor: Map<number, ReferenceTarget>
 }
 
 /**
- * Builds the reference index a composition's foreign keys resolve against. `allContributors` MUST be
- * the unredacted, all-contributors list (`fetchAllContributors` in d1-api.ts), NOT the
- * `fetchContributors` public list — deriving the map from the filtered list would silently blank a
- * reference to any hidden contributor (see d1-api.ts's `fetchContributors` header). Only `id`/`name`/
- * `tags` read off it — nothing else from a hidden contributor's record reaches a public page through
- * this index. `hasPage` for a contributor mirrors `fetchContributors`' own filter exactly
- * (`!isHiddenContributor`), so a reference links if and only if that contributor's own page exists;
- * `active` plays no part — a deactivated contributor still gets a page and a working hyperlink unless
- * also tagged `hidden`. `nounHasPage`: whether each noun has a resolved default template this build — a
- * reference to a noun with no template has nowhere to link.
+ * Builds the reference index a composition's foreign keys resolve against
  */
 export function buildReferenceIndex(
     composers: ComposerRecord[] | null,
@@ -115,12 +95,9 @@ export function buildReferenceIndex(
     return { composer, contributor }
 }
 
-/** A composition's normalized "same publication" identity, or null when it declares no isbn/doi source
- *  (a bare `https` link is a citation, not a shared publication two different works could both belong
- *  to). ISBN comparison strips whitespace/hyphens — the same normalization `publication.ts` applies to
- *  build the WorldCat link — so "978-0-13-1" and "9780131" match; both types compare case-insensitively
- *  (an ISBN-10 check digit may be stored as "x" or "X", and DOI comparison is conventionally
- *  case-insensitive). Prefixed with the type so an isbn and a doi can never collide on the same key. */
+/**
+ * A composition's normalized "same publication" identity, or null when it declares no isbn/doi source
+ */
 function publicationKey(record: CompositionRecord): string | null {
     const { uri_type, uri } = record.publication_info
     if (uri_type !== "isbn" && uri_type !== "doi") return null
@@ -131,19 +108,7 @@ function publicationKey(record: CompositionRecord): string | null {
 }
 
 /**
- * Builds the id→related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles —
- * related entries are always works, regardless of which noun's detail page shows them: a composer's
- * tiles are their works, a
- * contributor's tiles are works they contributed to, a work's tiles are other works by the same
- * composer, plus — when the work declares an isbn/doi source — other works published under that exact
- * same source (see {@link publicationKey}), regardless of composer. Keyed `"{noun}:{id}"` so one map
- * serves all three nouns.
- *
- * Owner decision (v1 scope): a work's related list is same-composer (+ same-publication) only, no
- * editor-curated list yet.
- *
- * `nounHasPage` only checks "composition" — every related tile links to a work, so only that flag
- * matters. Result order: composer keys list primary credits before secondary-author credits.
+ * Builds the id -> related-works lists the `RelatedEntries` Puck block (catalog.tsx) renders as tiles
  */
 export function buildRelatedWorksIndex(
     composers: ComposerRecord[] | null,
@@ -154,9 +119,6 @@ export function buildRelatedWorksIndex(
     for (const record of composers ?? []) composerNames.set(record.id, record.name)
 
     const works = compositions ?? []
-    // Raw `record.name`, deliberately: the exact-name-match ordering below (composition bucket) compares
-    // against CompositionRecord.name directly, so a RelatedWork's own name must stay unmodified here.
-    // Automatic disambiguation is applied as a final pass, after ordering, once all lists are built.
     const toRelatedWork = (record: CompositionRecord): RelatedWork => ({
         id: record.id,
         name: record.name,
@@ -192,10 +154,7 @@ export function buildRelatedWorksIndex(
             push(`composition:${record.id}`, toRelatedWork(sibling))
         }
     }
-    // composition -> same-publication works (isbn/doi source only): other works sharing the exact same
-    // source, from a DIFFERENT composer (a same-composer match is already covered by the pass above, so
-    // excluding it here avoids a duplicate tile). The ordering pass below keeps these behind the
-    // same-composer matches.
+    // composition -> same-publication works (isbn/doi source only)
     for (const record of works) {
         const key = publicationKey(record)
         if (key === null) continue
@@ -206,8 +165,7 @@ export function buildRelatedWorksIndex(
         }
     }
 
-    // contributor -> works, across all three credit columns. Set dedupes a contributor id appearing
-    // in more than one column on the same work.
+    // contributor -> works, across all three credit columns
     for (const record of works) {
         const contributorIds = new Set<number>([record.contrib_primary_1, ...record.contrib_addl])
         if (record.contrib_primary_2 !== null) contributorIds.add(record.contrib_primary_2)
@@ -216,21 +174,6 @@ export function buildRelatedWorksIndex(
         }
     }
 
-    // Owner decision: each bucket varies its tile order differently rather than always leading with the
-    // same first N (database-insertion order).
-    //  - composer: seeded by the composer id, so the order is reproducible across rebuilds as long as
-    //    that composer's related-works list is unchanged (a new/removed work naturally reshuffles it).
-    //  - composition: exact-name matches (other parts/movements of the same piece — the same signal the
-    //    composer_id+name+part unique index already keys on) lead, sorted alphabetically by `part` (the
-    //    one field that actually differs between them — `name` is identical within this subgroup by
-    //    definition); the remaining same-composer works are truly randomized, so they vary on every build;
-    //    same-publication works from OTHER composers (see publicationKey) come last, also randomized.
-    //  - contributor: truly randomized, so they vary on every build.
-    // Before either shuffle runs, movements of the same unstandardized multi-movement work (see
-    // groupMovements) collapse into one shuffle unit, so they land — and stay ordered — together instead
-    // of being scattered across the list as unrelated tiles. The routed record itself is never a candidate
-    // here: the composition bucket's build loop above already excludes `sibling.id === record.id`, so it
-    // can never be swept into a group.
     for (const [key, list] of index) {
         const [noun, idStr] = key.split(":")
         if (noun === "composer") {
@@ -254,9 +197,7 @@ export function buildRelatedWorksIndex(
         }
     }
 
-    // Automatic disambiguation, applied last so it never disturbs the exact-name-match ordering above: a
-    // tile's composer subtitle (catalog.tsx) can't tell two same-titled works by the same composer apart
-    // — see disambiguatedCompositionNames' header.
+    // Automatic disambiguation, applied last so it never disturbs the exact-name-match ordering above
     const disambiguatedNames = disambiguatedCompositionNames(works)
     for (const list of index.values()) {
         for (const work of list) {
@@ -268,15 +209,7 @@ export function buildRelatedWorksIndex(
 }
 
 /**
- * id → display name, with `part` appended in parentheses when it collides with a same-composer,
- * same-name sibling — the compositions table's UNIQUE index is (composer_id, name, COALESCE(part,'')),
- * so `part` is the one field that reliably tells two same-titled works apart. For list/tile contexts
- * (RelatedEntries tiles, the entity index pages) that show a composition's name next to its composer but
- * have no other way to surface the distinction. Mirrors compositionNameCollisionKey/
- * disambiguatedCompositionName (lib/api/db_composition.ts) for the admin works list; duplicated rather
- * than imported so this build-time module doesn't pull in the worker-only D1 access layer. A part-less
- * work stays ambiguous — there is nothing to disambiguate it WITH — even when its same-named sibling has
- * its own part.
+ * id -> display name, with `part` appended in parentheses
  */
 export function disambiguatedCompositionNames(compositions: CompositionRecord[] | null): Map<number, string> {
     const works = compositions ?? []
@@ -295,9 +228,7 @@ export function disambiguatedCompositionNames(compositions: CompositionRecord[] 
     return names
 }
 
-/** Deterministic Fisher-Yates shuffle seeded by `seed` (mulberry32): the same seed and input list always
- *  produce the same order, so a composer's related-works tiles are stable across rebuilds unless the
- *  underlying list itself changes. */
+/** Deterministic Fisher-Yates shuffle seeded by `seed` (mulberry32) */
 function seededShuffle<T>(items: T[], seed: number): T[] {
     let state = seed >>> 0
     const next = () => {
@@ -324,22 +255,9 @@ function randomShuffle<T>(items: T[]): T[] {
     return result
 }
 
-// Movement grouping — collapses the unstandardized movements of a single multi-movement work (see
-// buildRelatedWorksIndex's "before either shuffle runs" comment) into one shuffle unit, ordered by
-// movement number, so a bucket's shuffle treats the whole work as a single candidate and — since a shuffle
-// unit is itself a RelatedWork[] — expansion in the flattened output falls out for free.
-
-/** Matches a movement marker: an explicit separator (comma/semicolon/colon/dash) or the "Mvt"/"Movement"
- *  keyword, optionally followed by that keyword again (covers ", Mvt. II:"), then a roman or arabic
- *  numeral. A bare space alone does NOT count as a separator — "Sonata No. 5" must not be misread as a
- *  movement marker — so the keyword or explicit punctuation is required. Global, so {@link splitMovementMarker}
- *  can find every candidate occurrence and take the last (closest to the end), in case an earlier colon
- *  elsewhere in the title (e.g. "Concerto: Homage to...") isn't the real marker. */
 const MOVEMENT_MARKER =
     /(?:[,;:\-–—]\s*|\b(?:mvt|mov(?:t|ement)?)\.?\s+)(?:(?:mvt|mov(?:t|ement)?)\.?\s*)?([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
 
-/** Splits a work name into its base title and movement number at the last {@link MOVEMENT_MARKER} match,
- *  or returns null when no marker is found (a normal, non-movement work name). */
 function splitMovementMarker(name: string): { base: string; number: number } | null {
     const matches = [...name.matchAll(MOVEMENT_MARKER)]
     if (matches.length === 0) return null
@@ -367,15 +285,13 @@ function romanOrArabicToNumber(token: string): number | null {
     return total > 0 ? total : null
 }
 
-// Documented middle-ground default — no real movement-titled data was available in-repo to calibrate
-// against (see handoff). Requiring BOTH the percentage AND the absolute floor means a long shared prefix
-// still needs most of the title to match (not just a fragment), while a short title needs proportionally
-// more than the bare percentage, guarding against trivial short-prefix false positives.
+// middle-ground config
 const PARTIAL_MATCH_PERCENT = 0.5
 const PARTIAL_MATCH_MIN_CHARS = 12
 
-/** Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix,
- *  case-insensitive, to count as movements of the same work. */
+/**
+ * Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix,
+ * case-insensitive, to count as movements of the same work */
 function baseTitlesMatch(a: string, b: string): boolean {
     const x = a.toLowerCase()
     const y = b.toLowerCase()
@@ -386,10 +302,10 @@ function baseTitlesMatch(a: string, b: string): boolean {
     return prefixLen / shorterLen >= PARTIAL_MATCH_PERCENT && prefixLen >= PARTIAL_MATCH_MIN_CHARS
 }
 
-/** Groups a related-works list into shuffle units: a lone work (no movement marker, or no matching
- *  sibling) is its own single-item unit; works detected as movements of the same multi-movement work
- *  (same composer, {@link baseTitlesMatch} base title, movement-marker-shaped name — see
- *  {@link splitMovementMarker}) collapse into one unit, sorted by movement number. */
+/**
+ * Groups a related-works list into shuffle units
+ *
+ */
 function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionRecord>): RelatedWork[][] {
     interface Candidate {
         work: RelatedWork
@@ -424,7 +340,9 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
     return units
 }
 
-/** Resolves a single nullable foreign key to a display reference, or null when the key itself is null. */
+/**
+ * Resolves a single nullable foreign key to a display reference, or null when the key itself is null
+ */
 function resolveRef(
     index: Map<number, ReferenceTarget>,
     id: number | null,
@@ -436,12 +354,16 @@ function resolveRef(
     return { id, name: target.name, href: target.hasPage ? entityHref(noun, id) : null, role: target.role }
 }
 
-/** Resolves a list of foreign keys, preserving order and length (an unresolvable id still gets an entry). */
+/**
+ * Resolves a list of foreign keys, preserving order and length (an unresolvable id still gets an entry).
+ */
 function resolveRefList(index: Map<number, ReferenceTarget>, ids: number[], noun: EntityNoun): ResolvedReference[] {
     return ids.map((id) => resolveRef(index, id, noun) as ResolvedReference)
 }
 
-/** Flattens one CompositionRecord (nested `rating`/`publication_info`) into a normalized flat entry. */
+/**
+ * Flattens one CompositionRecord (nested `rating`/`publication_info`) into a normalized flat entry.
+ */
 function flattenComposition(record: CompositionRecord, refs: EntityReferenceIndex): Record<string, unknown> {
     const contrib_primary_1 = resolveRef(refs.contributor, record.contrib_primary_1, "contributor")
     const contrib_primary_2 = resolveRef(refs.contributor, record.contrib_primary_2, "contributor")
@@ -483,12 +405,7 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
 }
 
 /**
- * Normalizes one noun's fetched D1 rows into {@link EntityRecord}s. `null` reader result (D1
- * unconfigured, or that table read skipped) contributes no records — same as "no records" either way.
- * Contributor records already flat, pass through as `entry` unchanged; composer records flat too but
- * gain one derived field (`life_span`, entity-fields.ts); composition records flattened and
- * reference-resolved via {@link flattenComposition}. `refs` (see {@link buildReferenceIndex}) only
- * consulted for the "composition" noun.
+ * Normalizes one noun's fetched D1 rows into {@link EntityRecord}s
  */
 export function entityRecords(
     noun: EntityNoun,

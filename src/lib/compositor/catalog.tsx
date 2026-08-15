@@ -1,41 +1,7 @@
 /**
  * lib/compositor/catalog.tsx
  *
- * The single, frozen component catalog (impl §4.5/§6.3). `buildConfig(theme, target, context?)` is a
- * factory — select options depend on the live theme, outlet renders on the routed entry (pivot D7) —
- * producing the Puck `Config` driving BOTH the editor island and the static build renderer. Render
- * functions are pure (catalog purity rule): no hooks, no state, no browser APIs, no data fetching;
- * every visual control stores a token *name* resolved to `var(--dtk-…)` at render, all real styling
- * lives in `compositor.css`. Inline styles carry token-var lookups only, mapping a chosen token to a
- * local custom property `compositor.css` applies — no freeform CSS generated at render.
- *
- * Editor vs build target (deliberate deviation from "one config feeds both"): Puck's `useRichtextProps`
- * intercepts every `richtext`-typed field in the RSC render path too, normalizing a stored PT array to
- * an *empty* ProseMirror doc — a `richtext` field would silently blank every design page at build. So
- * the build target exposes RichText's `body` as a plain passthrough field, routed through `richtext.tsx`
- * for `pages`-parity output; the editor target uses the real `richtext` field (ProseMirror form from
- * `convert.ts`), Puck renders it natively. `RichText.render` distinguishes the two by
- * `Array.isArray(body)`. Media picker is likewise editor-only, keeping its browser code off the build path.
- *
- * Button `variant` (Phase D): a token select over the theme's `buttonVariants`, each a bundle of
- * color/radius/space/border references. Render maps the chosen variant into `--cmp-button-*` locals
- * `compositor.css` applies — no variant styling hardcoded. Theme is authored with its variants BEFORE
- * this code deploys, so `Button.variant` never dangles at build (plan-compositor-phase-d.md §2.1 trap B).
- *
- * Flow invariant (unified field-outlet rewrite): every content-bearing container (`Section`, a `Columns`
- * column, `Row`, document root) stacks children `flex-direction: column` by default — a component's own
- * intrinsic display (e.g. `Button`'s `inline-block`) never causes it to sit beside its sibling. The ONLY
- * way to place components side by side is the explicit `Row` (or `Columns` for a fixed grid) — closes
- * the flow ambiguity the editor canvas doesn't otherwise show.
- *
- * Unified field-outlet rewrite (entity prerendering redesign): the old per-noun split — composer/
- * contributor through loose `ContentText`/`ContentImage` outlets, composition through one dedicated
- * `CompositionDetail` block — is gone. Every entity field is bindable through `ContentField` (kind-aware
- * value row) or `ContentImage`/`MediaText` for images. Foreign keys are pre-resolved to `{id, name,
- * href}` by `entity-records.ts`'s normalizer before render — no composition-specific code lives here.
- *
- * Known canvas-vs-build diffs (accepted): canvas shows unoptimized R2 originals; site chrome is absent
- * in the canvas; fonts may load differently.
+ * The single, frozen component catalog
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -102,49 +68,30 @@ import {
 export type CatalogTarget = "editor" | "build"
 
 /**
- * Per-entry context a config is built against (pivot D7). `entry` is the routed content entry's raw
- * field record — outlet renders read `entry[field]` from this closure; null/absent means no entry
- * (a `design_page`, or template editor before a preview entry is picked). `fields` is the template's
- * collection schema — populated for the editor's field pickers, and (entity templates) also at BUILD
- * time, since `ContentField` uses each field's declared kind when rendering, not just for picker options.
+ * Per-entry context a config is built against
  */
 export interface BuildConfigContext {
     entry?: Record<string, unknown> | null
     fields?: CollectionField[]
-    /** Public media origin (`EMDASH_MEDIA_PUBLIC_URL`), required on **build** whenever a design renders
-     * media — a prerendered page is anonymous, and the `/_emdash` media proxy sits behind Access. Editor
-     * target ignores it and uses the proxy, correct for an authenticated admin. */
+    /** Public media origin (`EMDASH_MEDIA_PUBLIC_URL`), required on **build** */
     mediaBaseUrl?: string
-    /** Public origin for our own R2_FILES uploads (`FILES_PUBLIC_URL`), required on **build** whenever a
-     * design renders a D1 entity `image` pointing at `/api/v1/files/{key}` — that route requires an
-     * authenticated identity in production, same gap `mediaBaseUrl` closes for EmDash media. */
+    /** Public origin for our own R2_FILES uploads (`FILES_PUBLIC_URL`), required on **build** */
     filesBaseUrl?: string
     /** Current route's breadcrumb trail: `breadcrumbs` is *ancestor* crumbs only (Home implicit,
      * `Breadcrumbs` always prepends it), `pageTitle` is the trail's final unlinked crumb. Both computed
      * once per route at the page level — catalog.tsx has no access to the route set to derive this
-     * itself. Absent in the editor; `Breadcrumbs` falls back to an illustrative preview. */
+     * itself. Absent in the editor; `Breadcrumbs` falls back to an illustrative preview */
     breadcrumbs?: { label: string; href: string | null }[]
     pageTitle?: string
-    /** Bundled (src/files) image alt text, keyed by the /files/<key> suffix — resolves real alt text
-     * for a plain-string entity `image` field pointing at a bundled asset. R2-uploaded and external
-     * images have no build-time alt source, still render alt="". Plain object, not a Map — see
-     * `loadBundledFileAlt`'s header for why. */
+    /** Bundled (src/files) image alt text, keyed by the /files/<key> suffix*/
     bundledFileAlt?: Record<string, string>
     /** This record's related works, computed once per route by `entity-records.ts`'s
-     * `buildRelatedWorksIndex`, passed in by `[id].astro` — same split as `breadcrumbs`/`pageTitle`
-     * above. Absent in the editor; `RelatedEntries` falls back to an illustrative preview. */
+     * `buildRelatedWorksIndex`, passed in by `[id].astro` */
     relatedEntries?: RelatedWork[]
 }
 
 /**
- * Outlet component type → the schema field types it accepts. Drives the editor's field pickers and the
- * pairing lint's dangling-outlet-field rule (receives this as an argument, same pattern as TOKEN_PROPS).
- * Contributor rule: a new outlet MUST register here.
- *
- * `ContentField` accepts every non-image entity field kind plus EmDash's "string"/"text" —
- * collection-agnostic, works unmodified on pages/posts fields too, just without the reference/date/
- * list-aware formatting those never produce. `MediaText` accepts only "image" — its non-image side is
- * a slot, not a bound field.
+ * Outlet component type -> the schema field types it accepts
  */
 export const OUTLET_PROPS: Record<string, readonly string[]> = {
     ContentText: ["string", "text"],
@@ -169,19 +116,14 @@ export const OUTLET_PROPS: Record<string, readonly string[]> = {
     MediaText: ["image"]
 }
 
-/** Every field kind some outlet can bind, de-duplicated — `Spacer`'s "link to field" picker draws from
- * this rather than any one outlet's list, since it isn't paired with a specific outlet type. Derived so
- * a new outlet kind (registered in `OUTLET_PROPS` per the contributor rule above) is automatically
- * pickable, no second registration to forget. */
+/** Every field kind some outlet can bind, de-duplicated */
 const ANY_OUTLET_FIELD_KIND = Array.from(new Set(Object.values(OUTLET_PROPS).flat()))
 
-/** Component type → the names of its rich-text props. Drives `convert.ts`'s PT ↔ ProseMirror walks; a
- * component absent here has no rich-text props. Phase 1 has exactly `RichText.body`. Contributor rule:
- * a new rich-text prop MUST be registered here. */
+/** Component type -> the names of its rich-text props */
 export const RICH_TEXT_PROPS: Record<string, readonly string[]> = { RichText: ["body"] }
 
 /**
- * Component type → its token-select props and the kind each draws from, kept beside the field
+ * Component type -> its token-select props and the kind each draws from, kept beside the field
  * definitions below so the two can't drift. Lint consumes this to flag a stored token name absent from
  * the theme; passing it in (rather than importing lint here) keeps lint free of this module's React/
  * Puck code and unit-testable. Optional token props (Section `background`, Divider `color`) may hold
@@ -757,7 +699,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { size: "md", linkedField: "" },
             render: ({ size, linkedField }: SpacerProps) => {
                 // No entry to check (template editor before a preview entry is picked, or a design_page,
-                // which can't reach a linked field at all — its picker has no options) → render normally,
+                // which can't reach a linked field at all — its picker has no options) -> render normally,
                 // same "nothing to evaluate yet" default `ContentField`'s own editor placeholder follows.
                 if (linkedField && context?.entry) {
                     const catalogField = context.fields?.find((candidate) => candidate.slug === linkedField)
@@ -789,7 +731,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: {},
             // Home, then each ancestor crumb (linked, or plain text when href is null — the "Posts"
             // case), then the page title as the final unlinked crumb. No route context (editor
-            // previewing a template) → illustrative fallback trail.
+            // previewing a template) -> illustrative fallback trail.
             render: () => {
                 const ancestors = context?.breadcrumbs
                 const pageTitle = context?.pageTitle
@@ -856,10 +798,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 }
             },
             defaultProps: { scope: "site", advancedLink: "none" },
-            // Plain GET form — native browser navigation, no client JS (catalog purity rule). `advancedLink`
-            // defaults in the destructure (not just `defaultProps`), and old `display`/`showToggle` values
-            // (pre-dating this field) are mapped onto it, so a design stored before this change still shows
-            // an advanced-search link rather than silently losing that access.
+            // Plain GET form
             render: ({ scope, advancedLink, display, showToggle }: PagefindSearchProps) => {
                 const resolvedAdvancedLink =
                     advancedLink ?? (showToggle === "yes" || display === "advanced" ? "advanced" : "none")
@@ -879,9 +818,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 )
             }
         },
-        // --- Content outlets (pivot §4, D7): read the routed entry from the `context` closure. Each is
-        // a twin of the component above it — same markup via the shared render body — differing only in
-        // where the value comes from. With no resolvable value: placeholder in the editor, nothing at build.
+        // --- Content outlets
         ContentText: {
             label: "Content text",
             fields: {
@@ -957,16 +894,10 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { field: "", aspect: "original", size: "full", radius: "", border: "", shadow: "", priority: "no" },
             render: ({ field, aspect, size, radius, border, shadow, priority }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
-                // For local media EmDash strips `src` on persist and carries the key at `meta.storageKey`
-                // (media.ts) — the media `id` is NOT a usable handle, the file route 404s on it. A plain
-                // string (a D1 entity's `image` column) is already a usable URL/path — see media.ts.
+
                 const source = mediaSource(image)
                 if (source) {
                     const url = mediaUrl(source)
-                    // D1 entities carry no alt field of their own. A bundled (/files/<key>) image resolves
-                    // its alt from the build-time sidecar index; an R2-uploaded (/api/v1/files/<key>) or
-                    // external image has no build-time alt source and still renders alt="" — a known
-                    // accessibility gap versus EmDash media, which does have one (see BuildConfigContext).
                     const alt =
                         (isRecord(image) && typeof image.alt === "string" ? image.alt : undefined) ??
                         bundledAlt(source, context?.bundledFileAlt) ??
@@ -1067,10 +998,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 const labelSuppressed = displayLabel === "" || (empty && onEmpty === "hideLabel")
                 const hideLabel = showLabel === "no" || labelSuppressed
                 // An author-chosen showLabel:"no" hides the label visually but the field still has
-                // a real accessible name (WCAG 1.3.1) — render it off-screen instead of dropping it
-                // entirely. When the label is suppressed for its own reasons (blank label text, or
-                // onEmpty:"hideLabel" on an empty value) there's nothing meaningful to announce, so no
-                // sr-only fallback is rendered either.
+                // a real accessible name (WCAG 1.3.1)
                 const srOnlyLabel = showLabel === "no" && !labelSuppressed
                 // Prefix is used verbatim (a trailing space is how an author encodes "Op. ") and
                 // suppressed on empty so every onEmpty outcome, including "placeholder", renders without it.
@@ -1159,9 +1087,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 priority: "no",
                 content: []
             },
-            // Concern #3 (missing images): when the bound field resolves to no usable source, the media
-            // side is simply not rendered — no dead column, no reserved space. `content` then occupies the
-            // whole row, matching the collapsing-primitive design (see plan / module header).
+            // Concern #3 (missing images)
             render: ({ field, aspect, imagePosition, size, radius, border, shadow, priority, content: Content }: MediaTextProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 const source = mediaSource(image)
@@ -1199,9 +1125,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
 
     return {
         components,
-        // The site-wide flow invariant's top-level anchor (see module header): every design's rendered
-        // output is wrapped in one flex-column container, so a template's outermost components stack even
-        // when authored without an enclosing Section.
+        // The site-wide flow invariant's top-level anchor (see module header)
         root: {
             render: ({ children }: { children: ReactNode }) => <div className="cmp-root">{children}</div>
         }

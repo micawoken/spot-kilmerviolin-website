@@ -2,17 +2,8 @@
 /**
  * components/AdminTypeface.astro
  *
- * Gives an admin page the admin typeface (self-hosted Inter variable). Drop it in the <head>.
+ * Supplies admin pages the Inter typeface (mainly used by the design editor)
  *
- * It exists as a component rather than a bare stylesheet import because the two halves of the typeface
- * MUST travel together: the normal face is declared `font-display: optional`, which renders the real font
- * only if it is already available at first paint, and the <link rel="preload"> below is what makes that
- * true. Split them and Inter silently never renders — a failure that looks like "the font just doesn't
- * work" rather than a missing tag. Keeping both in one component makes them impossible to separate.
- *
- * Most admin pages get this via <AdminHead />, which also loads the entity component styles. The visual
- * editor (pages/admin/advanced/designs/edit.astro) uses this directly: it renders no entities and Puck owns the
- * viewport, so it needs the typeface without 1300 lines of form and list-result CSS.
  *
  * Copyright (C) 2026 Michael Wong.
  *

@@ -43,14 +43,14 @@ export const MAX_ALT_TEXT_LENGTH = 256
 // Length caps for admin-authored free text on composer/contributor/composition records (lib/api/d1.ts),
 // enforced on every write path (single-record forms, bulk import, direct API) as a data-sanitization
 // backstop. No specific limit was documented for these fields; these are generous-but-finite defaults,
-// not derived from a requirement — raise them if a real record legitimately needs more room.
+// not derived from a requirement - raise them if a real record legitimately needs more room.
 export const MAX_NAME_LENGTH = 200 // name, role, part, publish_name/location, and similar single-line fields
 export const MAX_LONG_TEXT_LENGTH = 5000 // bio, notes_pedagogical/historical/other
 export const MAX_TAG_LENGTH = 50 // a single tag
 export const MAX_TAGS_PER_RECORD = 25 // distinct tags per record
 
-// The hostnames that serve the real site. Everything else a request can arrive on — the bare
-// workers.dev hostname, a per-version preview URL, an unanticipated alias — is treated as a preview and
+// The hostnames that serve the real site. Everything else a request can arrive on - the bare
+// workers.dev hostname, a per-version preview URL, an unanticipated alias - is treated as a preview and
 // gets the reduced surface (see detectEnvironmentFromHostname in lib/api/environment.ts). This is the
 // fail-closed direction: a hostname nobody anticipated must not serve /admin, /api and /_emdash against
 // the production bindings, which is what an allowlist of *staging* prefixes got wrong.
@@ -63,7 +63,7 @@ export const PRODUCTION_HOSTS: string[] = ["kilmer.nrnnet.xyz"]
 // origins permitted to make credentialed cross-origin requests. Because the API sends
 // Access-Control-Allow-Credentials: true, the Access-Control-Allow-Origin value must be restricted to
 // a known allowlist rather than reflecting an arbitrary request Origin. Entries are full origins
-// (scheme://host[:port]) so the scheme and port are constrained, not just the hostname — an
+// (scheme://host[:port]) so the scheme and port are constrained, not just the hostname - an
 // http:// or alternate-port variant of an allowed host is not accepted. Add future production
 // domains here as they come online.
 //

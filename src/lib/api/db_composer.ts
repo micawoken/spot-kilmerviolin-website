@@ -1,8 +1,8 @@
 /**
  * lib/api/db_composer.ts
  *
- * Composer CRUD: the public get/add/addBatch/update/updatePartial/delete/list wrappers and the
- * composer name-conflict check, built on the generic engine in database.ts.
+ * Applies composers wrapper to the database.ts wrappers, providing a high-level interface
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *

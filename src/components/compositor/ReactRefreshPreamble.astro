@@ -2,20 +2,8 @@
 /**
  * components/compositor/ReactRefreshPreamble.astro
  *
- * Dev-only React Fast Refresh preamble for the compositor's editor pages. Renders nothing in a
- * production build.
+ * Dev-only React Fast Refresh preamble for the compositor's editor pages; no-ops in production
  *
- * @astrojs/react normally installs this itself, via injectScript("before-hydration") — but Astro only
- * emits "before-hydration" scripts on a page that hydrates an island, and the editors deliberately do
- * not use one (Astro's island bootstrap is inline, which the admin CSP blocks — see
- * middleware/headers.ts and pages/admin/advanced/designs/edit.astro). Without the preamble,
- * @vitejs/plugin-react's dev transform throws "can't detect preamble" when the editor module loads and
- * nothing mounts under `pnpm dev`.
- *
- * The body below mirrors `preambleCode` from @vitejs/plugin-react (its dev transform only checks that
- * `window.$RefreshReg$` is set). Its production build emits no such check, so this is needed in dev
- * only — and being dev-only, the inline <script> never reaches a page the admin CSP applies to. Must be
- * placed in <head>, ahead of the module that imports the editor: module scripts run in document order.
  *
  * Copyright (C) 2026 Michael Wong.
  *

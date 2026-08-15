@@ -1,8 +1,7 @@
 /**
  * lib/api/db_contributor.ts
  *
- * Contributor CRUD: the public get/add/addBatch/update/updatePartial/delete/list wrappers and the
- * contributor name-conflict check, built on the generic engine in database.ts.
+ * Applies contributors wrapper to the database.ts wrappers, providing a high-level interface
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -71,10 +70,6 @@ export async function addContributor(ctx: ExecutionContext, record: Contributor)
 
 /**
  * Add several contributor records to the database in a single atomic transaction.
- *
- * Either every record is inserted or none is (see _addPrimitiveBatch). Records must be pre-validated by
- * the caller; a UNIQUE name or identity_email collision (within the batch or against existing rows) fails
- * the whole batch.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param records the contributor records to add

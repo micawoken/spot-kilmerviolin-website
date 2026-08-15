@@ -1,15 +1,7 @@
 /**
  * lib/api/sqlite_error.ts
  *
- * Translation of D1/SQLite driver errors into something the HTTP layer can act on: the extended
- * error-code table, the per-constraint message parsers, and the missing-table probes.
- *
- * Split out of http.ts, which keeps every Response-building concern. The seam is deliberate - nothing
- * here constructs a Response or touches headers; it only turns an Error into a status code and a
- * message. `hookSQLiteError` stayed behind for exactly that reason.
- *
- * The `HttpStatus` import is type-only, so the http.ts -> here runtime dependency stays one-way: the
- * status vocabulary is still defined once, in http.ts, rather than duplicated to break the cycle.
+ * SQLite error parser to emit detailed descriptions
  *
  * Copyright (C) 2026 Michael Wong.
  *

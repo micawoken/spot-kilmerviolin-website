@@ -1,15 +1,7 @@
 /**
  * lib/api/analytics.ts
  *
- * Reads a Cloudflare Web Analytics (RUM) summary for the admin site-analytics view, over Cloudflare's
- * GraphQL Analytics API. Web Analytics itself is the public-page beacon (see PublicHead.astro) — this
- * module is only the admin-side read of the data that beacon reports, so the numbers can be viewed in
- * admin instead of a separate Cloudflare dashboard link.
- *
- * Requires CF_ANALYTICS_SITE_TAG (wrangler var) and CF_ANALYTICS_TOKEN (secret, scoped to "Account
- * Analytics: Read" — see DEPLOY.md) to be set. Either being unset is not an error: it means Web Analytics
- * has not been provisioned yet, so getWebAnalyticsSummary returns an "unconfigured" result and the admin
- * page renders a "not configured" message instead of failing.
+ * Reads the Cloudflare RUM summary
  *
  *
  * Copyright (C) 2026 Michael Wong.

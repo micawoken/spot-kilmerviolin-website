@@ -1,22 +1,7 @@
 /**
  * lib/compositor/entity-fields.ts
  *
- * Static outlet field catalog for the three D1-backed entity types (composers, compositions,
- * contributors) — synchronous, hand-authored, unlike `design-api.ts`'s `fetchCollectionFields`:
- * entities aren't an EmDash collection, no schema endpoint to ask.
- *
- * Unified field-outlet rewrite: every meaningful D1 column per noun is bindable, no separate
- * "dedicated block" noun. A foreign key (composer_id, contrib_primary_1, contrib_addl, …) is never
- * exposed as its raw id — declared here as "reference"/"referenceList", resolved to name+link by
- * `entity-records.ts`'s normalizer before render. Audit-only columns omitted (raw `*_id` PKs, `active`
- * — an authorization-only column, stripped before a contributor record ever reaches this catalog; a
- * rendered contributor's page existence depends on its `hidden` tag, not `active` — see
- * `d1-schema.ts`'s `isHiddenContributor`). `entry_date`/`change_date` exposed as "date" for
- * created/last-modified headers (owner decision).
- *
- * Public-page labels here are NOT shared with the admin's `composition-fields.ts` — that module keeps
- * its own ID-oriented labels ("Composer ID", "Secondary Author IDs") for `CompositionInfo.astro`;
- * public fields resolve FKs to names, never raw ids.
+ * Static outlet field catalog for the three D1-backed entity types
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -53,10 +38,7 @@ export function isEntityNoun(value: string): value is EntityNoun {
 }
 
 /**
- * Public-facing plural label for each entity noun. "composition" is the internal/database name; the
- * public object name is "work", so its label reads "Works" everywhere a noun is titled on a public page
- * (the database root nav, an entity index page's title/h1, etc.) — composer and contributor already
- * match their internal names, so only composition's label diverges.
+ * Public-facing plural label for each entity noun
  */
 export const ENTITY_NOUN_LABELS: Record<EntityNoun, string> = {
     composer: "Composers",
@@ -65,10 +47,7 @@ export const ENTITY_NOUN_LABELS: Record<EntityNoun, string> = {
 }
 
 /**
- * Public `/entity/{slug}/...` URL segment for each entity noun — the same internal/public split as
- * {@link ENTITY_NOUN_LABELS}, applied to the route instead of the title: "composition" is the internal/
- * database name and never appears in a public URL, so its slug is "work" while composer and contributor
- * keep their internal names as their slugs.
+ * Public `/entity/{slug}/...` URL segment for each entity noun
  */
 export const ENTITY_NOUN_SLUGS: Record<EntityNoun, string> = {
     composer: "composer",
@@ -77,16 +56,7 @@ export const ENTITY_NOUN_SLUGS: Record<EntityNoun, string> = {
 }
 
 /**
- * Closed vocabulary a bindable entity field can be — kept to what the D1 columns actually are, no
- * speculative kinds. Notable ones: `"yearOrLiving"` — composer death_year, -1 sentinel formats as
- * "Present" (mirrors `ComposerInfo.astro`/`format.ts`); `"countryCode"` — ISO 3166-1, formats to
- * English display name; `"email"` — renders `mailto:`; `"titleCase"` — composer role, title-cased
- * regardless of entry; `"citations"` — key-value map rendered as hyperlink list (scripts/citations.ts);
- * `"referenceListWithRole"` — `author_secondary` only, a `referenceList` whose tiles also show each
- * resolved composer's `role` (title-cased) in parentheses after their name.
- * "string"/"text"/"image" deliberately reuse `OUTLET_PROPS`'s (catalog.tsx) vocabulary for
- * `ContentText`/`ContentImage`, so those two work unmodified against entity fields; the rest are new
- * kinds only `ContentField` accepts.
+ * Closed vocabulary a bindable entity field can be
  */
 export type EntityFieldKind =
     | "string"
@@ -155,8 +125,7 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "contrib_primary_2", label: "Additional Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList", refNoun: "contributor" },
     // Combines contrib_primary_1/_2/contrib_addl into one line — that distinction is internal-only
-    // (owner decision), shouldn't appear on a public page. Additive, not a replacement: an existing
-    // template binding those separately keeps working; new ones can opt into this instead.
+    // (owner decision), shouldn't appear on a public page
     { slug: "contributors", label: "Contributors (single line)", type: "referenceList", refNoun: "contributor" },
     { slug: "phases", label: "Phases", type: "list" },
     { slug: "key", label: "Key", type: "string" },
@@ -183,21 +152,12 @@ const ENTITY_FIELDS: Record<EntityNoun, readonly EntityField[]> = {
     composition: COMPOSITION_FIELDS
 }
 
-/** Outlet-eligible fields for one entity noun. Synchronous — fixed by the D1 schema, not a live read. */
+/** Outlet-eligible fields for one entity noun. Synchronous, fixed by the D1 schema, not a live read. */
 export function entityFields(noun: EntityNoun): readonly EntityField[] {
     return ENTITY_FIELDS[noun]
 }
 
-/** Whether a resolved entity-field value counts as "empty" for a field kind — single source of truth
- * shared by `lint.ts`'s empty-outlet warning, `catalog.tsx`'s `ContentField` on-empty display control,
- * and `Spacer`'s linked-field collapse; all three must agree. `kind` is `string | undefined`, not
- * `EntityFieldKind`, because callers also pass a `CollectionField.type` (pages/posts schemas) — those
- * exercise the default branch.
- *
- * `portableText`/`image` mirror `ContentRichText`'s/`ContentImage`'s own render-time emptiness checks
- * (catalog.tsx) exactly — those two outlets don't call this function themselves (they need the actual
- * PT array / resolved `MediaSource` for rendering, not just a boolean), but `Spacer` only needs the
- * boolean, for any field kind an outlet can bind. */
+/** Whether a resolved entity-field value counts as "empty" for a field kind */
 export function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
     if (value === null || value === undefined) return true
     switch (kind) {

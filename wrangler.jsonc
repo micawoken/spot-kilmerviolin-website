@@ -35,7 +35,7 @@
 		// AGPL-covered file. Set them with `wrangler secret put <NAME>`; see DEPLOY.md.
 		// REPLACE with the "Site tag" of the Cloudflare Web Analytics site created for this domain (Analytics
 		// & Logs > Web Analytics > Add a site > your site > Manage site > the "siteTag", NOT the beacon
-		// token used in the public <script> snippet — see CF_WEB_ANALYTICS_TOKEN in .env.example and DEPLOY.md).
+		// token used in the public <script> snippet - see CF_WEB_ANALYTICS_TOKEN in .env.example and DEPLOY.md).
 		// Left blank disables the admin analytics view (it renders a "not configured" message instead).
 		"CF_ANALYTICS_SITE_TAG": "5dc8ad0bb3c74cbb8fe7a434edcbac97",
 		// the reserved domain used to generate placeholder sign-in emails for contributors with no real
@@ -44,7 +44,7 @@
 		// doesn't depend on a real domain being owned/controlled by this deployment
 		"FALLBACK_EMAIL_DOMAIN": "fallback.invalid",
 		// this worker's own origin: used as a synthetic host for Cache API keys (see cache_host in
-		// lib/api/caching.ts and blob_host in lib/api/files.ts — Cloudflare recommends a resolvable
+		// lib/api/caching.ts and blob_host in lib/api/files.ts - Cloudflare recommends a resolvable
 		// domain for cache keys) and as the CORS fallback origin (see cors_fallback_origin in
 		// lib/api/http.ts) when a request has no allowlisted Origin. Should match one of the entries in
 		// ALLOWED_ORIGINS (src/consts.ts) for the current deployment's actual workers.dev/custom domain.
@@ -111,7 +111,7 @@
 		},
 		// EmDash CMS media library (separate from R2_FILES, the admin composition-image pool). Create with
 		// `wrangler r2 bucket create emdash-media` (owner action). Draws against the same account-wide
-		// storage ceiling as R2_FILES, not a separate one — see MAX_R2_STORAGE_BYTES in src/lib/api/r2.ts
+		// storage ceiling as R2_FILES, not a separate one - see MAX_R2_STORAGE_BYTES in src/lib/api/r2.ts
 		// and the capacity guard in src/middleware/emdash_media_capacity.ts.
 		{
 			"binding": "EMDASH_MEDIA",

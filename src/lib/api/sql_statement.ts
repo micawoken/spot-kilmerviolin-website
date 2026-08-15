@@ -1,12 +1,11 @@
 /**
  * lib/api/sql_statement.ts
  *
- * The object-oriented representation of an SQL statement: clauses (WHERE, ORDER BY, LIMIT, ...) held as
- * properties and rendered to parameterized SQL on demand. Split out of sql.ts alongside
- * sql_virtual_table.ts, which evaluates one of these against an in-memory table.
+ * The object-oriented representation of an SQL statement
  *
- * `hashIdentifier` lives here, not with the table: only this class uses it, to derive stable aliases.
+ * Copyright (C) 2026 Michael Wong.
  *
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
  *
  * This program is free software: you can redistribute it and/or modify

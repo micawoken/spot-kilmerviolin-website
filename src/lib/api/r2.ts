@@ -4,7 +4,6 @@
  * Provides primitives to access Cloudflare R2 object storage, mainly for images
  *
  *
- *
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at
@@ -36,12 +35,6 @@ import { env } from "cloudflare:workers"
 /**
  * The maximum total number of bytes this app is allowed to store in R2, combined across every bucket it
  * owns (R2_FILES and EMDASH_MEDIA)
- *
- * Cloudflare's R2 free-plan 10 GB storage ceiling is account-wide, not per-bucket, so the two buckets draw
- * against the same budget rather than each getting their own 9 GiB. Kept below 10 GB to leave headroom.
- * putObject (R2_FILES writes) and the EmDash media-upload capacity guard (middleware/emdash_media_capacity.ts,
- * for EMDASH_MEDIA writes) both reject writes that would push their caller-supplied usage figure — which
- * must already include the *other* bucket's current usage — past this value.
  */
 export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
 
@@ -49,8 +42,7 @@ export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
  * The maximum size, in bytes, of a single uploaded file, sourced from the `MAX_UPLOAD_BYTES` wrangler var.
  *
  * Enforced by the upload endpoints before the body is read into memory, so a client cannot exhaust
- * worker memory or storage with one oversized upload. Images are optimized down after upload, but the
- * cap applies to the original bytes the client sends.
+ * worker memory or storage with one oversized upload
  *
  * @returns {number} the configured per-file upload cap in bytes
  */
@@ -71,9 +63,6 @@ export class R2CapacityError extends Error {
 /**
  * Lists objects in the bucket, optionally scoped to a key prefix
  *
- * By default the listing includes each object's httpMetadata and customMetadata so callers can build
- * full file records without a per-object head() call.
- *
  * @param {string} [prefix] - if provided, only objects whose key starts with this prefix are returned
  * @param {string} [cursor] - an opaque pagination cursor returned by a previous call
  * @param {("httpMetadata" | "customMetadata")[]} [include] - which metadata to include on each object
@@ -91,9 +80,6 @@ export async function listObjects(
  * Sums the total bytes currently stored in EMDASH_MEDIA (the EmDash CMS media library bucket), scanning
  * its full listing
  *
- * EMDASH_MEDIA has no cached listing of its own to reuse the way R2_FILES does via files.ts's listFiles —
- * CMS media uploads are a low-frequency, permission-gated admin action, so a fresh Class B list scan on
- * each capacity check is acceptable rather than adding a caching layer for it.
  *
  * @returns {Promise<number>} the total bytes currently stored in EMDASH_MEDIA
  */
@@ -133,11 +119,6 @@ export async function headObject(key: string): Promise<R2Object | null> {
 /**
  * Writes an object to the bucket, enforcing the storage-capacity ceiling
  *
- * The capacity check uses usage_budget — the number of bytes already stored that this write should be
- * counted against — so a caller replacing an existing object can subtract that object's current size to
- * avoid double-counting. Computing current usage is not a storage primitive (it builds on a list scan),
- * so it is the caller's responsibility: files.ts derives the budget from its cached listing and passes
- * it here (see computeUsage in files.ts).
  *
  * @param {string} key - the object key to write
  * @param {ArrayBuffer | Uint8Array} body - the object bytes (size must be known for the capacity check)

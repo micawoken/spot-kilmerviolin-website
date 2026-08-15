@@ -1,17 +1,8 @@
 /**
  * components/compositor/ThemeEditorControls.tsx
  *
- * The friendly input controls the theme editor renders for a token field outside raw mode: colors,
- * lengths, clamps, shadows, font families, keyword selects, and the CellControl dispatcher that picks
- * between them. Split out of ThemeEditor.tsx, which keeps load/save, migration, collapse state, and
- * section layout.
- *
- * Every control here is stateless with respect to the editor: it parses the stored string on render and
- * formats it back on change (theme-controls.ts), so raw and friendly views always edit the same
- * underlying value. That is what makes them separable at all - none of them reads editor state.
- *
- * `ControlKind` and `FieldSpec` come along because they describe a control rather than the editor;
- * ThemeEditor.tsx imports them back for its SECTIONS table.
+ * Provides user-friendly controls for the theme editor (not raw CSS editing)
+ * 
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -52,10 +43,7 @@ import {
 } from "../../lib/compositor/theme-controls"
 
 /**
- * Which friendly control edits this field outside raw mode. Absent (or `"text"`) is the plain free-text
- * input — also what raw mode renders for every field. Each control parses the stored string on render,
- * formats it back on change (`theme-controls.ts`); raw and friendly views always edit the same
- * underlying value.
+ * Type of friendly control used
  */
 export type ControlKind = "text" | "color" | "length" | "clamp" | "shadow" | "family" | "weight" | "style" | "checkbox" | "transform"
 
@@ -68,32 +56,23 @@ export interface FieldSpec {
     /** The friendly control for this field (see `ControlKind`); defaults to the raw text input. */
     control?: ControlKind
     /**
-     * Field holds a JS boolean, not a CSS value string (e.g. italic/bold/underline defaults). Always a
-     * checkbox — no "raw CSS" form of a flag — converted to/from the row's string storage (`"true"`/`""`)
-     * at the catalog boundary.
+     * Field holds a JS boolean, not a CSS value string
      */
     valueType?: "boolean"
     /**
      * When set, field is a REFERENCE to another token (by name) of that kind — renders as a `<select>`
-     * over that kind's names, not free text. Makes a dangling reference unrepresentable in the editor
-     * (§3.1), stronger than linting it after the fact.
+     * over that kind's names, not free text
      */
     refKind?: TokenKind
     /**
-     * Only meaningful with `control: "length"`. CSS line-height is the one length-ish property that
-     * legitimately takes a bare unitless number; every other `"length"` field (space/radius/border-width/
-     * breakpoint values, letter-spacing) is always consumed inside a `calc()` or as a plain length by its
-     * own consuming CSS, so a unitless value there is a guaranteed-invalid `calc()` operand that silently
-     * zeroes the whole declaration (rather than erroring) — exactly what broke the pre-generated static
-     * pages' `.static-page-body` padding when a Site Chrome spacing token lost its unit on edit. Defaults
-     * to false so only `lineHeight` opts in.
+     * Allows use without unit specified, only meaningful if control is length
      */
     allowUnitless?: boolean
 }
 
 /**
  * A token-reference select: names available in the referenced kind, plus unset and now-missing states —
- * a stored value is never silently rewritten to the first option.
+ * a stored value is never silently rewritten to the first option
  */
 export function RefSelect({
     names,
@@ -137,16 +116,8 @@ export function CheckboxControl({ value, onChange }: { value: string; onChange: 
 }
 
 /**
- * A number field plus a unit dropdown. Parses the stored length on render; a value it can't round-trip
- * (`clamp()`/`calc()`/`var()` or unknown unit) falls back to raw text, never clobbered. Empty stays
- * empty (clears an optional length); typing composes `<number><unit>`. Normalizing authored `.5` to
- * `0.5` is a semantic no-op.
- *
- * `allowUnitless` gates the "—" unit choice (see `FieldSpec.allowUnitless`): most `"length"` fields feed
- * a `calc()` elsewhere that requires an actual length — a unitless number there is a silent
- * guaranteed-invalid operand, not a visible error. When false, "—" is hidden UNLESS the stored value is
- * already unitless (legacy/bad data stays visible); touching the number field then coerces it to `rem`
- * rather than re-saving it unitless.
+ * A number field plus a unit dropdown - number is parsed, with fall-back to plain text if not
+ * parseable
  */
 export function LengthControl({
     value,
@@ -197,8 +168,7 @@ function toColorInputValue(hex: string): string {
 
 /**
  * One color channel: text field holding the exact CSS color, plus a native picker when the value is hex
- * (picker only round-trips `#rrggbb`; named colors/`rgb()`/`var()` show text field alone). Swatch emits
- * `#rrggbb`; typing keeps whatever's written.
+ * (picker only round-trips `#rrggbb`)
  */
 function ColorChannel({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     return (

@@ -15,7 +15,7 @@
  *                     "None (plain article)" sentinel item (reserved slug "none"), the explicit
  *                     opt-out from a collection's default template (pivot §7.4).
  *
- * Also adds the `design` reference field (→ design_template) to the EXISTING `pages` and `posts`
+ * Also adds the `design` reference field (-> design_template) to the EXISTING `pages` and `posts`
  * collections — the per-entry template pointer (pivot D4). Neither is created here (`pages` is
  * authored in the EmDash admin; `posts` is an EmDash seed collection), so the absence of either is a
  * warning, never a create.
@@ -80,7 +80,7 @@ async function api(method, path, body, expectOk = true) {
     }
     if (expectOk && !response.ok) {
         const detail = JSON.stringify(json?.error ?? json)?.slice(0, 400)
-        console.error(`FAIL ${method} ${path} → ${response.status} ${response.statusText}  ${detail}`)
+        console.error(`FAIL ${method} ${path} -> ${response.status} ${response.statusText}  ${detail}`)
         process.exit(1)
     }
     return { status: response.status, json }
@@ -374,7 +374,7 @@ async function seedTheme() {
         data: { tokens: SEED_THEME }
     })
     ok('seeded design_theme draft item "default"')
-    console.log("\nReminder: review and publish the seeded theme in the Design → Theme UI before designing pages.")
+    console.log("\nReminder: review and publish the seeded theme in the Design -> Theme UI before designing pages.")
 }
 
 /**

@@ -31,13 +31,7 @@ import { richErrors, isActiveRequestDev } from "./environment"
 import { ALLOWED_ORIGINS } from "../../consts"
 import { checkSQLiteErrorHook, convertSQLiteError, isMissingTableError, missingTableName } from "./sqlite_error"
 
-// the generic HTTP error page lives in its own file (error.html) and is inlined as a raw string at
-// build time; the {errorCode}/{errorName}/{errorDescription} tokens, plus the AdminFooter-mirroring
-// {footerAccess}/{footerTime}/{footerTz}/{footerYear} footer tokens, are filled by fillErrorTemplate.
-// error.html can't render the Astro admin components (this is the raw fallback for when those fail),
-// so its styles reproduce the admin look inline instead of linking styles/global.css, and it hides the
-// EmDash toolbar the same way AdminHead.astro does. Because the file ships to the client byte-for-byte
-// with no compile step, it must never carry `<!-- -->` or `/* */` comments — put any "why" here instead.
+// generic error HTTP
 import error_http from "../templates/error.html?raw"
 
 // headers
@@ -534,7 +528,7 @@ export function constructResponseErrorHook(
 export interface BulkCreateHandlers<T> {
     /** Validate/type-assert one raw item; return the typed record, or an error string. */
     validate: (item: unknown) => T | string
-    /** Optional per-record authorization (e.g. works' canCreate); return an error message (→403) or null. */
+    /** Optional per-record authorization (e.g. works' canCreate); return an error message (->403) or null. */
     authorize?: (record: T, index: number) => string | null
     /**
      * Optional conflict detection across the whole valid set (e.g. composition (composer, name) duplicates).
@@ -830,9 +824,6 @@ export function constructPreflightResponse(request: Request): Response {
 /**
  * Constructs the 204 response for a bare OPTIONS request that is not a CORS preflight
  *
- * The advertised Allow set is selected by route, mirroring constructPreflightResponse: API routes accept the
- * full method set, everything else is read-only. This stays a superset of any individual endpoint's verbs
- * (e.g. /api/v1/site is GET/POST/DELETE) rather than claiming GET-only for write-capable API routes.
  *
  * @param {Request} request - the original OPTIONS request, used to resolve the route
  * @returns {Response} a 204 No Content response advertising the allowed methods
@@ -909,19 +900,7 @@ export function hookSQLiteError(request: Request, error: Error): Response {
 }
 
 /**
- * Wraps a server-side database read performed directly by an admin page. When the read fails because a
- * table critical to the operation does not exist, it resolves to the missing-table fallback page instead
- * of letting the error bubble up as an unhandled 500; any other error propagates unchanged.
- *
- * The caller distinguishes the two outcomes with an `instanceof Response` check: a Response is a
- * ready-to-return fallback page, while anything else is the read's resolved value.
- *
- * This lives in http.ts (alongside the error-page constructors it returns) rather than page_auth.ts
- * because it concerns HTTP error handling for a read, not page authorization.
- *
- * Usage from an Astro page's frontmatter:
- *   const composers = await guardedRead(() => listComposers(Astro.locals.cfContext))
- *   if (composers instanceof Response) return composers
+ * Wraps a server-side database read performed directly by an admin page
  *
  * @param {() => Promise<T>} read - the database read to perform
  * @returns {Promise<T | Response>} the read's value, or the missing-table fallback page

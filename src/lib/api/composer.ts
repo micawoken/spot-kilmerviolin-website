@@ -1,10 +1,8 @@
 /**
  * lib/api/composer.ts
  *
- * Everything specific to a Composer record shape: field sanitization, the field spec, the cross-field
- * year-consistency check, and the assert wrappers the /api/v1/composers routes call.
+ * Performs operations related to composers
  *
- * Built on record_spec.ts. d1.ts owns the COMPOSER schema constant and the D1 execution around it.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -44,12 +42,7 @@ import {
 } from "./record_spec.ts"
 
 /**
- * Applies the general sanitization rules (control-character/whitespace cleanup, name Unicode
- * normalization, tag-list hygiene, role case-unification) to a composer record in place before it is
- * validated. A value's own type is left alone (e.g. a non-string `name` still fails COMPOSER_SPEC's own
- * type check afterwards), so this never changes the accept/reject decision for a structurally wrong value
- * — only cleans up a well-typed one. Runs on both complete and partial records; an absent (undefined) field
- * is a no-op for each step below, so partial mode only touches the fields actually present.
+ * Applies general clean-up of data
  */
 function sanitizeComposerFields(record: Record<string, any>): void {
     if (typeof record.name === "string") {
@@ -94,10 +87,7 @@ const COMPOSER_SPEC: RecordSpec = {
 }
 
 /**
- * Cross-field consistency check for composer years: a composer's death_year must fall on or after their
- * birth_year, unless it is the -1 "still living" sentinel. Only enforced when both years are present as
- * numbers (so a partial update touching only one year is not rejected against an absent counterpart);
- * the per-field shape of each year is already validated by COMPOSER_SPEC before this runs.
+ * Verifies the composer birth and death years make sense
  *
  * @param record the (already per-field validated) composer record or partial record
  * @returns true if the years are consistent, otherwise a string error message

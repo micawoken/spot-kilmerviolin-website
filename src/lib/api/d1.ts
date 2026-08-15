@@ -3,13 +3,7 @@
  *
  * Provides primitives to access Cloudflare D1, including adding records, searching records, and deleting records
  *
- *
  * The D1 primitives provided by this library, except the command primitive, deliberately exclude complex SQL features since (1) they aren't necessary and (2) they provide protection against injection.
- *
- * Record *shape* validation is not here: the shared spec engine lives in record_spec.ts and the
- * per-entity sanitizers, specs, and assert wrappers in composer.ts / composition.ts / contributor.ts.
- * What remains below is schema-level only — the three D1Schema constants and the `recordTypeAssert*`
- * functions, which merely narrow a row's TS type by schema identity and check column membership.
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -55,11 +49,6 @@ export const COMPOSITION: D1Schema = { db: env.DB_MAIN, ...COMPOSITION_TABLE }
 
 /**
  * Strips a schema's protected properties (schema.protected) from a record before it leaves the server
- *
- * Read wrappers (getContributor/listContributors) intentionally return full records for server-side use;
- * client-facing read endpoints must redact protected columns from records the requester is not entitled
- * to see in full. Centralizing that here gives one tested chokepoint instead of an ad-hoc inline filter
- * duplicated per endpoint, so a future endpoint is less likely to forget to redact.
  *
  * @param schema - the D1Schema whose `protected` list names the columns to remove (no-op when absent)
  * @param record - the record to redact
@@ -118,17 +107,7 @@ async function _exec(command: string, params: unknown[]): Promise<D1Result> {
 const WRITE_VERB_PATTERN = /^(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE|WITH|VACUUM|ATTACH)\b/i
 
 /**
- * Applies the staging write gate to a raw SQL string.
- *
- * `exec_stmt`/`exec_stmt_batch` get this for free — a SQLStatement carries its verb — but the raw-string
- * paths (the admin SQL terminal via POST /api/v1/command, and tokens.ts's INSERT/UPDATE) went straight to
- * _exec with no check, so the environment's write gate simply did not cover them. Not currently
- * exploitable, because identity.ts 404s all of /api on staging before a handler runs; this closes the gap
- * so that remains a second line of defence rather than the only one.
- *
- * The verb match is a heuristic over opaque SQL, deliberately erring toward refusal: `WITH` is treated as
- * a write even though `WITH … SELECT` is a read, since the only cost is that a read-only CTE cannot be run
- * from the terminal on staging — where the terminal is unreachable anyway.
+ * Applies the staging write gate to a raw SQL string
  *
  * @param command the raw SQL string about to be executed
  * @throws an error when the statement writes and writes are disabled in this environment
@@ -191,12 +170,7 @@ export async function exec_string(command: string, params: unknown[] = []): Prom
 }
 
 /**
- * Execute several raw SQL command strings in a single atomic batch.
- *
- * The statements are prepared and handed to D1's batch() API, which wraps them in an implicit
- * transaction: they run sequentially in the order supplied, and if any statement fails the entire
- * batch is rolled back (no partial application). Parameter binding is not exposed here since these
- * commands originate from the admin terminal as complete literal SQL.
+ * Execute several raw SQL command strings in a single atomic batch
  *
  * @param commands the SQL command strings to execute, in order (must be non-empty)
  * @returns an array of D1Result objects, one per command, in the same order
@@ -238,17 +212,8 @@ export async function exec_string_batch(commands: string[]): Promise<D1Result[]>
 }
 
 /**
- * Execute several SQLStatement objects in a single atomic batch.
+ * Execute several SQLStatement objects in a single atomic batch
  *
- * Each statement is finalized ({@link SQLStatement.finish}), prepared, and bound with its own
- * parameters, then handed to D1's batch() API, which wraps the prepared statements in an implicit
- * transaction: they run sequentially in the supplied order, and if any statement fails the entire
- * batch is rolled back (no partial application). Unlike {@link exec_string_batch}, this preserves
- * parameter binding, so it is the primitive used for atomic bulk inserts of validated records.
- *
- * Each returned D1Result carries its own meta (including last_row_id), so a batch of single-row
- * INSERTs yields one id per record — the reason callers build one INSERT per record rather than a
- * single multi-row VALUES statement (which would report only a single last_row_id).
  *
  * @param stmts the SQLStatement objects to execute, in order (must be non-empty)
  * @returns an array of D1Result objects, one per statement, in the same order
@@ -305,11 +270,9 @@ export async function exec_stmt_batch(stmts: SQLStatement[]): Promise<D1Result[]
 }
 
 /**
- * Execute several raw SQL command strings sequentially, each as its own statement.
+ * Execute several raw SQL command strings sequentially, each as its own statement,
+ * without atomicity
  *
- * Unlike {@link exec_string_batch}, the statements are NOT wrapped in a transaction: each runs and
- * commits independently, so a failure leaves the already-executed statements applied. Execution stops
- * at the first failure (the error from _exec propagates), and only the results up to that point are lost.
  *
  * @param commands the SQL command strings to execute, in order (must be non-empty)
  * @returns an array of D1Result objects, one per command, in the same order
@@ -331,17 +294,13 @@ export async function exec_string_sequential(commands: string[]): Promise<D1Resu
 
 /**
  * Perform a simple lookup by primary key (without caching or SQLStatement abstraction)
+ *
  * @param schema the D1Schema of the record being queried
  * @param id the primary key value of the record being queried
  * @returns a D1Result object containing the results of the lookup
  * @throws an error if the lookup fails
  */
 export async function getRecord(schema: D1Schema, id: number): Promise<D1Result> {
-    // Select the schema's known columns explicitly rather than `*`. A table that carries a column not in
-    // the schema (e.g. one removed from the schema but not yet migrated out of the DB) would otherwise flow
-    // through recordTypeAssertComplete as an "extraneous parameter" and throw; on the authorization path
-    // that throw is swallowed and reads back as an unenrolled identity, locking every caller out. Selecting
-    // by column keeps code and DB decoupled. Column names are trusted schema constants, not user input.
     const statement = `SELECT ${schema.columns.join(", ")} FROM ${schema.name} WHERE ${schema.primary_key} = ?;`
     return _exec(statement, [id.toString()])
 }

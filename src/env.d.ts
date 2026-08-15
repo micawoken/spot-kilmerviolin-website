@@ -37,13 +37,13 @@ declare namespace App {
          * Set by middleware/identity.ts when a valid user-scoped API token (plan-prelaunch-features.md §2)
          * authenticated an /api/ request. `locals.identity` is also populated (the token's owning
          * contributor's live Identity) so downstream authorization is unchanged; this flag exists only so
-         * /api/v1/tokens can refuse token-authenticated requests (D2 — a leaked token cannot mint successors
+         * /api/v1/tokens can refuse token-authenticated requests (D2 - a leaked token cannot mint successors
          * or revoke evidence).
          */
         tokenAuth?: boolean
         /**
          * Set by middleware/identity.ts when a valid build token (plan-prelaunch-features.md §2, D9)
-         * authenticated an /api/ request. Unlike tokenAuth, no Identity is set — a build token has no
+         * authenticated an /api/ request. Unlike tokenAuth, no Identity is set - a build token has no
          * owning contributor. The middleware itself enforces the route whitelist (buildTokenRouteAllowed),
          * so by the time a handler observes this flag it is already known to be one of the three permitted
          * GET collection routes.
@@ -53,7 +53,7 @@ declare namespace App {
 }
 
 // Build-time configuration for the CMS content fetch (src/lib/build/emdash-api.ts) and media publicUrl
-// (astro.config.mjs). Read only during `astro build` (prerendering) — never bound as wrangler runtime
+// (astro.config.mjs). Read only during `astro build` (prerendering) - never bound as wrangler runtime
 // secrets/vars. Merges with Vite's ImportMetaEnv. See .env.example.
 interface ImportMetaEnv {
     readonly CONTENT_API_BASE?: string
@@ -63,18 +63,18 @@ interface ImportMetaEnv {
     // Build token (plan-prelaunch-features.md §2 D9) for src/lib/build/d1-api.ts's entity-table reads.
     readonly BUILD_API_TOKEN?: string
     readonly EMDASH_MEDIA_PUBLIC_URL?: string
-    // Public origin (R2 custom domain) for our own R2_FILES bucket — see .env.example and media.ts's publicFileUrl.
+    // Public origin (R2 custom domain) for our own R2_FILES bucket - see .env.example and media.ts's publicFileUrl.
     readonly FILES_PUBLIC_URL?: string
-    // Cloudflare Web Analytics beacon token (public, non-secret — it ships verbatim in every page's HTML).
+    // Cloudflare Web Analytics beacon token (public, non-secret - it ships verbatim in every page's HTML).
     // Build-time-only like the rest of this interface: public pages are prerendered (see PublicHead.astro),
     // so this must come from the build environment, not a wrangler runtime var. See .env.example.
     readonly CF_WEB_ANALYTICS_TOKEN?: string
     // Site-wide og:image/twitter:image fallback (absolute URL) for a page with no image of its own. See
-    // PublicHead.astro and .env.example. Unset by default — the tags are omitted, not pointed at a
+    // PublicHead.astro and .env.example. Unset by default - the tags are omitted, not pointed at a
     // placeholder.
     readonly SITE_DEFAULT_OG_IMAGE?: string
     // Whether the built robots.txt (pages/robots.txt.ts) permits crawling. Unset/anything other than
-    // "true" keeps the pre-launch default (Disallow: /) — see that file and .env.example.
+    // "true" keeps the pre-launch default (Disallow: /) - see that file and .env.example.
     readonly SITE_ALLOW_INDEXING?: string
 }
 
@@ -167,7 +167,7 @@ declare module "jose" {
 }
 
 // The Pagefind browser runtime, generated post-build into dist/client/pagefind/pagefind.js by the "build"
-// npm script (`pagefind --site dist/client`). It does not exist in the source tree — pages/search.astro
+// npm script (`pagefind --site dist/client`). It does not exist in the source tree - pages/search.astro
 // loads it via a runtime `import("/pagefind/pagefind.js")` (a path, not a resolvable module specifier) and
 // casts the result to this shape, rather than `declare module "/pagefind/pagefind.js"`: astro check's
 // per-script-block virtual files did not resolve that ambient declaration against the matching dynamic
@@ -184,7 +184,7 @@ interface PagefindSearchResult {
     data: () => Promise<PagefindSearchFragment>
 }
 
-// Value counts per filter key (e.g. { type: { page: 4, post: 2, work: 116 } }) — from either the
+// Value counts per filter key (e.g. { type: { page: 4, post: 2, work: 116 } }) - from either the
 // standalone `filters()` call (whole index) or a search result's own `filters` (narrowed to that
 // result set), used by pages/search.astro to populate its content-type checkboxes with live counts.
 interface PagefindFilterCounts {
@@ -198,7 +198,7 @@ interface PagefindSearchResults {
 
 interface PagefindSearchOptions {
     /** Restricts results to pages carrying a matching data-pagefind-filter (e.g. { scope: ["database"] }
-     *  for pages tagged data-pagefind-filter="scope:database" — see layouts/PublicPage.astro). */
+     *  for pages tagged data-pagefind-filter="scope:database" - see layouts/PublicPage.astro). */
     filters?: Record<string, string[]>
 }
 
@@ -248,7 +248,7 @@ interface CfResponseInfoAccessPolicy {
 }
 
 // Cloudflare GraphQL Analytics API response shape for the Web Analytics (RUM) summary query in
-// lib/api/analytics.ts. Only the fields that query actually selects are declared — the real schema is
+// lib/api/analytics.ts. Only the fields that query actually selects are declared - the real schema is
 // much larger (see https://developers.cloudflare.com/analytics/graphql-api/).
 interface CfGraphqlError {
     message: string

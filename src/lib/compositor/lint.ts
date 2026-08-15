@@ -1,20 +1,7 @@
 /**
  * lib/compositor/lint.ts
  *
- * Design lint, rules v1 (impl §6.7). One pure pass over a stored design document, shared by the
- * editor (publish dialog + side panel) and the static build. Findings carry a `severity`, a `path`
- * they anchor to, and a human message; `errors` block publish and fail the build, `warnings` advisory.
- *
- * Runs on the *stored* (Portable Text) form — the shape the build reads and the editor produces via
- * `editorFormToDesign` before a publish — so rich-text bodies are PT arrays, never ProseMirror. Catalog
- * knowledge (which props are token selects, which components are outlets accepting which field types)
- * arrives as `TokenPropRegistry`/`OutletPropRegistry` args, keeping this module free of `catalog.tsx`'s
- * React/Puck imports and unit-testable alone; the a11y rules are tied to catalog v1's component/prop
- * names directly (contributor rule: extend these when the frozen catalog changes).
- *
- * Pairing rules (pivot §5.5): a `LintPairingContext` switches the pass into template mode — outlets
- * legal, field bindings checked against the collection schema, entry-dependent rows run when an entry
- * is present. WITHOUT a context the doc is a `design_page`, where any outlet is an error.
+ * Design lint, rules
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -49,15 +36,11 @@ import type { CollectionField } from "../build/design-api"
 /** Severity of a lint finding. `error` blocks publish and fails the build; `warning` is advisory. */
 export type LintSeverity = "error" | "warning"
 
-/** Outlet component type → the schema field types it accepts (catalog `OUTLET_PROPS`). */
+/** Outlet component type -> the schema field types it accepts (catalog `OUTLET_PROPS`). */
 export type OutletPropRegistry = Record<string, readonly string[]>
 
 /**
- * The template-mode pairing context (pivot §5.5). Present = the doc is a `design_template`; absent =
- * a `design_page`, where outlets are errors. `entry` is the routed (build) or preview (editor) entry's
- * raw fields — null lints the template alone, running structural rules only. `schemaFields` is the
- * template collection's live schema — null means it could not be read, so the dangling-outlet-field
- * checks are skipped (the caller warns; see design-api.ts `fetchCollectionFields`).
+ * The template-mode pairing context
  */
 export interface LintPairingContext {
     entry: Record<string, unknown> | null
@@ -128,17 +111,13 @@ function collectPtHeadings(body: unknown, path: string, headings: HeadingRef[]):
 }
 
 /**
- * Lints one component's own props (not its slots): token references, a11y, and rich-text bodies.
- * Heading occurrences are pushed to `state.headings` for the document-order checks run after the walk.
+ * Lints one component's own props (not its slots): token references, a11y, and rich-text bodies
  */
 function lintComponent(component: PuckComponent, path: string, state: LintState): void {
     const { type, props } = component
     const { theme, context, findings, headings } = state
 
-    // Token references: a stored token name that no longer exists in the theme. On a PUBLISHED document
-    // this is an error — it ships a visibly-unstyled element, the failure the 2026-07-14 homepage incident
-    // taught us to catch at the gate (DD2). In the editor (draft) it stays a warning: the author may be
-    // mid-rename and must not be blocked on a token they are about to fix.
+    // Token references
     if (theme) {
         for (const [prop, kind] of Object.entries(state.tokenProps[type] ?? {})) {
             const value = props[prop]
@@ -204,9 +183,7 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
             break
         }
         case "Spacer": {
-            // Unlike an outlet's `field`, "" is Spacer's valid default (always renders) — only a
-            // non-blank reference that no longer resolves is worth flagging. Skipped template-alone
-            // (schemaFields unread/unreadable) same as `dangling-outlet-field`.
+            // Unlike an outlet's `field`, "" is Spacer's valid default (always renders)
             const linkedField = typeof props.linkedField === "string" ? props.linkedField : ""
             if (
                 linkedField &&
@@ -228,10 +205,7 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
 }
 
 /**
- * Lints one content outlet (pivot §5.5): placement, field binding against the collection schema, and
- * — when an entry is present — the resolved value (emptiness, image alt, PT safety, PT headings).
- * `ContentText` contributes its heading level STRUCTURALLY (entry or not): the template places that
- * heading for every entry it renders, so heading order is checked template-alone too.
+ * Lints one content outlet
  */
 function lintOutlet(component: PuckComponent, path: string, state: LintState): void {
     const { type, props } = component
@@ -290,9 +264,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
         if (depth !== null) headings.push({ depth, path })
     }
 
-    // Forced-link checks (ContentField only): static props, independent of the field binding above and
-    // of any routed entry, so they run structurally rather than gated on context.entry — an author sees
-    // them while still choosing a URL, not only once a preview entry happens to be selected.
+    // Forced-link checks (ContentField only)
     if (type === "ContentField" && props.forceLink === "yes") {
         const linkHref = typeof props.linkHref === "string" ? props.linkHref : ""
         if (linkHref.trim() === "") {
@@ -329,8 +301,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
 
     const emptyValue = (): void => {
         // ContentField never omits its row on empty — `onEmpty` controls what shows instead (placeholder,
-        // blank+hidden-label, or blank as-is; see catalog.tsx's ContentField render). Every other outlet
-        // renders nothing. Keep this wording in step with that render by hand.
+        // blank+hidden-label, or blank as-is; see catalog.tsx's ContentField render)
         const onEmpty = typeof props.onEmpty === "string" ? props.onEmpty : "doNothing"
         const outcome =
             type !== "ContentField"
@@ -364,15 +335,12 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
         }
         case "ContentImage":
         case "MediaText": {
-            // The renderer's own predicate (media.ts): a bare media `id` is NOT a usable handle — the file
-            // route is keyed by storage key and 404s on an id — so "empty" means "resolves to no source",
-            // not "has no id". A plain string (a D1 entity's `image` column) is a resolvable source too.
-            // Keep this in step with ContentImage's/MediaText's render or lint stops predicting it.
+            // The renderer's own predicate (media.ts): a bare media `id` is NOT a usable handle
             if (mediaSource(value) === null) {
                 emptyValue()
             } else if (isRecord(value) && (typeof value.alt !== "string" || value.alt.trim() === "")) {
                 // Only EmDash media carries an authorable `alt` slot; a string-sourced (D1 entity) image
-                // has none to check — the render accepts that gap (renders alt="").
+                // has none to check — the render accepts that gap (renders alt="")
                 findings.push({
                     severity: "error",
                     rule: "content-image-alt",
@@ -393,7 +361,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
 /**
  * Lints a stored rich-text body: must be a PT array (a raw string here means the editor's
  * ProseMirror-to-PT conversion was skipped or failed — see convert.ts — and would render as literal
- * text instead of formatted content); unsupported block types (warning) and unsafe link hrefs (error).
+ * text instead of formatted content)
  */
 function lintRichText(body: unknown, path: string, findings: LintFinding[]): void {
     if (!Array.isArray(body)) {
@@ -435,8 +403,7 @@ function lintRichText(body: unknown, path: string, findings: LintFinding[]): voi
 
 /**
  * Depth-first walk over a component array in document order: lints each component, then recurses into
- * its slot props (array-valued props whose elements are components). Rich-text bodies are PT arrays,
- * not component arrays, so they are not descended into here — `lintComponent` handles them directly.
+ * its slot props (array-valued props whose elements are components)
  */
 function walk(components: unknown[], parentPath: string, state: LintState): void {
     components.forEach((component, index) => {
@@ -452,7 +419,7 @@ function walk(components: unknown[], parentPath: string, state: LintState): void
 }
 
 /**
- * Runs document-order heading checks: exactly one H1, and no skipped level between adjacent headings.
+ * Runs document-order heading checks: exactly one H1, and no skipped level between adjacent headings
  */
 function lintHeadings(headings: HeadingRef[], findings: LintFinding[]): void {
     const h1s = headings.filter((heading) => heading.depth === 1)
@@ -478,10 +445,7 @@ function lintHeadings(headings: HeadingRef[], findings: LintFinding[]): void {
     }
 }
 
-/** Lints a stored design document against the theme and, in template mode, its pairing context.
- * Returns every finding in stable order: per-component findings in document order, then the
- * whole-page heading and template-shape findings. `published` promotes `unknown-token` to an error
- * (DD2); false (editor default) keeps it a warning so an author mid-rename isn't blocked. */
+/** Lints a stored design document against the theme and, in template mode, its pairing context */
 export function lintDesign(
     doc: DesignDoc,
     theme: TokenCatalog | null,
@@ -505,14 +469,12 @@ export function lintDesign(
     if (Array.isArray(content)) {
         walk(content, "", state)
     }
-    // Heading order is a property of the COMBINED template+entry sequence (§5.5): template-alone
-    // (entry null) the sequence is incomplete — the entry body may supply the missing levels — so the
-    // checks are skipped rather than raising false blocking errors. The build always pairs an entry.
+    // Heading order is a property of the COMBINED template+entry sequence: template-alone
+    // (entry null) the sequence is incomplete
     if (!context || context.entry) {
         lintHeadings(state.headings, state.findings)
     }
 
-    // A template with zero outlets renders identically for every entry — almost certainly a mistake.
     if (context && state.outletCount === 0) {
         state.findings.push({
             severity: "warning",
@@ -525,14 +487,16 @@ export function lintDesign(
     return state.findings
 }
 
-/** Whether a finding set blocks publish / fails the build (any error present). */
+/**
+ * Whether a finding set blocks publish / fails the build (any error present).
+ */
 export function hasBlockingError(findings: LintFinding[]): boolean {
     return findings.some((finding) => finding.severity === "error")
 }
 
-/** Every token a set of designs references, as `"<kind>:<name>"` → the design labels using it. Powers
- * the theme editor's rename/remove guard: before a token is renamed or removed, name exactly which
- * designs would lose that style. Pure and catalog-agnostic, walks the stored Puck tree like `walk`. */
+/**
+ * Every token a set of designs references, as `"<kind>:<name>"` -> the design labels using it
+ */
 export function collectTokenUsage(
     docs: { label: string; doc: DesignDoc }[],
     tokenProps: TokenPropRegistry

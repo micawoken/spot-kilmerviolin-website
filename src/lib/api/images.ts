@@ -3,16 +3,6 @@
  *
  * Connects file uploads with Cloudflare image optimization (the IMAGES binding)
  *
- * When a file destined for the R2 bucket is a raster image, files.ts runs it through optimizeImage to
- * normalize it to a single efficient variant before storing it; only the optimized variant is kept.
- * Every optimizable image is cropped and scaled to exactly one of two canonical shapes — portrait 4:5
- * (1280x1600) or landscape 5:4 (1600x1280) — so the public layout is predictable. The crop region is
- * driven by an optional CropInstruction (from the upload's form fields); absent, it defaults to a
- * centered portrait crop. Non-images, and images we deliberately leave alone (SVG), pass through
- * unchanged. The build step that publishes src/files (see the files-manifest integration) targets the
- * same canonical shapes so bundled assets and uploaded assets are optimized consistently.
- *
- * Dependent on the IMAGES binding (env.IMAGES).
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -39,16 +29,14 @@ import { env } from "cloudflare:workers"
 import { isActiveRequestDev } from "./environment.ts"
 
 /**
- * The two canonical output shapes. Every optimizable raster image is cropped+scaled to exactly one of
- * these, so stored images are always one of two dimensions. The long edge (1600) is reported as the
- * `MAX_IMAGE_WIDTH` wrangler var, which must be kept in sync with these dimensions.
+ * The two canonical output shapes
  */
 export const CANON_PORTRAIT = { width: 1280, height: 1600 } as const
 export const CANON_LANDSCAPE = { width: 1600, height: 1280 } as const
 
 /**
  * The sharpen strength applied to the final transform when a source is smaller than the canonical canvas
- * and must be enlarged; reduces the softness/pixelation of an upscale. Not applied when downscaling.
+ * and must be enlarged
  */
 export const UPSCALE_SHARPEN = 1
 
@@ -120,13 +108,8 @@ function _clamp01(value: number): number {
 }
 
 /**
- * Parses (and validates) a CropInstruction from an upload's multipart form fields.
+ * Parses (and validates) a CropInstruction from an upload's multipart form fields
  *
- * The crop travels with the multipart body rather than the X-MWMSC-Request-Meta header: parseAPIRequest
- * both requires a JSON content type and consumes the request body, which would conflict with the
- * endpoint's own request.formData() call. The fields are: crop_aspect ("portrait" | "landscape"), and an
- * optional region crop_x / crop_y / crop_w / crop_h as normalized 0..1 fractions of the source (all four
- * together, or none — a partial region is rejected).
  *
  * @param {FormData} form - the parsed multipart form
  * @returns {CropInstruction | Error | undefined} the instruction, undefined when no crop_aspect is given
@@ -176,12 +159,6 @@ function _toStream(bytes: ArrayBuffer | Uint8Array): ReadableStream<Uint8Array> 
 /**
  * Optimizes an image by cropping and scaling it into one canonical shape, or passes non-images through
  *
- * For optimizable content types the bytes are re-encoded with the IMAGES binding into exactly one of the
- * two canonical shapes (portrait 1280x1600 or landscape 1600x1280, chosen by crop.aspect, default
- * portrait). When the instruction carries a normalized region (x/y/w/h) the source is first trimmed to
- * that exact rectangle; otherwise the crop is centered on the focal point (x/y) or the image center. A
- * source smaller than the canvas is enlarged (fit: "cover") and sharpened to reduce pixelation. For any
- * other content type the input is returned untouched with optimized = false.
  *
  * @param {ArrayBuffer | Uint8Array} bytes - the original file bytes
  * @param {string} content_type - the original MIME type
@@ -201,14 +178,9 @@ export async function optimizeImage(
     }
 
     // IMPORTANT — local development limitation: the IMAGES binding's transform pipeline DOES NOT WORK under
-    // local emulation (`astro dev` / local `wrangler dev`). The local stub ignores fit / trim / gravity and
-    // only contain-scales-and-pads, so every crop/resize comes out letterboxed with black bars and the crop
-    // region is not applied. (sharp is no help either: the dev runtime is workerd, not Node, so its native
-    // binary cannot load.) Rather than store black-barred images while developing, we skip the transform
-    // entirely in development and store the original bytes unchanged; the add/replace pages surface a banner
-    // saying cropping is skipped locally. In staging/production this branch is never taken and the real
-    // Cloudflare Images service performs the crop/scale below. Dev is detected via the same localhost rule
-    // the auth bypass uses (see environment.ts), so it covers both `astro dev` and local `wrangler dev`.
+    // local emulation (`astro dev` / local `wrangler dev`); skip the transform entirely in development and
+    // store the original bytes unchanged
+
     if (isActiveRequestDev()) {
         let width: number | null = null
         let height: number | null = null
@@ -243,12 +215,7 @@ export async function optimizeImage(
     const transformer = env.IMAGES.input(_toStream(bytes))
 
     // region path: an exact normalized rectangle, expressed as the number of pixels to cut off each edge
-    // (trim's left/top/right/bottom form). This is unambiguous — unlike trim's {left,top,width,height}
-    // form, which lets the kept window run past the source edge and pad the result with background (the
-    // "black box" letterboxing). The trim and the cover scale go in a SINGLE transform so the trim is
-    // applied first (per the binding's documented order) and the cover then scales the kept rectangle to
-    // fill the canonical canvas exactly. Requires the source dimensions to convert fractions to pixels;
-    // without them we fall back to a focal-point cover below.
+    // (trim's left/top/right/bottom form)
     const has_region = crop?.x !== undefined && crop?.y !== undefined && crop?.w !== undefined && crop?.h !== undefined
     let trim: { left: number; top: number; right: number; bottom: number } | undefined
     let region_px: { width: number; height: number } | null = null

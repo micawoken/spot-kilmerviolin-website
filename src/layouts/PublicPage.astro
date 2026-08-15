@@ -2,13 +2,7 @@
 /**
  * layouts/PublicPage.astro
  *
- * Base layout for public-facing pages, the public analog of AdminDocument. It renders the shared
- * public chrome (PublicHead in the document head, PublicHeader and PublicFooter around the body)
- * with the page content projected through <slot />.
- *
- * PublicHead emits the staging noindex directive, so every page built on this layout is kept out of
- * search indexes on the staging preview. Public pages are server-rendered (output: "server"); leave
- * them un-prerendered so the environment is resolved per request.
+ * Base layout for public-facing pages
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -36,50 +30,28 @@ import PublicFooter from "../components/PublicFooter.astro"
 import { getSiteSettings } from "../lib/content/site"
 import { getThemeHead } from "../lib/content/theme-head"
 import { getNav, getFooterNav } from "../lib/content/nav"
-// Binds the shared public chrome (body, PublicHeader, PublicFooter) to the theme's --dtk-* tokens, each
-// with a styles/global.css --color-* fallback. Public-only: never imported by the admin (BaseHead), so the
-// admin keeps its built-in palette. Loaded after global.css (imported by PublicHead) so its body rule wins.
+// pull in the public chrome theme settings
 import "../styles/public-chrome.css"
-// Single source for every public search form's look — see that file's header for the full list of
-// forms it replaces.
+// pull in search bar
 import "../styles/search-form.css"
 
 interface Props {
     title?: string
     description?: string
     image?: string
-    /** Pagefind filter value (e.g. "scope:database"), rendered on its own hidden <span> below — NOT
-     *  comma-joined onto the `type:` filter's element. Pagefind only treats an inline `key:value` filter as
-     *  multi-value-safe when it's the last comma item; "type:X, scope:Y" on one attribute silently swallows
-     *  ", scope:Y" into type's own value instead of registering a second filter (confirmed via local
-     *  Pagefind build, 2026-07-27 — see https://pagefind.app/docs/filtering/). Omitted entirely (not just
-     *  empty) for a page with no scope, matching Pagefind's own convention. */
+    /* allow setting of scope to database, if elected */
     pagefindFilter?: string
-    /** When true, excludes the whole page from the Pagefind index via data-pagefind-ignore on <body> — for
-     *  pages with no unique content of their own (e.g. the /entity and /database hub page, which is just a
-     *  search box and nav tiles duplicated across two URLs). Pagefind then has nothing to index for the
-     *  page, so it never appears as a search result. */
+    /* whether to ignore from search */
     pagefindIgnore?: boolean
-    /** Pagefind content-type filter value ("page" | "post" | one of ENTITY_NOUN_SLUGS), emitted as
-     *  "type:<value>" alongside pagefindFilter so /search's content-type checkboxes can narrow results.
-     *  Defaults to "page" so every existing/future public page is tagged automatically with no caller
-     *  change required — only [...slug].astro (posts) and entity/[noun]/[id].astro override it. */
+    /* content type used in pagefind - posts, pages, or an entity noun */
     contentType?: string
-    /** true for pages with no unique indexable content of their own — their prerendered HTML is always
-     *  the same empty shell regardless of URL (e.g. /search, /search/advanced: results render client-side
-     *  from Pagefind/the JSON facet index, never server-rendered). Emits a page-level `noindex` meta tag
-     *  via PublicHead — a separate mechanism from staging's edge-level X-Robots-Tag (PublicHead's header
-     *  comment), which applies site-wide regardless of this prop. */
+    /* noindex control */
     noindex?: boolean
 }
 
 // fall back to the CMS-managed site settings (which themselves fall back to the src/consts.ts defaults)
 // when a page does not supply its own title/description
-//
-// getNav/getFooterNav are started here too, alongside settings/theme, even though their results aren't
-// used until PublicHeader/PublicFooter render below: fetchSettings/fetchMenu memoize per build, so firing
-// all four now lets them race over the network together instead of each component discovering — and
-// paying for — its own read one at a time as the page renders top to bottom.
+
 const [site, themeHead] = await Promise.all([getSiteSettings(), getThemeHead(), getNav(), getFooterNav()])
 const {
     title = site.title,
@@ -91,13 +63,6 @@ const {
     noindex
 } = Astro.props
 
-// The Columns single-column breakpoint and the @view-transition rule target disjoint at-rules, so their
-// cascade order doesn't matter — fuse them into one <style> tag instead of one each. Both are tiny and
-// worth keeping inline (avoids a network round trip for a few hundred bytes); the theme's two BIG
-// contributions, fontFaceCss and tokenCss, are page-invariant the same way compositor.css is, so they ship
-// from the linked theme-head.css.ts endpoint instead (see that file's doc header) — pulled in below via
-// the same <link> pattern as CompositorStyles. columnsBreakpointCss is always present; viewTransitionCss is
-// "" when the theme disables it — filter(Boolean) drops that rather than leaving a blank line.
 const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].filter(Boolean).join("\n\n")
 ---
 
@@ -105,46 +70,17 @@ const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].f
 <html lang="en">
     <head>
         <PublicHead title={title} description={description} image={image} noindex={noindex} />
-        {
-            /* Site-wide web fonts (design theme → fonts), self-hosted at build time (theme-fonts.ts) so the
-            font file can be preloaded directly instead of routing through fonts.googleapis.com — see
-            theme-fonts.ts for why that round trip made the theme font unreliable on a cold cache. Omitted
-            entirely when no font is authored or self-hosting it failed for this build. */
-        }
+        {/* Pulls in theme font link loading */}
         {
             themeHead.fontFaceCss &&
                 themeHead.preloadHrefs.map((href) => (
                     <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
                 ))
         }
-        {
-            /* The theme's @font-face rules and --dtk-* custom properties (site-wide, so both public-chrome.css
-            and any compositor design page resolve their token references) — linked, not inlined, since
-            they're identical across every page of a build (theme-head.css.ts's doc header). Omitted
-            entirely when no theme is published (both are "" then, same as fontFaceCss's preload guard
-            above). */
-        }
+        {/* Pull in root rules */}
         {(themeHead.fontFaceCss || themeHead.tokenCss) && <link rel="stylesheet" href="/theme-head.css" />}
-        {
-            /* Optional per-page head content beyond the above (e.g. EntityOgMeta, CompositorStyles). Kept
-            before the fused theme <style> below for readability, but this order is NOT load-bearing for
-            the cascade: CompositorStyles.astro's compositor.css reaches <head> via a plain side-effect
-            `import`, which Astro/Vite bundles into its own hashed `<link>` positioned by its static
-            CSS-extraction pass — independent of where this slot renders relative to the inline <style>
-            below. .cmp-columns' base rule is `:where()`-wrapped (compositor.css) specifically so the
-            @media override always wins on specificity regardless of which one the bundler emits first;
-            see that rule's comment for the live bug this replaced (confirmed on /privacy-policy: the
-            bundled <link> landed AFTER this inline <style> despite this source order). */
-        }
+        {/* Loads in optional components */}
         <slot name="head" />
-        {
-            /* The Columns single-column stacking breakpoint (always present — it replaces what used to be a
-            rule hardcoded into compositor.css, and is harmless on a page with no .cmp-columns element) and
-            the @view-transition rule (enabled by default, matching the site's original always-on
-            global.css rule; unsupported browsers just fall back to a normal navigation) — see themeCss
-            above for why these two stay inline instead of joining theme-head.css. Wins the cascade via
-            :where() on the base rule, not via this position — see the slot comment above. */
-        }
         <style set:html={themeCss}></style>
     </head>
     <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>

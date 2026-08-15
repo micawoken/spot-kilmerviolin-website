@@ -5,7 +5,7 @@
  * Catch-all route for CMS-authored public pages. Three published sources claim slugs: `pages`/`posts`
  * content types (posts under `/posts/`) and the compositor's `design_page` type. `route-authority.ts`
  * merges them, fails the build on any duplicate slug (one owner per path), and resolves each entry to
- * the design template it renders *through*, if it names one (D4). No template named → renders exactly
+ * the design template it renders *through*, if it names one (D4). No template named -> renders exactly
  * as it did before the compositor existed (D3) — designs are strictly opt-in.
  *
  * Prerendered: `getStaticPaths()` enumerates both sources at build time over EmDash's HTTP API (a
@@ -189,7 +189,7 @@ const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
                 (serialized) — rebuilt here from the serializable theme. "build" target swaps the two
                 editor-only fields for passthroughs so stored Portable Text reaches the renderer intact.
                 Entry context feeds the content outlets (D7): routed entry's fields for a templated
-                route, null for a design_page (outlets render nothing). No client directive → zero JS. */}
+                route, null for a design_page (outlets render nothing). No client directive -> zero JS. */}
             <Render
                 config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: props.entry,

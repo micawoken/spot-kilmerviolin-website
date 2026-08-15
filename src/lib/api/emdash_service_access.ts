@@ -1,27 +1,8 @@
 /**
  * lib/api/emdash_service_access.ts
  *
- * Allowlist of /_emdash paths a SERVICE credential may reach — the set delegated to EmDash's own auth
- * layer by src/middleware/identity.ts instead of taking the app identity flow. Applied by
- * src/middleware/emdash_access.ts.
+ * Allows EmDash service tokens to pass through for authentication
  *
- * Why this exists: identity.ts cannot represent a service credential (an EmDash PAT is not an Access JWT,
- * and an Access service-token JWT carries no email), so it sets `emdashServiceAuth` and hands the request
- * to EmDash. But EmDash evaluates `isPublicEmDashRoute` BEFORE `handleBearerAuth`
- * (node_modules/emdash/src/astro/middleware/auth.ts), so its anonymous-by-design routes — /api/setup*,
- * /api/auth/*, /api/oauth/*, /api/comments/, /api/search, /.well-known/ — never reach a token check at
- * all. EmDash ships those on the assumption that something fronts them; in this deployment the app
- * middleware IS that something. Delegating unconditionally therefore handed those routes, including the
- * CSRF-exempt POSTs that write to EMDASH_DB, to anyone presenting a Bearer header.
- *
- * DEFAULT-DENY: a path no rule matches is refused, so an EmDash route this deployment does not use stays
- * unreachable to a service credential even if EmDash later marks it public.
- *
- * The rules below are the calls lib/build/{emdash-api,design-api}.ts and tools/setup-design-collections.mjs
- * actually make; re-derive with `grep -rn "_emdash/api" src/lib/build tools`. Widening one to "make the
- * build work" re-opens the class — add the specific path instead.
- *
- * Kept separate from the middleware so it is testable as a pure function, no Astro/environment imports.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -46,9 +27,7 @@
 
 /**
  * EmDash credential token prefixes (node_modules/emdash/src/auth/api-tokens.ts): `ec_pat_` for personal
- * access tokens, `ec_oat_` for OAuth access tokens. A cheap early-out only — EmDash remains the authority
- * on whether a token is real, which is the documented intent of the delegation. The path allowlist below,
- * not this prefix, is what bounds a forged header.
+ * access tokens, `ec_oat_` for OAuth access tokens
  */
 const EMDASH_TOKEN_PATTERN = /^ec_(?:pat|oat)_[A-Za-z0-9_-]+$/
 
@@ -153,9 +132,8 @@ const SERVICE_RULES: readonly ServiceRule[] = [
 ]
 
 /**
- * Whether an /_emdash request is one a service credential (build reader or setup tool) legitimately makes.
- * Default-deny: an unmatched path is refused, which is what keeps EmDash's anonymous-by-design routes
- * unreachable through the delegation.
+ * Whether an /_emdash request is one a service credential (build reader or setup tool) legitimately makes;
+ * default-deny
  *
  * @param {string} method - the request method
  * @param {string[]} segments - the path components after "_emdash"

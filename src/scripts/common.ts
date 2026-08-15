@@ -538,7 +538,7 @@ export function errorMessage(error: unknown): string {
 /**
  * Renders an animated "Searching" progress indicator into a results container.
  *
- * The trailing ellipsis cycles 1 → 2 → 3 dots via the `.search-progress` CSS animation (defined in
+ * The trailing ellipsis cycles 1 -> 2 -> 3 dots via the `.search-progress` CSS animation (defined in
  * styles/admin-entities.css) to signal that a search is in flight. Replaces any existing content; it is
  * overwritten once results (or an error) arrive.
  *

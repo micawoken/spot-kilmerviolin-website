@@ -2,16 +2,7 @@
 /**
  * components/StaticBreadcrumbs.astro
  *
- * Breadcrumb nav for hand-authored (non-Puck) static pages — DatabaseRoot.astro, pages/search.astro, and
- * pages/search/advanced.astro all hardcode their own structure rather than reading it from a design/entity
- * template, so they cannot place the Puck `Breadcrumbs`
- * component (catalog.tsx) and instead share this one. Markup/CSS mirror that component's rendered output
- * (Home, then each ancestor crumb, then the current unlinked page) so spacing/treatment stays identical
- * between Puck-rendered and hand-authored pages.
- *
- * Props:
- * - crumbs (optional): ancestor crumbs between Home and the current page
- * - current (required): the current page's label, rendered as the trail's final unlinked crumb
+ * Auto-generates the breadcrumb based on the URL path
  *
  * Copyright (C) 2026 Michael Wong.
  *

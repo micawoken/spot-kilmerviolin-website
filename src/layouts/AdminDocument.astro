@@ -2,22 +2,8 @@
 /**
  * layouts/AdminDocument.astro
  *
- * Layout for standalone admin prose pages (the policy and legal pages under pages/admin). This
- * .astro layout is responsible for resolving the caller's identity from locals and rendering the
- * shared admin chrome (BaseHead, AdminHead, AdminHeader, AdminFooter) around the page's content,
- * which is projected through <slot />.
+ * General template used for admin pages
  *
- * Usage from an .astro page (server-rendered by default under output: "server", so the identity
- * middleware runs and populates Astro.locals.identity):
- *
- *   ---
- *   import AdminDocument from "../../layouts/AdminDocument.astro"
- *   ---
- *
- *   <AdminDocument title="Privacy Policy" description="How the administrative services collect and use your data">
- *       <h2>Privacy Policy</h2>
- *       ...content...
- *   </AdminDocument>
  *
  * Copyright (C) 2026 Michael Wong.
  *

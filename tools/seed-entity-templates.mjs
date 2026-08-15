@@ -217,7 +217,7 @@ if (isMainModule) {
         }
         if (expectOk && !response.ok) {
             const detail = JSON.stringify(json?.error ?? json)?.slice(0, 400)
-            console.error(`FAIL ${method} ${path} → ${response.status} ${response.statusText}  ${detail}`)
+            console.error(`FAIL ${method} ${path} -> ${response.status} ${response.statusText}  ${detail}`)
             process.exit(1)
         }
         return { status: response.status, json }

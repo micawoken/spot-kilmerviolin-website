@@ -2,11 +2,7 @@
  * lib/api/sanitize.ts
  *
  * Data-hygiene helpers shared by the server-side record validators (lib/api/d1.ts) and the client-side CSV
- * import pipeline (scripts/import_build.ts): control-character/whitespace cleanup, case-insensitive enum
- * canonicalization, tag-list hygiene, ISBN-13 preference, and the CSV-import-only pitch-range/position
- * cleanup helpers. Deliberately imports nothing server-only so it can be bundled client-side the same way
- * lib/api/validation.ts is.
- *
+ * import pipeline (scripts/import_build.ts)
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -44,9 +40,7 @@ function isControlCharacter(char: string): boolean {
 }
 
 /**
- * Strips non-printable control characters from a string (see {@link isControlCharacter}). Ordinary
- * whitespace (space, tab, newline, CR) is left untouched. Guards against stray characters a paste from a
- * PDF or spreadsheet can carry invisibly into stored text.
+ * Strips non-printable control characters from a string (see {@link isControlCharacter})
  *
  * @param value the candidate string
  * @returns the string with control characters removed
@@ -62,7 +56,7 @@ export function stripControlCharacters(value: string): string {
 }
 
 /**
- * Cleans a free-text value for storage: strips control characters, then trims leading/trailing whitespace.
+ * Cleans a free-text value for storage: strips control characters, then trims leading/trailing whitespace
  *
  * @param value the candidate string
  * @returns the cleaned string
@@ -74,8 +68,7 @@ export function cleanText(value: string): string {
 /**
  * Normalizes a string to Unicode NFC (canonical composition) so two visually-identical strings entered
  * with different Unicode compositions (e.g. a precomposed accented letter vs. the base letter plus a
- * combining accent) compare and dedupe as the same value. Applied to every stored name so a UNIQUE name
- * constraint (or its import-preview preflight) cannot be evaded by composition alone.
+ * combining accent) compare and dedupe as the same value
  *
  * @param value the candidate string
  * @returns the NFC-normalized string
@@ -86,9 +79,7 @@ export function normalizeUnicodeForm(value: string): string {
 
 /**
  * Case-insensitively matches `value` against a string enum's members and returns the member's canonical
- * (correctly-cased) form, or null when none match. Lets a closed-option field (e.g. a composition's `type`
- * or `key`, a composer's `role`) be entered in any casing while the stored value still matches the enum
- * exactly, without loosening the enum membership check itself.
+ * (correctly-cased) form, or null when none match
  *
  * @param value the candidate string
  * @param members the enum's string values (e.g. `Object.values(WorkType)`)
@@ -112,9 +103,7 @@ export interface TagHygieneResult {
 
 /**
  * Cleans a candidate tag list: strips control characters and trims each tag, drops blanks, and
- * case-insensitively deduplicates (the first-seen casing wins). Rejects — rather than silently
- * truncating — a list where any tag exceeds `maxTagLength` or the deduplicated count exceeds
- * `maxTagCount`, so an admin notices instead of losing a tag silently.
+ * case-insensitively deduplicates (the first-seen casing wins)
  *
  * @param raw the candidate tag strings
  * @param maxTagLength the maximum length of a single tag
@@ -148,7 +137,7 @@ export function sanitizeTags(raw: string[], maxTagLength: number, maxTagCount: n
 
 /**
  * Converts a checksum-valid ISBN-10 to its canonical ISBN-13 form (prefixed "978", with a recomputed check
- * digit), returned as 13 bare digits with no separators.
+ * digit), returned as 13 bare digits with no separators
  *
  * @param value the candidate ISBN (hyphens/spaces are ignored)
  * @returns the converted ISBN-13, or null when `value` is not a checksum-valid ISBN-10
@@ -169,8 +158,7 @@ export function isbn10To13(value: string): string | null {
 
 /**
  * Prefers ISBN-13 over ISBN-10: when `value` is a checksum-valid ISBN-10, returns its converted ISBN-13
- * form; otherwise returns `value` unchanged (including when it is already an ISBN-13, invalid, or not an
- * ISBN at all — this is a preference applied on top of validation, not a validator itself).
+ * form; otherwise returns `value` unchanged
  *
  * @param value the candidate ISBN
  * @returns the ISBN-13-preferring form
@@ -182,7 +170,7 @@ export function preferIsbn13(value: string): string {
 /**
  * Extracts the first run of digits in `text` as a number, or null when none is present. Used to pull a
  * number out of free text a spreadsheet cell was never meant to carry (e.g. "c. 1923" -> 1923, "Level 5
- * stars" -> 5) — CSV-import-only, since a purpose-built form field would just be typed correctly.
+ * stars" -> 5) — CSV-import-only, since a purpose-built form field would just be typed correctly
  *
  * @param text the candidate text
  * @returns the first embedded integer, or null if none is present
@@ -194,9 +182,7 @@ export function extractLeadingInt(text: string): number | null {
 
 /**
  * Splits `text` on runs of non-alphanumeric characters and returns the first resulting token for which
- * `isValid` returns true, or null if none qualifies. Unlike a substring search, this only considers whole
- * "words" (bounded by punctuation/whitespace), so a validator that would spuriously match a single letter
- * embedded in an unrelated word (e.g. the "I" inside "Position") never fires on that word as a whole.
+ * `isValid` returns true, or null if none qualifies
  *
  * @param text the candidate text
  * @param isValid the per-token acceptance test
@@ -216,13 +202,8 @@ export function extractFirstValidToken(text: string, isValid: (token: string) =>
 const LETTER_ORDER = ["C", "D", "E", "F", "G", "A", "B"] as const
 
 /**
- * Respells a double-sharp ("Fx3") or double-flat ("Fbb3") note — a shorthand `isValidPitchRange` does not
- * accept, since its pattern allows only a single accidental — to its diatonically nearest single-accidental
- * or natural spelling. A double-accidental always lands exactly a whole tone from its own letter, so it
- * always respells as the next (sharp) or previous (flat) diatonic letter: natural if that letter is a whole
- * tone away, otherwise that letter with a single matching accidental (e.g. F-double-sharp = G,
- * E-double-sharp = F#, C-double-flat = Bb). The octave carries across the B/C boundary when the respelling
- * crosses it (e.g. "Cbb4" -> "Bb3", "Bx3" -> "C#4"); no other letter pair crosses an octave.
+ * Respells a double-sharp ("Fx3") or double-flat ("Fbb3") note to enharmonic, since database doesn't
+ * support double sharp or flat
  *
  * @param note a single range endpoint (e.g. "Fx3")
  * @returns the respelled note (e.g. "G3"), or null when `note` is not a double-accidental note
@@ -248,10 +229,7 @@ export function respellDoubleAccidental(note: string): string | null {
 }
 
 /**
- * Cleans a range cell for validation (CSV-import-only): trims the string and each note component
- * (tolerating whitespace around the "-" separator that `isValidPitchRange`'s pattern does not), and
- * respells any double-accidental component via {@link respellDoubleAccidental}. The result still needs
- * `isValidPitchRange` — this only fixes formatting/spelling, not correctness (e.g. a non-note token).
+ * Cleans a range cell for validation (CSV-import-only)
  *
  * @param raw the candidate range cell (e.g. "g3 - a5" or "Fx3-A5")
  * @returns the cleaned range string

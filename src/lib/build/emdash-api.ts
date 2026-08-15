@@ -1,14 +1,7 @@
 /**
  * lib/build/emdash-api.ts
  *
- * Build-time HTTP reader for EmDash CMS content. Plain Node during `astro build` — no D1 binding, no
- * request context — so EmDash's request-scoped readers (`getEmDashCollection`/`getSiteSettings`/
- * `getMenu`, need AsyncLocalStorage + bound D1) don't work here; fetches over HTTP from the deployed
- * worker's own EmDash API instead. Auth: Cloudflare Access service token (EDITOR role) + optional PAT
- * fallback. Timeout rationale: {@link READ_TIMEOUT_MS}. Fail-loud policy: {@link CmsReadError}.
- *
- * Build-time env only (never wrangler runtime secrets/vars): CONTENT_API_BASE, CF_ACCESS_CLIENT_ID,
- * CF_ACCESS_CLIENT_SECRET, EMDASH_API_TOKEN (optional PAT fallback).
+ * Build-time HTTP reader for EmDash CMS content
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -32,12 +25,7 @@
  */
 
 /**
- * A published entry of a routed content collection (`pages` or `posts`): the fields the untemplated route
- * renders, plus what a design template needs to render it (the pivot's D4/D7 — an entry can name a
- * template that pulls its fields through outlets).
- *
- * One shape serves both collections. Where they differ, the reader normalizes (see
- * {@link fetchPublishedPosts}): a post's `excerpt` lands in `description`, and it has no `published_at`.
+ * A published entry of a routed content collection (`pages` or `posts`)
  */
 export interface BuildPage {
     /** the EmDash item id — what a `reference` field on another item points at */
@@ -51,16 +39,11 @@ export interface BuildPage {
     /** the authored publish date, or null when the field is blank */
     published_at: string | null
     /**
-     * The entry's whole raw data record. An outlet may bind ANY field of the collection, so the named
-     * fields above cannot be the only ones carried; they stay because the untemplated render path (D3)
-     * consumes exactly them, unchanged.
+     * The entry's whole raw data record
      */
     fields: Record<string, unknown>
     /**
-     * The `design` reference field: the `design_template` the entry renders through, or null when it
-     * names none. EmDash's reference field is a raw text box, so this holds whatever the author typed —
-     * either the template's **slug** (the human-readable key, e.g. "article") or its item **id**.
-     * `route-authority` resolves both (the key spaces are disjoint), so either works.
+     * The `design` reference field: the `design_template` the entry renders through, or null
      */
     designRef: string | null
 }
@@ -71,7 +54,7 @@ export interface BuildSettings {
     tagline?: string
 }
 
-/** A single primary-menu entry, as authored in EmDash → Menus. */
+/** A single primary-menu entry, as authored in EmDash -> Menus. */
 export interface BuildMenuItem {
     label: string
     url: string
@@ -90,8 +73,6 @@ function env(name: string): string | undefined {
 
 /**
  * Resolves the API base and auth headers from build env, or returns null when CONTENT_API_BASE is unset
- * (e.g. the bootstrap build before a worker exists). Trailing slashes on the base are trimmed so paths
- * concatenate cleanly.
  */
 function getConfig(): ApiConfig | null {
     const base = env("CONTENT_API_BASE")?.replace(/\/+$/, "")
@@ -114,23 +95,7 @@ function getConfig(): ApiConfig | null {
 let warnedUnconfigured = false
 
 /**
- * How long a single read may wait before the build gives up.
- *
- * This is sized against EmDash's WORST-CASE COLD START, not its typical response time (a healthy cold
- * init measures ~0.4s, and a warm one ~0). The first request into a cold worker isolate claims EmDash's
- * runtime init lock and every other request there queues behind it; a queued request only reclaims an
- * abandoned lock after RUNTIME_INIT_DEADLINE_MS (45s) and only gives up at its maxWait (60s) — see
- * node_modules/emdash/src/utils/init-lock.ts and astro/middleware.ts.
- *
- * Aborting below that budget is worse than slow: EmDash documents a client that disconnects mid-init as
- * poisoning the isolate — the lock's release never runs, so "every subsequent request in the isolate
- * hangs until the platform kills it". A 15s abort here therefore both failed the build AND left the CMS
- * unresponsive to everyone else until the isolate was evicted, which is the API "flapping" we chased.
- *
- * 75s clears the 60s ceiling with headroom. A build has no user waiting on it, so waiting a minute for a
- * cold CMS is strictly better than failing the deploy and degrading the live admin.
- *
- * Exported so a test can pin the invariant that matters — this must stay above EmDash's waiter budget.
+ * How long a single read may wait before the build gives up
  */
 export const READ_TIMEOUT_MS = 75_000
 
@@ -138,9 +103,7 @@ export const READ_TIMEOUT_MS = 75_000
 export const EMDASH_MAX_WAIT_MS = 60_000
 
 /**
- * Total attempts per read (one initial + two retries). Retries matter because a lock reclaim surfaces as
- * an error on the request that triggered it, while the isolate is healthy immediately afterwards — so the
- * next attempt succeeds. Only transient failures are retried (see isRetryable).
+ * Total attempts per read (one initial + two retries)
  */
 const READ_ATTEMPTS = 3
 
@@ -152,9 +115,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Whether a non-OK status is worth retrying. 5xx and 429 are transient (a cold or reclaiming isolate, a
- * throttle); a 4xx is a standing fact about the request — a bad token or a missing collection will read
- * exactly the same on the next attempt, so retrying only slows the build's failure down.
+ * Whether a non-OK status is worth retrying
  */
 function isRetryable(status: number): boolean {
     return status >= 500 || status === 429
@@ -163,16 +124,13 @@ function isRetryable(status: number): boolean {
 /** Options for a single read. */
 interface GetOptions {
     /**
-     * Treat a 404 as "there is nothing here" (returns null) rather than a failed read. Only for a
-     * collection whose *absence is a legitimate state* — e.g. `design_template` before the setup script
-     * has created it. Never for a collection the site's routes depend on.
+     * Treat a 404 as "there is nothing here" (returns null) rather than a failed read
      */
     allowMissing?: boolean
 }
 
 /**
- * Thrown when the CMS is configured but a read did not succeed. Distinct from "no CMS configured", which
- * is a legitimate state (the bootstrap build) and still returns null.
+ * Thrown when the CMS is configured but a read did not succeed. Distinct from "no CMS configured"
  */
 export class CmsReadError extends Error {
     constructor(path: string, reason: string) {
@@ -187,22 +145,9 @@ export class CmsReadError extends Error {
 }
 
 /**
- * GETs an EmDash API path and returns its `data` payload. EmDash wraps success responses as `{ data: T }`
- * (see src/api/error.ts apiSuccess); errors are `{ error: {...} }` with a non-2xx status.
+ * GETs an EmDash API path and returns its `data` payload
  *
- * Failure policy turns on whether a CMS was configured at all:
- *  - **No `CONTENT_API_BASE`** → returns null, with one warning. This is the bootstrap build (and CI's
- *    staging preview), where no worker exists to read from; the site builds with no content by design.
- *  - **Configured but the read failed** (network error, timeout, non-OK status) → **throws**. The CMS was
- *    expected to answer, and a soft fallback here silently drops published pages out of `dist/`, which a
- *    deploy then publishes over the live site. A loud build failure keeps the previous version serving.
- *
- * A transient failure is retried (see READ_ATTEMPTS); only the last reason reaches the thrown error.
- *
- * Exported for `design-api.ts`, which reads the compositor collections over the same authenticated API
- * and must not duplicate the config/auth/timeout/retry handling.
- *
- * @param path an absolute API path beginning with "/_emdash/api/…"
+ * @param path an absolute API path beginning with "/_emdash/api/..."
  * @param options see {@link GetOptions}
  * @throws {CmsReadError} when a configured CMS fails to answer the read
  */
@@ -277,10 +222,7 @@ export interface ApiListResult {
 }
 
 /**
- * Normalizes an EmDash slug to a catch-all route param: trims surrounding whitespace and slashes. Returns
- * null for a missing or empty slug (such an item cannot be routed and is skipped). Exported so design
- * pages normalize their slugs identically — the duplicate check in `route-authority.ts` is only sound if
- * both route sources agree on what a slug is.
+ * Normalizes an EmDash slug to a catch-all route param
  */
 export function normalizeSlug(slug: string | null): string | null {
     const trimmed = slug?.trim().replace(/^\/+|\/+$/g, "")
@@ -288,9 +230,7 @@ export function normalizeSlug(slug: string | null): string | null {
 }
 
 /**
- * Reads an EmDash `reference` field as the referenced item's id. A reference is stored as TEXT holding
- * that id, so anything else (absent, blank, a non-string) means "no reference" rather than a broken one.
- * Exported so every routed collection reads its `design` pointer identically.
+ * Reads an EmDash `reference` field as the referenced item's id
  */
 export function normalizeReference(value: unknown): string | null {
     if (typeof value !== "string") return null
@@ -300,15 +240,7 @@ export function normalizeReference(value: unknown): string | null {
 
 /**
  * Fetches every published entry of one routed content collection, following cursor pagination to
- * completion. The routable slug is EmDash's top-level item `slug`; an item without one cannot be reached
- * by any URL and is skipped rather than treated as fatal.
- *
- * The whole `data` record is carried through as `fields` (a template's outlets may bind any field), and
- * `design` is surfaced as `designRef` — the pivot's per-entry template pointer (D4).
- *
- * The two routed collections do not agree on which field holds the meta description, so that one key is a
- * parameter; everything else is read by the same name from both. A field the collection does not define
- * (`posts` has no `published_at`) simply reads as absent, which is the D3 render's "no value" state.
+ * completion
  *
  * @param {string} collection - the EmDash collection slug ("pages" or "posts")
  * @param {string} descriptionField - the field whose value becomes the page's meta description
@@ -348,13 +280,7 @@ async function fetchPublishedEntries(collection: string, descriptionField: strin
 }
 
 /**
- * Fetches every published `pages` entry. Field keys (title, description, content, published_at) mirror
- * the `pages` content type defined in the EmDash admin UI.
- *
- * Cached for the build's lifetime, same rationale as {@link fetchSettings}: `[...slug].astro`'s
- * `getStaticPaths` reads this directly, and {@link getPageHrefMap} (built lazily the first time a menu
- * references a page/post — so on most builds, the very first `getNav`/`getFooterNav` call) reads it
- * again — without a cache, one build fires that read twice.
+ * Fetches every published `pages` entry
  *
  * @returns {Promise<BuildPage[]>} the published pages to prerender, in API order
  */
@@ -367,19 +293,7 @@ export function fetchPublishedPages(): Promise<BuildPage[]> {
 let publishedPagesCache: Promise<BuildPage[]> | null = null
 
 /**
- * Fetches every published `posts` entry (pivot D8 — posts route through the same pipeline as pages).
- *
- * `posts` is shaped differently from `pages`: its blurb field is **`excerpt`**, and it has **no
- * `published_at`**, so a post carries no "last updated" date into the untemplated render. It does have a
- * `featured_image` — as does `pages` (added by `tools/setup-design-collections.mjs`'s `FIELD_ADDITIONS`)
- * — the only `image`-typed field either routed collection defines, bindable by a `ContentImage` outlet
- * and read directly by `route-authority.ts` for a routed page/post's `og:image`/`twitter:image`.
- *
- * The collection is read fail-LOUD (no `allowMissing`), like `pages` and unlike `design_template`: it is
- * an EmDash seed collection that exists in every environment, so a 404 here means the CMS is not the one
- * this build thinks it is, and quietly emitting a site with every post missing is the hazard #32 closed.
- *
- * Cached for the build's lifetime — same rationale as {@link fetchPublishedPages}.
+ * Fetches every published `posts` entry
  *
  * @returns {Promise<BuildPage[]>} the published posts to prerender, in API order
  */
@@ -392,16 +306,12 @@ export function fetchPublishedPosts(): Promise<BuildPage[]> {
 let publishedPostsCache: Promise<BuildPage[]> | null = null
 
 /**
- * Build-time cache of the General Settings read, for the same reason as {@link getPageHrefMap}: every
- * page's chrome (`PublicPage.astro`, `PublicHeader.astro`, `PublicFooter.astro`'s `getFooter()`) calls
- * this once per render, and `astro build` runs prerendering as one Node process — without this, a build
- * of N pages fires 3N redundant reads of the same, rarely-changing settings row.
+ * Build-time cache of the General Settings read, for the same reason as {@link getPageHrefMap}
  */
 let settingsCache: Promise<BuildSettings> | null = null
 
 /**
- * Fetches EmDash's built-in General Settings (title, tagline). Returns {} on any read failure so callers
- * apply their own defaults. Cached for the life of one build process (see {@link settingsCache}).
+ * Fetches EmDash's built-in General Settings (title, tagline)
  *
  * @returns {Promise<BuildSettings>} the resolved settings, or an empty object
  */
@@ -413,12 +323,7 @@ export function fetchSettings(): Promise<BuildSettings> {
 }
 
 /**
- * Single-menu envelope (see emdash `handleMenuGet`: `{ ...menu, items }`). Items are the RAW repository
- * rows, not the resolved-URL shape EmDash's own templates get from its request-scoped `getMenu()` — that
- * resolver runs against a live D1 handle and isn't reachable over this REST endpoint. A "custom" item
- * carries its href in `customUrl`; a reference item ("page"/"post"/"taxonomy"/"collection") carries only
- * `referenceCollection`/`referenceId` and needs a content lookup this reader performs itself for "page"
- * and "post" (see {@link getPageHrefMap}); other reference kinds are still dropped (see fetchMenu).
+ * Single-menu envelope (see emdash `handleMenuGet`: `{ ...menu, items }`)
  */
 interface ApiMenu {
     items?: Array<{
@@ -431,16 +336,7 @@ interface ApiMenu {
 }
 
 /**
- * Build-time cache of every published page/post id → its public href, keyed `"<collection>:<id>"`. Built
- * lazily the first time a menu names a "page" or "post" reference item (most menus are Custom URL only, so
- * this stays unbuilt for them) and reused for the rest of the build: `astro build` runs prerendering as one
- * Node process, and every page's `getNav`/`getFooterNav` call would otherwise re-read the whole `pages` and
- * `posts` collections from the CMS on every single page render.
- *
- * `referenceId` is the referenced entry's `translation_group` (see emdash's `resolveMenuItem`), not
- * necessarily its row id — but a fresh entry's `translation_group` defaults to its own id (emdash
- * content.ts: `let translationGroup: string = id`), and this project runs no i18n, so every entry is its
- * own translation group and `id` is the correct key.
+ * Build-time cache of every published page/post id
  */
 let pageHrefCache: Promise<Map<string, string>> | null = null
 
@@ -462,19 +358,7 @@ function getPageHrefMap(): Promise<Map<string, string>> {
 
 /**
  * Fetches the top-level items of a named EmDash menu, resolving each to a {label, href} the chrome can
- * render (a flat list ignores nested children). Two authoring shapes resolve:
- *  - **Custom URL** items use their typed-in `customUrl` directly.
- *  - **Page/Post reference** items resolve against the published `pages`/`posts` collections (see
- *    {@link getPageHrefMap}); a reference to a draft, deleted, or otherwise unpublished entry has no
- *    published href and is dropped, same as emdash's own live resolver would drop it.
- * Every other reference kind (taxonomy, custom-collection entries) is still dropped: resolving those needs
- * a content lookup this build-time reader doesn't perform. Author those as "Custom URL" in EmDash → Menus.
- *
- * Returns [] when the menu is missing or the read fails, so a site with no such menu authored simply
- * renders no links rather than failing the build.
- *
- * Cached per name for the life of one build process (see {@link getPageHrefMap}'s rationale — every
- * page's `getNav`/`getFooterNav` call would otherwise re-read and re-resolve the same menu once per page).
+ * render (a flat list ignores nested children)
  *
  * @param {string} name - the EmDash menu name (e.g. "primary" for the header, "footer" for the footer)
  * @returns {Promise<BuildMenuItem[]>} the menu's links in authored order

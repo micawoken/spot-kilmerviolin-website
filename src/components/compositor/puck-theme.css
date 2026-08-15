@@ -1,39 +1,8 @@
 /**
  * components/compositor/puck-theme.css
- *
- * Binds Puck's editor UI to this app's design tokens, so the third-party editor sits inside the admin
- * instead of being a light-only island floating in it.
- *
- * Puck 0.22 ships no dark mode: its stylesheet contains not one `prefers-color-scheme` rule, and its
- * palette is hardcoded light. But it is built in two layers — a primitive ramp (--puck-color-grey-01…12,
- * azure, rose) and a SEMANTIC layer (--puck-color-surface, -border, -text, -interactive, …) defined from
- * it — and every component rule in the stylesheet resolves through the semantic layer. Not one rule
- * reaches past it to a primitive. So restating the semantic tokens below is a COMPLETE theme: there is no
- * component left over to leak a light color. That is the whole reason this file can be short.
- *
- * WHY NO !important: Puck defines these inside `@layer puck-tokens`. Unlayered rules — like every rule
- * here — beat layered ones in the cascade outright, whatever the specificity or source order. If a
- * declaration below ever looks like it "isn't winning", the cause is a typo'd token name, not the
- * cascade. Do not reach for !important.
- *
- * Values come from the app's own palette (styles/global.css), whose light-dark() tokens already track the
- * user's scheme; mapping onto them is what makes the editor follow the rest of the admin rather than
- * needing a second, drifting palette. Where Puck needs a color the admin has no opinion on (its azure
- * interactive ramp, the focus ring), the light value is Puck's own and only the dark value is new — a
- * step LIGHTER on the ramp, because a mid-blue that reads as "primary" on white disappears on #1a1a1a.
- *
- * The surface trio is ordered to survive inversion: Puck nests surface → subtle → muted going gradually
- * DARKER on light. Our --shade-1/-2 invert with the scheme, so the same nesting goes gradually LIGHTER on
- * dark, which is the correct direction for elevation. Keep that ordering if you retune it.
- *
- * Scoped to :root, not .design-editor, deliberately: Puck portals its menus, modals and drag overlays to
- * document.body, outside our container, so a container-scoped token would not reach them. This file is
- * imported only by DesignEditor.tsx, so it only ever loads on a page that mounts Puck.
- *
- * COUPLING: these names are Puck's, and a Puck upgrade may rename or restructure them. On upgrade, re-run
- * the check that justified this file — that no component rule references a primitive directly:
- *   grep -o -- "[a-z-]*: *var(--puck-color-\(grey-[0-9]*\|white\|black\))" node_modules/@puckeditor/core/dist/index.css
- * Every hit should be a token definition. Any other hit is a rule this file cannot reach.
+ * 
+ * Connects the Puck editor UI (otherwise CSS light-mode) with the admin design system (CSS light-dark)
+ * 
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -58,36 +27,24 @@
 
 :root {
     /* Typeface. Puck already ASKS for Inter by name; it just never had the face, because edit.astro
-     * declares only what it loads. Restating the app's full admin stack here means the editor and the
-     * admin around it resolve to the same font instead of Puck landing on its own fallback chain. */
+     * declares only what it loads.*/
     --puck-font-family: "Inter", Helvetica, Arial, system-ui, sans-serif;
 
-    /* Surfaces: the editor chrome (sidebars, fields, panels). See the header on the nesting order. */
+    /* Surfaces: the editor chrome (sidebars, fields, panels) */
     --puck-color-surface: var(--color-bg);
     --puck-color-surface-subtle: var(--shade-1);
     --puck-color-surface-muted: var(--shade-2);
     /* The inverse surface is Puck's dark chip (the selected-component label, drag affordances). It is the
-     * one surface that must FLIP rather than track the scheme: on a dark page a near-black chip vanishes. */
+     * one surface that must flip */
     --puck-color-surface-inverse: light-dark(#181818, #efefef);
 
-    /* Borders. --shade-3 is the app's default divider and lands within a hair of Puck's own #dcdcdc on
-     * light, so light mode is visually unchanged; dark mode gets a border that is lighter than its
-     * surface instead of darker. --shade-6 (Puck's own choice here) falls under WCAG 1.4.11's 3:1
-     * non-text minimum against the editor's surfaces in light mode — border-hover marks a focused/
-     * hovered field, a real interactive affordance, so it's bumped to --shade-7, which clears 3:1 in
-     * both schemes. */
+    /* Borders. --shade-3 is the app's default divider, others are used for WCAG AA compliance*/
     --puck-color-border: var(--shade-3);
     --puck-color-border-muted: var(--shade-2);
     --puck-color-border-hover: var(--shade-7);
     --puck-color-border-inverse: var(--shade-7);
 
-    /* Text: the app's four-level hierarchy, mapped onto Puck's four. --puck-color-text-inverse rides on
-     * surface-inverse above, so it flips with it (reading --color-bg backwards is exactly right here).
-     * --puck-color-text-subtle maps to --color-text-muted, not a dimmer tier below it: Puck uses this
-     * token for real readable text (e.g. the outline panel's helper captions), and shade-7 — a plausible
-     * "one step dimmer than muted" choice — only reaches 3.54:1 in light mode, short of the 4.5:1 body-text
-     * minimum. The app's palette has nothing between --color-text-muted and a border-only shade, so
-     * "subtle" and "muted" render identically here rather than trade a WCAG failure for a fourth tier. */
+    /* Text: the app's four-level hierarchy, mapped onto Puck's four */
     --puck-color-text: var(--color-text);
     --puck-color-text-secondary: var(--color-text-secondary);
     --puck-color-text-muted: var(--color-text-muted);
@@ -95,19 +52,15 @@
     --puck-color-text-inverse: var(--color-bg);
 
     /* Disabled: a filled, low-contrast control. The point is that the label is HARD to read against its
-     * own fill, so keep these two close together in both schemes. */
+     * own fill */
     --puck-color-bg-disabled: var(--shade-4);
     --puck-color-text-disabled: var(--shade-7);
 
-    /* Interactive (primary buttons, links, active states). Light values are Puck's azure-04/-03/-02; the
-     * dark values step UP the same ramp (-06/-07/-08) so the blue keeps its contrast against a dark
-     * surface. Deliberately NOT --color-link: that token turns orange in dark for the public site's link
-     * styling, which would repaint the editor's primary button orange for no reason anyone chose. */
+    /* Interactive (primary buttons, links, active states) */
     --puck-color-interactive: light-dark(#0158ad, #6499cf);
     --puck-color-interactive-hover: light-dark(#014292, #88b0da);
     --puck-color-interactive-active: light-dark(#002c77, #abc7e5);
-    /* The soft/subtle tints are near-white washes on light (azure-10/-11/-12) used as hover fills, so on
-     * dark they must become near-black washes of the same hue, not lighten. */
+    /* The soft/subtle tints are near-white washes on light (azure-10/-11/-12) used as hover fills */
     --puck-color-interactive-subtle: light-dark(#e7eef7, #1c2c40);
     --puck-color-interactive-soft: light-dark(#f3f6fb, #16202e);
     --puck-color-interactive-soft-hover: light-dark(#f7faff, #1f2f44);

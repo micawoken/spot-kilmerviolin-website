@@ -1,6 +1,6 @@
 # Response headers for statically served assets. Workers Static Assets serves prerendered pages straight
 # from the ASSETS binding without invoking the worker, so the public site never passes through
-# src/middleware/headers.ts — everything below is the public site's only source of security headers, and
+# src/middleware/headers.ts - everything below is the public site's only source of security headers, and
 # the middleware covers the SSR surface (/admin, /api, /_emdash) alone. Keep the two in step.
 #
 # Strict-Transport-Security is deliberately absent: it is set zone-wide at Cloudflare, and repeating it
@@ -24,7 +24,7 @@
 #                              index with WebAssembly.instantiate in both the page and the worker (the
 #                              worker inherits this header, since its script is an asset too); the
 #                              Cloudflare Web Analytics beacon is pinned to its exact URL. NO
-#                              'unsafe-inline' — integrations/csp-guard.mjs enforces that no page emits
+#                              'unsafe-inline' - integrations/csp-guard.mjs enforces that no page emits
 #                              an inline script, and vite.build.assetsInlineLimit stops Astro creating one
 #  - style-src 'unsafe-inline' unavoidable: the compositor emits theme tokens through <style set:html> and
 #                              Astro inlines small scoped stylesheets. CSS injection is instead blocked at
@@ -33,7 +33,7 @@
 #                              values may name others; data: covers inline SVG placeholders
 #  - connect-src               'self' for Pagefind's index fetches; cloudflareinsights.com for the beacon,
 #                              which reports off-origin under a manual (non-auto-injected) embed
-#  - frame-ancestors 'none'    nothing frames the public site — the Puck canvas iframe lives inside /admin
+#  - frame-ancestors 'none'    nothing frames the public site - the Puck canvas iframe lives inside /admin
 #                              and renders srcdoc, which inherits rather than fetches a policy
 #  - base-uri/object-src 'none' and form-action 'self' close <base> hijacking, plugins, and repointing the
 #                              search forms at a third-party collector
@@ -42,7 +42,7 @@
 # default, which forces a revalidation round trip on every request. That's fine for HTML, but it breaks
 # self-hosted web fonts loaded via <link rel="preload"> + font-display: optional (theme-fonts.ts,
 # AdminTypeface.astro): optional's block period is only ~100ms, so a font that must round-trip a 304
-# before it can render randomly misses that window depending on network/connection-queue timing — "the
+# before it can render randomly misses that window depending on network/connection-queue timing - "the
 # font doesn't consistently appear, even on refresh". These filenames never change in place (theme fonts
 # are content-hashed off the remote Google Fonts URL; the vendored Inter files only change via a
 # new deploy under the same path), so it's safe to let the browser skip revalidation entirely.
@@ -50,12 +50,12 @@
   Cache-Control: public, max-age=31536000, immutable
 
 # Same reasoning as /fonts/* above: filenames are content-hashed (sha256 of the source EmDash media URL,
-# integrations/optimize-emdash-media.mjs), so a new image is always a new path — skipping revalidation is
+# integrations/optimize-emdash-media.mjs), so a new image is always a new path - skipping revalidation is
 # safe and removes a 304 round trip from every repeat view of a page carrying one of these images.
 /images/emdash/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Bundled src/files assets (integrations/optimize-files.mjs), published to /files/*. NOT content-hashed —
+# Bundled src/files assets (integrations/optimize-files.mjs), published to /files/*. NOT content-hashed -
 # the output keeps the source filename (photo.jpg -> files/photo.webp), so unlike /fonts/* and
 # /images/emdash/* above, the URL does not change when the file's content does. `immutable` here would let
 # a browser that cached an old version keep serving it for up to a year after a same-name replacement

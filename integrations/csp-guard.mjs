@@ -30,14 +30,14 @@
 // The public CSP is a static header in public/_headers, because prerendered pages are served straight
 // from the Workers ASSETS binding and never reach src/middleware/headers.ts. A static header carries no
 // per-build hash or nonce, so `script-src 'self'` means exactly that: any inline <script> or inline event
-// handler that reaches dist/client is dead code in production. That failure is silent — no build error,
-// no visible symptom beyond a control that quietly stops working — which is the same trap
+// handler that reaches dist/client is dead code in production. That failure is silent - no build error,
+// no visible symptom beyond a control that quietly stops working - which is the same trap
 // tests/admin-csp.test.ts guards on the admin side, where the CSP comes from middleware instead.
 //
 // Two checks, both against the emitted HTML rather than the sources, so they cannot be fooled by however
 // the markup was authored (component, integration, or Astro's own bundler inlining a small chunk):
 //
-//   1. no executable inline <script> — one without a `src`. JSON data blocks are exempt because CSP does
+//   1. no executable inline <script> - one without a `src`. JSON data blocks are exempt because CSP does
 //      not govern them; an inline importmap is NOT exempt, since script-src does govern those.
 //   2. no inline event-handler attribute (onclick=, onerror=, …), matched only inside an opening tag so
 //      prose or a code sample naming one is not a finding.

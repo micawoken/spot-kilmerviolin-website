@@ -2,23 +2,8 @@
 /**
  * components/AdminHead.astro
  *
- * Drop-in for the <head> of admin pages that render the entity components (Info / Form / List views
- * and the search boxes). It:
- *   - pulls in the admin-only stylesheet that styles those components,
- *   - loads the admin typeface via <AdminTypeface /> (the face plus its required preload), and
- *   - emits the noindex robots directive every admin page needs (so pages no longer repeat it).
+ * Loads admin-only head tags
  *
- * The typeface is a separate component because the visual editor needs it WITHOUT the entity styles;
- * see AdminTypeface.astro.
- *
- * Kept separate from BaseHead (and from the body-rendered AdminHeader) so this loads from the document
- * head and the public site does not ship the admin entity styles.
- *
- * It also suppresses EmDash's floating visual-editing toolbar. EmDash injects that toolbar into every SSR
- * HTML response for an authenticated editor (its request-context middleware runs on all non-/_emdash
- * routes and has no path-exclude option), so it would otherwise appear on the app's own admin pages, where
- * it is meaningless. The public site is prerendered — served as static assets that bypass the worker and
- * its middleware — so the toolbar never reaches public pages; only /admin needs this.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -53,10 +38,5 @@ import "../styles/admin-entities.css"
     }
 </style>
 
-{
-    /* Same-origin static file (public/js/emdash-toolbar-strip.js) via is:inline + src, NOT an Astro
-    <script>: the bundler inlines small Astro scripts directly into the document, which the admin CSP
-    (script-src 'self', no 'unsafe-inline'/nonce/hash) then blocks. An external same-origin script is
-    covered by 'self'. See components/AdminFooter.astro for the same pattern. */
-}
+{/* Strips the emdash admin toolbar on admin pages */}
 <script is:inline src="/js/emdash-toolbar-strip.js"></script>

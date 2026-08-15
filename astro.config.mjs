@@ -48,7 +48,7 @@ export default defineConfig({
         // Admin pages are prerendered too (Access-gated, not secret, but not public content either), so
         // the default crawl would otherwise list the entire admin route tree in the public sitemap.
         // /search and /search/advanced are excluded too: both render an empty static shell (results are
-        // client-side Pagefind/JSON-facet lookups, see PublicPage's `noindex` prop on those two pages) —
+        // client-side Pagefind/JSON-facet lookups, see PublicPage's `noindex` prop on those two pages) -
         // listing them would just spend crawl budget on a page with no server-rendered content.
         sitemap({
             filter: (page) => {
@@ -60,11 +60,11 @@ export default defineConfig({
         }),
         optimizeFiles(),
         // Re-encodes EmDash-sourced media (compositor Image/ContentImage/MediaText) referenced by the
-        // built HTML — EmDash's own uploads bypass optimizeFiles/optimizeImage entirely. See that file's
+        // built HTML - EmDash's own uploads bypass optimizeFiles/optimizeImage entirely. See that file's
         // header for why this runs as a post-build HTML rewrite rather than at render time.
         optimizeEmdashMedia(),
         // Resolves the published theme's self-hosted web fonts in a real-Node build hook, before the
-        // prerenderer's workerd instance starts — see integrations/theme-fonts.mjs for why.
+        // prerenderer's workerd instance starts - see integrations/theme-fonts.mjs for why.
         themeFonts(),
         react(),
         markdoc(),
@@ -72,7 +72,7 @@ export default defineConfig({
         cspGuard(),
         // EmDash runs alongside the existing flat-file content readers during the staged migration; it does
         // not manage any route we render ourselves. Auth is delegated to Cloudflare Access (the same policy
-        // the worker manages via src/lib/api/access_iam_mgmt.ts) — passkeys are disabled. audienceEnvVar
+        // the worker manages via src/lib/api/access_iam_mgmt.ts) - passkeys are disabled. audienceEnvVar
         // reads the existing CF_ACCESS_AUD var at runtime (the recommended pattern for Workers). No
         // worker_loaders/sandbox block: plugins are out of scope, so this stays on the Cloudflare free plan.
         // On top of this Access authentication, src/middleware/emdash_access.ts authorizes /_emdash
@@ -88,13 +88,13 @@ export default defineConfig({
             // KV object cache for EmDash's own request-time reads. Public pages and chrome are now
             // prerendered (read at build over the HTTP API, not from D1 at request time), so this no longer
             // sits on the public hot path; it still caches EmDash's admin/preview reads. Reuses the existing
-            // KV_DB_CACHE namespace — EmDash namespaces its own keys; preview/visual-edit requests bypass it.
+            // KV_DB_CACHE namespace - EmDash namespaces its own keys; preview/visual-edit requests bypass it.
             objectCache: kvCache({ binding: "KV_DB_CACHE" }),
             auth: access({
                 teamDomain: "nrnnet.cloudflareaccess.com",
                 audienceEnvVar: "CF_ACCESS_AUD",
                 // EmDash Role.EDITOR. Must be set explicitly: the adapter's default is 30, which its own
-                // doc comment mislabels as "Editor" — 30 is AUTHOR, and EDITOR is 40. At 30 a CMS editor
+                // doc comment mislabels as "Editor" - 30 is AUTHOR, and EDITOR is 40. At 30 a CMS editor
                 // can only touch content they authored, and `schema:read` (Editor+) is denied, which 403s
                 // the design editor's outlet field pickers (they list the collection's fields). Everyone
                 // reaching /_emdash has already passed the cms_editor gate in middleware/emdash_access.ts,
@@ -124,11 +124,11 @@ export default defineConfig({
             // Astro inlines a page <script> straight into the HTML when its bundled chunk imports nothing
             // and falls under this limit (astro/core/build/plugins/plugin-scripts.js). The public site's
             // CSP is a static header in public/_headers, so it can carry no per-build hash and an inline
-            // script is simply blocked — which is how the header search toggle was shipping. Refusing to
+            // script is simply blocked - which is how the header search toggle was shipping. Refusing to
             // inline JS keeps every script an external same-origin module that `script-src 'self'` admits.
             //
             // The `.length < 4096` branch restates Vite's own DEFAULT_ASSETS_INLINE_LIMIT: returning
-            // undefined would make Astro's stylesheet path compare against `Number(fn)` — NaN — and stop
+            // undefined would make Astro's stylesheet path compare against `Number(fn)` - NaN - and stop
             // inlining every small stylesheet as a side effect.
             assetsInlineLimit: (filePath, content) =>
                 filePath.endsWith(".js") ? false : content.length < 4096
