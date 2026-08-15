@@ -419,7 +419,7 @@ export function BorderSwatches({ borders }: { borders: Row[] }) {
                         }}
                     />
                     <span className="theme-preview__caption">
-                        {token.name} -> {token.colorRef || "—"}
+                        {token.name} → {token.colorRef || "—"}
                     </span>
                 </div>
             ))}
