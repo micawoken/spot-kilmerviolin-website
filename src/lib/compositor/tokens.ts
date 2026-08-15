@@ -94,7 +94,7 @@ export interface ButtonVariantToken {
     paddingY: string
 }
 
-interface WebFont {
+export interface WebFont {
     /** the family name exactly as Google Fonts lists it, e.g. "Inter" or "Playfair Display" */
     family: string
     /** the weights to load; defaults to [400] when empty. Non-integer or out-of-range weights are dropped. */
