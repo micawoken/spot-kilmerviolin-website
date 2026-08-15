@@ -1,14 +1,7 @@
 /**
  * lib/build/entity-meta.ts
  *
- * Meta-description generator for entity detail pages (`pages/entity/[noun]/[id].astro`). Those pages
- * previously passed no `description` to `PublicPage`, so every composer/work/contributor page fell
- * through to the site-wide tagline (EmDash General Settings) instead of anything specific to the
- * record — this module gives each one a real, per-record description.
- *
- * Prefers the record's own free text (bio / historical notes) when present, truncated to a
- * search-result-friendly length; otherwise builds a short sentence from the record's structured fields
- * so a page is never left with nothing more specific than the site tagline.
+ * Meta-description generator for entity detail pages (`pages/entity/[noun]/[id].astro`)
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -35,8 +28,7 @@ import { countryCodeName, titleCaseRole } from "../../scripts/format"
 import { isRecord } from "../compositor/types"
 import type { EntityNoun } from "../compositor/entity-fields"
 
-// Google/Facebook truncate a meta description around this length; matches the truncation length the
-// rest of the codebase has no existing constant for, chosen to match common social/search practice.
+// Google/Facebook truncate a meta description around this length
 const DESCRIPTION_MAX_LENGTH = 160
 
 /** Trims and truncates free text to a search/social-friendly length, adding an ellipsis only when text

@@ -428,7 +428,7 @@
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
-/* One row: the page-switch link ("Advanced search →" / "← Back to search") on the left, the jump summary
+/* One row: the page-switch link ("Advanced search ->" / "← Back to search") on the left, the jump summary
  * pushed right. Stacked, the two read as a pair of identical links with no cue that they do different
  * things — one navigates away, the other moves you down the page you are already on.
  *

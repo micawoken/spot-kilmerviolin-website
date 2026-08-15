@@ -68,7 +68,7 @@ export const prerender = true
         }
         <div class="search-actions">
             <p class="search-advanced-link">
-                <a href="/search/advanced" id="search-advanced-link">Advanced search →</a>
+                <a href="/search/advanced" id="search-advanced-link">Advanced search ->></a>
             </p>
             <p id="search-jump" class="search-jump" hidden></p>
         </div>
@@ -391,7 +391,7 @@ export const prerender = true
 
                 const next = document.createElement("button")
                 next.type = "button"
-                next.textContent = "Next →"
+                next.textContent = "Next ->>"
                 next.disabled = pageWindow.page >= pageWindow.totalPages
                 next.addEventListener("click", () => goTo(withPage(params, pageWindow.page + 1)))
                 nav.appendChild(next)

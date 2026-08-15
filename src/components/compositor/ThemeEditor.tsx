@@ -58,10 +58,10 @@ import "./design-editor.css"
 // Vite `?raw` yields the file's text, same mechanism as DesignEditor.tsx's Puck canvas iframe. Styles
 // the live preview specimens below via a plain `<style>` in the admin document (admin CSP allows
 // `style-src 'self' 'unsafe-inline'`). stripCssComments keeps the source files' dev comments out of that
-// document — see lib/compositor/css.ts.
+// document - see lib/compositor/css.ts.
 import { stripCssComments } from "../../lib/compositor/css"
 import rawCompositorCss from "../../lib/compositor/compositor.css?raw"
-// The PagefindSearch component's shared form styles (styles/search-form.css) — same `?raw` route, since
+// The PagefindSearch component's shared form styles (styles/search-form.css) - same `?raw` route, since
 // a bare `@import` in compositorCss would not survive that transform.
 import rawSearchFormCss from "../../styles/search-form.css?raw"
 
@@ -75,7 +75,7 @@ type Row = Record<string, string>
 
 /**
  * A web-font row. Fonts aren't tokens (not a `TokenKind`), so they sit beside the kind-keyed rows,
- * edited/serialized separately. `weights` is comma-separated in the form, parsed to `number[]` on save —
+ * edited/serialized separately. `weights` is comma-separated in the form, parsed to `number[]` on save -
  * storing it as a string would fail `isTokenCatalog` and unstyle every design page.
  */
 interface FontRow {
@@ -85,7 +85,7 @@ interface FontRow {
 
 /**
  * Site Chrome roles as edited: every role a plain string field, `""` meaning unset. Excludes deprecated
- * `horizontalSpace` — a read-only migration source (see `toEditable`), never a form field.
+ * `horizontalSpace` - a read-only migration source (see `toEditable`), never a form field.
  */
 type SiteChromeRow = Record<Exclude<keyof SiteChromeRoles, "horizontalSpace">, string>
 
@@ -167,18 +167,18 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     { key: "hairlineBorder", label: "Hairline border", kind: "borders" },
     {
         key: "headingTypography",
-        label: "Page heading (static pages, Portable Text — Puck page titles use their own Heading field instead)",
+        label: "Page heading (static pages, Portable Text - Puck page titles use their own Heading field instead)",
         kind: "typography"
     },
     {
         key: "paragraphTypography",
-        label: "Paragraph spacing (gap between RichText paragraphs/headings/code blocks, and between stacked components generally — unset uses each container's own built-in gap, unaffected by ContentField's label/value stacking)",
+        label: "Paragraph spacing (gap between RichText paragraphs/headings/code blocks, and between stacked components generally - unset uses each container's own built-in gap, unaffected by ContentField's label/value stacking)",
         kind: "typography"
     },
     { key: "horizontalSpaceInset", label: "Page edge inset (header, footer)", kind: "space" },
     {
         key: "horizontalSpaceContentInset",
-        label: "Main content inset (article body, cmp-section, static pages — independent of the page edge inset above)",
+        label: "Main content inset (article body, cmp-section, static pages - independent of the page edge inset above)",
         kind: "space"
     },
     {
@@ -218,7 +218,7 @@ const SITE_CHROME_ROLES: Array<{ key: keyof SiteChromeRow; label: string; kind: 
     },
     {
         key: "verticalSpaceStatic",
-        label: "Static-page nudge (added on top of Section rhythm above — entity/database index, search, search/advanced only)",
+        label: "Static-page nudge (added on top of Section rhythm above - entity/database index, search, search/advanced only)",
         kind: "space"
     }
 ]
@@ -233,7 +233,7 @@ const HORIZONTAL_SPACE_ROLE_KEYS = new Set<keyof SiteChromeRow>([
 /** Candidate names to auto-suggest for a Site Chrome role when the catalog never set `siteChrome`
  * (predates the feature). Each role tries candidates in order, takes the first present in the catalog;
  * no match leaves it unset rather than guessing wrong. Mirrors the magic names hardcoded in
- * `public-chrome.css`/`search.astro` before Site Chrome existed — a one-time migration aid, not a
+ * `public-chrome.css`/`search.astro` before Site Chrome existed - a one-time migration aid, not a
  * permanent default. */
 const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     pageBackground: ["parchment", "paper"],
@@ -244,17 +244,17 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
     footerBackground: ["surface"],
     hairlineBorder: ["hairline"],
     headingTypography: ["display"],
-    // Brand new role — RichText's paragraphs and the component-stack gap had no themed value at all
+    // Brand new role - RichText's paragraphs and the component-stack gap had no themed value at all
     // before this shipped, so there is no prior magic name to migrate from.
     paragraphTypography: [],
     // No legacy magic name for these: an old singular `horizontalSpace` value is handled separately in
     // toEditable (seeds all three), not via this candidate list.
     horizontalSpaceInset: [],
-    // Brand new role, split out from horizontalSpaceInset — no prior dial of any kind to migrate from.
+    // Brand new role, split out from horizontalSpaceInset - no prior dial of any kind to migrate from.
     horizontalSpaceContentInset: [],
     horizontalSpaceItemGap: [],
     horizontalSpaceControl: [],
-    // No legacy name or prior singular dial for vertical roles either — ship split from the start.
+    // No legacy name or prior singular dial for vertical roles either - ship split from the start.
     verticalSpaceSection: [],
     verticalSpaceHeader: [],
     verticalSpaceFooter: [],
@@ -267,7 +267,7 @@ const LEGACY_CHROME_NAME_CANDIDATES: Record<keyof SiteChromeRow, string[]> = {
 function toEditable(catalog: TokenCatalog): EditableCatalog {
     const rows: Partial<Record<TokenKind, Row[]>> = {}
     for (const section of SECTIONS) {
-        // Rows are edited generically (kind → fields), so token unions are read as bags of fields —
+        // Rows are edited generically (kind -> fields), so token unions are read as bags of fields -
         // every read below is typeof-guarded, widening away the union safely. `?? []` covers optional
         // kinds (buttonVariants) absent from a theme predating them.
         rows[section.kind] = ((catalog[section.kind] ?? []) as unknown as Array<Record<string, unknown>>).map((token) => {
@@ -296,7 +296,7 @@ function toEditable(catalog: TokenCatalog): EditableCatalog {
         SITE_CHROME_ROLES.map(({ key, kind }) => {
             if (chrome?.[key]) return [key, chrome[key]]
             // One-time migration: a catalog predating the horizontalSpace split has only the singular
-            // value — seed all three roles from it so an already-configured theme doesn't silently revert
+            // value - seed all three roles from it so an already-configured theme doesn't silently revert
             // to the built-in fallback. Only fires while split roles are unset; Save always rewrites
             // siteChrome from the rows (see toCatalog), so the legacy value is never read again.
             if (HORIZONTAL_SPACE_ROLE_KEYS.has(key) && chrome?.horizontalSpace) return [key, chrome.horizontalSpace]
@@ -402,7 +402,7 @@ async function fetchTheme(): Promise<{ id: string; catalog: TokenCatalog; rev: s
 /** The design collections whose token references the usage scan counts. Drafts count too (see below). */
 const USAGE_COLLECTIONS = ["design_page", "design_template"] as const
 
-/** Scans every design (pages and templates, INCLUDING drafts — a draft referencing a token breaks the
+/** Scans every design (pages and templates, INCLUDING drafts - a draft referencing a token breaks the
  * moment it's published) for token references, so the editor can show how many designs a rename/removal
  * would strip. Fail-soft: a read error propagates to the caller, which falls back to the static warning
  * rather than breaking the editor over a lost advisory count. */
@@ -460,7 +460,7 @@ function loadCollapsedSections(): Set<string> {
 }
 
 /** A section's clickable heading: chevron + `<h3>`, toggling collapsed state. Button spans the whole
- * header, not a small icon target — the point: this page is long, needs coarse, fast-to-hit collapse. */
+ * header, not a small icon target - the point: this page is long, needs coarse, fast-to-hit collapse. */
 function SectionHeader({ id, title, open, onToggle }: { id: string; title: string; open: boolean; onToggle: (id: string) => void }) {
     return (
         <button
@@ -487,7 +487,7 @@ export default function ThemeEditor() {
     const [editable, setEditable] = useState<EditableCatalog | null>(null)
     const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
     const [message, setMessage] = useState("")
-    // `"<kind>:<name>"` → design labels using that token; null until the scan succeeds — editor falls
+    // `"<kind>:<name>"` -> design labels using that token; null until the scan succeeds - editor falls
     // back to the static rename warning (fetchDesignUsage is fail-soft).
     const [usage, setUsage] = useState<Map<string, string[]> | null>(null)
     // Backup/restore status, shown beside the export/import buttons; null before either is used.
@@ -504,11 +504,11 @@ export default function ThemeEditor() {
         }
     })
     // Which sections are collapsed, keyed by SECTION_IDS; persisted like rawMode above. Absent (not in
-    // the set) means expanded — the default for a first-time visitor.
+    // the set) means expanded - the default for a first-time visitor.
     const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsedSections)
 
     // Live preview CSS: the in-progress edit converted to a catalog, emitted as `--dtk-*` properties plus
-    // the same stylesheet real design pages use — recomputed on every edit so a specimen always reflects
+    // the same stylesheet real design pages use - recomputed on every edit so a specimen always reflects
     // current form state, not the last save.
     const previewCss = useMemo(() => {
         if (!editable) return ""
@@ -600,7 +600,7 @@ export default function ThemeEditor() {
     const usageLabels = (kind: TokenKind, name: string): string[] => (name ? (usage?.get(`${kind}:${name}`) ?? []) : [])
 
     const removeRow = (kind: TokenKind, index: number) => {
-        // Naming which designs would lose the style is the point of the scan (§3.1) — a silent removal
+        // Naming which designs would lose the style is the point of the scan (§3.1) - a silent removal
         // is what the static warning could never prevent. Only guard when uses are actually known.
         const name = editable[kind][index]?.name ?? ""
         const labels = usageLabels(kind, name)
@@ -617,8 +617,8 @@ export default function ThemeEditor() {
     }
 
     // Switches the theme between adaptive (each color a light-dark pair) and fixed (single value),
-    // rewriting every color to match. adaptive→fixed drops each dark channel — confirms first, points at
-    // the JSON backup. fixed→adaptive is non-destructive (seeds dark = light, editable after).
+    // rewriting every color to match. adaptive->fixed drops each dark channel - confirms first, points at
+    // the JSON backup. fixed->adaptive is non-destructive (seeds dark = light, editable after).
     const changeColorScheme = (next: "adaptive" | "fixed") => {
         if (!editable || editable.colorScheme === next) return
         if (next === "fixed") {
@@ -709,7 +709,7 @@ export default function ThemeEditor() {
                             {section.fields.map((field) =>
                                 field.valueType === "boolean" ? (
                                     // A boolean field's checkbox + caption are one control, not
-                                    // caption-over-cell — matches .design-editor__checkbox's inline
+                                    // caption-over-cell - matches .design-editor__checkbox's inline
                                     // label+input elsewhere.
                                     <label className="theme-editor__field theme-editor__checkbox" key={field.key}>
                                         <CellControl
@@ -727,7 +727,7 @@ export default function ThemeEditor() {
                                     <div className="theme-editor__field" key={field.key}>
                                         <span className="theme-editor__field-label">{field.label}</span>
                                         <span className="theme-editor__cell">
-                                            {/* Friendly color control shows its own picker swatches — row
+                                            {/* Friendly color control shows its own picker swatches - row
                                                 swatch is only the raw view's preview. */}
                                             {field.color && (rawMode || field.control !== "color") && (
                                                 <span
@@ -841,7 +841,7 @@ export default function ThemeEditor() {
         )
     }
 
-    // Downloads current editor state (normalized catalog, not necessarily published) as JSON — a manual
+    // Downloads current editor state (normalized catalog, not necessarily published) as JSON - a manual
     // snapshot, since the theme is a singleton with no version history. Object URL revoked right after
     // the synthetic click; img-src blob: already covers it under the CSP.
     const exportJson = () => {
@@ -857,7 +857,7 @@ export default function ThemeEditor() {
         setIoStatus({ text: "Exported the current editor state to a JSON file.", error: false })
     }
 
-    // Loads an exported file INTO the editor (doesn't save) — user reviews then Saves/Publishes.
+    // Loads an exported file INTO the editor (doesn't save) - user reviews then Saves/Publishes.
     // Validated with the same isTokenCatalog guard the build uses, so a malformed file is rejected
     // before replacing good rows. Parse/validation failures are reported, editor left untouched.
     const importJson = async (file: File) => {
@@ -933,7 +933,7 @@ export default function ThemeEditor() {
 
     return (
         <div className="theme-editor">
-            {/* Scoped by class (`.cmp-*`) and `--dtk-*` namespace — nothing here collides with admin
+            {/* Scoped by class (`.cmp-*`) and `--dtk-*` namespace - nothing here collides with admin
                 chrome styles. Powers every specimen below. */}
             <style dangerouslySetInnerHTML={{ __html: previewCss }} />
             <div className="theme-editor__viewbar">
@@ -963,7 +963,7 @@ export default function ThemeEditor() {
             )}
             {usage === null && (
                 <p className="general-warning">
-                    Renaming or removing a token breaks any design that references the old name — that style is lost until
+                    Renaming or removing a token breaks any design that references the old name - that style is lost until
                     the design is updated. Changes apply to published pages only after you publish and rebuild.
                 </p>
             )}
@@ -1045,7 +1045,7 @@ export default function ThemeEditor() {
                 />
                 {!collapsed.has("site-chrome") && <>
                 <p className="theme-editor__hint">
-                    Control which colors, borders, and typography are connected to which interface components — including
+                    Control which colors, borders, and typography are connected to which interface components - including
                     the public site frame's page heading (pre-generated static pages, Portable Text pages/posts).
                 </p>
                 {renderChromeRoleTable(SITE_CHROME_ROLES.filter((role) => role.kind !== "space"))}

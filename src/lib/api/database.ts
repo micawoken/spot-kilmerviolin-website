@@ -58,72 +58,6 @@ import { invalidateIdentityCache } from "./authorize.ts"
 
 // in general, authorization is managed by the API endpoint, so no identity checks are made in this module
 
-/*
- * SQLITE TABLE SPEC
- *
- * CONTRIBUTORS:
- * contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
- * name TEXT UNIQUE NOT NULL,
- * class_year INTEGER, // nullable
- * major TEXT, // nullable
- * phases TEXT // comma-separated list of phase numbers; nullable
- * bio TEXT,
- * public_email TEXT,
- * identity_email TEXT UNIQUE NOT NULL,
- * active INTEGER NOT NULL, // 0 or 1
- * roles TEXT NOT NULL, // comma-separated list of role names
- * admin INTEGER NOT NULL, // 0 or 1
- * image TEXT // URL to contributor image
- * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
- * change_date INTEGER // epoch milliseconds; last-modified date, hidden from users and managed by business logic
- *
- * COMPOSERS:
- * composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
- * name TEXT UNIQUE NOT NULL,
- * role TEXT NOT NULL,
- * birth_year INTEGER NOT NULL,
- * death_year INTEGER NOT NULL, // -1 is defined as not dead
- * country TEXT NOT NULL, // ISO 3166-1 alpha-2 country code, validated on the client and server (see lib/api/validation.ts)
- * bio TEXT,
- * image TEXT, // refers to a file in assets, or an external URL
- * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
- * change_date INTEGER // epoch milliseconds; last-modified date, hidden from users and managed by business logic
- *
- * COMPOSITIONS:
- * composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
- * name TEXT NOT NULL,
- * composer_id INTEGER NOT NULL, // see foreign key constraint later
- * contrib_primary_1 INTEGER NOT NULL, // primary contributor; see foreign key constraint later
- * contrib_primary_2 INTEGER, // second primary contributor; see foreign key constraint later
- * contrib_addl TEXT, // comma-separated list of additional contributors; foreign key enforcement is not used here, but it is checked programmatically
- * author_secondary TEXT, // comma-separated list of secondary composers
- * type TEXT NOT NULL,
- * part TEXT,
- * rating_suzuki INTEGER,
- * rating_nyssma INTEGER,
- * publish_location TEXT NOT NULL,
- * publish_name TEXT NOT NULL,
- * publish_year INTEGER NOT NULL,
- * uri_type TEXT NOT NULL, // https, isbn, or other
- * uri TEXT,
- * key TEXT,
- * range TEXT,
- * position_highest TEXT, // integer as roman numerals
- * notes_pedagogical TEXT,
- * notes_historical TEXT,
- * notes_other TEXT,
- * image TEXT,
- * phases TEXT NOT NULL, // comma-separated list of phase numbers
- * tags TEXT, // comma-separated list of tags for filtering and search
- * entry_date INTEGER NOT NULL, // epoch milliseconds; creation date, hidden from users and managed by business logic
- * change_date INTEGER, // epoch milliseconds; last-modified date, hidden from users and managed by business logic
- * FOREIGN KEY (composer_id) REFERENCES COMPOSERS(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- * FOREIGN KEY (contrib_primary_1) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- * FOREIGN KEY (contrib_primary_2) REFERENCES CONTRIBUTORS(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
- */
-
 /**
  * Purges the KV caching layer
  *
@@ -172,22 +106,12 @@ export async function purgeCacheAll(kv_fixed: boolean = true): Promise<boolean> 
 }
 
 /**
- * The storage tiers a read can be served from, ordered cheapest/fastest first. D1 is the authoritative
- * source of truth; the Cache API and KV are accelerators layered in front of it. Used to report which
- * tier served a request as the system degrades across usage limits.
+ * The storage tiers a read can be served from, ordered cheapest/fastest first and expensive/authoritative last
  */
 type StorageTier = "cache-api" | "kv" | "d1"
 
 /**
- * Heuristically classifies whether an error reflects a Cloudflare usage-limit, rate-limit, or quota
- * condition (the free-plan D1/KV caps this module degrades around) rather than a genuine fault such as
- * malformed SQL or bad data.
- *
- * Cloudflare reports these conditions as ordinary Errors whose message — sometimes only the nested
- * `cause` — carries the detail, so the whole chain is flattened and scanned for the vocabulary these
- * limits surface with. Classification is deliberately inclusive: skipping a tier we could have used is
- * cheap and self-correcting, whereas the authoritative D1 path never relies on this to swallow real
- * errors (it only uses it to decide whether a degraded whole-table fallback is worth attempting).
+ * Classifies whether an error relates to storage capacity (which can be cured by deleting files)
  *
  * @param error the thrown value to classify
  * @returns whether the error should be treated as a recoverable capacity condition
@@ -214,10 +138,7 @@ function isCapacityError(error: unknown): boolean {
 }
 
 /**
- * Schedules a best-effort cache write whose failure must never reach the caller. Populating or
- * invalidating the Cache API and KV is purely an optimization, so if the destination tier is over its
- * usage limit (or fails for any other reason) the error is logged and dropped rather than turning a
- * successful read or write into a failure.
+ * Schedules a best-effort cache write
  *
  * @param ctx the Worker ExecutionContext, used to keep the write alive past the response
  * @param operation the cache-population/invalidation operation to run
@@ -232,7 +153,7 @@ function _backfill(ctx: ExecutionContext, operation: () => Promise<unknown>): vo
 
 /**
  * Coerces a value pulled from a cache tier into table rows, tolerating both the bare-array shape this
- * module writes and the legacy `{ results: [...] }` shape older entries may still carry.
+ * module writes and the legacy `{ results: [...] }` shape
  *
  * @param value the raw cached value
  * @returns the rows, or null if the value is empty or not row-shaped
@@ -255,14 +176,7 @@ function _asRows(value: unknown): Record<string, string | number | null>[] | nul
 
 /**
  * Resolves the full contents of a table for virtual execution, degrading gracefully across storage
- * tiers as usage limits are hit.
- *
- * Tiers are consulted cheapest-first — Cache API, then KV, then an authoritative D1 table read. The two
- * cache tiers are pure accelerators, so any failure reading them (a usage limit, a malformed entry, a
- * parse error) is logged and skipped rather than propagated. Only the final D1 read is authoritative: if
- * it too fails there is nowhere left to fall back to and the error propagates (all options exhausted).
- * Whenever the data comes from a slower tier, the faster tiers are backfilled best-effort so subsequent
- * reads stay cheap.
+ * tiers as usage limits are hit
  *
  * @param table the table name to resolve
  * @param long whether to cache the table under the long Cache API policy
@@ -307,11 +221,7 @@ async function _resolveTable(
 }
 
 /**
- * Reads a query result cached under its statement identifier from the Cache API.
- *
- * Identifier-keyed results live only in the Cache API (they are never written to KV), so unlike
- * full-table resolution this consults a single tier — and avoids spending a metered KV read on a key
- * that can never be present. A read failure is treated as a miss so the caller falls through to D1.
+ * Reads a query result cached under its statement identifier from the Cache API
  *
  * @param identifier the statement identifier (see SQLStatement.identifier)
  * @returns the cached rows, or null on a miss or read failure
@@ -420,11 +330,6 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
 /**
  * Invalidate the caches backing a table after a successful write.
  *
- * Evicts the KV backing store and the per-table Cache API entry (both best-effort via _backfill, so a
- * failed eviction never fails the write; entries also expire via TTL). A contributor write additionally
- * drops authorize.ts's per-isolate identity cache synchronously (see invalidateIdentityCache), since it
- * may change authorization-relevant fields or the identity_email mapping. Shared by the single-write
- * path in _exec_wrap and the batch-write path in _addPrimitiveBatch so both stay consistent.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param tableName the name of the table that was written (a D1Schema.name)
@@ -492,17 +397,8 @@ export async function _addPrimitive(
 }
 
 /**
- * Internal function to add several records of one type to the database in a single atomic transaction.
+ * Internal function to add several records of one type to the database in a single atomic transaction
  *
- * Builds one INSERT SQLStatement per record (mirroring _addPrimitive's per-record formatting, primary-key
- * voiding, and entry_date/change_date stamping) and commits them all through exec_stmt_batch, which wraps
- * the statements in a D1 transaction: either every record is inserted or none is. One INSERT per record
- * (rather than a single multi-row VALUES) is required so each result reports its own last_row_id. On
- * success the affected table's caches are invalidated once (see _invalidateTableCaches).
- *
- * The caller is responsible for validating and de-duplicating the records beforehand; this function does
- * no per-schema business validation (e.g. the composition composer_id/name uniqueness check lives in the
- * public addCompositionsBatch wrapper, alongside the single-record path).
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param schema the D1Schema of the records being added
@@ -842,12 +738,7 @@ function nameConflictKey(name: string, discriminator?: string): string {
 /**
  * Finds names in `candidates` that collide with an existing record of the same entity (by case-insensitive,
  * trimmed name, plus `role` when the candidate has one) or that repeat an earlier candidate within the same
- * request. contributors.name is UNIQUE server-side; composers has idx_composers_name_role, UNIQUE on
- * (name, role) — a collision on either would abort an atomic bulk insert, so surfacing it here lets the
- * endpoint dry-run and the import preview report the offending row before a write is attempted.
- *
- * Shared by db_composer.ts's findComposerNameConflicts and db_contributor.ts's findContributorNameConflicts,
- * since the check is identical modulo the (name, role) vs. name-only key.
+ * request
  *
  * @param existing the existing records of this entity, or null when the table is empty
  * @param candidates the records about to be written; a `role` makes the conflict check (name, role)-scoped,

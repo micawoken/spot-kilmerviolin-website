@@ -2,15 +2,8 @@
 /**
  * components/entities/KeywordSearchBox.astro
  *
- * Reusable keyword-search box. Renders a keyword input, a Search button, and a results container,
- * with consistent element ids derived from `id_prefix` so the client can wire it via
- * attachKeywordSearch (scripts/interface.ts). Its markup mirrors IDEntryForm (a `generic-form`
- * container wrapping a `generic-form` <form> with fieldset/legend groups and a submit button):
- *   - {id_prefix}-form     : the wrapping form
- *   - {id_prefix}-input    : the keyword text input
- *   - {id_prefix}-button   : the search (submit) button
- *   - {id_prefix}-results  : the results container
- *   - {id_prefix}-database : the database <select> (only when database_select is true)
+ * Common keyword search box, used for general site search
+ *
  *
  * Props:
  * - id_prefix (required): unique prefix for this box's element ids

@@ -27,10 +27,7 @@ const today = new Date()
 const locals = Astro.locals
 const identity = locals.identity ?? null
 
-// Cloudflare attaches the visitor's IANA timezone to the request's cf object (Astro.request.cf). Use it
-// to render the time in the visitor's local zone while keeping this server-side rendered, falling back to
-// UTC when the timezone is unavailable (e.g. local development without the Cloudflare runtime, or an
-// unrecognized zone string).
+// Pulls the IANA time zone from Cloudflare for rendering in footer
 const request_cf = (Astro.request as any).cf as { timezone?: string } | undefined
 const tz: string | undefined = request_cf?.timezone
 let time_display: string
@@ -90,29 +87,16 @@ const tz_label: string = tz || "UTC"
     </p>
 </footer>
 
-{
-    /* "Back" navigation lives in a same-origin static file (public/js/admin-footer-back.js) loaded with
-    is:inline + src, NOT an Astro <script>: the bundler inlines small Astro scripts directly into the
-    document, which the admin Content-Security-Policy (script-src 'self', no 'unsafe-inline'/nonce/hash)
-    then blocks. An external same-origin script is covered by 'self'. defer runs it after the DOM is
-    parsed so #admin-footer-back exists; the anchor's href="/admin" remains the no-JS fallback. */
-}
+{/* backnav is powered by this script to enable true js:history.back without inline js */}
 <script is:inline defer src="/js/admin-footer-back.js"></script>
 
-{
-    /* Sticky footer: make the admin <body> a full-height flex column so the footer can be pushed to the
-    bottom of the viewport when the page content is too short to fill it, while still flowing naturally
-    below the content on longer pages. Scoped to the body element via is:global because <body> is rendered
-    by each page, not by this component. */
-}
+{/* sticky footer */}
 <style is:global>
     body {
         display: flex;
         flex-direction: column;
         min-height: 100vh;
-        /* A 16px gutter on every side, applied as padding rather than margin: with min-height: 100vh,
-         * a vertical margin would sit outside the box and overflow the viewport (bringing back the
-         * scroll on short pages), whereas border-box padding is counted inside the 100vh. */
+        /* A 16px gutter on every side, applied as padding */
         margin: 0;
         padding: 16px;
         box-sizing: border-box;
@@ -122,11 +106,7 @@ const tz_label: string = tz || "UTC"
         margin-top: auto;
     }
 
-    /* Keep the 16px frame even on the top and bottom edges: the body is now a flex container, so the
-     * page heading's top margin and the footer's trailing-paragraph bottom margin no longer collapse
-     * away and would otherwise add to the 12px padding (making the top/bottom gaps larger, and unequal
-     * to each other since the two intrinsic margins differ). Zero them so the visible gap is just the
-     * 12px gutter. */
+    /* Keep the 16px frame even on the top and bottom edges */
     body > :first-child > h1:first-child {
         margin-top: 0;
     }

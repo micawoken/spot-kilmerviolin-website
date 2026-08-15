@@ -137,7 +137,7 @@ footer[role="contentinfo"] nav p {
 
 /* head: on wide viewports a two-column grid — the identifying header and the columnar detail groups
  * stack in the left column while the image occupies the right column, spanning both rows so it reads
- * as "top-right". Source order is header → image → groups, so that when the grid collapses on narrow
+ * as "top-right". Source order is header ->> image->-> groups, so that when the grid collapses on narrow
  * viewports (see the media block below) the image stacks directly beneath the title. */
 .entity-result-head {
 	display: grid;
@@ -1025,7 +1025,7 @@ header[role="banner"] + .callout-emphasis {
 	margin: 0.15rem 0;
 }
 
-/* in-progress search indicator: the trailing ellipsis blinks in sequence (1 → 2 → 3 dots) */
+/* in-progress search indicator: the trailing ellipsis blinks in sequence (1 ->> 2->-> 3 dots) */
 .search-progress::after {
 	content: ".";
 	animation: search-ellipsis 1.2s steps(1, end) infinite;

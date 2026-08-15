@@ -151,7 +151,7 @@ export function titleCaseRole(role: string): string {
 /**
  * Formats a scalar record field value for the entity info card, mirroring the SSR `disp` helper: a
  * null/undefined/blank/empty-array value renders as the shared "not provided" marker, and per-entity
- * special cases (living-composer death year, country code → name, top-level id "ID #" prefix, contributor
+ * special cases (living-composer death year, country code -> name, top-level id "ID #" prefix, contributor
  * admin account type, plain booleans) are rendered as their human-readable forms.
  *
  * Image, publication-URI, and phases fields are handled separately by the caller (they require markup or

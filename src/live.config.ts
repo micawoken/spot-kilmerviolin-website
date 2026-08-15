@@ -2,7 +2,7 @@
  * live.config.ts
  *
  * Astro live content collections for EmDash (staged CMS migration).
- * EmDash content is served at request time from its D1 store through this loader — distinct from the
+ * EmDash content is served at request time from its D1 store through this loader - distinct from the
  * build-time flat-file collections in content.config.ts (docs, pages), which stay in place during the
  * staged migration. Query entries with getLiveCollection/getLiveEntry from "astro:content".
  *

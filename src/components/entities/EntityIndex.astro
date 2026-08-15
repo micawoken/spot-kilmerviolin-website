@@ -2,21 +2,8 @@
 /**
  * components/entities/EntityIndex.astro
  *
- * Rendering body for one entity noun's public index (composer/composition/contributor) — extracted out
- * of pages/entity/[noun]/index.astro so pages/database/[noun]/index.astro (mirroring the noun indexes
- * under /database) can render byte-identical output at a
- * second path, the same split DatabaseRoot.astro already uses for the database root. Both page files
- * independently run their own `getStaticPaths` (Astro's build has no shared cache between page files,
- * matching [id].astro/index.astro's own existing duplication) and pass this component the same props.
+ * Generates the entity indexes on /database/[noun] and /entity/[noun]
  *
- * Individual entries are NOT mirrored (they remain reachable only under /entity/{noun}/{id} —
- * ListResults/ListResult always link there regardless of which index rendered them), so the breadcrumb's
- * "Database" crumb always points at the canonical /database root, but this component's own current-page
- * crumb has no link (it IS the current page, reached via either /entity/{noun}/ or /database/{noun}/).
- *
- * Opts out of the Pagefind index (PublicPage's pagefindIgnore prop), same reasoning as DatabaseRoot.astro:
- * it renders at two URLs (/entity/{noun}/ and /database/{noun}/) and every name it lists already has its
- * own indexed detail page, so leaving it indexed would only add duplicate, lower-quality search hits.
  *
  * Copyright (C) 2026 Michael Wong.
  *

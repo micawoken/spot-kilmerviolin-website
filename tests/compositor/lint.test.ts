@@ -119,12 +119,12 @@ describe("lintDesign — heading rules", () => {
         expect(findings.filter((f) => f.rule === "single-h1")).toHaveLength(1)
     })
 
-    it("errors on a skipped heading level (h1 → h3)", () => {
+    it("errors on a skipped heading level (h1 -> h3)", () => {
         const findings = lint([heading("h1"), heading("h3")])
         expect(rules(findings)).toContain("heading-skip")
     })
 
-    it("does not flag a contiguous descent (h1 → h2 → h3)", () => {
+    it("does not flag a contiguous descent (h1 -> h2 -> h3)", () => {
         expect(lint([heading("h1"), heading("h2"), heading("h3")])).toEqual([])
     })
 })
@@ -229,7 +229,7 @@ describe("lintDesign — PT headings inside RichText bodies (§1.11)", () => {
         expect(rules(findings)).toContain("single-h1")
     })
 
-    it("errors on a level skip across the Heading/RichText boundary (h1 → PT h3)", () => {
+    it("errors on a level skip across the Heading/RichText boundary (h1 -> PT h3)", () => {
         const findings = lint([heading("h1"), { type: "RichText", props: { body: [ptHeading("h3")] } }])
         expect(rules(findings)).toContain("heading-skip")
     })
@@ -564,7 +564,7 @@ describe("lintDesign — heading order over the combined template+entry sequence
         expect(findings).toEqual([])
     })
 
-    it("errors on a skip across the template/entry boundary (ContentText h1 → body h3)", () => {
+    it("errors on a skip across the template/entry boundary (ContentText h1 -> body h3)", () => {
         const entry = { ...ENTRY, body: [ptHeading("h3", "Body h3")] }
         const findings = lintTemplate([contentText("title", "h1"), contentRichText("body")], { entry })
         expect(rules(findings)).toContain("heading-skip")

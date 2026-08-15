@@ -241,11 +241,7 @@ const INTERNAL_IMAGE_PATTERN = /^\/(?:api\/v\d+\/files|files)\/\S+$/
  * Whether a string is an acceptable image reference: an absolute https URL, or an internal
  * asset path (/api/v1/files/<key> for uploaded files, /files/<name> for bundled assets)
  *
- * Only https is accepted for external references. A stored image value is loaded automatically into an
- * <img src> whenever an admin views the owning record (both in the SSR Info cards and the client READ
- * flow in scripts/interface.ts), so permitting http would let a record author force the viewer's browser
- * into a plaintext, mixed-content request to an arbitrary host (a tracking-pixel / IP-leak vector). The
- * scheme is constrained here, at the single write-time validation point, rather than at each render site.
+ * Only https is accepted for external references
  *
  * @param {string} value - the candidate image URL or path
  * @returns {boolean} - true if the trimmed value is an acceptable image reference

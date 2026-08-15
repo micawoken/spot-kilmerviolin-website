@@ -80,7 +80,7 @@ const description = notFoundPage?.description || "The page you requested does no
         <PublicPage title={title} description={description}>
             <CompositorStyles slot="head" />
             {/* No entry (a design_page, same as [...slug].astro's design_page branch): outlets render
-                nothing. No client directive → server-rendered, zero JS. */}
+                nothing. No client directive -> server-rendered, zero JS. */}
             <Render
                 config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: null,

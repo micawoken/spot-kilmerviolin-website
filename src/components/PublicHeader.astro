@@ -2,22 +2,7 @@
 /**
  * components/PublicHeader.astro
  *
- * Public-facing site header, the public analog of AdminHeader. Renders the site title (linking home), the
- * CMS-managed header navigation (the "navigation" file, via lib/content/nav.ts), and an inline search
- * toggle — unlike the rest of the nav, search is not CMS-authored: it is core site infrastructure (like the
- * site-title link) that should not depend on an editor remembering to add it to a menu.
- *
- * Layout is a CSS grid with two area maps, switched by a media query in public-chrome.css: below the
- * breakpoint, title+toggle share a fixed top row (always exactly two items, balanced at any width) with the
- * nav links on their own row underneath, free to wrap independently; at/above the breakpoint, all three —
- * title, nav links, toggle — share a single row. Title, nav-area, and toggle are the grid's three direct
- * items (not nested in wrapper divs) so each can be assigned its own named area and reflow independently.
- * The search form, when opened, renders inside nav-area (which is `position: relative`), overlaying the nav
- * links in either layout without touching the title/toggle placement around it.
- *
- * The search form is a plain GET to /search (search.astro deep-links from ?q= with no JS required on this
- * end) — see catalog.tsx's renderPagefindSearchTag for the same convention. The only client script here is
- * the show/hide toggle and input focus; submission is native browser navigation.
+ * Renders the public site header, with site name, nav, and search icon
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -79,8 +64,7 @@ const links = await getNav()
 </header>
 
 <script>
-    // Show/hide is the only JS this header needs: the form itself submits as a plain GET (native browser
-    // navigation to /search?q=...), matching search.astro's own deep-linking convention.
+    // Performs show/hide operation on search
     function initSearchToggle(): void {
         const toggle = document.getElementById("search-toggle")
         const form = document.getElementById("header-search-form")

@@ -82,7 +82,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             {
                 /* Visually hidden, not a visible .search-section-label: the placeholder communicates the same
                 thing without pushing "Back to search" down a line, so this bar's link sits at the same
-                vertical position as /search's own "Advanced search →" link (search.astro's .search-form). */
+                vertical position as /search's own "Advanced search ->>" link (search.astro's .search-form). */
             }
             <label for="search-input" class="visually-hidden">Free-text keyword search</label>
             <div class="search-form">
@@ -654,7 +654,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 
                 const next = document.createElement("button")
                 next.type = "button"
-                next.textContent = "Next →"
+                next.textContent = "Next ->>"
                 next.disabled = pageWindow.page >= pageWindow.totalPages
                 next.addEventListener("click", () => navigate(withPage(currentParams, pageWindow.page + 1)))
                 nav.appendChild(next)

@@ -2,12 +2,7 @@
  * lib/build/d1-schema.ts
  *
  * Build-safe view of the D1 table shape (contributors, composers, compositions) for
- * src/lib/build/d1-api.ts. Sourced from src/lib/api/tables.ts — the canonical, environment-free
- * table shapes also used by src/lib/api/d1.ts (which adds `db: env.DB_MAIN`, a
- * `cloudflare:workers` binding that throws in a plain-Node `astro build`).
- *
- * BuildD1Schema narrows that shape to just what a build-time reader needs: column lists, primary
- * key, `protected` redaction list.
+ * src/lib/build/d1-api.ts
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -33,9 +28,7 @@
 import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE } from "../api/tables"
 
 /**
- * Subset of D1SchemaPrimitive (src/lib/api/types.d.ts) a build-time reader needs: explicit columns
- * (not `*`, so an unschema'd table column doesn't break the build), plus redaction. Omits `index`,
- * `repr_exclude`, `type_hint`, `locked` (Worker-only concerns) and `db` (D1Schema only).
+ * Subset of D1SchemaPrimitive (src/lib/api/types.d.ts) a build-time reader needs
  */
 export interface BuildD1Schema {
     readonly name: string
@@ -54,9 +47,7 @@ export const COMPOSER_SCHEMA: BuildD1Schema = COMPOSER_TABLE
 export const COMPOSITION_SCHEMA: BuildD1Schema = COMPOSITION_TABLE
 
 /**
- * Strips a schema's protected columns before a record leaves the build. Mirrors
- * {@link redactProtected} in src/lib/api/d1.ts — public build reads D1 directly, no server-side
- * chokepoint in front of it, so it redacts itself.
+ * Strips a schema's protected columns before a record leaves the build
  */
 export function redactProtected(schema: BuildD1Schema, record: object): Record<string, unknown> {
     const protectedKeys = schema.protected
@@ -67,10 +58,7 @@ export function redactProtected(schema: BuildD1Schema, record: object): Record<s
 }
 
 /**
- * Tag value that excludes an otherwise-valid contributor record from prerendering. This is the ONLY
- * page-existence exclusion for contributors — `active` (see CONTRIBUTOR_TABLE's `protected` comment in
- * src/lib/api/tables.ts) gates authorization/permissions only, not whether a public page renders; a
- * deactivated contributor still gets a page unless also tagged `hidden`.
+ * Tag value that excludes an otherwise-valid contributor record from prerendering
  */
 export const CONTRIBUTOR_HIDDEN_TAG = "hidden"
 

@@ -2,17 +2,7 @@
 /**
  * components/NavTiles.astro
  *
- * A row of rounded-rectangle link tiles (as opposed to plain inline text links) for a short list of
- * top-level navigation destinations — e.g. the "Composers / Compositions / Contributors" links below the
- * search box on pages/entity/index.astro. Generic over its link list so it isn't tied to that one caller.
- *
- * Styled the same way as the rest of the public chrome (styles/public-chrome.css, styles/
- * public-entities.css): every visual property binds to the published design theme's `--dtk-*` tokens with
- * a fallback chain down to the built-in `--color-*`/`--shade-*` palette, so an unthemed site still renders
- * a sane look. The card treatment (hairline border, `--dtk-radius-sm`, `--dtk-chrome-footer-bg` surface)
- * matches components/entities/ListResult.astro's `.list-result-container`, and the 3/2/1-column grid
- * breakpoints match styles/public-entities.css's `.list-results-container`, so this reads as the same tile
- * language used elsewhere on the site rather than a one-off.
+ * Generates a row of navigation tiles (such as the ones used on /database )
  *
  * Copyright (C) 2026 Michael Wong.
  *

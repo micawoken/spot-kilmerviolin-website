@@ -113,7 +113,7 @@ function build(base) {
     })
 }
 
-/** Every prerendered page in dist/client, as relative-path → bytes. */
+/** Every prerendered page in dist/client, as relative-path -> bytes. */
 function snapshotHtml() {
     const files = new Map()
     if (!existsSync(distClient)) return files

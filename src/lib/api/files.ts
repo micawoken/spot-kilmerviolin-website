@@ -3,16 +3,6 @@
  *
  * Provides higher-level file services on top of R2, integrating image optimization and caching
  *
- * This is the entry point other libraries and endpoints should use to reach the R2 file store; it
- * wraps the r2.ts primitives the way database.ts wraps d1.ts. Two caches sit in front of R2 to keep
- * Class A (list) and Class B (read) operations within the free plan:
- *  - the file listing (FileMeta[]) is cached in the Cache API and KV, and also backs the storage-usage
- *    figure so uploads do not trigger a fresh bucket scan; and
- *  - file bytes are cached in the Cache API per key, so repeat reads do not hit R2.
- * Writes (add/replace/delete) invalidate the affected caches.
- *
- *
- *
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -51,7 +41,7 @@ const FILES_LIST_KEY = "files_list" // Cache API / KV key for the cached listing
  * Builds the Cache API request key for a file's cached body
  *
  * Uses WORKER_ORIGIN (this worker's own origin, see wrangler.jsonc) as the cache address's host, since
- * Cloudflare recommends a resolvable domain name for cache keys.
+ * Cloudflare recommends a resolvable domain name for cache keys
  */
 function _blobKey(key: string): string {
     return `${env.WORKER_ORIGIN}/blob/${encodeURIComponent(key)}`
@@ -61,7 +51,7 @@ function _blobKey(key: string): string {
  * Derives a safe object key from a user-supplied file name
  *
  * Strips any path components, collapses whitespace to hyphens, and removes characters outside a
- * conservative filename set so the key is safe to embed in a URL path segment.
+ * conservative filename set so the key is safe to embed in a URL path segment
  *
  * @param {string} name - the raw file name (e.g. from the upload's filename or a provided name field)
  * @returns {string} the sanitized key, or an empty string if nothing usable remains
@@ -83,14 +73,7 @@ const KEY_PREFIX_BYTES = 6
 /**
  * Derives the object key for a NEW upload: a random prefix followed by the sanitized name.
  *
- * `deriveFileKey` alone produced a key derived entirely from the uploaded filename, and R2_FILES is
- * served from a public custom domain (FILES_PUBLIC_URL) so prerendered pages can load images without
- * passing Access. Every object was therefore retrievable by anyone who guessed its filename —
- * "portrait.jpg", "smith-headshot.png" — bypassing the Access gate, the auth_check on
- * GET /api/v1/files/{id}, and the RL_API_FILES_READ limiter that exists to bound R2 Class B volume.
- * EmDash's media bucket already keys by ULID for the same reason.
- *
- * Only for creation. Lookups must keep using {@link deriveFileKey} on the key from the URL, which leaves
+ * Only for creation; lookups must keep using {@link deriveFileKey} on the key from the URL, which leaves
  * an already-prefixed key untouched (the prefix uses only characters that function preserves).
  *
  * @param {string} name - the raw file name
@@ -108,18 +91,8 @@ export function newFileKey(name: string): string {
 }
 
 /**
- * Normalizes and allowlists an upload's declared content type, or null when it is not accepted.
+ * Normalizes and allowlists an upload's declared content type, or null when it is not accepted
  *
- * The type was previously taken straight from the client (`file.type || "application/octet-stream"`) with
- * no allowlist. A non-image passed through `optimizeImage` unmodified and was stored with whatever type
- * the client declared — and the public R2 custom domain serves that type back with no
- * Content-Disposition and no CSP, because the Worker is not in that request path. An active contributor
- * could therefore host `text/html` (or a scripted SVG) on a subdomain of the project's own domain.
- *
- * The allowlist is exactly the set `isOptimizableImage` accepts, which is what makes this structural
- * rather than advisory: every accepted upload is re-encoded by the IMAGES binding, so the stored bytes
- * and the stored content type both come from the optimizer rather than from the caller. The admin UI
- * already restricts its file inputs to `image/*`, so this refuses nothing it offers.
  *
  * @param {string} raw - the client-declared content type, possibly with parameters or casing
  * @returns {string | null} the normalized bare MIME type, or null when it is not an accepted upload type
@@ -138,9 +111,6 @@ const UPLOADED_FILE_PATTERN = /^\/api\/v\d+\/files\/(.+)$/
 /**
  * Extracts the object key from an uploaded-file image reference
  *
- * Returns the key only when the value is an uploaded-file path (/api/v#/files/<key>); bundled assets
- * (/files/<name>) and external http(s) URLs return null, since those have no R2 object to attribute to
- * an uploader. The key is URL-decoded to match how it is stored (see _blobKey).
  *
  * @param {string} image - a contributor image reference
  * @returns {string | null} the uploaded file's key, or null when the value is not an uploaded-file path
@@ -159,9 +129,8 @@ export function extractUploadedFileKey(image: string): string | null {
 }
 
 /**
- * Resolves the alt text to show for an entity's image field: the uploaded file's own stored alt text
- * when the image is an R2-uploaded reference, or the given fallback otherwise (a bundled/external image,
- * an absent image, or an uploaded file with no alt text on record)
+ * Resolves the alt text to show for an entity's image field
+ *
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @param {string | null | undefined} image - the entity's image field value
@@ -262,7 +231,7 @@ function _invalidate(ctx: ExecutionContext, key?: string): void {
 /**
  * Retrieves a single file's metadata
  *
- * Resolved from the cached listing to avoid a dedicated R2 head() call.
+ * Resolved from the cached listing to avoid a dedicated R2 head() call
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @param {string} key - the file key
@@ -276,8 +245,6 @@ export async function getFileMeta(ctx: ExecutionContext, key: string): Promise<F
 /**
  * Reads a file's bytes and content type, served from the per-file body cache where possible
  *
- * On a cache miss the object is fetched from R2 and its body cached for subsequent reads. This does not
- * require an ExecutionContext because it caches inline before returning.
  *
  * @param {string} key - the file key
  * @returns {Promise<{ bytes: ArrayBuffer, content_type: string } | null>} the body and type, or null if not found
@@ -445,9 +412,8 @@ export async function replaceFile(
 }
 
 /**
- * Updates a stored file's alt text without rewriting its bytes (an R2 write always requires a body, so
- * this re-puts the existing bytes read back from the store — see readFileBytes's Cache API layer, which
- * makes this cheap for a recently-read file)
+ * Updates a stored file's alt text without rewriting its bytes
+ *
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @param {string} key - the file key to update; must already exist
@@ -511,15 +477,6 @@ export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: nu
 /**
  * Computes current bucket usage from a fresh R2 scan, refreshing the cached listing as it goes
  *
- * This is not a storage primitive: it builds on the r2.ts list operation rather than touching the bucket
- * directly. Unlike getStorageUsage (which sums the possibly-cached listing), computeUsage always performs
- * the Class A list scan so the figure can never be stale, and it repopulates the file-listing caches
- * (Cache API + KV) with the freshly scanned records — so the scan's result is itself cached and
- * subsequent listFiles/getFileMeta calls are served from cache rather than triggering another scan.
- *
- * Because it is authoritative and comparatively expensive, reserve it for paths that must not act on a
- * stale figure (e.g. an out-of-band reconciliation at build time); request-path callers that only need
- * to display usage should prefer getStorageUsage.
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext, used to schedule cache writes
  * @returns {Promise<number>} the total number of bytes stored in the bucket

@@ -9,7 +9,7 @@
  * CustomEvent (detail: { crop, natural, tooSmall }) on the root, which the host page forwards on submit.
  *
  * CLIENT_CANON / CLIENT_RATIO mirror scripts/image_crop.ts (itself mirroring CANON_PORTRAIT /
- * CANON_LANDSCAPE in lib/api/images.ts) — keep the three in sync. They are duplicated here because a
+ * CANON_LANDSCAPE in lib/api/images.ts) - keep the three in sync. They are duplicated here because a
  * static file served under script-src 'self' cannot import the bundled TypeScript module.
  *
  * Copyright (C) 2026 Michael Wong.

@@ -24,78 +24,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*
- * D1 table spec info
- *
- * CREATE TABLE contributors (
- *   contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
- *   name TEXT UNIQUE NOT NULL,
- *   class_year INTEGER,
- *   major TEXT,
- *   phases TEXT,
- *   bio TEXT,
- *   public_email TEXT,
- *   identity_email TEXT UNIQUE NOT NULL,
- *   active INTEGER NOT NULL,
- *   roles TEXT NOT NULL,
- *   admin INTEGER NOT NULL,
- *   image TEXT,
- *   tags TEXT,
- *   entry_date INTEGER NOT NULL,
- *   change_date INTEGER
- * );
- *
- * CREATE TABLE composers (
- *   composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
- *   name TEXT NOT NULL,
- *   role TEXT NOT NULL,
- *   birth_year INTEGER NOT NULL,
- *   death_year INTEGER NOT NULL,
- *   country TEXT NOT NULL,
- *   bio TEXT,
- *   image TEXT,
- *   tags TEXT,
- *   citations TEXT,
- *   entry_date INTEGER NOT NULL,
- *   change_date INTEGER,
- *   UNIQUE (name, role)
- * );
- *
- * CREATE TABLE compositions (
- *   composition_id INTEGER PRIMARY KEY AUTOINCREMENT,
- *   name TEXT NOT NULL,
- *   composer_id INTEGER NOT NULL,
- *   contrib_primary_1 INTEGER NOT NULL,
- *   contrib_primary_2 INTEGER,
- *   contrib_addl TEXT,
- *   author_secondary TEXT,
- *   type TEXT NOT NULL,
- *   part TEXT,
- *   rating_suzuki INTEGER,
- *   rating_nyssma INTEGER,
- *   publish_location TEXT NOT NULL,
- *   publish_name TEXT NOT NULL,
- *   publish_year INTEGER NOT NULL,
- *   uri_type TEXT NOT NULL,
- *   uri TEXT,
- *   key TEXT,
- *   range TEXT,
- *   position_highest TEXT,
- *   notes_pedagogical TEXT,
- *   notes_historical TEXT,
- *   notes_other TEXT,
- *   image TEXT,
- *   phases TEXT NOT NULL,
- *   tags TEXT,
- *   citations TEXT,
- *   entry_date INTEGER NOT NULL,
- *   change_date INTEGER,
- *   FOREIGN KEY (composer_id) REFERENCES composers(composer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- *   FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- *   FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
- * );
- */
-
 /**
  * Table shape for contributors, without a database binding
  */
@@ -138,11 +66,6 @@ export const CONTRIBUTOR_TABLE: D1SchemaPrimitive = {
         entry_date: "number",
         change_date: "number"
     },
-    // "active" belongs here with the other authorization columns: it is the system's revocation
-    // mechanism short of removing the user from Access, and PATCH /api/v1/contributors/[id] runs in
-    // selfmgmt mode — which admits an INACTIVE caller — so without it a deactivated user could PATCH
-    // their own record back to active and regain every permission their roles carry. Self-deactivation
-    // is unaffected: it has its own route (DELETE /api/v1/identity/self), which does not consult this list.
     protected: ["roles", "admin", "identity_email", "active"]
 }
 

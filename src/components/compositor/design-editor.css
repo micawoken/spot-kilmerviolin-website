@@ -1,22 +1,8 @@
 /**
  * components/compositor/design-editor.css
  *
- * Chrome for the DesignEditor island (§6.5): the toolbar, conflict bar, page-settings drawer, and
- * publish dialog that wrap Puck's own editor UI. Scoped to the host admin document (not the canvas
- * iframe — that is styled by the injected theme tokens + compositor.css). Bundled and linked by Astro,
- * so it is served under the admin CSP's `style-src 'self'`.
- *
- * Every color here is a token from styles/global.css. Nothing is a literal, and nothing should become
- * one: the tokens are light-dark(), so the editor follows the operator's color scheme for free, and
- * hardcoding even one hex reintroduces exactly the bug this replaced — a white drawer with the page's
- * light-on-dark text painted onto it, unreadable in dark mode. Puck's own UI is bound to the same
- * palette next door in puck-theme.css.
- *
- * Elevation runs canvas (--color-bg) → toolbar/conflict bar (--shade-1) → drawer/modal (--shade-2), so
- * the chrome always sits a step off the canvas. On light that step is darker, on dark it is lighter;
- * the shade tokens invert on their own, so the ladder holds in both without a second set of rules. On
- * dark, a border does the work a drop shadow cannot (shadows do not read against a dark surface), which
- * is why the floating surfaces below carry one.
+ * Chrome for the DesignEditor components, including the toolbar, conflict bar, page settings drawer,
+ * and publish dialog
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -266,7 +252,7 @@
     margin-block: 1.5rem;
 }
 
-/* A section's whole heading is the collapse toggle (not just a small icon) — the fastest way to collapse
+/* A section's whole heading is the collapse toggle (not just a small icon) - the fastest way to collapse
  * a section on a page this long is clicking anywhere on its title. */
 .theme-editor__section-toggle {
     display: flex;
@@ -304,11 +290,7 @@
     color: var(--color-text-muted);
 }
 
-/* Rows of fields (typography, spacing, button variants, …) used to be a `<table>`: one column per
- * field, one row per token. A table's columns cannot reflow — with a dozen fields (typography) or
- * seven (button variants) that forced both a squeezed input in every cell and a horizontal scroll on
- * any viewport narrower than the sum of those columns. A row is now a wrapping card of labeled fields
- * instead: each field gets its own caption and however much width the row has to give it, and a field
+/* Each field gets its own caption and however much width the row has to give it, and a field
  * that doesn't fit drops to the next line rather than compressing everyone else or overflowing. */
 .theme-editor__rows {
     display: flex;
@@ -346,7 +328,7 @@
     color: var(--color-text-muted);
 }
 
-/* A boolean field (italic/bold/…) is one inline control, not a caption stacked over a cell — the
+/* A boolean field (italic/bold/…) is one inline control, not a caption stacked over a cell - the
  * checkbox would otherwise inherit the width: 100% below and paint its check mark centered in the
  * middle of the field, adrift from the left-aligned caption above it. */
 .theme-editor__row label.theme-editor__checkbox {
@@ -385,7 +367,7 @@
     width: 100%;
 }
 
-/* Number + unit: stacked so the number field always gets the field's full width — a fixed-width unit
+/* Number + unit: stacked so the number field always gets the field's full width - a fixed-width unit
  * select beside it is exactly the "item next to the input" pattern that used to squeeze the number
  * field down to a couple of characters. The shadow-layer builder below overrides back to a compact
  * row, since those fields are intentionally small and side-by-side already. */
@@ -458,7 +440,7 @@
     color: var(--color-text-muted);
 }
 
-/* A borderless inline button for the mode toggles in the clamp/shadow builders — reads as a link, not a
+/* A borderless inline button for the mode toggles in the clamp/shadow builders - reads as a link, not a
  * primary action, so it does not compete with Save/Publish. */
 .theme-editor__linkbtn {
     align-self: flex-start;
@@ -536,7 +518,7 @@
 }
 
 /* Site Chrome role rows (colors/borders, and the horizontal/vertical spacing groups): one row per role
- * — a label (sometimes a long description) and a token select. Wraps to label-above-select on narrow
+ * - a label (sometimes a long description) and a token select. Wraps to label-above-select on narrow
  * viewports instead of the old two-column table squeezing the select next to a long label. */
 .theme-editor__role-row {
     display: flex;
@@ -636,7 +618,7 @@
     grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
 }
 
-/* Shadows barely read against a flush background — a distinct surface plus generous gap gives each one
+/* Shadows barely read against a flush background - a distinct surface plus generous gap gives each one
  * room to fall off into. */
 .theme-preview__grid--shadow {
     padding: 1.25rem;
@@ -753,7 +735,7 @@
     border-radius: 0.1rem;
 }
 
-/* Breakpoints reuse the scale but in the structural gray, not the accent blue — a quiet visual reminder
+/* Breakpoints reuse the scale but in the structural gray, not the accent blue - a quiet visual reminder
  * that these aren't the theme's own colors, unlike every other scale in this file. */
 .theme-preview__scale-track--wide .theme-preview__scale-bar {
     background: var(--shade-7);
@@ -866,7 +848,7 @@
     overflow: hidden;
 }
 
-/* No swatch to render (both roles must resolve to a real color first) — a quiet placeholder rather than
+/* No swatch to render (both roles must resolve to a real color first) - a quiet placeholder rather than
  * an empty box, so the row's grid doesn't jump when a role gets assigned. */
 .theme-preview__contrast-swatch[data-empty="true"] {
     align-items: center;
@@ -912,7 +894,7 @@
     gap: 0.4rem;
 }
 
-/* Pass/fail is the only thing these badges communicate, so it's the only thing colored — a tinted surface
+/* Pass/fail is the only thing these badges communicate, so it's the only thing colored - a tinted surface
  * behind text in that surface's own color, the same convention `.design-editor__findings` uses. */
 .theme-preview__contrast-badge {
     padding: 0.2rem 0.55rem;
@@ -952,7 +934,7 @@
 }
 
 /* Resizable-width preset frame (Spacing / Typography): preset buttons above a width-constrained
- * container. The container is a plain block, not a real viewport — see ResponsivePreviewFrame's doc
+ * container. The container is a plain block, not a real viewport - see ResponsivePreviewFrame's doc
  * comment for what this does and does not preview correctly. */
 .theme-preview__width-wrap {
     display: flex;

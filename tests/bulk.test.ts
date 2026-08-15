@@ -295,14 +295,14 @@ describe("composition (composer, name) uniqueness", () => {
         const contribId = (
             await withCtx((ctx) => addContributorsBatch(ctx, [makeContributor("Part Contrib", "pc@example.com")]))
         )[0]
-        // same name, distinct parts → both allowed
+        // same name, distinct parts -> both allowed
         await withCtx((ctx) =>
             addComposition(ctx, { ...makeComposition("Duet", composerId, contribId), part: "Violin I" })
         )
         await withCtx((ctx) =>
             addComposition(ctx, { ...makeComposition("Duet", composerId, contribId), part: "Violin II" })
         )
-        // same name AND same part → rejected
+        // same name AND same part -> rejected
         await expect(
             withCtx((ctx) =>
                 addComposition(ctx, { ...makeComposition("Duet", composerId, contribId), part: "Violin I" })

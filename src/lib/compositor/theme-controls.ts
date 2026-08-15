@@ -1,14 +1,7 @@
 /**
  * lib/compositor/theme-controls.ts
  *
- * Pure parse/format helpers behind the theme editor's friendly (CSS-less) controls. Each token cell
- * stores a raw CSS value string (source of truth, `tokens.ts`); a friendly control *parses* that
- * string on render and *formats* it back on change. These functions are that seam and the entire
- * risk surface — pure, dependency-free, unit-tested (`theme-controls.test.ts`).
- *
- * Contract every parser holds: return `null` for any input it can't round-trip confidently, so the
- * control falls back to raw text for that cell rather than clobbering a value it didn't understand
- * (plan decision "never lossy" — matters most for the load-bearing `md` centering clamp). Never throws.
+ * Pure parse/format helpers behind the theme editor's friendly (CSS-less) controls
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -31,9 +24,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** Splits a CSS value on a single-character separator, only at the top nesting level — a separator
- * inside `(...)` is kept, so `rgb(0, 0, 0)` isn't mis-split. Shared by every parser here so they agree
- * on nesting. Segments are never trimmed; callers trim as needed. */
+/** Splits a CSS value on a single-character separator */
 export function splitTopLevel(input: string, separator: string): string[] {
     const parts: string[] = []
     let depth = 0
@@ -58,8 +49,7 @@ export interface LightDarkPair {
     dark: string
 }
 
-/** Parses a `light-dark(L, D)` color into its two channels, or `null` if not exactly one top-level
- * `light-dark()` call with two non-empty arguments (e.g. plain `#fff`, or trailing text). */
+/** Parses a `light-dark(L, D)` color into its two channels, or `null` */
 export function parseLightDark(input: string): LightDarkPair | null {
     const match = /^light-dark\(([\s\S]*)\)$/.exec(input.trim())
     if (!match) return null
@@ -91,9 +81,7 @@ export interface LengthParts {
     unit: LengthUnit
 }
 
-/** Parses a `<number><unit>` length into its parts, or `null` for anything not a single plain number
- * with a known unit — `clamp(...)`, `calc(...)`, `var(...)`, unrecognized units all return null.
- * `number` kept verbatim (not reparsed to a float) so `.5`, `0`, `2.50` round-trip unchanged. */
+/** Parses a `<number><unit>` length into its parts, or `null` */
 export function parseLength(input: string): LengthParts | null {
     const match = /^(-?(?:\d+\.?\d*|\.\d+))([a-z%]*)$/i.exec(input.trim())
     if (!match) return null
@@ -102,12 +90,12 @@ export function parseLength(input: string): LengthParts | null {
     return { number: match[1], unit: unit as LengthUnit }
 }
 
-/** Formats length parts back into a `<number><unit>` string. */
+/** Formats length parts back into a `<number><unit>` string */
 export function formatLength(parts: LengthParts): string {
     return `${parts.number}${parts.unit}`
 }
 
-/** The three sub-values of a responsive `clamp(min, preferred, max)`, each an arbitrary length expression. */
+/** The three sub-values of a responsive `clamp(min, preferred, max)`, each an arbitrary length expression */
 export interface ClampParts {
     min: string
     preferred: string
@@ -115,8 +103,7 @@ export interface ClampParts {
 }
 
 /** Parses a `clamp(min, preferred, max)` into its three sub-values, or `null` if not exactly one
- * top-level `clamp()` call with three non-empty arguments. Sub-values returned verbatim (may
- * themselves be `calc(...)`), so the builder edits them as lengths where it can, raw text otherwise. */
+ * top-level `clamp()` call with three non-empty arguments */
 export function parseClamp(input: string): ClampParts | null {
     const match = /^clamp\(([\s\S]*)\)$/.exec(input.trim())
     if (!match) return null
@@ -131,9 +118,7 @@ export function formatClamp(parts: ClampParts): string {
 }
 
 /**
- * One `box-shadow` layer. `blur`/`spread`/`color` may be empty when the source omitted them; `x` and `y`
- * are always present (a layer without both offsets does not parse). Lengths are kept as strings to
- * round-trip exactly.
+ * One `box-shadow` layer
  */
 export interface ShadowLayer {
     inset: boolean
@@ -147,10 +132,7 @@ export interface ShadowLayer {
 /** A single space-separated shadow token that reads as a length (offset/blur/spread), not a color. */
 const SHADOW_LENGTH_PATTERN = /^-?(?:\d+\.?\d*|\.\d+)(?:[a-z%]+)?$/i
 
-/** Parses one `box-shadow` layer (no top-level commas) into structured parts, or `null` if ambiguous.
- * Recognizes `inset` anywhere, 2-4 length values (offset-x, offset-y, optional blur/spread in order),
- * at most one color token (anything not a length/`inset`, `rgb(...)` kept whole since `splitTopLevel`
- * doesn't split inside its parens). */
+/** Parses one `box-shadow` layer (no top-level commas) into structured parts, or `null` if ambiguous */
 function parseShadowLayer(layer: string): ShadowLayer | null {
     const tokens = splitTopLevel(layer.trim(), " ")
         .map((token) => token.trim())
@@ -178,7 +160,7 @@ function parseShadowLayer(layer: string): ShadowLayer | null {
 }
 
 /** Parses a `box-shadow` value into its layers, or `null` if any layer is ambiguous (whole cell falls
- * back to raw text rather than a partial builder). `"none"` parses to an empty layer list. */
+ * back to raw text rather than a partial builder) */
 export function parseShadow(input: string): ShadowLayer[] | null {
     const trimmed = input.trim()
     if (trimmed === "") return null
@@ -198,22 +180,19 @@ export function parseShadow(input: string): ShadowLayer[] | null {
     return parsed
 }
 
-/** Formats one layer in the canonical `[inset] x y [blur] [spread] [color]` order. */
+/** Formats one layer in the canonical `[inset] x y [blur] [spread] [color]` order */
 function formatShadowLayer(layer: ShadowLayer): string {
     const parts: string[] = []
     if (layer.inset) parts.push("inset")
     parts.push(layer.x, layer.y)
-    // CSS reads a lone third length as blur and a fourth as spread, so a spread with no blur needs an
-    // explicit 0 blur to keep spread in the right position.
+    // CSS reads a lone third length as blur and a fourth as spread
     if (layer.blur !== "" || layer.spread !== "") parts.push(layer.blur || "0")
     if (layer.spread !== "") parts.push(layer.spread)
     if (layer.color !== "") parts.push(layer.color)
     return parts.join(" ")
 }
 
-/** Formats shadow layers back into a `box-shadow` value; empty list formats to `"none"`. Emits
- * canonical token order — re-parsed value is semantically identical, not necessarily byte-identical
- * to an oddly-ordered original. */
+/** Formats shadow layers back into a `box-shadow` value; empty list formats to `"none"` */
 export function formatShadow(layers: ShadowLayer[]): string {
     if (layers.length === 0) return "none"
     return layers.map(formatShadowLayer).join(", ")
@@ -250,8 +229,7 @@ function parseRgbChannel(token: string): number | null {
 function rgbFunctionToRgb(input: string): RgbColor | null {
     const match = /^rgba?\(([\s\S]*)\)$/i.exec(input.trim())
     if (!match) return null
-    // Only the comma-separated legacy syntax (`rgb(r, g, b[, a])`) — the modern space-separated
-    // `rgb(r g b / a)` form falls back to null, same as any value this module can't confidently parse.
+    // Only the comma-separated legacy syntax (`rgb(r, g, b[, a])`)
     const parts = splitTopLevel(match[1], ",").map((part) => part.trim())
     if (parts.length < 3) return null
     const channels = parts.slice(0, 3).map(parseRgbChannel)
@@ -294,8 +272,7 @@ function hslFunctionToRgb(input: string): RgbColor | null {
 }
 
 /** Parses a CSS color into an RGB triple, or `null` if not hex, `rgb()`/`rgba()`, or `hsl()`/`hsla()`
- * — a named color, `var()`, `color-mix()`, `oklch()` etc. return null, same "never guess" contract as
- * every parser here. */
+ * — a named color, `var()`, `color-mix()`, `oklch()` etc. return null */
 export function parseCssColorToRgb(input: string): RgbColor | null {
     const trimmed = input.trim()
     return hexToRgb(trimmed) ?? rgbFunctionToRgb(trimmed) ?? hslFunctionToRgb(trimmed)
@@ -311,9 +288,7 @@ export function relativeLuminance({ r, g, b }: RgbColor): number {
     return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
 }
 
-/** Legible text color (`#000000`/`#ffffff`) to lay over a background, chosen by higher WCAG contrast
- * — or `null` if the background can't be parsed, in which case the caller keeps its existing
- * (ambient/inherited) text color rather than guessing. */
+/** Legible text color (`#000000`/`#ffffff`) to lay over a background, chosen by higher WCAG contrast */
 export function bestTextColorFor(background: string): "#000000" | "#ffffff" | null {
     const rgb = parseCssColorToRgb(background)
     if (!rgb) return null
@@ -323,14 +298,11 @@ export function bestTextColorFor(background: string): "#000000" | "#ffffff" | nu
     return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff"
 }
 
-/** WCAG 2.1 minimum contrast ratios for normal-size text (§1.4.3 "AA", §1.4.6 "AAA"). Site-chrome
- * text (body copy, nav/footer links) is normal-size, so the large-text thresholds (3:1/4.5:1) don't
- * apply — `ThemePreview.tsx`'s `SiteChromeContrastCheck` judges every pairing against these. */
+/** WCAG 2.1 minimum contrast ratios for normal-size text */
 export const WCAG_AA_MIN_CONTRAST = 4.5
 export const WCAG_AAA_MIN_CONTRAST = 7
 
-/** WCAG contrast ratio between two colors (2.1 §1.4.3): lighter relative luminance over darker, each
- * padded by 0.05. Argument order doesn't matter. Ranges [1, 21]. */
+/** WCAG contrast ratio between two colors */
 export function contrastRatio(a: RgbColor, b: RgbColor): number {
     const luminanceA = relativeLuminance(a)
     const luminanceB = relativeLuminance(b)
@@ -339,14 +311,10 @@ export function contrastRatio(a: RgbColor, b: RgbColor): number {
     return (lighter + 0.05) / (darker + 0.05)
 }
 
-/** `filter: brightness()` multipliers tried for a button's hover cue, subtlest first. `brightness()`
- * multiplies each RGB channel directly (spec-defined, not gamma-corrected), so scaling text and
- * background by the same factor moves them apart, together, or not at all depending on which one
- * starts closer to black — {@link buttonHoverBrightness} picks whichever direction actually helps. */
+/** `filter: brightness()` multipliers tried for a button's hover cue, subtlest first */
 const HOVER_BRIGHTNESS_CANDIDATES = [0.92, 1.08, 0.85, 1.15] as const
 
-/** Simulates `filter: brightness(factor)` on one RGB channel: a direct multiply, clamped to a byte —
- * matches the CSS spec's definition, not a gamma-aware scale. */
+/** Simulates `filter: brightness(factor)` on one RGB channel */
 function scaleChannel(value: number, factor: number): number {
     return Math.min(255, Math.max(0, Math.round(value * factor)))
 }
@@ -356,8 +324,7 @@ function scaleRgb(rgb: RgbColor, factor: number): RgbColor {
 }
 
 /** Resolves a possibly-`light-dark()` color to its light and dark channel (a plain color is used for
- * both), then parses each to RGB — `null` for a channel this module's parsers can't confidently read
- * (`var()`, a named color, `color-mix()`, …), so the caller can fail soft rather than guess. */
+ * both), then parses each to RGB - `null` */
 function resolveSchemeRgb(value: string): { light: RgbColor | null; dark: RgbColor | null } {
     const pair = parseLightDark(value)
     const light = pair ? pair.light : value
@@ -366,12 +333,7 @@ function resolveSchemeRgb(value: string): { light: RgbColor | null; dark: RgbCol
 }
 
 /** The `filter: brightness()` multiplier for a button's `:hover` state, chosen so it never lowers the
- * button's own text/background WCAG contrast in either light or dark scheme (checked against the
- * theme's actual resolved colors, not guessed) — `1` (no visible change) if neither text nor
- * background can be parsed, or if no candidate factor helps (or is at least neutral) in both schemes
- * at once. Text and background scale by the same factor since both are inside the same button
- * element; the picked direction is whichever pushes the already-brighter one further from the
- * already-darker one. */
+ * button's own text/background WCAG contrast in either light or dark scheme */
 export function buttonHoverBrightness(text: string, background: string): number {
     const textRgb = resolveSchemeRgb(text)
     const bgRgb = resolveSchemeRgb(background)

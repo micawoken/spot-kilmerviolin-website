@@ -1,29 +1,8 @@
 /**
  * lib/build/d1-api.ts
  *
- * Build-time reader for the D1-backed entity tables (composers, contributors, compositions) — the
- * runtime SQLite records administered by src/lib/api/database.ts, not EmDash's `pages`/`posts`
- * collections (see emdash-api.ts). Reads the deployed Worker's own
- * `GET /api/v1/{composers,contributors,works}`, build-token-authenticated (src/lib/api/tokens.ts) —
- * `astro build` runs plain Node, no D1 binding;
- * src/lib/api/d1.ts's schema constants embed `env.DB_MAIN` from `cloudflare:workers`, Worker-only.
+ * Build-time reader for the D1-backed entity tables
  *
- * Supersedes an earlier version reading Cloudflare's D1 REST endpoint with a broad, account-scoped "D1:
- * Read" token. Build token is scoped to exactly these three read-only routes, no write/admin — a leak
- * exposes far less.
- *
- * Response shape: `meta.full=true` already returns the application-level `*Record` shape (same as
- * listComposers/listContributors/listCompositions) as JSON `payload` — no conversion needed, unlike the
- * old D1 REST reads (raw rows via formatCompFromD1/formatContribFromD1/formatWorkFromD1).
- *
- * Configuration — BUILD-TIME env only; never wrangler runtime secrets/vars (see .env.example):
- *   CONTENT_API_BASE         origin of the deployed site (shared with emdash-api.ts)
- *   CF_ACCESS_CLIENT_ID      Cloudflare Access service-token client id (shared with emdash-api.ts;
- *   CF_ACCESS_CLIENT_SECRET  mandatory here too — a build token alone authenticates nothing, D3)
- *   BUILD_API_TOKEN          the app-issued build token (X-Build-Token); see /admin/user/tokens/build
- *
- * Failure policy and timeout rationale live next to {@link BuildTokenReadError} and
- * {@link BUILD_API_READ_TIMEOUT_MS} below, not repeated here.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -64,10 +43,7 @@ let warnedUnconfigured = false
 
 /**
  * Resolves the API base and auth headers from build env, or returns null when any of
- * CONTENT_API_BASE/CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET/BUILD_API_TOKEN is unset (e.g. the
- * bootstrap build before a worker exists). The Access service-token headers are mandatory here (unlike
- * emdash-api.ts, where they are an optional fallback path) because Access is the mandatory outer gate
- * for every token type (D3) — a build token alone authenticates nothing.
+ * CONTENT_API_BASE/CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET/BUILD_API_TOKEN is unset
  */
 function getConfig(): BuildApiConfig | null {
     const base = env("CONTENT_API_BASE")?.replace(/\/+$/, "")
@@ -214,19 +190,12 @@ export function fetchComposers(): Promise<ComposerRecord[] | null> {
 
 /**
  * Build-time cache backing {@link fetchComposers}, same rationale as design-api.ts's `themeCache`/
- * `pageHrefCache`: `astro build` runs prerendering as one Node process, and DatabaseRoot.astro (rendered
- * at both /entity and /database), search/advanced/db-search-index.json.ts, and every entity route's `getStaticPaths`
- * each call this — without a cache, one build fires that many redundant reads of the same collection.
+ * `pageHrefCache`
  */
 let composersCache: Promise<ComposerRecord[] | null> | null = null
 
 /**
- * Fetches every contributor record, unredacted, hidden or not. Exported for `entity-records.ts`'s
- * `buildReferenceIndex`, which needs `id`/`name`/`tags` for EVERY contributor a composition might
- * reference — a composition may legitimately reference a hidden (or otherwise inactive-but-public)
- * contributor, and `name` alone is not a protected column. Never pass this array's rows to a public page
- * directly; only the resolved `{id, name, href}` reference the normalizer builds from it may reach a
- * render — use {@link fetchContributors} for a contributor's own public page.
+ * Fetches every contributor record, unredacted, hidden or not
  *
  * Cached for the life of one build process (see {@link allContributorsCache}).
  *
@@ -243,12 +212,7 @@ let allContributorsCache: Promise<ContributorRecord[] | null> | null = null
 
 /**
  * Fetches the contributor records eligible for their own public page: every contributor NOT tagged
- * `hidden` (see {@link isHiddenContributor}) — `active` no longer gates page existence, only
- * authorization (CONTRIBUTOR_TABLE's `protected` comment, src/lib/api/tables.ts) — each with its
- * protected/identity columns (`roles`, `admin`, `identity_email`, `active`) stripped. The build-token
- * endpoint branch returns the complete, unredacted set (same as the identity.admin branch) with no
- * hidden-filter, so this reader still redacts and filters itself — there is no server-side chokepoint
- * scoped to "public build reader" specifically.
+ * `hidden` (see {@link isHiddenContributor})
  *
  * @returns redacted, non-hidden contributors, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails
@@ -262,12 +226,9 @@ export async function fetchContributors(): Promise<ContributorRecord[] | null> {
 }
 
 /**
- * Fetches every composition, in its already-resolved record shape. Foreign-key resolution
- * (composer/contributor names, public-page hrefs) is done once, for every noun uniformly, by
- * `entity-records.ts`'s `entityRecords`/`buildReferenceIndex` as part of the unified field-outlet
- * rewrite — this function is a thin mirror of `fetchComposers`/`fetchContributors`.
+ * Fetches every composition, in its already-resolved record shape
  *
- * Cached for the life of one build process (see {@link compositionsCache}).
+ * Cached for the life of one build process (see {@link compositionsCache})
  *
  * @returns every composition, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails

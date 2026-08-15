@@ -167,13 +167,7 @@ const KEY_PITCH_CLASS: Record<Key, number> = {
 }
 
 /**
- * Converts a Key to a pitch-class reference (e.g. "1-major") that collapses enharmonic spellings —
- * C#/Db, D#/Eb, E/Fb, E#/F, F#/Gb, G#/Ab, A#/Bb, B/Cb — onto the same value, so two differently-spelled
- * but musically identical keys compare equal.
- *
- * Used by the advanced search feature — lib/search/facets.ts's `keyOptions`/`parseFacetQuery` and the
- * search/advanced/db-search-index.json.ts build endpoint — to match/group
- * compositions by key using this reference instead of the raw Key string.
+ * Converts a Key to a pitch-class reference (e.g. "1-major") to collapse enharmonics for search
  *
  * @param {Key} key - the key to normalize
  * @returns {string} the pitch-class reference, of the form "<pitch class 0-11>-major" or "<pitch class 0-11>-minor"
@@ -378,11 +372,10 @@ function joinAndFilterItems(values: Array<string | number>): string {
 }
 
 /**
- * Parses a citations column's JSON-encoded text back into its key-value form. A blank or null column (no
- * citations set — the ADD COLUMN migration leaves existing rows NULL until they are next written, the
- * same as tags) parses to {}; a non-blank column is expected to be well-formed JSON written by
- * {@link serializeCitations} (the only writer of this column) — a parse failure indicates database
- * corruption, so it throws rather than silently discarding the value.
+ * Converts citation JSON format to key-value format
+ *
+ * @param raw JSON data to read
+ * @returns JS object map
  */
 function parseCitations(raw: string | null | undefined): Record<string, string> {
     if (!raw || raw.trim() === "") {
@@ -400,9 +393,7 @@ function serializeCitations(value: Record<string, string> | undefined): string {
 type PartialFieldTransform = (value: any, output: Record<string, unknown>) => void
 
 /**
- * Shared loop for the three format*ToD1Partial converters. Iterates a partial record, skipping the
- * `id` column (callers map it to the table's primary-key column) and any undefined field, then either
- * applies the field's transform or passes the value through unchanged.
+ * Shared loop for the three format*ToD1Partial converters
  */
 function applyPartialFields(
     record: Record<string, any>,
@@ -820,26 +811,19 @@ export function errorAPIPayload(comment: string): APIResponse {
 }
 
 /**
- * Replaces the common "smart"/curly quotation marks with their straight ASCII equivalents. Word processors
- * and spreadsheets (a likely source of pasted or CSV-imported data) auto-substitute these, which then break
- * exact-match lookups and look inconsistent in stored text.
+ * Normalizes quotes, straightening them
  *
  * @param value the string to normalize
  * @returns the string with curly single/double quotes converted to ' and "
  */
 function straightenQuotes(value: string): string {
     return value
-        .replace(/[‘’‚‛′]/g, "'") // ‘ ’ ‚ ‛ ′ → '
-        .replace(/[“”„‟″]/g, '"') // “ ” „ ‟ ″ → "
+        .replace(/[‘’‚‛′]/g, "'") // ‘ ’ ‚ ‛ ′ -> '
+        .replace(/[“”„‟″]/g, '"') // “ ” „ ‟ ″ -> "
 }
 
 /**
- * Recursively cleans up user-supplied input for a data write: every string is trimmed of leading/trailing
- * whitespace and has its curly quotes straightened; objects and arrays are walked and rebuilt, and all other
- * values pass through unchanged. Returns a cleaned copy (the input is not mutated). Applied on the data POST
- * path (see handleBulkCreate) so pasted/CSV-imported records are normalized before validation and storage;
- * it is deliberately not wired into the generic request parser, which also serves auth/identity/command
- * endpoints whose payloads must be preserved verbatim.
+ * Performs cleanup of input data, including trimming excess white space, fixing arrays, etc.
  *
  * @param value the value to sanitize (a record, array, or scalar)
  * @returns a sanitized copy of the value

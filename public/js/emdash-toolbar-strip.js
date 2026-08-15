@@ -9,7 +9,7 @@
  * scripts) so the admin Content-Security-Policy can keep script-src 'self' with no inline-script
  * allowance. See components/AdminHead.astro and middleware/headers.ts.
  *
- * NOTE: do not write the literal string "</" + "body>" anywhere in this file (even in a comment) —
+ * NOTE: do not write the literal string "</" + "body>" anywhere in this file (even in a comment) -
  * EmDash's toolbar-injection middleware does a naive string search for that exact substring in the
  * rendered HTML and splices its toolbar markup at the first occurrence.
  *

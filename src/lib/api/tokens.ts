@@ -1,8 +1,7 @@
 /**
  * lib/api/tokens.ts
  *
- * Issuance, hashing, and lookup primitives for the two token types: user-scoped API tokens (this file's
- * Stage A surface) and capability-scoped build tokens (Stage B).
+ * Issuance, hashing, and lookup primitives for API and build tokens
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -43,16 +42,7 @@ export function expiryWindowMs(days: ExpiryWindowDays): number {
     return days * MS_PER_DAY
 }
 
-/** A build token's lifetime: one of the day-count windows, or "never" for a token that does not expire.
- * Build tokens hold no identity and no write access (see buildTokenRouteAllowed), so an indefinite lifetime
- * only ever grants the same three read-only, full-list routes any other build token grants — it removes
- * rotation, not risk ceiling. User-scoped API tokens deliberately keep a mandatory expiry.
- *
- * That "removes rotation, not risk ceiling" claim did NOT hold while GET /api/v1/contributors served this
- * credential the unredacted table: the ceiling was every enrolled user's sign-in email plus the whole
- * authorization map, which is not a thing to hand out with an indefinite lifetime. The endpoint now
- * redacts server-side for the build-token branch (see BUILD_TOKEN_SCHEMA in pages/api/v1/contributors.ts),
- * which is what makes the rationale above true. If that redaction is ever removed, remove "never" too. */
+/** A build token's lifetime: one of the day-count windows, or "never" */
 export type BuildTokenExpiry = ExpiryWindowDays | "never"
 
 export function isValidBuildTokenExpiry(value: unknown): value is BuildTokenExpiry {
@@ -94,16 +84,13 @@ export function generateApiTokenSecret(): GeneratedSecret {
 }
 
 /** Distinct prefix from generateApiTokenSecret so a leak scan (or the two verification paths) can tell the
- * two token classes apart unambiguously. */
+ * two token classes apart unambiguously */
 export function generateBuildTokenSecret(): GeneratedSecret {
     return generateSecret("skv_build_")
 }
 
 /**
- * SHA-256 of the presented secret, hex-encoded. Bare digest — no salt, no KDF. This is deliberate: a
- * 256-bit random token has no dictionary to defend against and nothing to correlate across users, so a
- * KDF would buy zero security here while adding real per-request latency (the same reasoning behind
- * GitHub's PAT storage). Only ever compared against a hash column; the plaintext is never persisted.
+ * SHA-256 of the presented secret, hex-encoded
  */
 export async function hashToken(secret: string): Promise<string> {
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret))
@@ -204,9 +191,7 @@ export async function revokeApiToken(id: number, revoked_date: number): Promise<
 
 /**
  * Resolves a presented API-token secret to the Identity of the contributor who issued it, or null when the
- * token is unknown, revoked, expired, or its owning contributor no longer resolves. Does not check the
- * owner's active state — that is left to the endpoint's `auth_check`, exactly as for a cookie-authenticated
- * request, so a deactivated owner's token fails there for free.
+ * token is unknown, revoked, expired, or its owning contributor no longer resolves
  */
 export async function resolveApiTokenIdentity(secret: string, now: number): Promise<Identity | null> {
     const hash = await hashToken(secret)
@@ -217,9 +202,7 @@ export async function resolveApiTokenIdentity(secret: string, now: number): Prom
     return authorizeContributorId(row.contributor_id)
 }
 
-/** A row as returned to an admin managing build tokens — metadata only, never token_hash or the plaintext.
- * There is no owning contributor to attribute (the token can never write). expires_date is null for a token
- * issued with "never" as its expiry. */
+/** A row as returned to an admin managing build tokens — metadata only, never token_hash or the plaintext */
 export interface BuildTokenRow {
     id: number
     label: string
@@ -245,8 +228,7 @@ export async function lookupBuildTokenByHash(token_hash: string): Promise<BuildT
     return result.results[0] as unknown as BuildTokenLookupRow
 }
 
-/** Whether a build_tokens row with this id exists at all (regardless of revoked/expired state). Used only
- * to return 404 vs 204 from the revoke endpoint — build tokens have no owner to authorize against. */
+/** Whether a build_tokens row with this id exists at all (regardless of revoked/expired state) */
 export async function buildTokenExists(id: number): Promise<boolean> {
     const result = await exec_string("SELECT id FROM build_tokens WHERE id = ?;", [id])
     return result.success && result.results.length > 0
@@ -287,18 +269,14 @@ export async function revokeBuildToken(id: number, revoked_date: number): Promis
 }
 
 /**
- * Whether a build token exists, is not revoked, and is not expired (a null expires_date never expires).
- * Unlike resolveApiTokenIdentity this resolves no Identity — a build token grants no identity, only (via
- * buildTokenRouteAllowed) access to a small, fixed set of read-only routes.
- */
+ * Whether a build token exists, is not revoked, and is not expired (a null expires_date never expires) */
 export async function verifyBuildToken(secret: string, now: number): Promise<boolean> {
     const hash = await hashToken(secret)
     const row = await lookupBuildTokenByHash(hash)
     return row !== null && row.revoked_date === null && (row.expires_date === null || row.expires_date > now)
 }
 
-/** The three full-list, read-only collection routes a build token may call. Nothing else — not even
- * /api/v1/composers/[id] — is permitted (D9: capability-scoped, read/list-only, default-deny). */
+/** The three full-list, read-only collection routes a build token may call */
 const BUILD_TOKEN_ALLOWED_PATHS: ReadonlySet<string> = new Set([
     "api/v1/composers",
     "api/v1/works",
@@ -307,8 +285,7 @@ const BUILD_TOKEN_ALLOWED_PATHS: ReadonlySet<string> = new Set([
 
 /**
  * Pure predicate, the single source of truth for what a build token may call: true iff the request is a GET
- * against exactly one of the three whitelisted collection routes. Enforced centrally in
- * middleware/identity.ts so no individual endpoint can forget the check.
+ * against exactly one of the three whitelisted collection routes
  */
 export function buildTokenRouteAllowed(method: string, path_components: string[]): boolean {
     return method === "GET" && BUILD_TOKEN_ALLOWED_PATHS.has(path_components.join("/"))

@@ -129,7 +129,7 @@ describe("migrateDesign — backfills missing component ids", () => {
     })
 })
 
-describe("migrateDesign — v1 → v2: splits Columns/Row's gap into columnGap/rowGap", () => {
+describe("migrateDesign — v1 -> v2: splits Columns/Row's gap into columnGap/rowGap", () => {
     it("splits a top-level Columns' gap into columnGap and rowGap", () => {
         const result = migrateDesign({
             schemaVersion: 1,

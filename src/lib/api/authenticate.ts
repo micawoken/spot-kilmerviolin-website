@@ -151,16 +151,6 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
         // claim here, at the single point identities are minted, so every downstream lookup and
         // comparison against the stored identity_email matches regardless of the casing in the JWT
         const email: string | null = payload.email ? String(payload.email).toLowerCase() : null // Access JWT's include an email claim
-        /**
-         * An absent `nbf` defaults to epoch 0 — "valid from the beginning of time", which can only ever
-         * narrow nothing and extend nothing, so it is safe to default.
-         *
-         * An absent `exp` must NOT default to Infinity. "No expiry claim means never expires" is the wrong
-         * default for the app's outermost authentication check: a validly signed token with no `exp` would
-         * be accepted forever. jose's jwtVerify enforces `exp` when it is present, so the fail-open only
-         * bit when the claim was missing entirely — which is exactly the case that should be refused.
-         * Cloudflare Access always issues `exp`, so requiring it rejects no token Access actually mints.
-         */
         const nbf_time: number = typeof payload.nbf === "number" ? payload.nbf : 0
         if (typeof payload.exp !== "number") {
             return null
@@ -188,9 +178,7 @@ export async function parseJWT(token: string | null, aud: string): Promise<BaseI
 }
 
 /**
- * Determines whether verified Access JWT claims identify a service principal (a Cloudflare Access
- * service token) rather than a user. Service-token JWTs carry a common_name claim (the token's
- * configured name) and no email claim; user JWTs always carry an email.
+ * Determines if a service principal (i.e., a Service Token) is used for authentication
  *
  * @param {object} payload - the verified JWT payload claims
  * @returns {boolean} true when the claims identify a service principal
@@ -200,10 +188,7 @@ export function isServicePrincipalClaims(payload: Record<string, unknown>): bool
 }
 
 /**
- * Reports whether a token is a cryptographically valid, active service-token JWT (see
- * isServicePrincipalClaims) for the given Access audience. Returns false for user JWTs, malformed or
- * invalid tokens, and configuration gaps — callers must then fall back to the user-identity flow, so a
- * false here never widens access.
+ * Verifies whether a service token is cryptographically valid
  *
  * @param {string} token - the JWT presented in the Cf-Access-Jwt-Assertion header
  * @param {string} aud - the expected audience claim (the CF Access application audience)

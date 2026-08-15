@@ -1,27 +1,7 @@
 /**
  * lib/compositor/catalog-richtext-link.tsx
  *
- * The editor-only inline-hyperlink UI for `RichText`'s Puck `richtext` field: a toolbar control plus a
- * dialog to create/edit/remove a link at the current selection, with a per-link "Opens in". Split out of
- * catalog.tsx for the same reason as `catalog-media-picker.tsx` — it has browser behavior of its own
- * (hooks, dialog state), and is attached only in the editor target, so its code never reaches the build
- * path or the pure catalog-purity-rule render bodies.
- *
- * Puck's richtext field ships no link control (only bold/italic/underline/strike/code/codeblock/
- * blockquote/lists/hr/text-align, per its `RichTextMenu` export). `RichtextField.renderMenu`/
- * `renderInlineMenu` hand back the live Tiptap `editor`, and `RichTextMenu.Control`/`.Group` let a new
- * control sit beside Puck's own, visually identical — that seam is what this module fills.
- *
- * Type note: `@puckeditor/core`'s public types reference `Editor`/`EditorState`/`EditorStateSnapshot`
- * from `@tiptap/react`, which is not a direct dependency here (only transitive, through Puck) — pnpm's
- * strict layout means it cannot be imported by name in this file. Every type below is derived
- * structurally off the exported `RichtextField` interface instead (`Parameters<...>`, indexed access),
- * never by importing the private names directly.
- *
- * "Opens in" persistence: `richtext.tsx`'s `opensInNewTab` already renders an explicit markDef `target`
- * when present; `convert.ts` now carries `target` across the EmDash hop (see its header) so what this
- * dialog writes actually survives a save/reload. That map is href-keyed — two links sharing a URL in one
- * body share one "Opens in" setting — surfaced below as a one-line note when it applies.
+ * The editor-only inline-hyperlink UI for `RichText`'s Puck `richtext` field
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -64,11 +44,7 @@ type RichTextEditorState = RichTextMenuRenderProps["editorState"]
 
 // --- Selector: adds isLink/canLink to the field's editorState ---------------------------------------
 
-/** `RichtextField.tiptap.selector` — exposes whether the caret/selection is on a link (`isLink`, for the
- *  control's active state) and whether a link can be created or edited here at all (`canLink`: a
- *  non-empty selection, or the caret already inside a link). `EditorState`'s type always allows
- *  arbitrary boolean keys (see the private `RichTextSelector`/`EditorState` types this structurally
- *  matches), so no further generic wiring is needed at the call site in catalog.tsx. */
+/** `RichtextField.tiptap.selector` */
 export const richTextLinkSelector: LinkSelectorFn = (ctx: LinkSelectorCtx) => {
     const editor = ctx.editor
     if (!editor) return { isLink: false, canLink: false }
@@ -96,9 +72,7 @@ function readLinkAttrs(editor: RichTextEditor): { href: string; target: "" | "_s
     return { href: typeof attrs.href === "string" ? attrs.href : "", target }
 }
 
-/** How many text runs in the document carry a link to `href` — a coarse-but-adequate signal for the
- *  "these share one Opens-in setting" note (see the file header); a link split across several marked
- *  runs (e.g. partly bold) counts more than once, which only makes the note fire a little more often. */
+/** How many text runs in the document carry a link to `href` */
 function countLinksWithHref(editor: RichTextEditor, href: string): number {
     if (!editor || href.trim() === "") return 0
     let count = 0
@@ -111,8 +85,7 @@ function countLinksWithHref(editor: RichTextEditor, href: string): number {
 }
 
 /** The link toolbar control: a `RichTextMenu.Control` that opens a small dialog to set the href and
- *  "Opens in", or remove the link. Rendered by both `renderMenu` (form toolbar) and `renderInlineMenu`
- *  (canvas bubble menu) below — same component, different surrounding menu chrome. */
+ *  "Opens in", or remove the link */
 function LinkControl({ editor, editorState, readOnly }: { editor: RichTextEditor; editorState: RichTextEditorState; readOnly: boolean }) {
     const [open, setOpen] = useState(false)
     const [href, setHref] = useState("")

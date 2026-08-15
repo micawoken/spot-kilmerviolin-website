@@ -322,17 +322,8 @@ interface Identity extends BaseIdentity {
  * @property {boolean} conferrable - Whether the role can be conferred by a non-administrator possessing the role to another user
  * @property {boolean} cms_editor - Whether the role provides authorization to edit site content through the
  *   in-worker EmDash CMS at /_emdash, enforced by src/middleware/emdash_access.ts.
- * @property {boolean} design_editor - Whether the role provides authorization to use the visual design
- *   system (/admin/advanced/designs: the design list, the Puck editor, the theme). STRICTLY WEAKER than cms_editor
- *   over /_emdash: the design system is a browser-side EmDash API client, so emdash_access.ts admits a
- *   design_editor to a fixed ALLOWLIST of the paths it calls (its own design_* collections; read-only
- *   entry, schema and media reads) and denies the rest of the CMS — the admin UI, other collections'
- *   writes, settings, users. cms_editor is a superset and does not require this permission.
+ * @property {boolean} design_editor - Whether the role provides authorization to use the visual design system
  * @property {boolean} rebuild - Whether the role provides authorization to trigger a site rebuild
- *   (POST /api/v1/site, and the /admin/site/rebuild page). A rebuild only publishes content or design
- *   changes, so this is a dedicated permission assigned alongside cms_editor and/or design_editor on every
- *   role that carries either, rather than the caller being checked against those two permissions directly
- *   (auth_check/guardPage only support ANDing a permission list, not ORing one).
  *
  * Contribution edit lockout: by default, users are granted read-only access to entries made by others, which is enforced by the API.
  * By default, administrators bypass the lockout, but certain use-cases (such as peer review) merit a lift of this restriction so that
@@ -352,14 +343,7 @@ interface RoleProfile {
 }
 
 /**
- * The aggregate permission set granted to an identity: the union (logical OR) of the RoleProfile of every
- * valid role the identity holds. Each key mirrors a RoleProfile permission and is true iff at least one
- * held role grants it; an identity with no (valid) roles has every permission false.
- *
- * Defined as a mapped type over RoleProfile so the two can never drift — adding a permission to RoleProfile
- * automatically adds it here. Exposed as Identity.permissions and consumed by access screening
- * (see page_auth satisfiesAccess). Named IdentityPermissions to avoid colliding with the global DOM
- * `Permissions` interface (the navigator.permissions API).
+ * The aggregate permission set granted to an identity
  */
 type IdentityPermissions = { readonly [K in keyof RoleProfile]: boolean }
 
@@ -374,11 +358,7 @@ interface D1BaseSchema {
 }
 
 /**
- * A D1 table's shape, independent of any database binding — column names, indexes, type hints, and
- * redaction rules. Kept separate from {@link D1Schema} so a build-time reader with no D1Database
- * available (e.g. src/lib/build/d1-schema.ts, running plain-Node `astro build`) can consume the same
- * table shapes as the Worker runtime (src/lib/api/tables.ts, src/lib/api/d1.ts) without importing
- * `cloudflare:workers`.
+ * A D1 table's shape, independent of any database binding
  *
  * @namespace D1SchemaPrimitive
  * @property {string} name - the name of the table
@@ -649,11 +629,6 @@ interface CompositionRecord extends Composition {
 /**
  * The resolved names attached to a composition when the "names" meta flag is set on a GET
  *
- * The composition record itself only stores numeric references (composer_id and author_secondary for
- * composers; contrib_primary_1, contrib_primary_2, and contrib_addl for contributors), so these
- * human-readable names are resolved from the composer and contributor tables on request and transmitted
- * alongside the composition rather than embedded in it.
- *
  * @property {string} composer_name - the name of the composer referenced by the composition's composer_id
  * @property {string[]} author_secondary_names - the names of the composers referenced by author_secondary,
  *   in the same order as the author_secondary array (an unresolvable id yields an empty string)
@@ -674,8 +649,7 @@ interface CompositionNames {
 
 /**
  * A composition paired with its resolved names, returned by the connector when the "names" meta flag
- * is requested. The API object is kept whole under "object" so it remains a valid Composition, with the
- * supplementary names (which are not part of the Composition spec) carried separately under "names".
+ * is requested
  *
  * @property {CompositionRecord} object - the composition record, conforming to the Composition interface
  * @property {CompositionNames} names - the resolved composer and contributor names

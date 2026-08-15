@@ -4,7 +4,6 @@
  * Provides primitives to access Cloudflare KV storage, including reading, writing, and listing keys
  *
  *
- *
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at

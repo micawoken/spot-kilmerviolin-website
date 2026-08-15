@@ -1,11 +1,7 @@
 /**
  * lib/api/access_iam_mgmt.ts
  *
- * Provides functions relating to granting and revoking access via Cloudflare Access. Enrollment is managed by
- * editing the inline `email` include rules of a reusable Access policy directly (read-modify-write on
- * /accounts/{id}/access/policies/{policy_id}), rather than through a referenced reusable email list. This needs
- * only an "Access: Policies Edit" API token (see DEPLOY.md), and inline emails work on plans where referenced
- * email lists do not. Non-email rules on the policy are preserved untouched.
+ * Provides functions relating to granting and revoking access via Cloudflare Access
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -80,12 +76,11 @@ async function get_policy(): Promise<AccessPolicy> {
     const response = await _fetch(cf_access_policy_endpoint, "GET")
     return _parse_policy(response)
 }
-
-// PUT is a full replacement (there is no per-rule append/remove), so the caller mutates the policy read by
-// get_policy() and writes the whole object back. Read-only fields are stripped; all other fields — decision,
-// name, session settings, and any non-email include/exclude/require rules — round-trip unchanged so we only
-// ever alter the inline email allowlist. NOTE: this is a read-modify-write with no compare-and-swap on the
-// Access API, so concurrent mutations can race; callers here are effectively serialized (single-admin site).
+/**
+ * Sets the Cloudflare Access Policy
+ *
+ * @param policy The policy config to set
+ */
 async function put_policy(policy: AccessPolicy): Promise<void> {
     const body: Record<string, unknown> = { ...policy }
     for (const key of POLICY_READONLY_KEYS) {

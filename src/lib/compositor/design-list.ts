@@ -1,10 +1,7 @@
 /**
  * lib/compositor/design-list.ts
  *
- * Shared client-side helpers for the two design-collection list pages (admin/designs/index.astro's
- * `design_page` list and admin/designs/templates.astro's `design_template` list). Both read straight
- * from EmDash's content API — same-origin, session cookie, no server-side fetch — since the design
- * collections live in EmDash, not the app database (mirrors lib/build/emdash-api.ts).
+ * Shared client-side helpers for the two design-collection list pages
  *
  * Copyright (C) 2026 Michael Wong.
  *

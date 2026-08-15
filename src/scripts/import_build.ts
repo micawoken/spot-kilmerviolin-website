@@ -101,13 +101,13 @@ export interface BuildResult {
 }
 
 /**
- * Resolution context for composition imports: the name→record maps and candidate name lists used to resolve
+ * Resolution context for composition imports: the name->>record maps and candidate name lists used to resolve
  * references and suggest corrections, plus the set of composer+name keys already present in the database and
- * the admin-supplied period→phase mapping.
+ * the admin-supplied period->>phase mapping.
  */
 export interface WorksContext {
     composerByName: Map<string, NamedRecord>
-    /** (name, role) → composer record, used only for secondary authors (see resolveSecondaryAuthor) —
+    /** (name, role) ->> composer record, used only for secondary authors (see resolveSecondaryAuthor) —
      *  composers are unique on (name, role) (idx_composers_name_role), so a name-only lookup can resolve to
      *  the wrong role variant when the same person appears under more than one role. */
     composerByNameRole: Map<string, NamedRecord>
@@ -172,7 +172,7 @@ export function compositionKey(composerId: number, name: string, part: string | 
     return `${composerId} ${normalizeName(name)} ${normalizeName(part ?? "")}`
 }
 
-/** Parses an optional integer cell: blank → null; otherwise the parsed value, or null when unparseable. */
+/** Parses an optional integer cell: blank ->> null; otherwise the parsed value, or null when unparseable. */
 function numberOrNull(raw: string): number | null {
     const trimmed = raw.trim()
     if (trimmed === "") {
@@ -182,7 +182,7 @@ function numberOrNull(raw: string): number | null {
     return isNaN(value) ? null : value
 }
 
-/** Parses an optional string cell: blank (after control-character/whitespace cleanup) → null; otherwise the
+/** Parses an optional string cell: blank (after control-character/whitespace cleanup) ->> null; otherwise the
  *  cleaned value. */
 function stringOrNull(raw: string): string | null {
     const cleaned = cleanText(raw)
@@ -223,7 +223,7 @@ export function parsePhases(raw: string): number[] {
     return Array.from(seen).sort((a, b) => a - b)
 }
 
-/** Builds a name→record map plus the candidate-name list for a set of known records. */
+/** Builds a name->>record map plus the candidate-name list for a set of known records. */
 export function indexByName(records: NamedRecord[]): { byName: Map<string, NamedRecord>; names: string[] } {
     const byName = new Map<string, NamedRecord>()
     const names: string[] = []
@@ -239,7 +239,7 @@ export function indexByName(records: NamedRecord[]): { byName: Map<string, Named
 }
 
 /**
- * Builds a (normalized name, normalized role) → record map for composer secondary-author resolution.
+ * Builds a (normalized name, normalized role) ->> record map for composer secondary-author resolution.
  * Composers are unique on (name, role) (idx_composers_name_role), so — unlike the primary `composer`
  * field's plain indexByName lookup — this lets the same name resolve to a different id depending on the
  * role a secondary-author entry names (or defaults to; see resolveSecondaryAuthor).
@@ -332,7 +332,7 @@ function resolveSecondaryAuthor(
     return { id: null, issue: { message: `unknown composer "${name}" with role "${role}"${hint}`, column } }
 }
 
-/** Builds a composer record from its CSV cells (blank optional fields → null; tags split on ";"). */
+/** Builds a composer record from its CSV cells (blank optional fields ->> null; tags split on ";"). */
 export function buildComposer(cells: Record<string, string>): BuildResult {
     const issues: BuildIssue[] = []
     const name = normalizeUnicodeForm(cleanText(cells.name))
@@ -474,7 +474,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
 
-    // free-text contribution period → phase numbers (blank period → no phases, no mapping required)
+    // free-text contribution period ->> phase numbers (blank period->-> no phases, no mapping required)
     const periodRaw = cleanText(cells.contribution_period)
     let phases: number[] = []
     if (periodRaw !== "") {
@@ -613,7 +613,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
 
 /**
  * Builds one row's record for the given import type. For compositions, `ctx` must be supplied (it carries the
- * name resolution maps and the period→phase mapping).
+ * name resolution maps and the period->>phase mapping).
  */
 export function buildRecord(type: ImportType, cells: Record<string, string>, ctx: WorksContext | null): BuildResult {
     switch (type) {

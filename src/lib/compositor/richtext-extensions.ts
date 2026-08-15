@@ -2,17 +2,7 @@
  * lib/compositor/richtext-extensions.ts
  *
  * Tiptap extension set Puck's built-in `richtext` field edits with, reconstructed for `@tiptap/html`'s
- * `generateJSON` (impl §4.4 follow-up). Puck's richtext field hands `onChange` an HTML string
- * (`editor.getHTML()`), not a ProseMirror doc — converting back to Portable Text on save must parse it
- * with the *same* schema Puck edited with, or marks/nodes silently drop or misparse.
- *
- * Not importable from `@puckeditor/core` — its internal `PuckRichText` bundle isn't in the package's
- * public `exports` map — so reconstructed here from the same `@tiptap/extension-*` packages, matching
- * its default options exactly (every extension enabled, `TextAlign` scoped to heading/paragraph), with
- * ONE deliberate exception: `Link` (see {@link COMPOSITOR_LINK}). A future `@puckeditor/core` upgrade
- * that changes its default extension set desyncs everything else here silently — Link cannot desync the
- * same way, since both the editor field (`catalog.tsx`'s `RichText.body`) and this save-path re-parse
- * are handed `COMPOSITOR_LINK` explicitly rather than relying on Puck's own default.
+ * `generateJSON`
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -53,19 +43,6 @@ import TextAlign from "@tiptap/extension-text-align"
 import { Underline } from "@tiptap/extension-underline"
 import type { Extensions } from "@tiptap/core"
 
-/**
- * Tiptap's Link defaults `HTMLAttributes.target` to `"_blank"` (and `rel` to a fixed string), and
- * `Link.configure(...)` deep-merges onto that default rather than replacing it — passing `HTMLAttributes:
- * { href: ... }` would not clear `target`. Left in place, every link's HTML would carry
- * `target="_blank"`, and the save-path re-parse (`convert.ts`'s `editorToPortableText`) would read that
- * back as an explicit author choice, converting every link in the site to an explicit "New tab" the
- * moment it round-trips. `addOptions` must therefore replace the options object outright, not configure
- * it. `openOnClick: false` because the compositor's own link dialog owns editing a link; Tiptap's default
- * click-to-navigate would otherwise hijack a click meant to place the caret.
- *
- * The single source both the editor field (`catalog.tsx`) and this module's `generateJSON` re-parse are
- * given — see the file header.
- */
 export const COMPOSITOR_LINK = Link.extend({
     addOptions(): LinkOptions {
         const base = this.parent?.() ?? ({} as LinkOptions)

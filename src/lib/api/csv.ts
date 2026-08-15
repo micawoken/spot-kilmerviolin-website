@@ -1,13 +1,7 @@
 /**
  * lib/api/csv.ts
  *
- * A small, dependency-free CSV toolkit shared by client (the admin import UI) and server. It provides an
- * RFC-4180-style parser (quoted fields, embedded commas/newlines, "" escaping, CRLF/LF), a header-aware
- * row mapper that validates the column set, and a fuzzy name matcher used to suggest corrections for
- * unresolved composer/contributor references during an import preview.
- *
- * This module deliberately imports nothing server-only (no `cloudflare:workers`) so it can be bundled into
- * client scripts the same way lib/api/validation.ts is.
+ * Provides an RFC 4180-like parser and additional corrections to perform cleanup of data
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -32,13 +26,7 @@
  */
 
 /**
- * Parse CSV text into a matrix of string cells.
- *
- * Follows RFC 4180 conventions: fields may be wrapped in double quotes, a quoted field may contain commas
- * and line breaks, and a literal double quote inside a quoted field is written as two double quotes ("").
- * Both CRLF and LF line endings are accepted. A trailing newline does not produce a spurious empty final
- * row, but genuinely empty lines in the middle are preserved as a single empty cell (the caller decides
- * whether to skip them).
+ * Parse CSV data, following RFC 4180 conventions
  *
  * @param text the raw CSV text
  * @returns an array of rows, each an array of string cell values
@@ -101,13 +89,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 /**
- * Parse CSV text with a header row into keyed row objects, validating the column set.
- *
- * The first non-discarded row is treated as the header. Its trimmed column names must equal
- * `expectedColumns` as a set (order does not matter, but there must be no missing or unexpected columns and
- * no duplicates). Each subsequent row must have exactly the header's width and is returned as a
- * `Record<columnName, cellValue>`. Fully empty rows (a single empty cell) are skipped so trailing blank
- * lines are tolerated.
+ * Parse CSV text with a header row into keyed row objects, validating the column set
  *
  * @param text the raw CSV text
  * @param expectedColumns the column names the header must contain
@@ -172,16 +154,14 @@ export function parseCsvWithHeader(
 
 /**
  * Normalizes a name for fuzzy comparison: trimmed, lowercased, and internal whitespace collapsed to a
- * single space. Used so trivial variants ("J.  S. Bach " vs "j. s. bach") compare equal.
+ * single space
  */
 function normalizeName(name: string): string {
     return name.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
 /**
- * Computes the Levenshtein edit distance between two strings, bounded by `max`: as soon as the best
- * possible distance for the current row exceeds `max`, it returns `max + 1` without finishing. The bound
- * keeps the typo suggestion cheap over a large candidate list.
+ * Computes the Levenshtein edit distance between two strings, bounded by `max`
  *
  * @param a the first string
  * @param b the second string
@@ -213,11 +193,7 @@ function boundedLevenshtein(a: string, b: string, max: number): number {
 }
 
 /**
- * Finds the candidate name closest to `target` for a "did you mean…?" suggestion.
- *
- * A normalized exact match (case/whitespace-insensitive) always wins. Otherwise the nearest candidate
- * within a small edit distance (default ≤ 2) of the normalized target is returned, or null if none is
- * close enough. The candidate's original (un-normalized) form is returned so it can be shown verbatim.
+ * Finds the candidate name closest to `target` for a "did you mean...?" suggestion
  *
  * @param target the unresolved name from the CSV
  * @param candidates the known names to match against

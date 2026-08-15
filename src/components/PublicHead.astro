@@ -2,14 +2,7 @@
 /**
  * components/PublicHead.astro
  *
- * Shared <head> fragment for the public-facing site, the public analog of AdminHead. It carries the
- * common metadata (charset, viewport, favicon, title/description, canonical and social tags).
- *
- * Public pages are prerendered (static assets served from ASSETS), so the serving environment cannot be
- * resolved per request here — a single build produces identical HTML for both the production domain and
- * the "staging" preview alias. The staging preview is therefore kept out of search indexes at the edge
- * (an X-Robots-Tag: noindex response-header rule on the staging-*.workers.dev hostname), not by a
- * per-request meta tag. See DEPLOY.md.
+ * Shared <head> fragment for public pages
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -37,9 +30,7 @@ interface Props {
     title: string
     description: string
     image?: string
-    /** true for pages with no unique indexable content of their own (e.g. /search, /search/advanced —
-     *  their results render client-side from Pagefind, so the prerendered HTML a crawler fetches is
-     *  always the empty shell) — see layouts/PublicPage.astro's identical prop. */
+    /* Allows a page to be directed as noindex */
     noindex?: boolean
 }
 
@@ -47,31 +38,14 @@ const { title, description, image, noindex } = Astro.props
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 
-// Site-wide og:image/twitter:image fallback for a page with no image of its own (own field, or CMS
-// featured_image) — a plain build-time constant, not CMS-managed, so unlike webAnalyticsToken below this
-// doesn't need an async settings read. Unset by default: omitting the tags entirely is preferable to
-// pointing at a placeholder asset that doesn't exist (the previous default, "/blog-placeholder-1.jpg", was
-// never carried into public/ from the Astro starter template it came from, and 404s in prod). See
-// .env.example.
+// allows setting of a site-wide default image, with a fallback
 const siteDefaultOgImage = import.meta.env.SITE_DEFAULT_OG_IMAGE ?? process.env.SITE_DEFAULT_OG_IMAGE
 const resolvedImage = image || siteDefaultOgImage
 
-// Cloudflare Web Analytics beacon token. Public pages are prerendered (astro build), so this must be a
-// build-time value, not a wrangler runtime var — see the ImportMetaEnv comment in env.d.ts and
-// .env.example. Cookieless and requires no consent banner (Cloudflare Web Analytics does not use
-// cookies/localStorage to track visitors). Omitted entirely when unset, so a site with no token
-// configured yet renders with no beacon rather than a broken one.
-//
-// No integrity= hash on the beacon script below: Cloudflare updates beacon.min.js's contents server-side
-// without notice (it is not a versioned release), so pinning our own SRI hash would go stale and silently
-// block the script on their next update rather than protect against anything.
+// Cloudflare Web Analytics token to emit
 const webAnalyticsToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN ?? process.env.CF_WEB_ANALYTICS_TOKEN
 
-// Preconnect to the two R2 custom domains record/CMS images load from (media.ts) — cross-origin, so a
-// cold connection pays DNS + TLS before the first byte of whatever image the page renders, LCP candidate
-// or not. Both are optional build-time vars (same resolution as filesBaseUrl in [...slug].astro/entity
-// pages); Set dedupes when both env vars happen to point at the same origin. Origin only, not the full
-// URL — preconnect establishes the connection, it doesn't fetch a resource.
+// Enable preconnection to the two media domains (admin image database and EmDash CMS media)
 const imageOrigins = [
     import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL,
     import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
@@ -81,20 +55,10 @@ const imageOrigins = [
         try {
             origins.add(new URL(url).origin)
         } catch {
-            // an unparseable configured URL is a build-time misconfiguration surfaced elsewhere
-            // (media.ts/files.ts throw when they actually try to build an image URL from it); a
-            // preconnect hint has nothing useful to add here, so just skip it
+            // failed preconnect is not a major issue, ignore
         }
         return origins
     }, new Set<string>())
-
-// Paint the correct background before global.css (an external, network-fetched stylesheet) loads, so
-// cross-document view transitions (theme-authored; see layouts/PublicPage.astro) never reveal a flash of
-// the wrong scheme. The color-scheme meta tag below is parsed synchronously with the rest of <head> and
-// tells the browser which UA default to use for anything not yet styled (scrollbars, form controls); the
-// inline <style> paints the exact --color-bg value from global.css (not just the UA's approximate dark
-// canvas) since it also parses synchronously, with no network round-trip. Keep the hex values in sync with
-// --color-bg in global.css (also duplicated in lib/templates/error.html for the same reason).
 ---
 
 <meta charset="utf-8" />

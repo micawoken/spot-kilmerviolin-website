@@ -306,7 +306,7 @@ export async function populateInfo(
         }
         // mirror the SSR `disp` helper in the entity Info components: a null/undefined/blank/empty-array
         // value renders as a clear "not provided" marker, and the per-entity special cases (living-composer
-        // death year, country code → name, top-level "ID #" prefix, contributor admin account type, plain
+        // death year, country code ->> name, top-level "ID #" prefix, contributor admin account type, plain
         // booleans) render as their human-readable forms (see scripts/format.ts).
         elem.textContent = formatInfoValue(type_name, key, value, force_prefix === undefined)
     }

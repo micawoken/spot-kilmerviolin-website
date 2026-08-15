@@ -1,12 +1,7 @@
 /**
  * lib/compositor/catalog-media-picker.tsx
  *
- * The editor-only media picker: a Puck custom field that lists images from GET /_emdash/api/media and
- * writes the chosen one back as a `MediaValue`. Split out of catalog.tsx.
- *
- * It is the one field render in the catalog with browser behavior of its own — fetch plus modal state —
- * which is why it is attached only in the editor target and never reaches the build path. That is also
- * what makes it separable from a file whose render functions are otherwise required to be pure.
+ * The editor-only media picker
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -33,12 +28,12 @@ import { useState } from "react"
 import type { CustomFieldRender } from "@puckeditor/core"
 
 import { isSafeStorageKey, proxyMediaUrl } from "./media"
-// Type-only, so this does not create a runtime import cycle with catalog.tsx, which imports the picker.
+// Type-only, so this does not create a runtime import cycle with catalog.tsx, which imports the picker
 import type { MediaValue } from "./catalog"
 
 // --- Media picker (editor-only custom field) -------------------------------------------------------
 // Lives entirely inside the field render so its browser code (fetch + modal state) never runs on the
-// build path; attached only in the editor target. Lists images from GET /_emdash/api/media, same-origin.
+// build path; attached only in the editor target. Lists images from GET /_emdash/api/media, same-origin
 
 /** A media list row from GET /_emdash/api/media (subset of EmDash's MediaItem). */
 interface MediaListItem {
@@ -53,7 +48,7 @@ interface MediaListItem {
 
 // Rendered by Puck as a React component (AutoField mounts `<FieldComponent />`), so hooks are valid.
 // Never invoked by the static RSC renderer, and attached only in the editor target, so its browser
-// code (fetch + modal state) stays off the build path.
+// code (fetch + modal state) stays off the build path
 export const mediaPickerRender: CustomFieldRender<MediaValue | undefined> = ({ value, onChange }) => {
     const [open, setOpen] = useState(false)
     const [items, setItems] = useState<MediaListItem[]>([])

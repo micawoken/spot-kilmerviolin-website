@@ -38,7 +38,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 
 // No admin-page default: the admin is Access-gated, so a scraper never resolves og:image/twitter:image
 // here anyway. The previous default, "/blog-placeholder-1.jpg", was never carried into public/ from the
-// Astro starter template it came from and 404s in prod — omit the tags entirely rather than point at it.
+// Astro starter template it came from and 404s in prod - omit the tags entirely rather than point at it.
 const { title, description, image } = Astro.props
 
 // keep the staging preview out of search indexes (see PublicHead.astro for the canonical version)
@@ -49,13 +49,7 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-{
-    /* Paints the real background before global.css (network-fetched) loads, so view transitions never
-    flash the wrong scheme. color-scheme sets the UA default for unstyled controls; the inline style
-    paints the exact --color-bg value (not just the UA's approximate dark canvas), both parsed
-    synchronously with no network round-trip. Keep these hex values in sync with --color-bg in
-    global.css (also duplicated in lib/templates/error.html). */
-}
+{/* Paint the true background early before the page loads to prevent flashes on view-transition CSS */}
 <meta name="color-scheme" content="light dark" />
 <style>
     html {
@@ -67,15 +61,6 @@ const noindex = detectEnvironment(Astro.request) === "staging"
         }
     }
 </style>
-
-{
-    /* No @view-transition rule here, deliberately: the UA crossfade flashes white ~230ms on every admin
-    nav (measured 3/3 in Trace-20260726T223908.json; Chrome root cause still unknown). Overriding
-    mix-blend-mode to fix it breaks the UA's alpha-exact blend and dims navigations instead — worse.
-    Public pages get their own theme-toggled copy (tokens.ts's viewTransitionCss via PublicPage.astro);
-    admin has no theme to toggle from, so it opts out. Don't reintroduce without re-tracing a deploy
-    first. */
-}
 
 <title>{title}</title>
 <meta name="title" content={title} />
@@ -98,16 +83,7 @@ const noindex = detectEnvironment(Astro.request) === "staging"
 <meta property="twitter:description" content={description} />
 {image && <meta property="twitter:image" content={new URL(image, Astro.url)} />}
 
-{
-    /* EmDash injects its visual-editing toolbar into every HTML response (no path/env gate, no opt-out) —
-    meant for editing public pages, but dead weight on admin: CSP blocks its script and it floats over
-    the UI. Only BaseHead (admin) hides it; PublicHead doesn't. is:global since the toolbar lives outside
-    this tree; !important since EmDash's stylesheet loads later and would otherwise win.
-
-    Gotcha: EmDash finds its insertion point via a plain string-replace on the first closing body tag —
-    writing that tag literally anywhere earlier, even in a comment, redirects the injection here. Don't
-    spell it out. */
-}
+{/* Forces erasure of the EmDash CMS toolbar */}
 <style is:global>
     #emdash-toolbar {
         display: none !important;

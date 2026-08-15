@@ -1,28 +1,7 @@
 /**
  * lib/compositor/convert.ts
  *
- * Portable Text ↔ ProseMirror conversion at the design-doc boundary (impl §4.4). Design docs store
- * rich text as Portable Text, same as `pages` — lossless migration, parity is one renderer's concern.
- * Puck's richtext field edits ProseMirror (Tiptap): PT → ProseMirror on load, inverse on save.
- *
- * Walk driven by a registry (component type → rich-text prop names) supplied by the caller — Phase 1
- * uses `catalog.tsx`'s `RICH_TEXT_PROPS` (exactly `RichText.body`) — keeps this module decoupled from
- * the catalog and unit-testable alone. Both walks recurse into slots to reach nested rich-text props.
- * Uses emdash's public converters; per spike (d) they regenerate every `_key` on each PT pass and
- * default a link markDef's `blank` to false — diff semantically, never hold `_key` refs across an edit
- * session.
- *
- * Link `target` round-trip (the seam `richtext.tsx`'s `opensInNewTab` doc names as built for a dialog):
- * EmDash's converters are lossy for it in both directions — load collapses any stored `target` into
- * `blank ? "_blank" : null`, and save keeps only `blank`, computed from whatever `target` the load side
- * left on the mark. `portableTextToEditor`/`editorToPortableText` each wrap the EmDash call with a pure
- * pass that captures `target` before the lossy step and reapplies it after, keyed by href within that
- * one rich-text value. The map is href-keyed, not per-occurrence, so two links to the same href in one
- * body share one "Opens in" setting by construction — first occurrence in document order wins on both
- * the collecting and the applying side, so load and save always agree with each other. The reapply is
- * unconditional (an href absent from the map clears any stale `target`), since every link either editor
- * has ever produced carries `blank: true` — leaving that unresolved would load all legacy content as an
- * explicit "New tab" and persist that choice on the next autosave.
+ * Portable Text <-> ProseMirror conversion at the design-doc boundary
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -45,12 +24,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Converters must run in the browser, but emdash's package entry pulls in its server graph
-// (astro:config/server, kysely, node:async_hooks), and `emdash/client` doesn't re-export them. The
-// converter modules are pure — no platform APIs — so `#emdash/converters` (package.json `imports`)
-// resolves straight to that source, keeping emdash the single source of truth instead of vendoring
-// ~900 lines that would drift. Reaches past emdash's export map — an upgrade that moves the file
-// breaks the build loudly. Durable fix: emdash exports the converters from `emdash/client`.
 import { generateJSON } from "@tiptap/html"
 import { portableTextToProsemirror, prosemirrorToPortableText } from "#emdash/converters"
 import type { PortableTextBlock, ProseMirrorDocument } from "emdash"
@@ -83,8 +56,7 @@ function collectPtLinkTargets(blocks: unknown): LinkTargetMap {
 }
 
 /** Recursively sets every link mark's `target` attr from `targets` (or `null` when its href is absent),
- *  overwriting whatever EmDash's PT→ProseMirror conversion derived from the untrustworthy `blank` flag —
- *  see the module header for why this must be unconditional. Mutates `nodes` in place. */
+ *  overwriting whatever EmDash's PT->ProseMirror conversion derived from the untrustworthy `blank` flag */
 function applyPmLinkTargets(nodes: unknown[], targets: LinkTargetMap): void {
     for (const node of nodes) {
         if (!isRecord(node)) continue
@@ -120,9 +92,7 @@ function collectPmLinkTargets(nodes: unknown[], targets: LinkTargetMap = new Map
     return targets
 }
 
-/** Applies `targets` onto the resulting PT markDefs, keyed by href — the mirror of
- *  `applyPmLinkTargets`. An href absent from the map (Automatic) clears any stale `target` key rather
- *  than leaving one behind. Mutates `blocks` in place. */
+/** Applies `targets` onto the resulting PT markDefs, keyed by href */
 function applyPtLinkTargets(blocks: unknown, targets: LinkTargetMap): void {
     if (!Array.isArray(blocks)) return
     for (const block of blocks) {
@@ -141,16 +111,14 @@ function applyPtLinkTargets(blocks: unknown, targets: LinkTargetMap): void {
 }
 
 /**
- * Registry mapping a component `type` to the names of its rich-text props. Supplied by the catalog
- * (§6.3). A component type absent from the registry has no rich-text props.
+ * Registry mapping a component `type` to the names of its rich-text props
  */
 export type RichTextPropRegistry = Record<string, readonly string[]>
 
-/** A transform applied to one rich-text prop value during a walk (PT → ProseMirror or the inverse). */
+/** A transform applied to one rich-text prop value during a walk (PT -> ProseMirror or the inverse). */
 type PropTransform = (value: unknown) => unknown
 
-/** PT block array → ProseMirror document. Non-array values pass through (defensive against double
- * conversion). Reapplies each link's `target` after EmDash's conversion — see the module header. */
+/** PT block array -> ProseMirror document */
 function portableTextToEditor(value: unknown): unknown {
     if (!Array.isArray(value)) return value
     const targets = collectPtLinkTargets(value)
@@ -159,11 +127,7 @@ function portableTextToEditor(value: unknown): unknown {
     return doc
 }
 
-/** ProseMirror document → PT block array. Puck's richtext field's actual working value is an HTML
- * string (`editor.getHTML()`), not ProseMirror JSON, despite the field's name — parse with the same
- * Tiptap schema the editor uses (RICH_TEXT_EXTENSIONS) before the PT converter. A `{type: "doc"}`
- * value converts directly; anything else (already-PT, empty default) passes through untouched. Captures
- * each link's live `target` before EmDash's conversion and reapplies it after — see the module header. */
+/** ProseMirror document -> PT block array */
 function editorToPortableText(value: unknown): unknown {
     const doc: ProseMirrorDocument | null =
         typeof value === "string"
@@ -189,10 +153,7 @@ function walkComponents(components: unknown[], registry: RichTextPropRegistry, t
 }
 
 /**
- * Walks one component's props in place. A prop named in the registry for this type is a rich-text
- * prop and is transformed; any other array-valued prop is treated as a slot and recursed into. A
- * rich-text prop's value is a PT/ProseMirror structure (never component-shaped), so the two branches
- * never overlap.
+ * Walks one component's props in place
  */
 function walkProps(
     type: string,
@@ -221,7 +182,7 @@ function mapRichText(doc: DesignDoc, registry: RichTextPropRegistry, transform: 
     if (isRecord(puck.root) && isRecord(puck.root.props)) {
         walkProps("root", puck.root.props, registry, transform)
     }
-    // Legacy DropZone data: a map of zone name → component array. Slots supersede it, but tolerate it.
+    // Legacy DropZone data: a map of zone name -> component array. Slots supersede it, but tolerate it.
     if (isRecord(puck.zones)) {
         for (const zone of Object.values(puck.zones)) {
             if (Array.isArray(zone)) walkComponents(zone, registry, transform)
@@ -231,13 +192,13 @@ function mapRichText(doc: DesignDoc, registry: RichTextPropRegistry, transform: 
     return { schemaVersion: doc.schemaVersion, puck: puck as PuckData }
 }
 
-/** Load boundary: copy of the design doc with every rich-text prop converted PT → ProseMirror. Input
+/** Load boundary: copy of the design doc with every rich-text prop converted PT -> ProseMirror. Input
  * not mutated. */
 export function designToEditorForm(doc: DesignDoc, registry: RichTextPropRegistry): DesignDoc {
     return mapRichText(doc, registry, portableTextToEditor)
 }
 
-/** Save boundary: copy of the editor's working doc with every rich-text prop converted ProseMirror →
+/** Save boundary: copy of the editor's working doc with every rich-text prop converted ProseMirror ->
  * PT. Input not mutated. */
 export function editorFormToDesign(working: DesignDoc, registry: RichTextPropRegistry): DesignDoc {
     return mapRichText(working, registry, editorToPortableText)

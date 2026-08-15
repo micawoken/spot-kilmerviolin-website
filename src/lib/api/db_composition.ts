@@ -1,9 +1,8 @@
 /**
  * lib/api/db_composition.ts
  *
- * Composition CRUD (built on the generic engine in database.ts) plus the composition-identity helpers
- * layered on top of it: the (composer, name, part) duplicate check backing the composite UNIQUE index,
- * and the same-name disambiguation used by list/tile display.
+ * Applies composition wrapper to the database.ts wrappers, providing a high-level interface
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -38,15 +37,7 @@ import { listComposers } from "./db_composer.ts"
 import { listContributors } from "./db_contributor.ts"
 
 /**
- * Normalizes a composition (composer_id, name, part) triple into a comparison key.
- *
- * A composition's identity is (composer_id, name, part): the same piece by the same composer for a different
- * part (e.g. "Violin I" vs "Violin II") is distinct, but two rows agreeing on all three collide. SQLite
- * cannot enforce this through a generated column (the value depends on a cross-table lookup), so a composite
- * UNIQUE index on (composer_id, name, COALESCE(part,'')) is the database backstop and this key is the
- * application-model mirror. Name and part are compared case-insensitively and whitespace-trimmed so trivial
- * variants collide as intended, and a null part is treated as an empty part so two part-less rows still
- * conflict. The NUL separator cannot appear in a name or part, so distinct triples never alias.
+ * Normalizes a composition (composer_id, name, part) triple into a comparison key
  *
  * @param composer_id the referenced composer id
  * @param name the composition name
@@ -58,11 +49,7 @@ function compositionDuplicateKey(composer_id: number, name: string, part: string
 }
 
 /**
- * Groups compositions by their (composer_id, name) pair — the two components of the compositions
- * table's UNIQUE index (composer_id, name, COALESCE(part,'')) that on their own do NOT guarantee
- * uniqueness; `part` is the index's third, disambiguating component. Two compositions sharing this key
- * are indistinguishable by name+composer alone and need their `part` surfaced in a display name to
- * tell them apart. Case-insensitive, whitespace-trimmed to mirror {@link compositionDuplicateKey}.
+ * Generates a name collision key based on ID and name
  */
 export function compositionNameCollisionKey(composer_id: number, name: string): string {
     return `${composer_id} ${name.trim().toLowerCase()}`
@@ -70,10 +57,7 @@ export function compositionNameCollisionKey(composer_id: number, name: string): 
 
 /**
  * A composition's display name, with its `part` appended in parentheses when another composition
- * shares the exact same (composer, name) pair — automatic disambiguation for list/tile contexts that
- * show a composition's name next to its composer but have no other way to tell same-titled works
- * apart. A part-less composition stays ambiguous even when a same-named sibling has its own part: there
- * is nothing to disambiguate it WITH.
+ * shares the exact same (composer, name) pair for automatic disambiguation
  */
 export function disambiguatedCompositionName(name: string, part: string | null, hasCollision: boolean): string {
     return hasCollision && part ? `${name} (${part})` : name
@@ -81,11 +65,7 @@ export function disambiguatedCompositionName(name: string, part: string | null, 
 
 /**
  * Enforces that no two compositions share a composer, (normalized) name, and part, at the application model
- * level. Checks the candidate triples against each other (catching duplicates inside a single bulk upload)
- * and against every existing composition (excluding excludeId, so a record does not conflict with itself
- * on update). This complements the composite UNIQUE index added in db_add_composition_part_unique.sql: the
- * index is the authoritative guard, while this produces a clear, early error before the write is attempted
- * and covers the cached read model uniformly across the single, batch, and update paths.
+ * level
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param candidates the (composer_id, name, part) triples about to be written
@@ -135,8 +115,7 @@ export async function findCompositionDuplicates(
 
 /**
  * Throwing wrapper over {@link findCompositionDuplicates} used on the write paths (single add, batch add,
- * and update). Throws on the first duplicate so a write is never attempted when the (composer, name, part)
- * invariant would be violated; the composite UNIQUE index remains the authoritative backstop.
+ * and update); throws on the first duplicate
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param candidates the (composer_id, name, part) triples about to be written
@@ -191,12 +170,7 @@ export async function addComposition(ctx: ExecutionContext, record: Composition)
 }
 
 /**
- * Add several composition records to the database in a single atomic transaction.
- *
- * Enforces the (composer, name) uniqueness invariant across the batch and against existing rows before
- * writing (see _assertNoCompositionDuplicates), then commits atomically (see _addPrimitiveBatch): either
- * every record is inserted or none is. Records must otherwise be pre-validated (and their name references
- * already resolved to ids) by the caller.
+ * Add several composition records to the database in a single atomic transaction
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param records the composition records to add
@@ -291,14 +265,6 @@ export async function listCompositions(ctx: ExecutionContext): Promise<Compositi
 
 /**
  * Pairs each composition with the human-readable names referenced by its numeric fields
- *
- * A composition stores only numeric references: composer_id and the author_secondary id list point into
- * the composer table, while contrib_primary_1, contrib_primary_2, and contrib_addl point into the
- * contributor table. This resolves all of them to names. Each table is fetched once (both are served from
- * the caching layer) and indexed, so resolving a list of compositions costs a single read per table
- * rather than one per reference. Unresolvable ids yield an empty string, keeping author_secondary_names
- * and contrib_addl_names aligned positionally with their source arrays; a null contrib_primary_2 also
- * yields an empty string.
  *
  * @param ctx the Cloudflare Worker ExecutionContext
  * @param compositions the composition records to resolve names for

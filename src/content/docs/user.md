@@ -8,12 +8,12 @@ author: Michael Wong
 
 User management allows you to control existing users on the system. The following actions are available from the [User Management menu](/admin/user):
 
-- **Activate user account** - 
-- **Deactivate user account** - 
-- **Promote user to administrator** - 
-- **Demote user from administrator** - 
-- **Manage API tokens** - 
-- **Manage build tokens** - 
+- **Activate user account** - Activates a user account, allowing it to work on the site
+- **Deactivate user account** - Deactivates a user account, stopping permissions
+- **Promote user to administrator** - Elevates a user to administrator, allowing unrestricted access
+- **Demote user from administrator** - Lowers a user to standard, using roles-based permissions
+- **Manage API tokens** - Create/revoke your API tokens
+- **Manage build tokens** - Create/revoke build tokens
 
 *Note: these functions work with the operations in [Identity and Access Management](/admin/iam): IAM creates/edits records, while User Management controls how they are used.*
 

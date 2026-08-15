@@ -2,14 +2,7 @@
 /**
  * components/entities/ElevationBox.astro
  *
- * Standalone administrator-elevation control. Renders the same elevation checkbox that IDEntryForm
- * can render inline, but as its own block so a page can place it *after* the lookup dialogs (the ID
- * entry form and the keyword search box) instead of having it wedged inside the ID entry form.
- *
- * The checkbox carries an HTML `form` attribute pointing at `form_id`, so it is still submitted with
- * — and read from — that form's FormData (scripts/interface.ts reads "elevate" by name), regardless
- * of where this box sits in the DOM. The <form class="generic-form"> wrapper exists only to inherit
- * the shared fieldset styling; it owns no fields (the checkbox belongs to `form_id`).
+ * Common admin elevation box used on admin pages to perform fail-closed operations as admin
  *
  * Props:
  * - form_id (required): id of the form this elevation checkbox belongs to (e.g. "generic-form-id-entry")

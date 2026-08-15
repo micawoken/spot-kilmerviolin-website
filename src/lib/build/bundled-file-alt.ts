@@ -26,10 +26,8 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 
 // integrations/optimize-files.mjs's astro:build:done hook writes dist/files-manifest.json (with alt),
-// but runs AFTER page rendering in the same `astro build` — too late for getStaticPaths. Reads the
-// same src/files sidecar convention directly instead. Published-name derivation (raster -> .webp,
-// else verbatim) mirrors optimize-files.mjs's RASTER_EXT branch — keep in sync; a mismatch just misses
-// a lookup key, not a build failure (optimize-files.mjs is the sole build-blocking enforcement point).
+// but runs AFTER page rendering in the same `astro build` - too late for getStaticPaths. Reads the
+// same src/files sidecar convention directly instead
 
 const SRC_DIR = "src/files"
 const RASTER_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"])
@@ -37,9 +35,6 @@ const RASTER_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"])
 /**
  * Reads every bundled image's alt text from its src/files/<name>.txt sidecar, keyed by the name
  * optimize-files.mjs publishes it under (the /files/<key> suffix a D1 entity's `image` field stores).
- *
- * Plain object, not a Map: crosses an Astro getStaticPaths props boundary, survives any props-passing
- * mechanism (in-memory or serialized) — a Map wouldn't if props are ever serialized.
  */
 export async function loadBundledFileAlt(srcDir: string = SRC_DIR): Promise<Record<string, string>> {
     const alt: Record<string, string> = {}

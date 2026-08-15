@@ -68,7 +68,7 @@ When the staging checks pass, a feature branch can be merged into main. Upon mer
 ## 9. Rollback and incident response
 
 If an issue is discovered in a recent deployment:
-1. **Roll back the deployment**: perform a rollback using the Cloudflare dashboard (Workers & Pages → the Worker → Deployments → select the last known-good deployment → roll back) or via `wrangler rollback`
+1. **Roll back the deployment**: perform a rollback using the Cloudflare dashboard (Workers & Pages -> the Worker -> Deployments -> select the last known-good deployment -> roll back) or via `wrangler rollback`
 2. **Fix `main`**: revert the bad commit using `git revert`, and merge it in using a PR.
 3. **Fix the problem**: fix the problem in a new feature branch, and merge it in using a PR.
 

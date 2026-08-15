@@ -108,7 +108,7 @@ FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDAT
 FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- user-scoped API tokens (plan-prelaunch-features.md §2); see db_add_api_tokens.sql for full rationale
+-- user-scoped API tokens see db_add_api_tokens.sql for full rationale
 CREATE TABLE api_tokens (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 contributor_id INTEGER NOT NULL,
@@ -124,7 +124,7 @@ FOREIGN KEY (contributor_id) REFERENCES contributors(contributor_id) ON UPDATE C
 CREATE INDEX idx_api_tokens_token_hash ON api_tokens (token_hash);
 CREATE INDEX idx_api_tokens_contributor_id ON api_tokens (contributor_id);
 
--- capability-scoped build tokens (plan-prelaunch-features.md §2 D9); see db_add_build_tokens.sql.
+-- capability-scoped build tokens see db_add_build_tokens.sql.
 -- expires_date is nullable: NULL means the token never expires (issued with expiry "never").
 CREATE TABLE build_tokens (
 id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -23,7 +23,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Astro.locals.identity is undefined (not null) when no identity was constructed — notably in local
+// Astro.locals.identity is undefined (not null) when no identity was constructed - notably in local
 // development, where the identity middleware bypasses auth and never sets locals.identity. Coalesce to
 // null here so the `identity !== null` guards below also catch undefined; otherwise `undefined !== null`
 // is true and reading identity.enrollable/.active throws, blanking the page mid-render.
@@ -37,7 +37,7 @@ const name_defined = identity?.userinfo?.ok || identity?.email
 
 {
     /* the first focusable element on every admin page (this component is rendered at the top of <body> on
-    every admin page and layout — see AdminDocument.astro/DocInfo.astro and the ~60 hand-rolled admin
+    every admin page and layout - see AdminDocument.astro/DocInfo.astro and the ~60 hand-rolled admin
     pages, all of which give their <main> the matching id="admin-main-content") */
 }
 <a class="skip-link" href="#admin-main-content">Skip to content</a>

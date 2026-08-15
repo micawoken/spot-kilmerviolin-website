@@ -1,13 +1,7 @@
 /**
  * lib/api/record_spec.ts
  *
- * The declarative record-validation engine shared by the three entity record modules (composer.ts,
- * composition.ts, contributor.ts): the per-field rule shape, the spec walker that applies it, and the
- * field predicates every spec is assembled from.
- *
- * Split out of d1.ts, which keeps the D1 execution primitives and the schema-level type assertions. The
- * dependency runs one way — the entity modules import this, this imports neither of them — so the specs
- * can name their own validators without a cycle.
+ * Core record validation functions used for the entity files
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -35,11 +29,7 @@ import { cleanText } from "./sanitize.ts"
 import { MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD } from "../../consts.ts"
 
 /**
- * A per-field validation rule consumed by {@link assertRecordBySpec}.
- *   - `invalid` returns true when a present (non-undefined) value is invalid for the field; it
- *     receives the `partial` flag for the few fields whose rule depends on it (rating/pub info).
- *   - `elementCheck` performs a secondary array-element validation, returning a field-specific
- *     error message or null. It only runs after every base check has passed.
+ * A per-field validation rule consumed by {@link assertRecordBySpec}
  */
 export type FieldRule = {
     invalid: (value: any, partial: boolean) => boolean
@@ -49,14 +39,7 @@ export type FieldRule = {
 export type RecordSpec = { [field: string]: FieldRule }
 
 /**
- * Shared, declarative implementation of the per-type record validators below. It reproduces the
- * checks the hand-written validators previously inlined, in the same order and with identical error
- * strings:
- *   - the id column keeps its special rule (a number, or absent/undefined when expect_id is false)
- *   - in partial mode an undefined field is skipped; in complete mode an absent field fails its own
- *     base check (typeof undefined never matches a base type), so presence is enforced implicitly
- *   - base type checks run first (any failure yields the generic message); array-element checks run
- *     afterwards in spec order so their field-specific messages are preserved
+ * Shared, declarative implementation of the per-type record validators
  *
  * @returns true if the record satisfies the spec, otherwise a string error message
  */
@@ -73,7 +56,7 @@ export function assertRecordBySpec(
     const r = record as { [key: string]: any }
     // collect every field that fails its base check so the caller can report exactly what is invalid,
     // rather than a single generic message. In complete mode an absent field fails its own base check
-    // (typeof undefined never matches a base type), so a missing required field is named here too.
+    // (typeof undefined never matches a base type), so a missing required field is named here too
     const invalid_fields: string[] = []
     // id is nullable on inbound records: it must be a number, or absent (undefined) when not expected
     if (typeof r.id !== "number" && (typeof r.id !== "undefined" || expect_id)) {

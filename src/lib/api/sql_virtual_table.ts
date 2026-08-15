@@ -1,12 +1,12 @@
 /**
  * lib/api/sql_virtual_table.ts
  *
- * An in-memory view of a D1 table that evaluates a SQLStatement against rows already fetched from D1,
- * KV, or cache - the read path that avoids a round trip per query. Split out of sql.ts.
+ * A SQL execution engine working in memory
  *
- * `sqlLikeToRegex` lives here because the LIKE/NOT LIKE comparison operators below are its only caller.
- * The inverse direction (regexToSqlLike) was removed in the same split: it had no callers anywhere.
  *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
  *
  * This program is free software: you can redistribute it and/or modify

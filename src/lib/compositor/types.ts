@@ -1,13 +1,7 @@
 /**
  * lib/compositor/types.ts
  *
- * Core types and structural guards for the visual compositor's stored design documents.
- *
- * A design document is the value of a `design_page` item's `design` JSON field (impl
- * §4.2): a versioned envelope wrapping Puck's own data tree. This module owns the envelope
- * type and the small structural guards used to walk that tree (migrations §6.2, PT/ProseMirror
- * conversion §6.4). Per-component prop interfaces live with the Puck config in `catalog.tsx`
- * (§6.3) — they are defined where the catalog that produces them is, not here.
+ * Core types and structural guards for the visual compositor's stored design documents
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -36,9 +30,7 @@ import type { Data as PuckData } from "@puckeditor/core"
 
 export type { PuckData }
 
-/** Content collections a template can render entries of (pivot §3). Lives here, not with the build
- * reader, because `middleware/emdash_access.ts` must bound design_editor reads without importing
- * build code — one list, two consumers, no drift. */
+/** Content collections a template can render entries of */
 export type TemplateCollection = "pages" | "posts"
 
 export const TEMPLATE_COLLECTIONS: readonly TemplateCollection[] = ["pages", "posts"]
@@ -48,12 +40,11 @@ export function isTemplateCollection(collection: string): collection is Template
     return (TEMPLATE_COLLECTIONS as readonly string[]).includes(collection)
 }
 
-/** Stored design envelope (impl §4.2). `schemaVersion` lives inside the JSON, atomic with the
- * layout — travels through EmDash revisions/rollbacks, not a DB column. */
+/** Stored design envelope */
 export interface DesignDoc {
-    /** Starts at 1, bumped by a `migrations.ts` transform on any breaking change. */
+    /** Starts at 1, bumped by a `migrations.ts` transform */
     schemaVersion: number
-    /** Puck's `{ root, content, … }` tree; slot fields nest component arrays inside props. */
+    /** Puck's `{ root, content, … }` tree */
     puck: PuckData
 }
 
