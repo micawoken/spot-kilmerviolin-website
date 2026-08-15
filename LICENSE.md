@@ -652,9 +652,9 @@ Notwithstanding the claimant's belief, this software is licensed under the GNU A
 This program is primarily distributed using the GNU Affero General Public License. To request licensing of this program or a portion thereof under a different license, contact the author.
 
 ## Third-Party Licenses
-This source code repository depends on the following third-party software packages. The table lists all immediate (direct) dependencies declared in `package.json`; transitive dependencies are not listed individually but are covered by the same license terms as the direct package that pulls them in. "Kind" distinguishes runtime dependencies from devDependencies (build/test tooling not included in the deployed Program).
+This source code repository depends on the following third-party software packages.
 
-_Generated 2026-08-10 from `package.json` cross-referenced with `pnpm licenses list --json`; regenerate the same way to refresh this table._
+_Generated 2026-08-10 from `package.json`._
 
 | Package                           | Kind          | License           | Declared range                     | Installed version | Author                  | Homepage                                                                                |
 | :-------------------------------- | :------------ | :---------------- | :--------------------------------- | :---------------- | :---------------------- | :-------------------------------------------------------------------------------------- |
@@ -709,17 +709,17 @@ _Generated 2026-08-10 from `package.json` cross-referenced with `pnpm licenses l
 | vitest                            | devDependency | MIT               | ^4.1.10                            | 4.1.10            | Anthony Fu              | https://vitest.dev                                                                      |
 | wrangler                          | devDependency | MIT OR Apache-2.0 | ^4.120.0                           | 4.120.0           | wrangler@cloudflare.com | https://github.com/cloudflare/workers-sdk#readme                                        |
 
-Three license types are in use above: MIT, Apache License 2.0, and ISC. Full texts follow.
+Three license types are used above: MIT, Apache License 2.0, and ISC. Their full texts follow.
 
 ### Self-hosted fonts
 
-This repository also self-hosts (vendors) the following typefaces as static font files, separate from the npm packages listed above. Each is licensed under the SIL Open Font License, version 1.1, whose full text follows.
+This repository also self-hosts the following typefaces, separate from the npm packages listed above. Each is licensed under the SIL Open Font License, version 1.1, whose full text follows.
 
 | Font                                     | Files                                                                          | License | Author(s)                  | Homepage              |
 | :---------------------------------------- | :------------------------------------------------------------------------------- | :------- | :--------------------------- | :---------------------- |
 | Inter (admin UI typeface, variable font) | `public/fonts/InterVariable.woff2`, `public/fonts/InterVariable-Italic.woff2` | OFL-1.1 | The Inter Project Authors  | https://rsms.me/inter/ |
 
-Public-facing theme fonts (`public/fonts/theme/*.woff2`) are self-hosted at build time from Google Fonts, per the site's Design theme configuration (`lib/build/theme-fonts.ts`); the specific families vary by deployment and are downloaded from Google Fonts, each under its own upstream open-source license (typically OFL-1.1 or Apache-2.0), rather than vendored in source control.
+Fonts driven by the program configuration are fetched from Google Fonts, which often distributes typefaces through the SIL Open Font License or Apache-2.0.
 
 ### The MIT License (MIT)
 
