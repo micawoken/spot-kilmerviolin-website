@@ -1,7 +1,7 @@
 # Diversifying the Violin Curriculum for Violin Teaching
 Vanessa Cruz, Kenny Hoang, Emma Kuegel, Cam Schwind, Alyssa Spina, Michael Wong
 
-Last updated July 28, 2026
+Last updated August 15, 2026
 
 ## Summary
 This repository contains an Astro framework website deployable to Cloudflare Workers 
