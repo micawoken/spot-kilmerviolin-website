@@ -33,6 +33,8 @@ When you make edits to the website, including changes to the database and creati
 
 Rebuilding the site commands a Cloudflare Builds instance to regenerate the website and connect the new version to the Internet. Builds take approximately 75-90 seconds to complete.
 
+Only administrators, and users with the "rebuild" permission - granted by the siteeditor, designer, and pagewriter roles - can initiate a rebuild to publish database, website page, and website design changes. If you do not have those permissions, contact someone who does.
+
 You can check if the rebuild succeeded by using **View site info** - check the timestamp at the top.
 
 You can only initiate a rebuild *at least 30 minutes after the last rebuild.* (Administrators are subject to a 3-minute cooldown.)

@@ -33,6 +33,8 @@ Administrators can be managed using [User Management](/admin/user).
 ## Create/Read/Update/Delete Contributors
 To do these operations, access the relevant link.
 
+If you are an administrator and want to edit another individual's composition, you must check the box in the Administrative Options to use admin elevation. By default, the system will not permit you to perform the operation unless you explicitly request that your administrator status be used to do so.
+
 ### Automatic data redaction
 By default, you cannot view the following information if you are not an administrator:
 - identity_email: the email used to log in;

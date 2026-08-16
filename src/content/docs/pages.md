@@ -15,7 +15,7 @@ There are two page systems you can use:
 **The preferred system is EmDash CMS - it is easier to manage.**
 
 ## Permissions
-You must have the cms_editor permission to use EmDash CMS, and you must have the design_editor permission to use the compositor system.
+You must have the cms_editor permission to use EmDash CMS, and you must have the design_editor permission to use the compositor system. To publish, you must have the "rebuild" permission.
 
 ## EmDash CMS Pages
 ### Create
