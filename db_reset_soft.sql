@@ -1,51 +1,15 @@
 /*
-Initializes the database schema
-Run this file when developing locally via wrangler, or run this to clear the prod database
+Resets the compositions and composers tables
+Run this file when re-importing from the spreadsheet
 
-*** WARNING: this will delete all data in the database, including build tokens. Do not run this file unless you know what you are doing ***
+*** WARNING: this will delete all project work. Do not run this file unless you know what you are doing ***
 
 To correct an error in the production database, perform a rollback on Cloudflare D1
 */
 
 DROP TABLE IF EXISTS compositions;
 DROP TABLE IF EXISTS composers;
-DROP TABLE IF EXISTS api_tokens;
-DROP TABLE IF EXISTS build_tokens;
-DROP TABLE IF EXISTS contributors;
 DROP TABLE IF EXISTS repertoire;
-
--- WARNING: no contributors are enrolled; either use self-enrollment with the following command, or run the command documented later to enroll the first contributor
--- UPDATE contributors SET admin=1 WHERE contributor_id=1;
-
-/*
-INSERT INTO contributors (name, identity_email, active, roles, admin, entry_date, change_date) VALUES (
-    'Your Name',
-    'your_email@example.com',
-    1,
-    '',
-    1,
-    current_epoch_ms,
-    current_epoch_ms
-)
-*/
-
-CREATE TABLE contributors (
-contributor_id INTEGER PRIMARY KEY AUTOINCREMENT,
-name TEXT UNIQUE NOT NULL,
-class_year INTEGER,
-major TEXT,
-phases TEXT,
-bio TEXT,
-public_email TEXT,
-identity_email TEXT UNIQUE NOT NULL,
-active INTEGER NOT NULL,
-roles TEXT NOT NULL,
-admin INTEGER NOT NULL,
-image TEXT,
-tags TEXT,
-entry_date INTEGER NOT NULL,
-change_date INTEGER NOT NULL
-);
 
 CREATE TABLE composers (
 composer_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,36 +64,6 @@ FOREIGN KEY (contrib_primary_1) REFERENCES contributors(contributor_id) ON UPDAT
 FOREIGN KEY (contrib_primary_2) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- user-scoped API tokens see db_add_api_tokens.sql for full rationale
-CREATE TABLE api_tokens (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-contributor_id INTEGER NOT NULL,
-label TEXT NOT NULL,
-token_hash TEXT NOT NULL UNIQUE,
-token_prefix TEXT NOT NULL,
-entry_date INTEGER NOT NULL,
-expires_date INTEGER NOT NULL,
-revoked_date INTEGER,
-FOREIGN KEY (contributor_id) REFERENCES contributors(contributor_id) ON UPDATE CASCADE ON DELETE CASCADE
-);
-
-CREATE INDEX idx_api_tokens_token_hash ON api_tokens (token_hash);
-CREATE INDEX idx_api_tokens_contributor_id ON api_tokens (contributor_id);
-
--- capability-scoped build tokens see db_add_build_tokens.sql.
--- expires_date is nullable: NULL means the token never expires (issued with expiry "never").
-CREATE TABLE build_tokens (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-label TEXT NOT NULL,
-token_hash TEXT NOT NULL UNIQUE,
-token_prefix TEXT NOT NULL,
-entry_date INTEGER NOT NULL,
-expires_date INTEGER,
-revoked_date INTEGER
-);
-
-CREATE INDEX idx_build_tokens_token_hash ON build_tokens (token_hash);
-
 -- a composer may not have two compositions with the same name AND part;
 -- COALESCE(part, '') makes a NULL part collide with an empty part so two part-less rows still conflict
 CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name_part ON compositions (composer_id, name, COALESCE(part, ''));
@@ -152,20 +86,6 @@ END;
 
 CREATE TRIGGER trg_compositions_entry_date_immutable
 BEFORE UPDATE OF entry_date ON compositions
-WHEN NEW.entry_date <> OLD.entry_date
-BEGIN
-    SELECT RAISE(ABORT, 'entry_date is immutable after creation');
-END;
-
-CREATE TRIGGER trg_api_tokens_entry_date_immutable
-BEFORE UPDATE OF entry_date ON api_tokens
-WHEN NEW.entry_date <> OLD.entry_date
-BEGIN
-    SELECT RAISE(ABORT, 'entry_date is immutable after creation');
-END;
-
-CREATE TRIGGER trg_build_tokens_entry_date_immutable
-BEFORE UPDATE OF entry_date ON build_tokens
 WHEN NEW.entry_date <> OLD.entry_date
 BEGIN
     SELECT RAISE(ABORT, 'entry_date is immutable after creation');
