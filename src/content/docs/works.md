@@ -46,6 +46,8 @@ If you are not a primary contributor, there are two ways to escape the contribut
 ## Create/Read/Update/Delete Compositions
 To do these operations, access the relevant link.
 
+If you have a role that grants you the "overrides_lockout" permission, the system will automatically use your permission to bypass the contribution edit lockout. If you are an administrator and do not possess a role granting said permission, you will need to check the Administrator Elevation box to run the command as an administrator to bypass the lockout.
+
 ## Import Compositions
 To import a composition, you need to upload a CSV file in the following format:
 - header row: (all column names comma-separated; citations are not imported)
