@@ -64,7 +64,7 @@ describe("ENTITY_NOUNS / isEntityNoun", () => {
     })
 })
 
-describe("entityFields — unified field-outlet rewrite: every meaningful column is bindable", () => {
+describe("entityFields - unified field-outlet rewrite: every meaningful column is bindable", () => {
     it("gives composer every content column, none of them the redacted/internal set", () => {
         const fields = entityFields("composer")
         expect(fields.map((f) => f.slug)).toEqual([
@@ -105,15 +105,15 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
             "entry_date",
             "change_date"
         ])
-        // The redaction set (d1-schema.ts's CONTRIBUTOR_SCHEMA.protected) must never be bindable — those
-        // columns are stripped from the record before the build even sees them.
+        // The redaction set (d1-schema.ts's CONTRIBUTOR_SCHEMA.protected) must never be bindable - those
+        // columns are stripped from the record before the build even sees them
         for (const redacted of ["roles", "admin", "identity_email", "active"]) {
             expect(slugs).not.toContain(redacted)
         }
         expect(fields.find((f) => f.slug === "public_email")?.type).toBe("email")
     })
 
-    it("gives composition every content column, with foreign keys declared as reference/referenceList — never a raw id", () => {
+    it("gives composition every content column, with foreign keys declared as reference/referenceList - never a raw id", () => {
         const fields = entityFields("composition")
         const bySlug = Object.fromEntries(fields.map((f) => [f.slug, f]))
 
@@ -122,11 +122,11 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         expect(bySlug.contrib_primary_1).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_primary_2).toMatchObject({ type: "reference", refNoun: "contributor" })
         expect(bySlug.contrib_addl).toMatchObject({ type: "referenceList", refNoun: "contributor" })
-        // Combined single-line alternative to the three fields above (owner decision) — additive, not a
-        // replacement, so an already-authored template binding them individually keeps working.
+        // Combined single-line alternative to the three fields above (owner decision) - additive, not a
+        // replacement, so an already-authored template binding them individually keeps working
         expect(bySlug.contributors).toMatchObject({ type: "referenceList", refNoun: "contributor" })
 
-        // No raw *_id column is ever separately bindable — only the resolved reference field is.
+        // No raw *_id column is ever separately bindable - only the resolved reference field is
         for (const rawId of ["composer_id"]) {
             expect(fields.some((f) => f.slug === rawId)).toBe(false)
         }
@@ -161,9 +161,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
     })
 
     it("string/text/image fields use the exact vocabulary OUTLET_PROPS.ContentText/ContentImage already accept", () => {
-        // ContentText/ContentImage are unmodified by the unified rewrite — they must keep working against
-        // entity fields without a catalog change, which only holds if these three kinds reuse the same
-        // strings those two outlets' OUTLET_PROPS entries were already written against.
+        // ContentText/ContentImage are unmodified by the unified rewrite
         for (const noun of ENTITY_NOUNS) {
             for (const field of entityFields(noun)) {
                 if (field.type === "string" || field.type === "text") {
@@ -176,7 +174,7 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
         }
     })
 
-    it("every non-image field type is accepted by ContentField — the workhorse for entity data", () => {
+    it("every non-image field type is accepted by ContentField - the workhorse for entity data", () => {
         for (const noun of ENTITY_NOUNS) {
             for (const field of entityFields(noun)) {
                 if (field.type === "image") continue
@@ -186,13 +184,13 @@ describe("entityFields — unified field-outlet rewrite: every meaningful column
     })
 })
 
-describe("isEmptyFieldValue — shared by lint.ts, catalog.tsx's ContentField onEmpty control, and Spacer's linked-field collapse", () => {
+describe("isEmptyFieldValue - shared by lint.ts, catalog.tsx's ContentField onEmpty control, and Spacer's linked-field collapse", () => {
     it("treats null/undefined as empty regardless of kind", () => {
         expect(isEmptyFieldValue(null, "string")).toBe(true)
         expect(isEmptyFieldValue(undefined, "yearOrLiving")).toBe(true)
     })
 
-    it("a yearOrLiving value is empty only when it is not a number — -1 (living) counts as present", () => {
+    it("a yearOrLiving value is empty only when it is not a number - -1 (living) counts as present", () => {
         expect(isEmptyFieldValue(-1, "yearOrLiving")).toBe(false)
         expect(isEmptyFieldValue(1750, "yearOrLiving")).toBe(false)
         expect(isEmptyFieldValue("1750", "yearOrLiving")).toBe(true)
@@ -213,7 +211,7 @@ describe("isEmptyFieldValue — shared by lint.ts, catalog.tsx's ContentField on
     it("an image value follows mediaSource resolvability, mirroring ContentImage's/MediaText's render check", () => {
         expect(isEmptyFieldValue("https://example.test/violin.jpg", "image")).toBe(false)
         expect(isEmptyFieldValue({ meta: { storageKey: "med_1.jpg" } }, "image")).toBe(false)
-        // A bare media id with no storage key/src/url is NOT a usable handle (media.ts) — empty.
+        // A bare media id with no storage key/src/url is NOT a usable handle (media.ts) - empty.
         expect(isEmptyFieldValue({ id: "med_1" }, "image")).toBe(true)
         expect(isEmptyFieldValue("", "image")).toBe(true)
     })

@@ -274,7 +274,7 @@ describe("buttonHoverBrightness", () => {
     })
 
     it("picks the live theme's primary-button pairing's verified direction (1.08), improving both schemes", () => {
-        // light-dark(#f7f4ee, #16110f) text on light-dark(#6e1f2a, #cf5965) background — the site's actual
+        // light-dark(#f7f4ee, #16110f) text on light-dark(#6e1f2a, #cf5965) background - the site's actual
         // primary Button variant, captured 2026-08-11 from kilmer.nrnnet.xyz. Regression lock: confirmed by
         // hand-simulation that 0.92 (tried first) fails both schemes and 1.08 improves both.
         const text = "light-dark(#f7f4ee, #16110f)"

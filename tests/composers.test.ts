@@ -1,8 +1,9 @@
 /**
+ * tests/composers.tests.ts
+ * 
  * Tests the API endpoint functions
- *
- *
- *
+ * 
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 
@@ -73,7 +74,7 @@ describe("composer birth/death year consistency", () => {
 })
 
 // citations is optional: a complete-mode create must still pass with the field entirely absent (this is
-// the case assertRecordBySpec's complete-mode loop does NOT auto-skip an undefined field for — the base
+// the case assertRecordBySpec's complete-mode loop does NOT auto-skip an undefined field for - the base
 // check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)
 describe("composer citations validation", () => {
     it("a complete create with no citations key passes", () => {

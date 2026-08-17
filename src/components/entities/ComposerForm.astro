@@ -4,18 +4,11 @@
  *
  * Reusable data-entry form for composer records
  *
- * Fields are grouped into labelled sections that mirror the organization of the ComposerInfo result
- * view: the name/role/country/dates that make up the info line are gathered into a Basic Information
- * box, the image sits under the biography, and tags come last
- *
  * Props:
  * - required (optional): whether fields required by the API are required by the form (use for create / PUT)
  * - hidden (optional): if true, the form starts hidden (used by the edit page until an ID is entered)
  * - composer (optional): a ComposerRecord provided by SSR to prefill the form
  * - patch (optional): whether to show the edit target checkboxes for PATCH (partial edit)
- *
- * Input ids follow the form-composers-{param} convention, where param matches the input's
- * name attribute exactly (required by prefillForm in scripts/interface.ts)
  *
  * Copyright (C) 2026 Michael Wong.
  *

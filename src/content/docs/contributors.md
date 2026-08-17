@@ -51,3 +51,6 @@ To import a contributor, you need to upload a CSV file in the following format:
 **You must be an administrator to perform this operation.**
 
 Follow the load, server-side validation, and import process. (Make sure there are no duplicated names, or the import will fail.) By default, these contributors are created with zero permissions.
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

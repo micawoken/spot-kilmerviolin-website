@@ -57,8 +57,7 @@ if (file?.uploader) {
     }
     uploader_name = uploader_record?.name ?? null
 }
-// the uploader line shows the name first, then the contributor id in parentheses: e.g. "Jane Doe (ID #4)";
-// when a uploader is present the line links to that contributor's entry (see markup below)
+// the uploader line shows the name first, then the contributor id in parentheses: e.g. "First Last (ID #4)"
 const uploader_label = file?.uploader ? `${uploader_name ?? "Unknown"} (ID #${file.uploader})` : "(unknown)"
 
 function formatBytes(bytes: number): string {
@@ -81,10 +80,6 @@ function formatBytes(bytes: number): string {
         use_key && file ? (
             <>
             <div class="entity-result-container">
-                {/* head: the key is the card title with the type/size/location infoline (top-left), the
-                    by-type detail groups flow in columns beneath it, and the preview image occupies the
-                    top-right (mirrors the entity Info cards). Source order is header -> image -> groups so
-                    the image stacks directly below the title on narrow viewports. */}
                 <div class="entity-result-head">
                     <div class="entity-result-header">
                         <h2 class="entity-result-name">{file.key}</h2>

@@ -2,29 +2,28 @@
  * tools/seed-entity-templates.mjs
  *
  * Seeds one draft design_template per D1-backed entity noun (composer, composition, contributor),
- * every field pre-placed (unified field-outlet rewrite — see entity-fields.ts for the field catalog
- * these mirror exactly). The owner reviews, adjusts, and marks/publishes each as its noun's default
- * through the normal /admin/advanced/designs editor — this script never sets `is_default: true` or publishes,
- * so it can never silently replace a live default template out from under the owner (mirrors
- * setup-design-collections.mjs's `seedTheme`, which seeds a draft for the same reason; contrast
- * `seedNoneSentinel`, which is safe to auto-publish because it renders nothing).
+ * every field pre-placed
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
  *
- * Idempotent by slug ("{noun}-seed-default"): re-running skips a noun whose seed item already exists,
- * so it is safe to run again after a field-catalog change without duplicating templates — delete the
- * stale item by hand first if you want a regenerated one.
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
- * Requires `design_template.collection`'s select field to already offer composer/composition/
- * contributor as options (setup-design-collections.mjs declares them, but EmDash's field-update API
- * cannot widen an already-created field's options — see that script's `ensureCollection` warning). If
- * the live field is still `[pages, posts]` only, add the three options by hand in the EmDash admin's
- * collection schema editor before running this.
+ * This license is also subject to additional terms as specified in the README.md.
  *
- * Auth mirrors setup-design-collections.mjs and src/lib/build/emdash-api.ts. Against a deployed worker:
- *   node --env-file=.env tools/seed-entity-templates.mjs
- * Against a local dev server, using the DEV-only auth bypass:
- *   node tools/seed-entity-templates.mjs --base http://localhost:4321 --dev-bypass
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
  *
- * Prints one line per step and exits non-zero on the first unexpected API response.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { randomUUID } from "node:crypto"
@@ -34,7 +33,7 @@ import { fileURLToPath } from "node:url"
 // editor identically to one authored by hand there) -------------------------------------------------
 
 // Every component Puck creates carries a unique `props.id` ("<type>-<uuid>", its own `generateId`
-// convention) — the store indexes nodes BY that id (packages/core's `indexes.nodes[id]`), and a
+// convention) - the store indexes nodes BY that id (packages/core's `indexes.nodes[id]`), and a
 // hand-built doc that omits it is not merely missing metadata: every id-less component collapses onto
 // the same index key, corrupting the store and driving the editor into an infinite re-render loop that
 // OOMs the tab. `genId` mints one per component, exactly like the editor would.
@@ -82,7 +81,7 @@ const columns = (cols, columnGap = "md", rowGap = "md") => ({
         col4: cols[3] ?? []
     }
 })
-// paddingY: "md", not Section's own catalog default ("section") — that default name doesn't match any
+// paddingY: "md", not Section's own catalog default ("section") - that default name doesn't match any
 // real theme's space tokens (setup-design-collections.mjs's seed theme has xs/sm/md/lg), which would
 // fail the pairing lint as an unknown-token ERROR the moment this seed is published.
 const section = (content) => ({ type: "Section", props: { id: genId("Section"), background: "", paddingY: "md", content } })
@@ -133,7 +132,7 @@ const COMPOSITION_DOC = doc([
             [contentField("contrib_primary_1"), contentField("contrib_primary_2"), contentField("contrib_addl")]
         ]),
         // Demonstrates the single-line alternative to the three fields above (owner decision: the
-        // primary/additional-primary/additional distinction is internal-only) — an editor can delete
+        // primary/additional-primary/additional distinction is internal-only) - an editor can delete
         // whichever of the two contributor layouts they don't want.
         contentField("contributors"),
         heading("Details"),
@@ -166,7 +165,7 @@ const SEEDS = [
 ]
 
 // Exported for tests/tools/seed-entity-templates.test.ts (real lintDesign coverage against these exact
-// docs) — a pure, side-effect-free export; the CLI machinery below only runs when this file is
+// docs) - a pure, side-effect-free export; the CLI machinery below only runs when this file is
 // executed directly (see the isMainModule guard), never on import.
 export { SEEDS, COMPOSER_DOC, COMPOSITION_DOC, CONTRIBUTOR_DOC }
 
@@ -183,7 +182,7 @@ if (isMainModule) {
 
     const base = (arg("--base") ?? process.env.CONTENT_API_BASE)?.replace(/\/+$/, "")
     if (!base) {
-        console.error("No --base flag and no CONTENT_API_BASE in env — nothing to target.")
+        console.error("No --base flag and no CONTENT_API_BASE in env - nothing to target.")
         process.exit(1)
     }
     const useDevBypass = args.includes("--dev-bypass")
@@ -231,7 +230,7 @@ if (isMainModule) {
         const list = await api("GET", "/_emdash/api/content/design_template?limit=100")
         const existing = (list.json?.data?.items ?? []).find((item) => item.slug === slug)
         if (existing) {
-            ok(`design_template "${slug}" already exists — seed skipped`)
+            ok(`design_template "${slug}" already exists - seed skipped`)
             return
         }
 
@@ -252,7 +251,7 @@ if (isMainModule) {
         console.log(
             `\nSeeded against ${base}. Each item is a DRAFT, not the noun's default: review it in ` +
                 "/admin/advanced/designs, adjust the layout, then mark 'Default template for this collection' and " +
-                "publish when ready — publishing is a deliberate owner action, not automated here."
+                "publish when ready - publishing is a deliberate owner action, not automated here."
         )
     }
 

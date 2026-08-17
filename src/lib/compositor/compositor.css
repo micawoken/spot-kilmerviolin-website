@@ -23,14 +23,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/* Root — the top-level anchor for the flow invariant */
+/* Root - the top-level anchor for the flow invariant */
 .cmp-root {
 	display: flex;
 	flex-direction: column;
 	gap: var(--dtk-chrome-paragraph-spacing, 1rem);
 }
 
-/* Section — full-width band */
+/* Section - full-width band */
 .cmp-section {
 	display: flex;
 	flex-direction: column;
@@ -45,7 +45,7 @@
 	box-shadow: var(--cmp-section-shadow, none);
 }
 
-/* Columns — CSS grid */
+/* Columns - CSS grid */
 :where(.cmp-columns) {
 	display: grid;
 	grid-template-columns: repeat(var(--cmp-columns-count, 1), 1fr);
@@ -59,7 +59,7 @@
 	min-width: 0;
 }
 
-/* Row — the only horizontal container (flow invariant)*/
+/* Row - the only horizontal container (flow invariant)*/
 .cmp-row {
 	display: flex;
 	flex-direction: row;
@@ -69,7 +69,7 @@
 	row-gap: var(--cmp-row-row-gap, 0);
 }
 
-/* Heading — one typography token spread across its sub-value properties; alignment is a fixed enum. */
+/* Heading - one typography token spread across its sub-value properties; alignment is a fixed enum. */
 .cmp-heading {
 	font-family: var(--cmp-heading-family);
 	font-size: var(--cmp-heading-size);
@@ -83,7 +83,7 @@
 	margin: 0;
 }
 
-/* RichText — the parity renderer (richtext.tsx) owns its inner markup; this only scopes it. */
+/* RichText - the parity renderer (richtext.tsx) owns its inner markup; this only scopes it. */
 .cmp-richtext {
 	font-family: var(--dtk-type-body-family);
 	font-size: var(--dtk-type-body-size);
@@ -112,7 +112,7 @@
 	margin: 0;
 }
 
-/* Image — explicit width/height attributes prevent layout shift; aspect crops via object-fit */
+/* Image - explicit width/height attributes prevent layout shift; aspect crops via object-fit */
 .cmp-image {
 	display: block;
 	max-width: 100%;
@@ -166,12 +166,12 @@
 	filter: brightness(var(--cmp-button-hover-brightness, 1));
 }
 
-/* Spacer — empty vertical space. */
+/* Spacer - empty vertical space. */
 .cmp-spacer {
 	height: var(--cmp-spacer-size, 0);
 }
 
-/* Divider — a themed horizontal rule. */
+/* Divider - a themed horizontal rule. */
 .cmp-divider {
 	border: none;
 	border-top: 1px solid var(--cmp-divider-color, currentColor);
@@ -185,7 +185,7 @@
 	align-self: flex-start;
 }
 
-/* Outlet placeholder — editor-canvas stand-in for a content outlet with no preview entry */
+/* Outlet placeholder - editor-canvas stand-in for a content outlet with no preview entry */
 .cmp-outlet-placeholder {
 	border: 1px dashed currentColor;
 	opacity: 0.5;
@@ -195,7 +195,7 @@
 	text-align: center;
 }
 
-/* ContentField (unified field-outlet rewrite) — an optionally-labeled value row */
+/* ContentField (unified field-outlet rewrite) - an optionally-labeled value row */
 .cmp-field {
 	display: flex;
 	flex-wrap: wrap;
@@ -330,7 +330,7 @@ a.cmp-related__tile:hover .cmp-related__name {
 	align-items: flex-start;
 	gap: var(--dtk-space-md, 1.5rem);
 }
-/* Media column width follows the same size presets as a standalone Image (D9) — "medium" is this
+/* Media column width follows the same size presets as a standalone Image (D9) - "medium" is this
  * primitive's pre-existing fixed width, kept as the base rule so it stays the default unchanged. */
 .cmp-media-text__media {
 	flex: 0 1 16rem;

@@ -56,9 +56,7 @@ const theme: TokenCatalog = {
     breakpoints: [{ name: "md", minWidth: "768px" }]
 }
 
-/** The frozen catalog v1 component set (§4.5), plus `Row` — the flow invariant's explicit horizontal
- * container (unified field-outlet rewrite) — `PagefindSearch`/`Breadcrumbs`, and `RelatedEntries`, the
- * three components added since. A change here is a deliberate version bump. */
+/** The frozen catalog v1 component set */
 const CATALOG_V1 = [
     "Section",
     "Columns",
@@ -74,9 +72,7 @@ const CATALOG_V1 = [
     "RelatedEntries"
 ]
 
-/** The content outlets (pivot §4), including the unified field-outlet rewrite's `ContentField` (any
- * non-image entity field) and `MediaText` (the collapsing media+text primitive) — registered in every
- * target alongside catalog v1. */
+/** The content outlets */
 const OUTLETS = ["ContentText", "ContentRichText", "ContentImage", "ContentField", "MediaText"]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +85,7 @@ function render(config: any, component: string, props: Record<string, unknown>):
     return renderToStaticMarkup(config.components[component].render(props))
 }
 
-describe("buildConfig — component set", () => {
+describe("buildConfig - component set", () => {
     it("exposes exactly catalog v1 plus the content outlets in both targets", () => {
         const expected = [...CATALOG_V1, ...OUTLETS].sort()
         expect(Object.keys(buildConfig(theme, "editor").components).sort()).toEqual(expected)
@@ -97,7 +93,7 @@ describe("buildConfig — component set", () => {
     })
 })
 
-describe("buildConfig — token-select options track the live theme", () => {
+describe("buildConfig - token-select options track the live theme", () => {
     const config = buildConfig(theme, "editor")
     it("populates a token select from the theme's tokens", () => {
         expect(field(config, "Heading", "typography").options).toEqual([{ label: "display", value: "display" }])
@@ -112,7 +108,7 @@ describe("buildConfig — token-select options track the live theme", () => {
     })
 })
 
-describe("buildConfig — editor vs build richtext field", () => {
+describe("buildConfig - editor vs build richtext field", () => {
     it("uses a native richtext field in the editor target", () => {
         expect(field(buildConfig(theme, "editor"), "RichText", "body").type).toBe("richtext")
     })
@@ -163,7 +159,7 @@ describe("OUTLET_PROPS", () => {
 describe("TOKEN_PROPS", () => {
     it("registers every token-select field and the kind it draws from (contributor rule)", () => {
         // Pinned deliberately: a new token-select field added to a component's `fields` without a
-        // matching entry here breaks this test — exactly the gap the lint pass otherwise misses
+        // matching entry here breaks this test - exactly the gap the lint pass otherwise misses
         // silently (see the "dangling ContentField.typography" test below).
         expect(TOKEN_PROPS).toEqual({
             Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
@@ -182,7 +178,7 @@ describe("TOKEN_PROPS", () => {
         })
     })
 
-    it("catches a dangling ContentField.typography — the lint hole a missed registration would leave", () => {
+    it("catches a dangling ContentField.typography - the lint hole a missed registration would leave", () => {
         const doc: DesignDoc = {
             schemaVersion: 1,
             puck: {
@@ -197,7 +193,7 @@ describe("TOKEN_PROPS", () => {
 
 describe("tokenKindUsers", () => {
     it("derives every Component.field pair for a kind from TOKEN_PROPS, in registry order", () => {
-        // Pinned against TOKEN_PROPS' current shape (see the describe block above) — a change to which
+        // Pinned against TOKEN_PROPS' current shape (see the describe block above) - a change to which
         // components draw from "typography" should be visible here too, since the theme editor's
         // typography preview surfaces this list to the author.
         expect(tokenKindUsers("typography")).toEqual([
@@ -216,16 +212,12 @@ describe("tokenKindUsers", () => {
 
 describe("TOKEN_USAGE_NOTES", () => {
     it("covers exactly the kinds whose binding isn't fully explained by TOKEN_PROPS alone", () => {
-        // colors/typography/buttonVariants are deliberately omitted (TOKEN_PROPS already answers "which
-        // component" for those); space/radius/borders/shadows each have an indirection or "consumed by
-        // nothing" fact TOKEN_PROPS can't express, and breakpoints has no TOKEN_PROPS entry at all (it
-        // drives a generated @media rule, not a component field) — this map is hand-written for exactly
-        // these five kinds.
+        // colors/typography/buttonVariants are deliberately omitted
         expect(Object.keys(TOKEN_USAGE_NOTES).sort()).toEqual(["borders", "breakpoints", "radius", "shadows", "space"])
     })
 })
 
-describe("buildConfig — outlet field pickers (editor context)", () => {
+describe("buildConfig - outlet field pickers (editor context)", () => {
     const fields: CollectionField[] = [
         { slug: "title", label: "Title", type: "string" },
         { slug: "body", label: "Body", type: "portableText" },
@@ -268,7 +260,7 @@ describe("buildConfig — outlet field pickers (editor context)", () => {
     })
 })
 
-describe("buildConfig — Spacer (linked-field collapse)", () => {
+describe("buildConfig - Spacer (linked-field collapse)", () => {
     const fields: CollectionField[] = [
         { slug: "note", label: "Note", type: "string" },
         { slug: "body", label: "Body", type: "portableText" },
@@ -319,11 +311,11 @@ describe("buildConfig — Spacer (linked-field collapse)", () => {
     })
 })
 
-describe("buildConfig — Button drives theme-authored variants through --cmp-button-* locals", () => {
+describe("buildConfig - Button drives theme-authored variants through --cmp-button-* locals", () => {
     const config = buildConfig(theme, "build")
 
     it("its variant field is a token select over buttonVariants", () => {
-        // Empty here because this theme declares none — the point is it is a token select, not a fixed enum.
+        // Empty here because this theme declares none - the point is it is a token select, not a fixed enum.
         expect(field(config, "Button", "variant").type).toBe("select")
         expect(field(config, "Button", "variant").options).toEqual([])
     })
@@ -376,8 +368,8 @@ describe("buildConfig — Button drives theme-authored variants through --cmp-bu
             expect(html).not.toContain("target=")
         })
 
-        // A rejected scheme renders as "#", so it must be judged as the fragment it becomes — never as the
-        // external URL it was written as, which would hand a blocked link a new tab.
+        // A rejected scheme renders as "#", so it must be judged as the fragment it becomes - never as the
+        // external URL it was written as, which would hand a blocked link a new tab
         it("keeps an unsafe href in the same tab once sanitized to #", () => {
             const html = render(config, "Button", { label: "Go", href: "javascript:alert(1)", variant: "primary" })
             expect(html).toContain('href="#"')
@@ -386,7 +378,7 @@ describe("buildConfig — Button drives theme-authored variants through --cmp-bu
     })
 })
 
-describe("buildConfig — PagefindSearch renders a plain GET form to /search", () => {
+describe("buildConfig - PagefindSearch renders a plain GET form to /search", () => {
     const config = buildConfig(theme, "build")
 
     it("defaults to whole-site scope (no hidden scope input)", () => {
@@ -442,7 +434,7 @@ describe("buildConfig — PagefindSearch renders a plain GET form to /search", (
     })
 })
 
-describe("buildConfig — Breadcrumbs auto-derives its trail from route context", () => {
+describe("buildConfig - Breadcrumbs auto-derives its trail from route context", () => {
     it("shows an illustrative preview in the editor with no route context attached", () => {
         const html = render(buildConfig(theme, "editor"), "Breadcrumbs", {})
         expect(html).toContain(">Home</a>")
@@ -475,7 +467,7 @@ describe("buildConfig — Breadcrumbs auto-derives its trail from route context"
     })
 })
 
-describe("buildConfig — RelatedEntries reads related works from route context", () => {
+describe("buildConfig - RelatedEntries reads related works from route context", () => {
     it("shows an illustrative preview in the editor with no route context attached", () => {
         const html = render(buildConfig(theme, "editor"), "RelatedEntries", { heading: "Related Works", limit: 6 })
         expect(html).toContain("Example Work")
@@ -560,20 +552,17 @@ describe("buildConfig — RelatedEntries reads related works from route context"
     })
 })
 
-describe("buildConfig — outlet renders resolve through the entry context (D7)", () => {
+describe("buildConfig - outlet renders resolve through the entry context (D7)", () => {
     const MEDIA_ORIGIN = "https://store.example.test"
 
     const entry = {
         title: "  ",
         headline: "From the entry",
         body: [{ _type: "block", style: "normal", children: [{ _type: "span", text: "hello" }] }],
-        // The LOCAL-media wire shape EmDash actually serves: `src` stripped on persist, key at
-        // `meta.storageKey` (emdash/src/media/normalize.ts). An earlier fixture here invented a bare
-        // `id` and the assertions pinned the resulting 404-and-Access-gated URL as correct behavior.
         cover: { id: "med_1", alt: "A violin", width: 800, height: 600, provider: "local", meta: { storageKey: "med_1.jpg" } },
         // An external provider's value: already a public absolute URL, passed through untouched.
         coverWithSrc: { id: "med_2", src: "https://cdn.example/violin.jpg", alt: "" },
-        // An id and nothing else — no usable handle at all (the file route is keyed by storage key).
+        // An id and nothing else - no usable handle at all (the file route is keyed by storage key).
         coverIdOnly: { id: "med_3", alt: "Orphan" },
         // A D1 entity's `image` column: a plain string, not an EmDash media object.
         entityCover: "https://images.example.test/composer.jpg",
@@ -702,7 +691,7 @@ describe("buildConfig — outlet renders resolve through the entry context (D7)"
     })
 })
 
-describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
+describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
     const fields: CollectionField[] = [
         { slug: "name", label: "Name", type: "string" },
         { slug: "bio", label: "Bio", type: "text" },
@@ -720,7 +709,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
     ]
 
     // Shapes exactly as entity-records.ts's normalizer produces them (references pre-resolved, no
-    // separate names structure) — the reference-fold linchpin this outlet is built to consume directly.
+    // separate names structure) - the reference-fold linchpin this outlet is built to consume directly
     const entry: Record<string, unknown> = {
         name: "Ada",
         bio: "",
@@ -729,12 +718,12 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         composer: { id: 5, name: "Jane Composer", href: "/entity/composer/5" },
         contrib_addl: [
             { id: 10, name: "Primary Editor", href: "/entity/contributor/10" },
-            { id: 11, name: "", href: null } // unresolvable — renders as an empty entry, per ReferenceLink
+            { id: 11, name: "", href: null } // unresolvable - renders as an empty entry, per ReferenceLink
         ],
         author_secondary: [
             // role stored mixed-case, to prove the render lower-cases it rather than passing it through.
             { id: 20, name: "Fanny Author", href: "/entity/composer/20", role: "Arranger" },
-            { id: 21, name: "No Role Author", href: "/entity/composer/21" } // role omitted — no parenthetical
+            { id: 21, name: "No Role Author", href: "/entity/composer/21" } // role omitted - no parenthetical
         ],
         tags: ["romantic", "advanced"],
         publication_uri: { uriType: "https", uri: "https://example.test/score" },
@@ -828,7 +817,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
         const config = buildConfig(theme, "build", { entry, fields })
         const html = render(config, "ContentField", { ...base, field: "bio" })
         expect(html).toContain("cmp-field__value")
-        expect(html).toContain("Bio") // the label still renders — only the value is empty
+        expect(html).toContain("Bio") // the label still renders - only the value is empty
         expect(html).not.toMatch(/not supplied|\(no /)
     })
 
@@ -912,7 +901,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
 
         it("stays inline by default, so designs stored before the prop existed are unaffected", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            // `base` deliberately omits valuePlacement — the shape of an older stored design.
+            // `base` deliberately omits valuePlacement - the shape of an older stored design.
             const html = render(config, "ContentField", { ...base, field: "bio" })
             expect(html).toContain('class="cmp-field"')
         })
@@ -953,7 +942,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
 
         it("is absent by default, so designs stored before the prop existed are unaffected", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            // `base` deliberately omits prefix — the shape of an older stored design.
+            // `base` deliberately omits prefix - the shape of an older stored design.
             const html = render(config, "ContentField", { ...base, field: "birth_year" })
             expect(html).toContain(">1990<")
         })
@@ -1023,7 +1012,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
 
         it("is off by default, so designs stored before the prop existed are unaffected", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            // `base` deliberately omits forceLink/linkHref — the shape of an older stored design.
+            // `base` deliberately omits forceLink/linkHref - the shape of an older stored design.
             const html = render(config, "ContentField", { ...base, field: "birth_year" })
             expect(html).not.toContain("<a ")
         })
@@ -1072,7 +1061,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
             expect(html).not.toContain("mailto:")
         })
 
-        it("is inert on a uri field — its own anchor renders, forced link is ignored", () => {
+        it("is inert on a uri field - its own anchor renders, forced link is ignored", () => {
             const config = buildConfig(theme, "build", { entry, fields })
             const html = render(config, "ContentField", {
                 ...base,
@@ -1084,7 +1073,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
             expect(html).not.toContain("/override")
         })
 
-        it("is inert on a citations field — its own anchors render, forced link is ignored", () => {
+        it("is inert on a citations field - its own anchors render, forced link is ignored", () => {
             const config = buildConfig(theme, "build", { entry, fields })
             const html = render(config, "ContentField", {
                 ...base,
@@ -1098,7 +1087,7 @@ describe("buildConfig — ContentField (unified field-outlet rewrite)", () => {
     })
 })
 
-describe("buildConfig — MediaText (collapsing media+text primitive, concern #3)", () => {
+describe("buildConfig - MediaText (collapsing media+text primitive, concern #3)", () => {
     const fields: CollectionField[] = [{ slug: "portrait", label: "Portrait", type: "image" }]
     const props = { aspect: "original" as const, imagePosition: "start" as const, content: () => null }
 
@@ -1113,7 +1102,7 @@ describe("buildConfig — MediaText (collapsing media+text primitive, concern #3
         expect(html).toContain('src="https://images.example.test/ada.jpg"')
     })
 
-    it("collapses to content-only — no dead column — when the field has no usable image", () => {
+    it("collapses to content-only - no dead column - when the field has no usable image", () => {
         const config = buildConfig(theme, "build", { entry: { portrait: null }, fields })
         const html = render(config, "MediaText", { ...props, field: "portrait" })
         expect(html).not.toContain("cmp-media-text__media")
@@ -1131,11 +1120,9 @@ describe("buildConfig — MediaText (collapsing media+text primitive, concern #3
     })
 })
 
-describe("buildConfig — Row (explicit horizontal container, flow invariant)", () => {
+describe("buildConfig - Row (explicit horizontal container, flow invariant)", () => {
     it("styles the slot's own wrapper as the flex row carrying independent column/row gap tokens", () => {
-        // Mirrors Puck's real SlotRender contract: the slot component renders the className/style it's
-        // given on the element it wraps its items in — there is no separate outer div for Row to style
-        // instead, so this stub must apply the props the way Puck does for the assertion to mean anything.
+        // Mirrors Puck's real SlotRender contract
         const Content = ({ className, style }: { className?: string; style?: CSSProperties }) =>
             createElement("div", { className, style })
         const config = buildConfig(theme, "build")
@@ -1146,7 +1133,7 @@ describe("buildConfig — Row (explicit horizontal container, flow invariant)", 
     })
 })
 
-describe("buildConfig — root wraps every render in .cmp-root (flow invariant's top-level anchor)", () => {
+describe("buildConfig - root wraps every render in .cmp-root (flow invariant's top-level anchor)", () => {
     it("wraps children in .cmp-root regardless of target", () => {
         for (const target of ["build", "editor"] as const) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

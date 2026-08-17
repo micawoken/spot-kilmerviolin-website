@@ -26,7 +26,7 @@ import { describe, it, expect } from "vitest"
 
 import { entityMetaDescription } from "../../src/lib/build/entity-meta"
 
-describe("entityMetaDescription — composer", () => {
+describe("entityMetaDescription - composer", () => {
     it("uses the bio, truncated, when present", () => {
         const bio = "A".repeat(200)
         const description = entityMetaDescription("composer", { name: "Ignatius Sancho", bio })
@@ -59,7 +59,7 @@ describe("entityMetaDescription — composer", () => {
     })
 })
 
-describe("entityMetaDescription — contributor", () => {
+describe("entityMetaDescription - contributor", () => {
     it("uses the bio, truncated, when present", () => {
         const bio = "B".repeat(200)
         expect(entityMetaDescription("contributor", { name: "Michael Wong", bio }).length).toBe(160)
@@ -76,7 +76,7 @@ describe("entityMetaDescription — contributor", () => {
     })
 })
 
-describe("entityMetaDescription — composition", () => {
+describe("entityMetaDescription - composition", () => {
     it("uses notes_historical, truncated, when present", () => {
         const notes = "C".repeat(200)
         expect(entityMetaDescription("composition", { name: "Marianne's Reel", notes_historical: notes }).length).toBe(

@@ -43,7 +43,7 @@ import {
 } from "./media"
 // Type-only: erased at compile, so the editor bundle never pulls in the build-side reader module.
 import type { CollectionField } from "../build/design-api"
-// Same type-only split as CollectionField above — RelatedEntries reads this from context, never imports
+// Same type-only split as CollectionField above - RelatedEntries reads this from context, never imports
 // entity-records.ts's build-side functions.
 import type { RelatedWork } from "../build/entity-records"
 import { mediaPickerRender } from "./catalog-media-picker"
@@ -79,7 +79,7 @@ export interface BuildConfigContext {
     filesBaseUrl?: string
     /** Current route's breadcrumb trail: `breadcrumbs` is *ancestor* crumbs only (Home implicit,
      * `Breadcrumbs` always prepends it), `pageTitle` is the trail's final unlinked crumb. Both computed
-     * once per route at the page level — catalog.tsx has no access to the route set to derive this
+     * once per route at the page level - catalog.tsx has no access to the route set to derive this
      * itself. Absent in the editor; `Breadcrumbs` falls back to an illustrative preview */
     breadcrumbs?: { label: string; href: string | null }[]
     pageTitle?: string
@@ -149,8 +149,8 @@ export const TOKEN_PROPS: TokenPropRegistry = {
  * Human-readable "where does this actually get used" prose for the theme editor's per-kind preview
  * captions. Hand-written, not derived from `TOKEN_PROPS`: facts like a button variant's indirect
  * reference to `radius`/`borders`/`space`, or `shadows` being consumed by nothing at all, can't be
- * expressed by formatting `TOKEN_PROPS` as a string. Keep in step with real consumers — a wrong note
- * is worse than none. `colors`/`typography`/`buttonVariants` omitted — `TOKEN_PROPS` already answers
+ * expressed by formatting `TOKEN_PROPS` as a string. Keep in step with real consumers - a wrong note
+ * is worse than none. `colors`/`typography`/`buttonVariants` omitted - `TOKEN_PROPS` already answers
  * "which component" clearly enough for those.
  */
 export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
@@ -163,7 +163,7 @@ export const TOKEN_USAGE_NOTES: Partial<Record<TokenKind, string>> = {
 
 /** Puck components (and field) that draw from a token kind, formatted `"Component.field"`, in
  * `TOKEN_PROPS`'s key order. Unlike `TOKEN_USAGE_NOTES`, every `typography`-kind field is a direct,
- * first-class consumer — no indirection to explain — so a derived list beats hand-written prose here. */
+ * first-class consumer - no indirection to explain - so a derived list beats hand-written prose here. */
 export function tokenKindUsers(kind: TokenKind): string[] {
     const users: string[] = []
     for (const [component, fields] of Object.entries(TOKEN_PROPS)) {
@@ -174,7 +174,7 @@ export function tokenKindUsers(kind: TokenKind): string[] {
     return users
 }
 
-/** The media object an Image stores. Holds the **storage key**, never a baked URL — the URL a key
+/** The media object an Image stores. Holds the **storage key**, never a baked URL - the URL a key
  * resolves to differs by render target (public origin at build, Access-gated proxy in the editor), so
  * baking one in would hard-code the wrong answer for the other. See `media.ts`. */
 export interface MediaValue {
@@ -186,7 +186,7 @@ export interface MediaValue {
 }
 
 /** A slot prop's value in render: a Puck-supplied component rendering the slot's contents.
- * `className`/`style` land on the DOM element Puck wraps the slot's items in — the only styling hook,
+ * `className`/`style` land on the DOM element Puck wraps the slot's items in - the only styling hook,
  * since children render as direct DOM children with no further nesting. */
 type SlotRender = ComponentType<{ className?: string; style?: CSSProperties }>
 
@@ -242,7 +242,7 @@ interface RichTextProps {
     /** PT block array on the build path (stored form); a Puck-rendered ReactNode in the editor canvas. */
     body: PortableTextBlock[] | ReactNode
 }
-/** The `size` select shared by `Image`, `ContentImage`, and `MediaText` — same options, different default. */
+/** The `size` select shared by `Image`, `ContentImage`, and `MediaText` - same options, different default. */
 function imageSizeSelect() {
     return {
         type: "select" as const,
@@ -256,7 +256,7 @@ function imageSizeSelect() {
     }
 }
 
-/** The `priority` select shared by `Image`, `ContentImage`, and `MediaText` — mark the one image, if any,
+/** The `priority` select shared by `Image`, `ContentImage`, and `MediaText` - mark the one image, if any,
  *  that sits above the fold so it loads with `fetchPriority="high"` instead of competing on equal footing
  *  with every other resource on the page. */
 function imagePrioritySelect() {
@@ -281,7 +281,7 @@ interface ImageProps {
     border: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
     shadow: string
-    /** "yes" renders `fetchPriority="high" loading="eager"` — for the one image, if any, that sits
+    /** "yes" renders `fetchPriority="high" loading="eager"` - for the one image, if any, that sits
      *  above the fold. "no" (the default) renders neither attribute. */
     priority: "yes" | "no"
 }
@@ -290,7 +290,7 @@ interface ButtonProps {
     href: string
     /** a `buttonVariants` token name (theme-authored), not a fixed union. */
     variant: string
-    /** a `shadows` token name, or "" for no shadow (the pre-existing default) — variants don't carry one. */
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default) - variants don't carry one. */
     shadow: string
     /** "_self"/"_blank" to force where this opens, or "" to follow the href's scheme (richtext.tsx's
      *  `opensInNewTab`, the same rule in-prose links use). Trap A: absent means "". */
@@ -300,7 +300,7 @@ interface SpacerProps {
     size: string
     /** Optional: a schema field slug. When set and an entry is routed, the Spacer checks that field's
      *  value the same way `ContentField`/`ContentText`/etc. do (`isEmptyFieldValue`) and renders nothing
-     *  if it's empty — pairs a Spacer with the outlet beside it so an empty field doesn't leave an
+     *  if it's empty - pairs a Spacer with the outlet beside it so an empty field doesn't leave an
      *  orphaned gap. "" (the default) always renders, the pre-existing behavior. */
     linkedField?: string
 }
@@ -327,7 +327,7 @@ interface ContentImageProps {
     border: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default). */
     shadow: string
-    /** "yes" renders `fetchPriority="high" loading="eager"` — for the one image, if any, that sits
+    /** "yes" renders `fetchPriority="high" loading="eager"` - for the one image, if any, that sits
      *  above the fold. "no" (the default) renders neither attribute. */
     priority: "yes" | "no"
 }
@@ -338,27 +338,27 @@ interface ContentFieldProps {
     showLabel: "yes" | "no"
     /** Where the value sits relative to its label: on the same line ("inline", the pre-existing behavior
      *  and the default, so designs stored before this field existed are unaffected), always stacked
-     *  underneath it ("below"), or stacked only while the field's own container is narrow ("auto" — a
-     *  container query, see compositor.css). Optional — undefined on any such older design, so `render`
+     *  underneath it ("below"), or stacked only while the field's own container is narrow ("auto" - a
+     *  container query, see compositor.css). Optional - undefined on any such older design, so `render`
      *  defaults it defensively rather than relying on `defaultProps`, which Puck applies only to newly
      *  inserted components. */
     valuePlacement?: ValuePlacement
     typography: string
     /** What to render when the bound value is empty (see {@link isEmptyFieldValue}): leave the row as-is
-     *  (label per `showLabel`, blank value — the pre-existing behavior, and the default so old designs
+     *  (label per `showLabel`, blank value - the pre-existing behavior, and the default so old designs
      *  are unaffected), hide just the label (blank value, no label), or substitute `emptyValue`. */
     onEmpty: "doNothing" | "hideLabel" | "placeholder"
     /** Shown in place of the value when empty and `onEmpty` is "placeholder". */
     emptyValue: string
-    /** Prepended to the value with no separator — used verbatim, never trimmed, so a trailing space is
+    /** Prepended to the value with no separator - used verbatim, never trimmed, so a trailing space is
      *  how an author encodes "Op. ". Optional, defaulted to "" defensively in `render` (added after
      *  `ContentField` existed, so `defaultProps` alone would not reach older stored designs). Suppressed
      *  whenever the value is empty, so every `onEmpty` outcome (including the "placeholder" substitution)
      *  renders without it. */
     prefix?: string
     /** "yes" wraps prefix+value in an `<a>` to `linkHref`, replacing (not nesting inside) any anchor the
-     *  bound field's own kind would otherwise render — nested `<a>` is invalid HTML. Inert when the kind
-     *  injects its own anchor markup ({@link rendersOwnAnchors}: `uri`, `citations`) — lint flags that.
+     *  bound field's own kind would otherwise render - nested `<a>` is invalid HTML. Inert when the kind
+     *  injects its own anchor markup ({@link rendersOwnAnchors}: `uri`, `citations`) - lint flags that.
      *  Optional, defaulted to "no" defensively in `render`, same back-compat reasoning as `prefix`. */
     forceLink?: "yes" | "no"
     /** The forced link's href, live only when `forceLink` is "yes" and this is non-blank. An unsafe
@@ -370,15 +370,15 @@ interface ContentFieldProps {
 interface PagefindSearchProps {
     /** "site" (the default, and search.astro's untagged behavior) searches every indexed public page;
      *  "database" restricts to pages carrying `data-pagefind-filter="scope:database"` (see search.astro
-     *  and layouts/PublicPage.astro's `pagefindFilter` prop) — the three entity nouns' index/detail pages. */
+     *  and layouts/PublicPage.astro's `pagefindFilter` prop) - the three entity nouns' index/detail pages. */
     scope: "site" | "database"
     /** Auxiliary link rendered below the search bar: "none" (the default) shows nothing extra, "search" and
-     *  "advanced" link to that page — mode switching, so an editor can send a visitor from this simple bar
-     *  toward the fuller search experience. Optional — undefined on any design stored before this field
+     *  "advanced" link to that page - mode switching, so an editor can send a visitor from this simple bar
+     *  toward the fuller search experience. Optional - undefined on any design stored before this field
      *  existed, defaulted defensively in `render`, not just `defaultProps`, for that back-compat. */
     advancedLink?: "none" | "search" | "advanced"
     /** Pre-existing fields from the old inline `<details>` advanced panel, replaced by `advancedLink` (the
-     *  panel duplicated the same criteria form /search/advanced itself owns — see that page and
+     *  panel duplicated the same criteria form /search/advanced itself owns - see that page and
      *  DatabaseRoot.astro, which dropped their own copies of it the same way). Kept only so a design stored
      *  before this change still resolves to an equivalent `advancedLink` value in `render`, never read
      *  anywhere else. */
@@ -404,7 +404,7 @@ interface MediaTextProps {
     border: string
     /** a `shadows` token name, or "" for no shadow (the pre-existing default). Media side only. */
     shadow: string
-    /** "yes" renders `fetchPriority="high" loading="eager"` — for the one image, if any, that sits
+    /** "yes" renders `fetchPriority="high" loading="eager"` - for the one image, if any, that sits
      *  above the fold. "no" (the default) renders neither attribute. */
     priority: "yes" | "no"
 }
@@ -414,7 +414,7 @@ const BUNDLED_FILE_PREFIX = "/files/"
 /**
  * Resolves a bundled (src/files) image source's alt text from the build-time sidecar index
  * (BuildConfigContext.bundledFileAlt). Returns undefined for an R2/EmDash `key` source or a non-bundled
- * `url` source (external https, or no index available — the editor target never has one).
+ * `url` source (external https, or no index available - the editor target never has one).
  */
 function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, string> | undefined): string | undefined {
     if (source.kind !== "url" || !index || !source.url.startsWith(BUNDLED_FILE_PREFIX)) {
@@ -423,14 +423,14 @@ function bundledAlt(source: NonNullable<MediaSource>, index: Record<string, stri
     return index[source.url.slice(BUNDLED_FILE_PREFIX.length)]
 }
 
-/** Neutral editor-canvas placeholder for an outlet with no preview entry to resolve against (pivot §4). */
+/** Neutral editor-canvas placeholder for an outlet with no preview entry to resolve against */
 function OutletPlaceholder({ field }: { field: string }) {
     return <div className="cmp-outlet-placeholder">⟨ field: {field || "not bound"} ⟩</div>
 }
 
 /**
  * The `field` select for an outlet: options are the template collection's schema fields (from the
- * config context — editor-only; the build never renders field UIs), filtered to the types the outlet
+ * config context - editor-only; the build never renders field UIs), filtered to the types the outlet
  * accepts (D5), so a design cannot bind a field that does not exist or has the wrong type.
  *
  * `label`/`blankLabel` default to the outlet phrasing; `Spacer`'s linked-field picker (optional, unlike
@@ -456,7 +456,7 @@ function outletFieldSelect(
 /** Builds the Puck config for the given theme, target, and per-entry context (pivot D7). Component
  * set/props are the frozen catalog v1 plus the content outlets; select options draw from `theme`.
  * `target` governs only the two editor-only fields (RichText `body`, Image `media`). Outlet renders
- * read the routed entry from the `context` closure — no clone-and-fill, no React context — so the
+ * read the routed entry from the `context` closure - no clone-and-fill, no React context - so the
  * zero-JS build path is untouched; with no context (a `design_page`) outlets render nothing (build) or
  * a placeholder (editor). */
 export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?: BuildConfigContext): Config {
@@ -551,7 +551,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { columnGap: "md", rowGap: "md", content: [] },
             // The only explicit horizontal container (see module header's flow-invariant note): children
             // lay out left-to-right and wrap, regardless of each child's own intrinsic CSS display.
-            // `cmp-row` styles the slot's own wrapper directly, not an outer div — Puck's slot items are
+            // `cmp-row` styles the slot's own wrapper directly, not an outer div - Puck's slot items are
             // direct children of that wrapper with no further nesting, so it must be the flex container
             // for the gaps to land between items. `rowGap` only shows once the row wraps.
             render: ({ columnGap, rowGap, content: Content }: RowProps) => (
@@ -597,11 +597,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             label: "Rich text",
             fields: {
                 // Editor: the native richtext field (ProseMirror working value), with a link control added
-                // beside Puck's own toolbar (catalog-richtext-link.tsx) — Puck's stock richtext field has
+                // beside Puck's own toolbar (catalog-richtext-link.tsx) - Puck's stock richtext field has
                 // none. `options.link: false` (not `{...}`) because Puck calls `Link.configure(options.link)`,
                 // which deep-merges onto Tiptap's `target: "_blank"` default rather than clearing it;
                 // COMPOSITOR_LINK is the one Link extension actually used, supplied via `tiptap.extensions`.
-                // Build: a passthrough so the render receives the raw PT array (see header — Puck would
+                // Build: a passthrough so the render receives the raw PT array (see header - Puck would
                 // otherwise blank it at build).
                 body: isEditor
                     ? {
@@ -683,7 +683,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 shadow: tokenSelect(theme, "shadows", "Shadow", true)
             },
             // "primary" is a seeded variant name (theme is authored before this code deploys), so the
-            // default resolves. The render stays pure — it maps a variant name into `--cmp-button-*`
+            // default resolves. The render stays pure - it maps a variant name into `--cmp-button-*`
             // locals and never sees the theme, exactly like Spacer/Divider (catalog purity rule).
             defaultProps: { label: "Button", href: "#", target: "", variant: "primary", shadow: "" },
             render: ({ label, href, variant, shadow, target }: ButtonProps) =>
@@ -699,7 +699,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { size: "md", linkedField: "" },
             render: ({ size, linkedField }: SpacerProps) => {
                 // No entry to check (template editor before a preview entry is picked, or a design_page,
-                // which can't reach a linked field at all — its picker has no options) -> render normally,
+                // which can't reach a linked field at all - its picker has no options) -> render normally,
                 // same "nothing to evaluate yet" default `ContentField`'s own editor placeholder follows.
                 if (linkedField && context?.entry) {
                     const catalogField = context.fields?.find((candidate) => candidate.slug === linkedField)
@@ -729,7 +729,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             label: "Breadcrumbs",
             fields: {},
             defaultProps: {},
-            // Home, then each ancestor crumb (linked, or plain text when href is null — the "Posts"
+            // Home, then each ancestor crumb (linked, or plain text when href is null - the "Posts"
             // case), then the page title as the final unlinked crumb. No route context (editor
             // previewing a template) -> illustrative fallback trail.
             render: () => {

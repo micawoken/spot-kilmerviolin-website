@@ -1,7 +1,5 @@
 /**
- *
- *
- *
+ * scripts/common.ts
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -45,11 +43,7 @@ import { parseCitationsTextarea } from "./citations"
 // PARSERS
 
 /**
- * Parses a single integer field value, enforcing that it is a whole number.
- *
- * All numeric fields in the API (IDs, years, ratings, phase numbers) are integers, and ID fields in
- * particular must always be numbers. parseFloat/parseInt are too lenient for this (they accept inputs
- * like "12abc" or "1.5"), so this rejects anything that is not a bare integer.
+ * Parses a single integer field value, enforcing that it is a whole number
  *
  * @param {string} raw the raw input value
  * @param {string} param the parameter name, used for error messages
@@ -274,16 +268,6 @@ export function singleParse(form_data: FormData): string {
 
 // VALIDATORS
 
-// ---------------------------------------------------------------------------
-// Client-side field validation
-//
-// Each validator inspects a single field's raw (string) value and returns a short, specific hint about
-// what is wrong, or null when the value is acceptable. A blank value is always acceptable here: optional
-// fields submit blank, and required fields are enforced separately by generateObjectForm. Validators
-// therefore police only the *format* of a non-blank entry. Hints are surfaced inline (showFieldError),
-// to the right of the field, mirroring the format-hint tokens.
-// ---------------------------------------------------------------------------
-
 export type FieldValidator = (raw: string, form: HTMLFormElement) => string | null
 
 // the editable form controls validation operates on (typed as a union rather than HTMLElement because
@@ -302,7 +286,7 @@ export const VALIDATION_GROUP_MAP: Record<string, string> = {
     uri: "publication_info"
 }
 
-/** Validates a comma-separated list: no stray (empty) entries, and — when numeric — positive integers. */
+/** Validates a comma-separated list: no stray (empty) entries, and - when numeric - positive integers. */
 export function validateList(numeric: boolean): FieldValidator {
     return (raw) => {
         if (raw.trim() === "") return null
@@ -333,9 +317,7 @@ export function validateYear(allow_living: boolean): FieldValidator {
 
 /**
  * Validates a composer death year: blank, the -1 "still living" sentinel, or a positive whole-number year
- * that — when a birth year is also entered — falls on or after it. The birth-year cross-check mirrors the
- * server-side composer record validation (isDeathYearConsistent), so an out-of-order pair is flagged in
- * place before submission.
+ * that is greater than the death year
  */
 export const validateDeathYear: FieldValidator = (raw, form) => {
     const trimmed = raw.trim()
@@ -386,9 +368,6 @@ export const validateUriField: FieldValidator = (raw, form) => {
     return validateURIForType(uri_type, raw) ? null : `does not match the selected ${uri_type.toUpperCase()} format`
 }
 
-// unlike parseCitationsTextarea (scripts/citations.ts), which silently drops a malformed line for the
-// form's convenience at submit time, this walks every non-blank raw line so a mistake is actually
-// surfaced to the user instead of quietly vanishing from what gets saved
 export const validateCitationsField: FieldValidator = (raw) => {
     const lines = raw
         .split("\n")
@@ -439,13 +418,7 @@ export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
 }
 
 /**
- * Client-side validation of whether the acting user may edit a given contributor record.
- *
- * Mirrors the server authorization in PATCH /api/v1/contributors/[id]: a user may edit their own
- * record freely, but editing another user's record — or any protected property — requires being an
- * administrator with elevation enabled. The server remains authoritative; this surfaces a clear error
- * before the request is sent. Identity context is read from the form's dataset (set by
- * ContributorForm.astro), with the protected-property list sourced from CONTRIBUTOR.protected.
+ * Client-side validation of whether the acting user may edit a given contributor record
  *
  * @param {HTMLFormElement} form the contributor form, carrying identity context in its dataset
  * @param {number} record_id the id of the contributor record being edited
@@ -487,9 +460,7 @@ export function assertCanEditContributor(
 
 /**
  * Sets the inner HTML of a result element by id, for fields rendered as markup-safe HTML the generic
- * populateInfo loop cannot produce (e.g. contributor/composer references rendered as info-page links).
- * The supplied HTML must already be escaped at its source (see scripts/references.ts), mirroring the SSR
- * `set:html` render in the entity Info components.
+ * populateInfo loop cannot produce
  *
  * @param {string} elem_id the id of the element to populate
  * @param {string} html the markup-safe HTML to set
@@ -505,10 +476,7 @@ export function setInfoHtml(elem_id: string, html: string): void {
 
 /**
  * Wires a search box's text input so that pressing Enter triggers its own search button instead of
- * submitting the surrounding form. The search helpers (name search, file picker, file search, keyword
- * search) sit inside the page's larger forms; without this, Enter would submit that broader form rather
- * than run the search the user is typing into. The keydown is canceled (and propagation stopped) so the
- * form's submit handler never sees it, and the search button's existing click handler runs instead.
+ * submitting the surrounding form
  *
  * @param {HTMLInputElement} input the search query text input
  * @param {HTMLElement} button the search button whose click runs the search
@@ -536,11 +504,7 @@ export function errorMessage(error: unknown): string {
 }
 
 /**
- * Renders an animated "Searching" progress indicator into a results container.
- *
- * The trailing ellipsis cycles 1 -> 2 -> 3 dots via the `.search-progress` CSS animation (defined in
- * styles/admin-entities.css) to signal that a search is in flight. Replaces any existing content; it is
- * overwritten once results (or an error) arrive.
+ * Renders an animated "Searching" progress indicator into a results container
  *
  * @param {HTMLElement} target the results container to render the indicator into
  */
@@ -553,19 +517,7 @@ export function renderSearchProgress(target: HTMLElement): void {
 }
 
 /**
- * Auto-checks the per-field "Edit this field" checkbox when its field is edited.
- *
- * The PATCH (partial edit) forms render an edit-target checkbox per field, and generateObjectForm only
- * sends fields whose checkbox is checked. To spare users from ticking each box by hand, this checks the
- * matching checkbox as soon as the user modifies a field. Programmatic prefill (prefillForm) sets .value
- * directly and dispatches no input event, so it does not trip these listeners.
- *
- * Most inputs map to a checkbox named `${input.name}-edittarget`. The composition custom-object groups
- * are the exception: their inputs (rating_suzuki/rating_nyssma and the publish_name, publish_location,
- * publish_year, uri and uri_type fields) share one group-level checkbox (rating-edittarget or
- * publication_info-edittarget), mapped explicitly.
- *
- * No-ops on forms without edit-target checkboxes (e.g. create and self-service profile forms).
+ * Auto-checks the per-field "Edit this field" checkbox when its field is edited
  *
  * @param {HTMLFormElement} form the form whose inputs should auto-check their edit-target checkboxes
  */

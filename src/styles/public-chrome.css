@@ -1,83 +1,5 @@
 /* styles/public-chrome.css
  *
- * Binds the shared public chrome — the document body, PublicHeader, and PublicFooter — to the published
- * design theme's `--dtk-*` custom properties (emitted site-wide by layouts/PublicPage via getThemeHead).
- * This is the seam that makes a loaded theme actually paint the site frame, not only the compositor's
- * in-`<main>` design components: `styles/global.css` styles the body against its own built-in `--color-*`
- * palette and gives the header/footer no rules at all, so without this file the frame ignores the theme
- * (the "system fallback" look).
- *
- * PUBLIC ONLY. Imported by layouts/PublicPage.astro, never by the admin (which uses BaseHead), so the
- * admin keeps its `--color-*` look untouched. Loaded after global.css so its `body` rule wins.
- *
- * Every binding is a three-deep fallback chain: `var(--dtk-chrome-<role>, var(--dtk-color-<magic-name>,
- * <global.css fallback>))`. `--dtk-chrome-*` is the Site Chrome role mapping (tokens.ts SiteChromeRoles,
- * the theme editor's "Site Chrome" section) — the owner explicitly picks which named color/border fills
- * each role. The middle link is the older convention this replaces: a theme author had to happen to name
- * a color `ink`/`paper`/`garnet`/`slate`/`surface` or a border `hairline`, undiscoverable from the editor
- * UI, for the chrome to pick it up at all. Both are optional, so a theme that sets neither degrades to the
- * built-in look, and a theme authored before Site Chrome existed (using only the magic names) keeps
- * rendering exactly as before until its owner opens the editor and sets the roles explicitly.
- *
- * The horizontal inset defaults to `--dtk-space-md`: the compositor has no content container, so
- * `.cmp-section` (compositor.css) and the main-content rules below (`main > article`, unwrapped `main` —
- * which now covers the pre-generated "static" pages' own wrapper div too, see that rule's comment) fall
- * back to that token when the theme hasn't set an inset role, aligning the header, footer, and untemplated
- * article content to the same reading column the design pages use by default.
- *
- * Header/footer and main content read SEPARATE inset roles so a theme can shrink the content column on
- * phones (e.g. authoring its space token's value as `clamp(0px, 4vw, 1.5rem)`) without also collapsing
- * the header/footer gutter: `-inset` (header nav, footer) vs. `-content-inset` (main/article, `.cmp-
- * section`, and every other unwrapped `main` child — including static pages, see below). The main-content
- * rules below fall back to `-inset` when `-content-inset` is unset, so an already-configured theme's
- * main-content spacing doesn't change until its owner splits the two roles apart explicitly; `.cmp-section`
- * falls back straight to `--dtk-space-md` instead (see compositor.css), since it never read `-inset` in
- * the first place.
- *
- * Every margin/padding/gap declaration (both axes) is a FOUR-deep chain (main content's inset is a
- * five-deep chain, with the extra `-inset` middle fallback above): `var(--dtk-chrome-<axis>-space-<role>,
- * var(--dtk-space-<name>, <literal>))`. Ten `--dtk-chrome-*-space-*` roles total (tokens.ts
- * SiteChromeRoles, the theme editor's "Site Chrome" -> "Horizontal spacing"/"Vertical spacing" tables) let
- * the owner scale this chrome's rhythm by category, per axis, instead of one dial for everything or
- * hand-picking a named space token per declaration:
- *   - horizontal `-inset`         header/footer edge padding
- *   - horizontal `-content-inset` main-content edge padding (main/article, `.cmp-section`, and every other
- *                                 unwrapped `main` child, including static pages), independent of the
- *                                 header/footer inset above
- *   - horizontal `-item-gap`   gaps between repeated row items (nav links, footer links, header nav's grid columns)
- *   - horizontal `-control`    padding inside, and gaps between, interactive controls (the search box)
- *   - vertical `-section`      rhythm separating major page blocks (article/unwrapped-content padding, grid/form margins)
- *   - vertical `-header`       header nav's own top/bottom padding, independent of the footer's
- *   - vertical `-footer`       footer's own top/bottom padding and the margin above it, independent of the header's
- *   - vertical `-item-gap`     gaps between repeated stacked items (header nav's stacked rows, footer's
- *                              link-row/copy stack, grid row-gaps)
- *   - vertical `-control`      vertical padding inside controls, and small margins tied to a control's own
- *                              content (search box padding, list-result cards, search result rows and captions)
- *   - vertical `-static`       extra top/bottom padding ADDED on top of `-section`, scoped only to the
- *                              pre-generated "static" pages below (see the `.entity-index-body`/
- *                              `.search-page` rule further down)
- * Each role's own middle-link name and literal are chosen per role (not per declaration), so an unthemed
- * site renders one consistent value per role rather than the ad hoc per-declaration values this replaced —
- * see tokens.ts SiteChromeRoles for the exact declarations each role covers. A theme that authors one of
- * those `--dtk-space-*` names directly, or sets a spacing role, controls this chrome's rhythm too, not
- * just the design pages'.
- *
- * There used to be a HORIZONTAL `-static` role alongside the vertical one still above: the pre-generated
- * "static" pages below hardcode their own structure instead of reading it from a design/entity template,
- * so nothing kept that structure automatically in step with wherever a Puck-templated page's own
- * inset/rhythm ended up — both were an owner-operated, additive correction for whatever drift resulted.
- * The main-content INSET rule below now reads identically for `.cmp-root` (Puck's mandatory wrapper,
- * catalog.tsx's `root.render`) and a static page's own wrapper div, and a separate rule fixes the one real
- * structural bug that was causing horizontal drift in the first place (a top-level `Section`'s inset
- * stacking with `.cmp-root`'s own — see the `.cmp-section` breakout rule below) — so there is no more
- * horizontal drift left for a hand-tuned nudge to correct, and that role was removed rather than left as a
- * now-inert dial.
- *
- * Vertical drift has no equivalent structural fix, so `-static` stays for that axis only: a Puck top-level
- * `Section` (catalog.tsx SectionProps) has its OWN `paddingY` dropdown, letting a design-page author pick
- * any space token for that Section's vertical padding — a static page below has no such per-page control,
- * it always renders at the fixed `-section` role. See the `.entity-index-body`/`.search-page` rule further
- * down for how the nudge is scoped to just those pages without a dedicated marker class.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -105,7 +27,7 @@
  *
  * Sticky footer: body is a full-viewport flex column (header, main, footer) so `main`'s flex-grow below
  * pushes the footer to the viewport bottom on short pages, while a tall page still pushes it below the
- * fold as normal — main's `flex: 1 0 auto` only grows into the flex column's leftover space and never
+ * fold as normal - main's `flex: 1 0 auto` only grows into the flex column's leftover space and never
  * shrinks below its own content. */
 html body {
 	min-height: 100dvh;
@@ -132,11 +54,7 @@ main a:hover {
 	color: var(--dtk-chrome-link-hover, var(--color-link-hover));
 }
 
-/* Untemplated page titles (static pages, Portable Text) render a plain `<h1>` — no typography
- * binding, so it'd fall through to the UA default instead of the theme's scale. Binds to the
- * `headingTypography` role, then `display` by magic name (unmigrated themes). `main h1` beats
- * global.css's reset; never overrides a Puck heading's own `.cmp-heading` binding (class > element).
- * Innermost fallbacks preserve the pre-existing look when unset. */
+/* Untemplated page titles (static pages, Portable Text) render a plain `<h1>` */
 main h1 {
 	font-family: var(--dtk-chrome-heading-family, var(--dtk-type-display-family, inherit));
 	font-size: var(--dtk-chrome-heading-size, var(--dtk-type-display-size, 2em));
@@ -152,10 +70,7 @@ header {
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
 /* Grid rather than flex so title/nav-area/toggle can be reassigned to two different area maps by the
- * media query below without reparenting: below the breakpoint, title+toggle share a fixed top row (always
- * exactly two items, so it never wraps unevenly) with nav-area on its own row underneath, free to wrap
- * independently; at/above it, all three share a single row. `align-items: center` (both maps) is what keeps
- * the toggle's icon vertically centered against the title text instead of pinned to the row's top edge. */
+ * media query below without reparenting */
 header nav {
 	display: grid;
 	align-items: center;
@@ -174,13 +89,12 @@ header nav {
 		grid-template-areas: "title nav toggle";
 	}
 	/* Nav links sit next to the search toggle (their natural reading order continues into it) rather than
-	 * hugging the title, leaving the middle of the row as breathing space instead of a second focal point. */
+	 * hugging the title, leaving the middle of the row as breathing space instead of a second focal point */
 	header .nav-links {
 		justify-content: flex-end;
 		/* Offsets the flex-end alignment left by the search button's own inset (border + horizontal padding,
 		 * matching #header-search-form button below) so the last nav link's text ends on the same vertical
-		 * line as the "Search" button's text, instead of the button's inset text sitting further left than
-		 * the box edge nav-links aligns to. */
+		 * line as the "Search" button's text */
 		padding-inline-end: calc(
 			var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px)) +
 			var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem))
@@ -188,14 +102,7 @@ header nav {
 	}
 }
 /* Below the breakpoint, nav-area sits on its own row, independent from the title/toggle row above it (see
- * the grid comment above). The search form is taller than a single line of nav-links (its input/button
- * padding vs. the links' plain text), so stacking both permanently in the same grid cell — rather than only
- * switching the form to static/in-flow once search opens — makes nav-area's row size itself to the taller
- * of the two at all times. That keeps the header's height constant across open/close (no content shift
- * below it) at the cost of a small fixed gutter under the nav links even while search is closed.
- * `align-items: center` keeps the shorter nav-links centered within that reserved height instead of pinned
- * to the row's top edge. Neither child uses `display: none` (only opacity/visibility) so both keep
- * contributing to the row's size regardless of which is currently shown. */
+ * the grid comment above) */
 @media (max-width: 719.98px) {
 	header .nav-area {
 		display: grid;
@@ -230,9 +137,7 @@ header #search-toggle {
 	cursor: pointer;
 }
 /* Both icons render (so no client-side icon swap is needed) and share the same grid cell, crossfading via
- * opacity/visibility on the same 0.15s timing as #header-search-form's own open/close transition (below) —
- * previously this swapped via `display`, which can't be transitioned, so the icon snapped instantly while
- * the search bar it announces was still fading in. */
+ * opacity/visibility on the same 0.15s timing as #header-search-form's own open/close transition */
 header #search-toggle .icon-search,
 header #search-toggle .icon-close {
 	grid-area: 1 / 1;
@@ -261,34 +166,17 @@ header #search-toggle.is-open .icon-close {
 		transition: none;
 	}
 }
-/* nav-area doubles as the search overlay's anchor at/above 720px (below it, the media query further up
- * switches to a grid-stacking approach instead — see its comment): opening search covers only this area
- * (never the title or toggle around it, which must stay visible so the toggle can close it again) with an
- * opaque bar pinned to the area's top edge. The overlay's height is intrinsic (from its own input/button
- * padding), not stretched to the area's full height, so if the nav-links have wrapped onto extra lines
- * (many links at a middling width), it only covers the space a single unwrapped line would occupy — the
- * wrapped links are hidden rather than shown through, but the bar doesn't grow to chase them. `min-width: 0`
- * overrides the grid item's default auto min-width (content-based), which would otherwise force the nav
- * column wider than the space actually available and push the toggle out of the row. */
+/* nav-area doubles as the search overlay's anchor at/above 720px */
 header .nav-area {
 	grid-area: nav;
 	position: relative;
 	min-width: 0;
 }
 /* `top: 50%` + `translateY(-50%)` (rather than `top: 0`) because the form is taller than `.nav-area`'s own
- * box: `.nav-area` shrinks to the (now-hidden) nav-links' height and is itself centered by the header's
- * `align-items: center` within the row, so anchoring the form's top edge to `.nav-area`'s top edge left it
- * hanging further below than above. Centering on `.nav-area`'s midpoint instead lines the form up with that
- * same row-center, matching the toggle button regardless of the form's own height. */
-/* Closed state is opacity+visibility (not `display`/`hidden`) so open/close can fade: `display: none` can't
- * be transitioned, and `visibility`'s own transition is what delays the property from flipping to `hidden`
- * until the opacity fade-out finishes, while flipping to `visible` immediately on open (0s delay each side).
- * `visibility: hidden` also keeps the (still-`display: flex`) form out of the tab order and accessibility
- * tree while closed, matching what the `hidden` attribute did before. */
+ * box */
 header #header-search-form {
 	display: flex;
-	/* Overrides `.search-form`'s own `flex-wrap: wrap` (styles/search-form.css) — this bar is a fixed-height
-	 * absolute-positioned overlay (below) and must stay one line regardless of width. */
+	/* Overrides `.search-form`'s own `flex-wrap: wrap` (styles/search-form.css) */
 	flex-wrap: nowrap;
 	align-items: center;
 	gap: var(--dtk-chrome-horizontal-space-control, var(--dtk-space-xs, 0.75rem));
@@ -313,8 +201,7 @@ header #header-search-form.is-open {
 	}
 }
 /* The input/button look (padding, border, colors, font-size, hover) comes from the `.search-form` class
- * on #header-search-form itself (styles/search-form.css) — the shared source all public search bars now
- * read from — leaving only this form's own overlay positioning/transition above. */
+ * on #header-search-form itself (styles/search-form.css) */
 header .nav-links {
 	display: flex;
 	flex-wrap: wrap;
@@ -322,14 +209,11 @@ header .nav-links {
 	margin: 0;
 	padding: 0;
 	list-style: none;
-	/* Delayed the same way as the search form's own visibility (below), but in the opposite direction:
-	 * these stay visible (and get progressively covered by the form's opaque background as it fades in)
-	 * until the open transition finishes, then flip to hidden — rather than vanishing instantly before the
-	 * form is even visible, which read as the whole header blinking out. */
+	/* Delayed the same way as the search form's own visibility (below), but in the opposite direction */
 	transition: visibility 0s linear 0s;
 }
 /* Hidden (not just visually covered) once the search overlay has fully faded in, so the wrapped-line tail
- * isn't left showing beneath the bar and its links aren't reachable by keyboard while covered. */
+ * isn't left showing beneath the bar and its links aren't reachable by keyboard while covered */
 header.search-open .nav-links {
 	visibility: hidden;
 	transition: visibility 0s linear 0.15s;
@@ -339,7 +223,7 @@ header.search-open .nav-links {
 		transition: none;
 	}
 }
-/* The mono, uppercase, tracked nav treatment — the theme's `label` typography (IBM Plex Mono). */
+/* The mono, uppercase, tracked nav treatment - the theme's `label` typography (IBM Plex Mono). */
 header .nav-links a {
 	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
 	font-size: var(--dtk-type-label-size, 0.72rem);
@@ -357,44 +241,13 @@ ul.nav-links {
 	flex-wrap: nowrap;
 }
 
-/* ---- Main / untemplated content ----
- * Only the Portable-Text branch wraps content in <article>; design pages render Puck Sections directly
- * and those own their inset, so scoping to `main > article` gives plain pages the same gutter and reading
- * column without double-insetting design pages. */
+/* ---- Main / untemplated content ---- */
 main > article {
 	padding-inline: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)));
 	padding-block: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
 }
 
-/* Baseline inset for EVERY other direct child of <main> with no Section wrapping it — a template's
- * outlets, a design page authored without a Section, and the pre-generated "static" pages' own
- * hand-authored wrapper div (entity/index.astro + DatabaseRoot, entity/[noun]/index.astro, search.astro,
- * search/advanced.astro) alike. One rule now covers both structures: Puck's `Render` always inserts exactly
- * one `.cmp-root` wrapper as `main`'s only child (catalog.tsx's `root.render`), and each static page
- * likewise renders exactly one wrapper div as `main`'s only child — neither needs a distinguishing marker
- * class, because there is nothing left to distinguish: both get the identical inset, computed once against
- * the body's own font size (a relative-unit token — e.g. a `clamp()` reading-width expression — would
- * otherwise resolve differently per differently-sized child if applied to each piece of content
- * individually). This replaces the pre-generated pages' old separate `.static-page-body` rule and its
- * additive HORIZONTAL "-static" nudge role: that existed only to hand-correct inset drift between two
- * structures that independently computed their own inset, which this shared rule now makes structurally
- * impossible. The VERTICAL "-static" nudge still exists — see the `.entity-index-body`/`.search-page` rule
- * just below this one — because a Puck top-level `Section`'s own `paddingY` dropdown has no static-page
- * equivalent (this rule's own doc comment above has the full reasoning); it stays additive on top of the
- * `:first-child`/`:last-child` padding-top/-bottom below, scoped to those pages' own existing wrapper
- * classes rather than a revived marker class.
- *
- * `--pc-content-inset` is read by the `.cmp-section` breakout rule just below, so the two stay in lockstep
- * by construction rather than by a second, hand-copied reference to the same fallback chain.
- *
- * `.cmp-section` is excluded here: as a design page's TOP-LEVEL component it supplies its own inset via
- * `--dtk-chrome-horizontal-space-content-inset` (compositor.css) and its background is meant to bleed to
- * the true viewport edge — see the breakout rule below for how that happens now that `.cmp-root` sits
- * between it and `main`. `article` is excluded — already handled above. Padding-inline applies per element
- * (safe to repeat, matches `main > article`); padding-block is restricted to :first-child/:last-child so
- * consecutive unwrapped elements only get outer-edge spacing, not doubled gaps between them — irrelevant
- * for `.cmp-root` or a static page's wrapper (always `main`'s ONLY child, so always both), but still
- * correct for a template with several bare, Section-free outlets in a row. */
+/* Baseline inset */
 main > :not(.cmp-section, article) {
 	--pc-content-inset: var(--dtk-chrome-horizontal-space-content-inset, var(--dtk-chrome-horizontal-space-inset, var(--dtk-space-md, 1.5rem)));
 	padding-inline: var(--pc-content-inset);
@@ -407,23 +260,7 @@ main > :not(.cmp-section, article):last-child {
 }
 
 /* Vertical-only nudge, additive on top of the padding-top/-bottom above, scoped to the pre-generated
- * "static" pages via their own EXISTING wrapper classes — `.entity-index-body` (entity/database index,
- * DatabaseRoot.astro/EntityIndex.astro) and `.search-page` (search.astro, search/advanced.astro) — rather
- * than a revived `.static-page-body` marker class: every one of those pages already renders one of these
- * two classes as `main`'s only child, so nothing needs to change in the templates themselves to scope this.
- *
- * Can't be folded into the shared rule above by just adding a `+ var(--dtk-chrome-vertical-space-static,
- * 0px)` term there instead: that rule also matches a Puck `.cmp-root` with no top-level Section (a bare-
- * outlet template, or a design page authored without one), and `--dtk-chrome-vertical-space-static` is a
- * `:root`-level custom property (tokensToCss) inherited everywhere — folding the term in would silently
- * apply the static-page nudge to those Puck pages too the moment an owner sets it to a nonzero value,
- * repeating the exact bug a marker class fixed the first time this nudge existed (see this rule's own
- * history above `main > article`). Naming the two wrapper classes here keeps the correction scoped without
- * that risk, and without touching the wrapper divs' markup.
- *
- * Equal specificity to the shared `:first-child`/`:last-child` rule above (one class + one pseudo-class
- * either way) — this rule wins on source order for exactly the elements it names, leaving `.cmp-root` (and
- * any other unwrapped `main` child) reading the shared rule alone. */
+ * "static" pages */
 main > .entity-index-body:first-child,
 main > .search-page:first-child {
 	padding-top: calc(
@@ -440,17 +277,7 @@ main > .search-page:last-child {
 }
 
 /* A top-level `Section` breaks back OUT of `.cmp-root`'s own inset (the rule above) instead of sitting
- * doubly-inset inside it: `.cmp-root` is always `main`'s direct child, so it matches the rule above and
- * carries `--pc-content-inset` (inherited down to this rule via ordinary custom-property inheritance) —
- * but `.cmp-section` (compositor.css) ALSO applies that same inset unconditionally to itself regardless of
- * nesting, so the two would otherwise stack into a doubled inset with no edge-to-edge bleed, contradicting
- * `.cmp-section`'s own doc comment (compositor.css) and the exclusion above. Canceling `.cmp-root`'s
- * padding here with an equal negative margin — on exactly its own direct-child `.cmp-section`s, NOT a
- * Section nested deeper inside a Columns slot, which correctly keeps sitting inside its column's own width
- * — restores both a single content inset and a true edge-to-edge background. Never reaches the Puck editor
- * canvas: DesignEditor/ThemeEditor's preview iframe loads `compositor.css` directly and never this file, so
- * `.cmp-root` has no ambient inset there for a Section to break out of — the editor already rendered a
- * Section's inset correctly (singly) before this rule existed. */
+ * doubly-inset inside it */
 main > .cmp-root > .cmp-section {
 	margin-inline: calc(-1 * var(--pc-content-inset));
 }
@@ -468,9 +295,7 @@ footer {
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
-/* Font size lives on the list, not just the `a`s: an inline element smaller than its block ancestor's
- * inherited font still reserves a line box at the ancestor's (larger) line-height, so without this the
- * nav row renders visibly taller than the copyright line below it despite neither having padding. */
+/* Font size lives on the list, not just the `a`s */
 footer .footer-links {
 	display: flex;
 	flex-wrap: wrap;

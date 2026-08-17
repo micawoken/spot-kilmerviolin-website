@@ -24,23 +24,6 @@
 
 /// <reference path="../src/lib/api/types.d.ts" />
 
-/**
- * Tests for the authorization primitives in src/lib/api/authorize.ts
- *
- * Two layers are covered:
- *  - the pure permission helpers (requires / requiresOneOf / requiresAllOf / conferFrom /
- *    canModify / canAct), which operate on Identity objects and need no I/O; and
- *  - authorize(), which reads the contributor table via D1 and builds the Identity, exercised
- *    against a seeded table through the cloudflare:test pool.
- *
- * Regression focus:
- *  - role lookups must never throw on unknown or empty role strings (they used to index
- *    roles[role][permission] directly);
- *  - requires() must actually consult the role registry (it previously always returned false);
- *  - a contributor with an empty roles column must yield roles [] rather than [""]; and
- *  - the no-record (enrollable) path must derive enrollable from env.API_USER_SELFENROLL rather
- *    than hardcoding it true.
- */
 
 import { describe, it, expect, beforeAll } from "vitest"
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
@@ -173,10 +156,7 @@ describe("requiresAllOf", () => {
     it("aggregates permissions across every role held, not within one role", () => {
         // userenroll carries both user_addition and user_activation
         expect(requiresAllOf(["user_addition", "user_activation"], makeIdentity({ roles: ["userenroll"] }))).toBe(true)
-        // No single held role carries both of these — userenroll grants user_addition, reviewer grants
-        // overrides_lockout — but the caller holds both roles and therefore both permissions. Requiring
-        // them to come from one role contradicted permissionsFromRoles, which ORs across all roles, and
-        // satisfiesAccess, which reads that flattened set: the API and the page gate disagreed.
+        // No single held role carries both of these
         expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll", "reviewer"] }))).toBe(true)
         // still false when the permission is genuinely absent from every role held
         expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll"] }))).toBe(false)

@@ -2,24 +2,8 @@
 /**
  * pages/[...slug].astro
  *
- * Catch-all route for CMS-authored public pages. Three published sources claim slugs: `pages`/`posts`
- * content types (posts under `/posts/`) and the compositor's `design_page` type. `route-authority.ts`
- * merges them, fails the build on any duplicate slug (one owner per path), and resolves each entry to
- * the design template it renders *through*, if it names one (D4). No template named -> renders exactly
- * as it did before the compositor existed (D3) — designs are strictly opt-in.
+ * Catch-all route for CMS-authored public pages
  *
- * Prerendered: `getStaticPaths()` enumerates both sources at build time over EmDash's HTTP API (a
- * Cloudflare Access service token). Only published slugs are built, so an unknown path matches no
- * route and gets the static 404 from the Cloudflare ASSETS binding — no D1/KV lookup. Publishing or
- * editing a page requires a rebuild to regenerate these static pages.
- *
- * Design pages ship ZERO JavaScript: Puck's `Render` (`@puckeditor/core/rsc`), no client directive, so
- * it server-renders to plain HTML. Theme tokens inject into the head as `--dtk-*` properties alongside
- * the component stylesheet. A design page does NOT auto-emit `<h1>{title}</h1>` — headings come from
- * the canvas — while a Portable-Text page still does, preserving pre-compositor output.
- *
- * As a rest-parameter route this has the lowest routing priority — explicit files (index.astro,
- * privacy-policy.astro, /admin, /api) always win.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -65,13 +49,7 @@ import { EMPTY_TOKEN_CATALOG } from "../lib/compositor/tokens"
 
 export const prerender = true
 
-// Enumerate one static route per published page across both sources. Readers fail soft to []/null (a
-// build without CMS access still succeeds, just with no content pages), but a duplicate slug, an
-// unreadable design document, or a design failing the a11y lint all FAIL the build — each would
-// otherwise ship a broken or silently-missing public page.
-//
-// The page authored with slug "home" routes to "/" (undefined rest-param matches the route root)
-// instead of "/home", so there's exactly one URL for it.
+// Enumerate one static route per published page across both sources
 export async function getStaticPaths() {
     const [pages, posts, allDesignPages, templates, theme] = await Promise.all([
         fetchPublishedPages(),
@@ -81,17 +59,14 @@ export async function getStaticPaths() {
         fetchPublishedTheme()
     ])
 
-    // The reserved 404 design page is owned entirely by pages/404.astro (own fetch, lint, render) —
-    // excluded here so it never claims a live "/404" route or a duplicate-slug collision against it.
+    // The reserved 404 design page is owned entirely by pages/404.astro (own fetch, lint, render)
     const { routable: designPages } = partitionDesignPages(allDesignPages)
 
-    // Lint every published design before it reaches build output. Errors are the a11y/safety rules the
-    // editor's Publish dialog already blocks on; reaching here means a design published around the
-    // editor (API-direct) — the build is the last line of defense. Warnings are logged, not fatal.
+    // Lint every published design before it reaches build output
     for (const designPage of designPages) {
         const findings = lintDesign(designPage.doc, theme, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
         for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
-            console.warn(`[build] design "${designPage.slug}" — ${finding.path}: ${finding.message}`)
+            console.warn(`[build] design "${designPage.slug}" - ${finding.path}: ${finding.message}`)
         }
         if (hasBlockingError(findings)) {
             const errors = findings
@@ -106,16 +81,10 @@ export async function getStaticPaths() {
         }
     }
 
-    // Resolve every entry to the layout it renders through (D4). A broken template reference is a
-    // warning falling back to the untemplated render; an authored-wrong pairing throws from collectRoutes.
+    // Resolve every entry to the layout it renders through
     const { routes, warnings } = collectRoutes({ pages, posts, designPages, templates })
     for (const warning of warnings) console.warn(warning)
 
-    // Pairing lint per (template × entry) route — the sharpest post-pivot edge: heading order stops
-    // being a property of one document once template and entry combine, and entries publish in the
-    // EmDash admin with no compositor lint, so this build is the FIRST gate for entry-caused failures.
-    // Schema reads fail soft to null (fetchCollectionFields warns, dangling-field rule skipped); lint
-    // errors fail the build naming entry + template + rule.
     const schemaByCollection = new Map<string, CollectionField[] | null>()
     for (const route of routes) {
         if (route.props.kind !== "design" || !route.props.template) continue
@@ -133,7 +102,7 @@ export async function getStaticPaths() {
         )
         const label = `entry "${route.slug || "(home)"}" × template "${route.props.template.slug}"`
         for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
-            console.warn(`[build] ${label} — ${finding.rule} at ${finding.path}: ${finding.message}`)
+            console.warn(`[build] ${label} - ${finding.rule} at ${finding.path}: ${finding.message}`)
         }
         if (hasBlockingError(findings)) {
             const errors = findings
@@ -156,7 +125,7 @@ export async function getStaticPaths() {
 const props = Astro.props
 
 // route.slug already carries the "posts/" prefix routedSlug() applies (route-authority.ts), and that's
-// exactly what the rest-param route matches it on — so the same prefix check identifies a post here.
+// exactly what the rest-param route matches it on, so the same prefix check identifies a post here
 const slugParam = Astro.params.slug
 const isPost = typeof slugParam === "string" && slugParam.startsWith(`${POSTS_PREFIX}/`)
 const contentType = isPost ? "post" : "page"
@@ -164,8 +133,7 @@ const contentType = isPost ? "post" : "page"
 const mediaBaseUrl = import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
 const filesBaseUrl = import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLIC_URL
 // The entry's `featured_image` (route-authority.ts's RouteProps.image), resolved to a public URL for
-// og:image/twitter:image — undefined (falls through to PublicHead's site default) when the entry set no
-// featured image, or a design_page's props.image (always undefined — no EmDash entry behind one).
+// og:image/twitter:image
 const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
 ---
 
@@ -185,11 +153,6 @@ const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
     ) : (
         <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
             <CompositorStyles slot="head" />
-            {/* Puck's config holds React render functions, can't travel through getStaticPaths props
-                (serialized) — rebuilt here from the serializable theme. "build" target swaps the two
-                editor-only fields for passthroughs so stored Portable Text reaches the renderer intact.
-                Entry context feeds the content outlets (D7): routed entry's fields for a templated
-                route, null for a design_page (outlets render nothing). No client directive -> zero JS. */}
             <Render
                 config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: props.entry,

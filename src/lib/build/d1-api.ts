@@ -54,7 +54,7 @@ function getConfig(): BuildApiConfig | null {
         if (!warnedUnconfigured) {
             console.warn(
                 "[build/d1-api] CONTENT_API_BASE/CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET/BUILD_API_TOKEN " +
-                    "are not fully set — skipping entity page generation for composers/contributors/compositions."
+                    "are not fully set - skipping entity page generation for composers/contributors/compositions."
             )
             warnedUnconfigured = true
         }
@@ -73,7 +73,7 @@ function getConfig(): BuildApiConfig | null {
 }
 
 /**
- * How long a single query may wait before the build gives up. Sized as a conventional REST timeout —
+ * How long a single query may wait before the build gives up. Sized as a conventional REST timeout -
  * see the module header for why this is deliberately NOT emdash-api.ts's 75s cold-start figure.
  */
 export const BUILD_API_READ_TIMEOUT_MS = 20_000
@@ -177,7 +177,7 @@ async function fetchFullCollection<T>(path: string): Promise<T[] | null> {
 }
 
 /**
- * Fetches every composer record. Composers have no protected columns — the record is returned as-is.
+ * Fetches every composer record. Composers have no protected columns - the record is returned as-is.
  * Cached for the life of one build process (see {@link composersCache}).
  *
  * @returns every composer, or null when the build API is unconfigured
@@ -207,7 +207,7 @@ export function fetchAllContributors(): Promise<ContributorRecord[] | null> {
     return allContributorsCache
 }
 
-/** Build-time cache backing {@link fetchAllContributors} (and, through it, {@link fetchContributors}) — same rationale as {@link composersCache}. */
+/** Build-time cache backing {@link fetchAllContributors} (and, through it, {@link fetchContributors}) - same rationale as {@link composersCache}. */
 let allContributorsCache: Promise<ContributorRecord[] | null> | null = null
 
 /**
@@ -238,5 +238,5 @@ export function fetchCompositions(): Promise<CompositionRecord[] | null> {
     return compositionsCache
 }
 
-/** Build-time cache backing {@link fetchCompositions} — same rationale as {@link composersCache}. */
+/** Build-time cache backing {@link fetchCompositions} - same rationale as {@link composersCache}. */
 let compositionsCache: Promise<CompositionRecord[] | null> | null = null

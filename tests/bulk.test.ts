@@ -1,12 +1,9 @@
 /**
  * tests/bulk.test.ts
  *
- * Integration tests for the atomic bulk write path that backs the CSV import: the exec_stmt_batch primitive,
- * the batch add functions (addComposersBatch / addContributorsBatch / addCompositionsBatch), and the
- * (composer, name) composition uniqueness enforcement (both the app-model assertion and the composite UNIQUE
- * index). The central guarantee under test is all-or-nothing: a batch that violates a constraint mid-way
- * writes nothing.
- *
+ * Integration tests for the atomic bulk write path that backs the CSV import
+ * 
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 

@@ -1,31 +1,8 @@
 /**
  * lib/search/facets.ts
  *
- * Shared core for advanced database search. Pure and dependency-light — imported by the build-time
- * facet endpoint (search/advanced/db-search-index.json.ts) and the
- * `/search` and `/search/advanced` client scripts. `ADVANCED_FIELDS` is the criteria form's single
- * field-definition list, rendered only by pages/search/advanced.astro — the Puck `PagefindSearch`
- * component and `DatabaseRoot.astro` used to duplicate that form inline, but now just link to that page
- * (catalog.tsx's `advancedLink` option) rather than rendering their own copy of it.
+ * Shared core for advanced database search
  *
- * Every filterable field follows a `[field][operator][value]` shape: text fields (composer, country)
- * choose contains/is exactly/regex/fuzzy (see {@link TEXT_OPERATORS}); number fields (year, ratings,
- * birth/death year) choose is/before/after/between/around or is/at-least/at-most. `key`, `type`, and
- * `role` stay plain exact-match selects — there is only
- * one sensible operator for an enum, so no operator control is rendered for them (an operator dropdown
- * with a single, unchangeable option would be UI noise, not the multi-choice behavior the rest of this
- * file is about). Entity type (composer/composition/contributor) is its own multi-select checkbox group
- * on the advanced-search template, not an ADVANCED_FIELDS entry — see `nounOptions`.
- *
- * Pagefind's own filters are discrete-value only — no ranges, no comparisons — so structured filtering
- * (year ranges, rating minimums) runs off `FacetEntry`/`matchesFacets` instead, against a build-time JSON
- * index (search/advanced/db-search-index.json.ts) rather than the rendered page HTML: entity pages render through
- * editor-authored Puck templates, so a field's presence in the DOM depends on whether a designer placed
- * it — facets are built from the D1 records themselves.
- *
- * Verified safe for the browser/editor bundle: this module's only non-relative import is
- * `../api/common`, whose only import is `./validation`, whose only import is `../../consts` — no
- * `cloudflare:workers` or other server-only dependency on that path.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -53,43 +30,38 @@ import { countryCodeName } from "../../scripts/format"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../compositor/entity-fields"
 
 /**
- * One row of the build-time facet index (search/advanced/db-search-index.json.ts). Absent fields are omitted from the
- * JSON entirely, not emitted as `null` — keeps the payload small. A field absent because it's not
- * applicable to this entry's noun (e.g. `type` on a composer) and a field absent because the underlying
- * D1 record just doesn't have one set (e.g. a composition with no `type` chosen) are indistinguishable in
- * the JSON itself; {@link matchesFacets} tells them apart via each criterion's declared `nouns`
- * (ADVANCED_FIELDS), not via this shape.
+ * One row of the build-time facet index (search/advanced/db-search-index.json.ts)
  */
 export interface FacetEntry {
     url: string
     noun: EntityNoun
     name: string
-    /** composition only — composer's display name, for substring matching and result subtitles */
+    /** composition only - composer's display name, for substring matching and result subtitles */
     composer?: string
     composerId?: number
-    /** composition only — resolved display names of `author_secondary`, joined with ", " */
+    /** composition only - resolved display names of `author_secondary`, joined with ", " */
     secondaryAuthors?: string
-    /** composition only — instrument part (e.g. "violin"), free text rather than an enum */
+    /** composition only - instrument part (e.g. "violin"), free text rather than an enum */
     part?: string
-    /** composition only — {@link normalizeKeyForSearch} pitch-class reference, e.g. "7-minor" */
+    /** composition only - {@link normalizeKeyForSearch} pitch-class reference, e.g. "7-minor" */
     keyRef?: string
-    /** composition only — raw WorkType value */
+    /** composition only - raw WorkType value */
     type?: string
-    /** composition only — publish_year */
+    /** composition only - publish_year */
     year?: number
-    /** composition only — publication_info.name */
+    /** composition only - publication_info.name */
     publisher?: string
     suzuki?: number
     nyssma?: number
-    /** composer and composition — free-form tags, joined with ", " */
+    /** composer and composition - free-form tags, joined with ", " */
     tags?: string
-    /** composer only — ISO 3166-1 alpha-2 code (matched against both the code and its resolved name) */
+    /** composer only - ISO 3166-1 alpha-2 code (matched against both the code and its resolved name) */
     country?: string
-    /** composer only — raw role text */
+    /** composer only - raw role text */
     role?: string
     birthYear?: number
     deathYear?: number
-    /** contributor only — not a filterable field today (no ADVANCED_FIELDS entry), carried for completeness */
+    /** contributor only - not a filterable field */
     classYear?: number
 }
 
@@ -102,20 +74,16 @@ export interface TextCriterion {
 export type NumberOperator = "is" | "before" | "after" | "atLeast" | "atMost" | "between" | "around" | "alive"
 export interface NumberCriterion {
     op: NumberOperator
-    /** unused (and not read) when op is "alive" — that operator alone needs no value */
+    /** unused (and not read) when op is "alive" - that operator alone needs no value */
     value: number
     /** only meaningful (and only read) when op is "between" */
     valueTo?: number
 }
 
-/** "Around" tolerance for publish/birth/death year, in years either side of the given value. An explicit
- *  round-number assumption (not derived from any product spec) — revisit if it ever needs to be field- or
- *  user-configurable. */
+/** "Around" tolerance for publish/birth/death year, in years either side of the given value */
 const AROUND_YEAR_TOLERANCE = 5
 
-/** Structured search criteria. `nouns` (empty/absent = any) plus one optional criterion per filterable
- *  field; `keyRef`/`type`/`role` are plain exact-match values (all three are closed-vocabulary selects, not
- *  free text), everything else is a `[field][operator][value]` criterion object. */
+/** Structured search criteria */
 export interface FacetCriteria {
     nouns?: EntityNoun[]
     composer?: TextCriterion
@@ -147,7 +115,7 @@ export interface FacetOperatorOption {
 }
 
 /** One criterion's shared shape: URL/form param name, label, control kind, and (for a select) its
- *  options, or (for text/number) its available operators — the first entry is the default. */
+ *  options, or (for text/number) its available operators */
 export interface AdvancedFieldDef {
     /** also the FacetCriteria/URLSearchParams key this control reads and writes */
     param: string
@@ -157,18 +125,18 @@ export interface AdvancedFieldDef {
     placeholder?: string
     /** present only for text/number fields; absent (select fields) means "exact match, no operator UI" */
     operators?: readonly FacetOperatorOption[]
-    /** number fields only — rendered as the value/"to" inputs' min/max attributes */
+    /** number fields only - rendered as the value/"to" inputs' min/max attributes */
     min?: number
     max?: number
-    /** which entity nouns this criterion is meaningful for — grouping metadata for renderers; matching
+    /** which entity nouns this criterion is meaningful for - grouping metadata for renderers; matching
      *  itself needs no noun gate, since a field absent on a noun's entries just never matches it */
     nouns: EntityNoun[]
 }
 
 const ALL_NOUNS: EntityNoun[] = ["composer", "composition", "contributor"]
 
-/** Groups the 42-member `Key` enum into its 24 enharmonic-collapsed (pitch-class × mode) options,
- *  labelling paired spellings together (e.g. "C♯/D♭ major") rather than arbitrarily picking one. */
+/** Groups the 42-member `Key` enum into its 24 enharmonic-collapsed (pitch-class x mode) options,
+ *  labelling paired spellings together (e.g. "C#/Db major") rather than arbitrarily picking one */
 export function keyOptions(): AdvancedFieldOption[] {
     const spelling = (note: string): string => {
         if (note.length === 1) return note
@@ -197,13 +165,13 @@ export function keyOptions(): AdvancedFieldOption[] {
 const KEY_OPTIONS = keyOptions()
 const KEY_LABEL_BY_REF = new Map(KEY_OPTIONS.map((option) => [option.value, option.label]))
 
-/** Display label for a pitch-class reference (e.g. "7-minor" -> "G♯/A♭ minor"), or the ref itself if unknown. */
+/** Display label for a pitch-class reference (e.g. "7-minor" -> "G#/Ab minor"), or the ref itself if unknown. */
 export function keyRefLabel(ref: string): string {
     return KEY_LABEL_BY_REF.get(ref) ?? ref
 }
 
-// Reverse index from a query-syntax key token ("g-minor", "c#-major", "ab-major" — note+accidental exactly
-// as the Key enum spells it, lowercased, hyphen before the mode) to its pitch-class reference.
+// Reverse index from a query-syntax key token ("g-minor", "c#-major", "ab-major" - note+accidental exactly
+// as the Key enum spells it, lowercased, hyphen before the mode) to its pitch-class reference
 const KEY_REF_BY_TOKEN = new Map<string, string>(
     Object.values(Key).map((raw) => {
         const key = raw as Key
@@ -220,16 +188,12 @@ function workTypeOptions(): AdvancedFieldOption[] {
     return Object.values(WorkType).map((value) => ({ label: value, value }))
 }
 
-/** The three entity-type options for the advanced-search noun checkbox group (docs: "do filtering only" —
- *  unlike plain /search, /search/advanced stays database-scoped, but lets multiple nouns be checked at
- *  once rather than picking exactly one). No "Any" pseudo-option: an empty selection already means any. */
+/** The three entity-type options for the advanced-search noun checkbox group */
 export function nounOptions(): AdvancedFieldOption[] {
     return ALL_NOUNS.map((noun) => ({ label: ENTITY_NOUN_LABELS[noun], value: ENTITY_NOUN_SLUGS[noun] }))
 }
 
-/** Lightweight subsequence fuzzy match (the same idea as VS Code's command palette / fzf): `query` matches
- *  `text` if every one of its characters appears in `text`, in order, not necessarily contiguous —
- *  e.g. "bch" matches "Bach". Used by matchesText's "fuzzy" operator. */
+/** Lightweight subsequence fuzzy match  */
 function fuzzyMatch(text: string, query: string): boolean {
     const t = text.toLowerCase()
     let searchFrom = 0
@@ -242,13 +206,7 @@ function fuzzyMatch(text: string, query: string): boolean {
 }
 
 /**
- * Longest accepted user-supplied regex pattern.
- *
- * matchesFacets runs in a client `<script>`, so a catastrophically-backtracking pattern hangs only the
- * browser executing it — but /search/advanced pre-fills its criteria from URL parameters and searches on
- * arrival, so a crafted link hangs a VISITOR's tab, not just the author's own. A length cap does not make
- * backtracking impossible (`(a+)+$` is nine characters), it bounds how much nesting a pattern can express;
- * the real bound is the match deadline in {@link matchesText}. Both are cheap, so both are applied.
+ * Longest accepted user-supplied regex pattern
  */
 export const MAX_REGEX_PATTERN_LENGTH = 200
 
@@ -265,28 +223,22 @@ function isValidRegex(pattern: string): boolean {
 }
 
 /**
- * Milliseconds a pattern may take on the probe below before it is refused. A benign pattern takes
- * microseconds, so this is orders of magnitude of headroom rather than a tight bound.
+ * Milliseconds a pattern may take on the probe below before it is refused
+ *
  */
 const REGEX_PROBE_BUDGET_MS = 50
 
 /**
  * A string built to provoke backtracking: a long single-character run that does not satisfy a trailing
- * anchor or literal. `(a+)+$` and friends explore exponentially many partitions of it.
+ * anchor or literal; `(a+)+$` and friends explore exponentially many partitions of it
  *
- * Kept short (22 characters) on purpose. A JavaScript regex match cannot be interrupted once started, so
- * the probe has to be small enough that even a pathological pattern finishes it quickly — 2^22 steps is
- * tens of milliseconds, enough to be measured, not enough to hang the tab doing the measuring.
+ * Kept short (22 characters) on purpose
  */
 const REGEX_PROBE = "a".repeat(22) + "!"
 
 /**
- * Whether a pattern completes the probe within budget.
+ * Whether a pattern completes the probe within budget
  *
- * Called once per search, before matchesFacets applies the pattern across the whole corpus — testing a
- * catastrophic pattern once against a bounded probe is cheap, whereas discovering it entry by entry is
- * the hang itself. Static analysis of the pattern would be more precise but far more code; measuring is
- * both simpler and immune to whatever construct the next engine version makes expensive.
  *
  * @param {string} pattern the user-supplied pattern (already known to compile)
  * @returns {boolean} true when the pattern is fast enough to run over the dataset
@@ -304,12 +256,7 @@ function isRegexFastEnough(pattern: string): boolean {
 
 const ANY_OPTION: AdvancedFieldOption = { label: "Any", value: "" }
 
-/** Sentinel option value for "this field is unset on the entry" — distinct from {@link ANY_OPTION}'s empty
- *  string, which means "no filter applied" (matches every entry regardless of the field). Only meaningful
- *  for a select field whose underlying data can genuinely be absent (key/type/role — see
- *  search/advanced/db-search-index.json.ts's conditional `if (record.key) …`/`if (record.type) …`/`if (record.role) …`);
- *  never collides with a real value since it's neither a `Key`/`WorkType`/`AuthorRole` enum member nor a
- *  `normalizeKeyForSearch` pitch-class reference. */
+/** Sentinel option value for "this field is unset on the entry" */
 export const NONE_VALUE = "none"
 const NONE_OPTION: AdvancedFieldOption = { label: "(None)", value: NONE_VALUE }
 
@@ -336,8 +283,8 @@ const RATING_OPERATORS: readonly FacetOperatorOption[] = [
 ]
 
 // Death year's own operator list, distinct from YEAR_OPERATORS (used by birth/publication year): adds
-// "Alive" so a living composer (the -1 sentinel, omitted from the facets JSON entirely — see
-// search/advanced/db-search-index.json.ts) can be filtered for without a year value.
+// "Alive" so a living composer (the -1 sentinel, omitted from the facets JSON entirely - see
+// search/advanced/db-search-index.json.ts) can be filtered for without a year value
 const DEATH_YEAR_OPERATORS: readonly FacetOperatorOption[] = [...YEAR_OPERATORS, { value: "alive", label: "Alive" }]
 
 function authorRoleOptions(): AdvancedFieldOption[] {
@@ -347,9 +294,7 @@ function authorRoleOptions(): AdvancedFieldOption[] {
 const currentYear = new Date().getFullYear()
 
 /**
- * The shared field-definition list /search/advanced maps over to render its filter fieldset. Field
- * controls are static enums / free-entry text / number inputs — no live option lists (see
- * plan-prelaunch-features.md §10's "deliberately out of scope").
+ * The shared field-definition list /search/advanced maps over to render its filter fieldset
  */
 export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
     {
@@ -480,14 +425,13 @@ function matchesText(entryValue: string | undefined, criterion: TextCriterion): 
             return fuzzyMatch(value, query)
         case "regex":
             // Caller validates the pattern up front (validateFacetCriteria) so a search run never reaches an
-            // invalid one; an invalid pattern here just matches nothing rather than throwing mid-filter.
+            // invalid one
             return isValidRegex(query) && new RegExp(query, "i").test(value)
     }
 }
 
 // Composer country matches both the raw ISO code and its resolved display name (e.g. "de" and "Germany"
-// both hit), so this tries the criterion against each and takes either match — reuses matchesText's op
-// handling instead of duplicating it per operator.
+// both hit), so this tries the criterion against each and takes either match
 function matchesCountry(entry: FacetEntry, criterion: TextCriterion): boolean {
     const code = entry.country ?? ""
     const name = entry.country ? countryCodeName(entry.country) : ""
@@ -496,8 +440,8 @@ function matchesCountry(entry: FacetEntry, criterion: TextCriterion): boolean {
 
 function matchesNumber(entryValue: number | undefined, criterion: NumberCriterion): boolean {
     // "Alive" is the inverse of every other operator here: a living composer has no deathYear at all (the
-    // -1 sentinel is omitted from the facets JSON — see search/advanced/db-search-index.json.ts), so this is the one case
-    // where "value absent" is the match, not an automatic non-match.
+    // -1 sentinel is omitted from the facets JSON - see search/advanced/db-search-index.json.ts), so this is the one case
+    // where "value absent" is the match, not an automatic non-match
     if (criterion.op === "alive") return entryValue === undefined
     if (entryValue === undefined) return false
     switch (criterion.op) {
@@ -518,17 +462,14 @@ function matchesNumber(entryValue: number | undefined, criterion: NumberCriterio
     }
 }
 
-// key/type/role are all optional on FacetEntry (search/advanced/db-search-index.json.ts only sets them when the D1 record
-// has a truthy value) — NONE_VALUE (a select option distinct from ANY_OPTION's "no filter" empty string)
-// asks for entries where the field is absent, rather than for a literal value equal to it.
+// key/type/role are all optional on FacetEntry
 function matchesNullableSelect(entryValue: string | undefined, criterionValue: string): boolean {
     if (criterionValue === NONE_VALUE) return entryValue === undefined
     return entryValue === criterionValue
 }
 
 // Maps each non-noun FacetCriteria key to the ADVANCED_FIELDS entry it's read from, so criterionApplies
-// below can reuse that field's `nouns` list instead of duplicating it. "key"/"keyRef" is the one param/
-// criteria-key spelling mismatch (every other pair shares a name).
+// below can reuse that field's `nouns` list instead of duplicating it
 const CRITERION_PARAM: Record<Exclude<keyof FacetCriteria, "nouns">, string> = {
     composer: "composer",
     secondaryAuthors: "secondaryAuthors",
@@ -552,14 +493,7 @@ const CRITERION_NOUNS = new Map<string, readonly EntityNoun[]>(
 
 /**
  * Whether `criterionKey` is meaningful for `noun` at all, per ADVANCED_FIELDS (e.g. "composer" is
- * composition-only, "country" is composer-only). A criterion whose field doesn't apply to an entry's noun
- * is a hard mismatch, not a pass-through: e.g. a "Work type" filter must exclude composers/contributors
- * entirely, not just leave them untouched (matching intuition — a composition-only filter should narrow
- * results to compositions). /search/advanced's own form is what keeps this from misfiring on a stale
- * value: `updateFieldVisibility` (advanced.astro) disables a field's controls whenever it hides them for
- * the checked entity-type checkboxes, so FormData never carries a criterion the visitor can't currently
- * see or edit — the two have to move together, or a leftover value from before a noun switch would
- * silently zero out that noun's own results again.
+ * composition-only, "country" is composer-only)
  */
 function criterionApplies(criterionKey: Exclude<keyof FacetCriteria, "nouns">, noun: EntityNoun): boolean {
     const nouns = CRITERION_NOUNS.get(CRITERION_PARAM[criterionKey])
@@ -619,18 +553,13 @@ export function matchesFacets(entry: FacetEntry, criteria: FacetCriteria): boole
     return true
 }
 
-/** Whether any criterion is set — gates database-mode snapping and JSON-only (keyword-less) filtering. */
+/** Whether any criterion is set - gates database-mode snapping and JSON-only (keyword-less) filtering. */
 export function hasCriteria(criteria: FacetCriteria): boolean {
     return Object.keys(criteria).length > 0
 }
 
 /** Checks every "regex"-op text criterion's pattern up front, before a search runs matchesFacets over the
- *  whole dataset — matchesText treats an invalid pattern as a silent non-match, which would otherwise just
- *  look like "no results" instead of telling the visitor their pattern itself is the problem. Also refuses
- *  a pattern that is valid but catastrophically slow: this runs once, whereas matchesFacets would apply it
- *  to every entry, and /search/advanced executes a URL-supplied search on arrival — so an unbounded pattern
- *  hangs whoever follows the link, not only whoever wrote it. Returns the first offending field's
- *  caller-facing error message, or undefined when every regex criterion (if any) is acceptable. */
+ *  whole dataset */
 export function validateFacetCriteria(criteria: FacetCriteria): string | undefined {
     const fields: Array<[value: string | undefined, label: string]> = [
         [criteria.composer?.op === "regex" ? criteria.composer.value : undefined, "composer"],
@@ -648,7 +577,7 @@ export function validateFacetCriteria(criteria: FacetCriteria): string | undefin
                 : `That ${label} pattern is not a valid regular expression.`
         }
         if (!isRegexFastEnough(pattern)) {
-            return `That ${label} pattern is too slow to run. Simplify it — nested repetition such as (a+)+ is the usual cause.`
+            return `That ${label} pattern is too slow to run. Simplify it - nested repetition such as (a+)+ is the usual cause.`
         }
     }
     return undefined
@@ -687,8 +616,7 @@ function readNumberCriterion(
 ): NumberCriterion | undefined {
     const opRaw = params.get(`${param}_op`)
     const op = (operators.find((candidate) => candidate.value === opRaw)?.value ?? operators[0].value) as NumberOperator
-    // "Alive" needs no value at all (see matchesNumber) — read it before the value check below, which would
-    // otherwise bail out with nothing typed into the (hidden, for this operator) value input.
+    // "Alive" needs no value at all (see matchesNumber)
     if (op === "alive") return { op, value: 0 }
     const value = readNumber(params, param)
     if (value === undefined) return undefined
@@ -701,8 +629,8 @@ function readNumberCriterion(
 }
 
 /** URL params (as submitted by /search/advanced's form, or round-tripped by {@link criteriaToParams}) ->
- *  criteria. Each text/number field reads its bare param plus an optional `{param}_op` (falls back to
- *  that field's default operator) and, for a "between" number criterion, `{param}To`. */
+ *  criteria; each text/number field reads its bare param plus an optional `{param}_op` (falls back to
+ *  that field's default operator) and, for a "between" number criterion, `{param}To` */
 export function parseFacetParams(params: URLSearchParams): FacetCriteria {
     const criteria: FacetCriteria = {}
     const nouns = params
@@ -741,7 +669,7 @@ export function parseFacetParams(params: URLSearchParams): FacetCriteria {
     return criteria
 }
 
-/** Criteria -> URL params, the inverse of {@link parseFacetParams} — makes results shareable/back-forward-able. */
+/** Criteria -> URL params, the inverse of {@link parseFacetParams} - makes results shareable/back-forward-able. */
 export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
     const params = new URLSearchParams()
     for (const noun of criteria.nouns ?? []) params.append("noun", ENTITY_NOUN_SLUGS[noun])
@@ -762,7 +690,7 @@ export function criteriaToParams(criteria: FacetCriteria): URLSearchParams {
     const setNumber = (param: string, criterion: NumberCriterion | undefined): void => {
         if (!criterion) return
         params.set(`${param}_op`, criterion.op)
-        // "Alive" carries no value (see matchesNumber/readNumberCriterion) — writing a placeholder number
+        // "Alive" carries no value (see matchesNumber/readNumberCriterion) - writing a placeholder number
         // would just be noise in the URL.
         if (criterion.op === "alive") return
         params.set(param, String(criterion.value))
@@ -805,7 +733,7 @@ function parseYearToken(value: string): NumberCriterion | undefined {
 
 // Ratings only expose a "minimum"/"maximum"/"is" choice; a bare number or ">=" token both floor at that
 // value, ">" floors one above it (kept as a strict "after" rather than pre-adding 1, since matchesNumber's
-// "after" is already a strict comparison).
+// "after" is already a strict comparison)
 function parseMinToken(value: string): NumberCriterion | undefined {
     const match = value.match(/^(>=|>)?(\d+)$/)
     if (!match) return undefined
@@ -820,8 +748,7 @@ const QUERY_TOKEN =
 /**
  * The `/search` free-text query syntax parser: strips recognized `field:value` tokens out of `raw`,
  * returning the leftover free text (for Pagefind) alongside the structured criteria those tokens
- * produced. An unrecognized or malformed token (e.g. `key:not-a-key`) is left in the free text rather
- * than silently dropped, so it still counts toward the Pagefind keyword search.
+ * produced
  */
 export function parseFacetQuery(raw: string): { text: string; criteria: FacetCriteria; hasCriteria: boolean } {
     const criteria: FacetCriteria = {}

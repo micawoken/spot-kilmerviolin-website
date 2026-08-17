@@ -1,12 +1,7 @@
 /**
  * pages/api/v1/identity/roles.ts
  *
- * Provides a dedicated sub-resource for managing the roles of contributor records. This is the
- * counterpart to PATCH /api/v1/identity's roles.add/roles.remove operations, extracted so the role
- * workflow no longer depends on the complex multi-operation PATCH handler. Both verbs remain
- * admin-only (access control is unchanged):
- *  - PATCH performs incremental add/remove (mirrors PATCH /api/v1/identity's roles operation)
- *  - PUT replaces a user's entire role set (set semantics)
+ * Provides endpoints related to updating roles
  *
  *
  * Copyright (C) 2026 Michael Wong.

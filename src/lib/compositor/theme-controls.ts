@@ -198,7 +198,7 @@ export function formatShadow(layers: ShadowLayer[]): string {
     return layers.map(formatShadowLayer).join(", ")
 }
 
-/** An opaque RGB triple, 0–255 per channel. */
+/** An opaque RGB triple, 0-255 per channel. */
 export interface RgbColor {
     r: number
     g: number
@@ -216,7 +216,7 @@ function hexToRgb(input: string): RgbColor | null {
     }
 }
 
-/** One `rgb()`/`rgba()` channel: a plain number (0–255) or a percentage of it. */
+/** One `rgb()`/`rgba()` channel: a plain number (0-255) or a percentage of it. */
 function parseRgbChannel(token: string): number | null {
     if (token.endsWith("%")) {
         const percent = Number.parseFloat(token)
@@ -272,7 +272,7 @@ function hslFunctionToRgb(input: string): RgbColor | null {
 }
 
 /** Parses a CSS color into an RGB triple, or `null` if not hex, `rgb()`/`rgba()`, or `hsl()`/`hsla()`
- * — a named color, `var()`, `color-mix()`, `oklch()` etc. return null */
+ * - a named color, `var()`, `color-mix()`, `oklch()` etc. return null */
 export function parseCssColorToRgb(input: string): RgbColor | null {
     const trimmed = input.trim()
     return hexToRgb(trimmed) ?? rgbFunctionToRgb(trimmed) ?? hslFunctionToRgb(trimmed)

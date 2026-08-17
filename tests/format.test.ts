@@ -46,7 +46,7 @@ describe("formatLifespan", () => {
     })
 })
 
-describe("formatInfoValue — composer death_year/country special cases (mirrors ComposerInfo SSR view)", () => {
+describe("formatInfoValue - composer death_year/country special cases (mirrors ComposerInfo SSR view)", () => {
     it("converts a living composer's death_year to Present", () => {
         expect(formatInfoValue("composer", "death_year", -1, false)).toBe("Present")
     })

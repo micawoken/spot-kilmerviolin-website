@@ -29,12 +29,7 @@
  * buildTokenRouteAllowed default-deny predicate, DB-backed
  * issue/lookup/verify/revoke, the D2 guard on the management endpoints (a token-authenticated request
  * cannot manage tokens), and the "meta full:true required" validation on the three whitelisted collection
- * GETs. Mirrors tests/tokens.test.ts's Stage A conventions: function-level, not middleware-level — the full
- * request path (Access + X-Build-Token, the middleware's route whitelist enforcement) is covered by the
- * plan's manual staging E2E, not here (see the plan's Verification section for why: this project's identity
- * middleware short-circuits authorization checks entirely for a "localhost"-hostname request, which is what
- * every in-process test constructs, so testing auth_check's admin/permission enforcement through it here
- * would assert nothing real).
+ * GETs.
  */
 
 import { describe, it, expect, beforeAll } from "vitest"
@@ -117,7 +112,7 @@ describe("generateBuildTokenSecret", () => {
     })
 })
 
-describe("buildTokenRouteAllowed — the single default-deny chokepoint", () => {
+describe("buildTokenRouteAllowed - the single default-deny chokepoint", () => {
     it("allows GET on exactly the three whitelisted collection routes", () => {
         expect(buildTokenRouteAllowed("GET", ["api", "v1", "composers"])).toBe(true)
         expect(buildTokenRouteAllowed("GET", ["api", "v1", "works"])).toBe(true)

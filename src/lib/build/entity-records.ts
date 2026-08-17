@@ -32,7 +32,7 @@ import { isHiddenContributor } from "./d1-schema"
 
 /** One entity record, normalized to a flat `entry` every noun's render/listing reads uniformly. */
 export interface EntityRecord {
-    /** stringified — Astro static route params are always strings */
+    /** stringified - Astro static route params are always strings */
     id: string
     entry: Record<string, unknown>
 }
@@ -51,7 +51,7 @@ export interface ResolvedReference {
 export interface RelatedWork {
     id: number
     name: string
-    /** null when compositions have no published default template this build — see {@link ResolvedReference}. */
+    /** null when compositions have no published default template this build - see {@link ResolvedReference}. */
     href: string | null
     /** the work's composer display name, for the tile's subtitle; "" when unresolved. */
     composer: string
@@ -271,7 +271,7 @@ function splitMovementMarker(name: string): { base: string; number: number } | n
 const ROMAN_VALUES: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 }
 
 /** Parses a movement-marker numeral token as an arabic number or a roman numeral. Returns null for
- *  neither — defensive; {@link MOVEMENT_MARKER} should never actually capture one. */
+ *  neither - defensive; {@link MOVEMENT_MARKER} should never actually capture one. */
 function romanOrArabicToNumber(token: string): number | null {
     if (/^\d+$/.test(token)) return Number(token)
     let total = 0
@@ -350,7 +350,7 @@ function resolveRef(
 ): ResolvedReference | null {
     if (id === null) return null
     const target = index.get(id)
-    if (!target) return { id, name: "", href: null } // unresolvable id — mirrors the prior "" fallback
+    if (!target) return { id, name: "", href: null } // unresolvable id - mirrors the prior "" fallback
     return { id, name: target.name, href: target.hasPage ? entityHref(noun, id) : null, role: target.role }
 }
 
@@ -380,7 +380,6 @@ function flattenComposition(record: CompositionRecord, refs: EntityReferenceInde
         contrib_primary_2,
         contrib_addl,
         // Derived, not a D1 column: primary/additional-primary/additional distinction is internal-only
-        // (owner decision) — public pages bind this one combined list instead.
         contributors: [contrib_primary_1, contrib_primary_2, ...contrib_addl].filter(
             (ref): ref is ResolvedReference => ref !== null
         ),

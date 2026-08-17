@@ -39,7 +39,7 @@ The country they are associated with
 A bit of nuance: "country" is not clearly defined since it could mean many different things. In general, use the country they were most strongly associated with, in your opinion.
 
 ### Biography
-A written biography from one of you guys :)
+A written biography from one of you guys `:)`
 
 ### Citations
 Citations using HTTPS URLs, ISBNs, or DOI numbers can be added.
@@ -60,3 +60,6 @@ Once uploaded, click "Load" to process the file. Fix any errors the system repor
 Once errors are fixed, run server validation: the system will tell you what other problems there are.
 
 Once you fix the server-detected errors, you can complete import.
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

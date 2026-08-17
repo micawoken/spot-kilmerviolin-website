@@ -46,10 +46,7 @@ const FILES_ORIGIN = "https://db-img.example.test"
 const KEY = "01KWYPRX1NYFRDWNGENG5KHYEC.jpg"
 
 /**
- * The image field value EmDash actually serves for LOCAL (R2) media. Verified against prod and against
- * `emdash/src/media/normalize.ts`: `src` is STRIPPED on persist and the key is carried at
- * `meta.storageKey`. Hand-authoring a `src` here would re-create the very bug this module fixes — a
- * fixture can only confirm our own assumptions, so this one mirrors the wire shape exactly.
+ * The image field value EmDash actually serves for LOCAL (R2) media
  */
 const localImageValue = {
     id: "01KWYPRXDWBJVEJHR9RDK6WJRQ",
@@ -65,9 +62,8 @@ describe("mediaSource", () => {
         expect(mediaSource(localImageValue)).toEqual({ kind: "key", storageKey: KEY })
     })
 
-    it("returns null for a bare media id — the file route is keyed by storage key and 404s on an id", () => {
+    it("returns null for a bare media id - the file route is keyed by storage key and 404s on an id", () => {
         // The precise defect this module exists to prevent: `/_emdash/api/media/file/{id}` returns 404
-        // (verified on prod). Resolving an id to a URL would emit a guaranteed-broken <img>.
         expect(mediaSource({ id: "01KWYPRXDWBJVEJHR9RDK6WJRQ", alt: "x" })).toBeNull()
     })
 
@@ -97,21 +93,21 @@ describe("mediaSource", () => {
         expect(mediaSource("")).toBeNull()
     })
 
-    it("passes a plain string through as a URL — a D1 entity's `image` column, not an EmDash media object", () => {
+    it("passes a plain string through as a URL - a D1 entity's `image` column, not an EmDash media object", () => {
         expect(mediaSource("https://images.example.test/abc.jpg")).toEqual({
             kind: "url",
             url: "https://images.example.test/abc.jpg"
         })
-        // A bundled asset (/files/<name>) is already public — no rewriting needed.
+        // A bundled asset (/files/<name>) is already public - no rewriting needed.
         expect(mediaSource("/files/some-bundled-image.jpg")).toEqual({
             kind: "url",
             url: "/files/some-bundled-image.jpg"
         })
     })
 
-    it("resolves an /api/v1/files/{key} string to a 'file' source — our own R2_FILES upload proxy, not an already-public URL", () => {
+    it("resolves an /api/v1/files/{key} string to a 'file' source - our own R2_FILES upload proxy, not an already-public URL", () => {
         // The exact defect r2-public-image-401-bug logged: this path 401s for anonymous visitors in
-        // production, so it must be resolved (and rewritten) the same way EmDash storage keys are.
+        // production, so it must be resolved (and rewritten) the same way EmDash storage keys are
         expect(mediaSource("/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg")).toEqual({
             kind: "file",
             key: "01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg"
@@ -226,7 +222,7 @@ describe("ContentImage on the build target", () => {
 
         expect(html).toContain(`src="${MEDIA_ORIGIN}/${KEY}"`)
         expect(html).toContain('alt="A violin scroll"')
-        // The whole point: a prerendered page must carry no /_emdash URL — it 302s to an Access login.
+        // The whole point: a prerendered page must carry no /_emdash URL - it 302s to an Access login.
         expect(html).not.toContain("/_emdash")
     })
 
@@ -245,7 +241,7 @@ describe("ContentImage on the build target", () => {
 
     // r2-public-image-401-bug: a D1 entity's `image` field pointing at our own R2_FILES upload
     // (/api/v1/files/{key}) must resolve through FILES_PUBLIC_URL on the build target, exactly like
-    // EmDash media does through mediaBaseUrl — never the Access-gated proxy path itself.
+    // EmDash media does through mediaBaseUrl - never the Access-gated proxy path itself.
     it("emits the FILES_PUBLIC_URL origin (not the Access-gated /api/v1/files proxy) for an uploaded-file image", () => {
         const config = buildConfig(EMPTY_TOKEN_CATALOG, "build", {
             entry: { featured_image: "/api/v1/files/01KWYPRXDWBJVEJHR9RDK6WJRQ.jpg" },

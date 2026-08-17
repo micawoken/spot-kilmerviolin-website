@@ -40,8 +40,7 @@ import { resolveEntityImageAlt } from "../../../lib/api/files"
 
 export const prerender = false
 
-// authorize before any direct (API-bypassing) database read; the unfiltered SSR read below is redacted
-// for non-admins (see below) so protected properties are never leaked to a non-self, non-admin caller
+// authorize before any direct (API-bypassing) database read
 const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
 if (denied) {
     return denied
@@ -51,13 +50,10 @@ const is_admin = Astro.locals.identity?.admin === true
 const self_id = Astro.locals.identity?.id ?? null
 const auth_enabled = authEnabled(Astro.request)
 
-// SSR is used if an ID is specified as a query param. Any active caller may load a record this way; the
-// direct database read is unfiltered, so its protected properties are redacted below for any caller other
-// than an admin or the owner of the record (mirroring the API GET /contributors/[id] policy).
+// SSR is used if an ID is specified as a query param
 const id = Astro.url.searchParams.get("id")
 const is_self = id !== null && self_id !== null && self_id === Number(id)
-// only an admin or the record's owner may edit it; the "Edit this contributor" follow-up link is hidden
-// for everyone else (auth-disabled local dev constructs no identity, so editing is unrestricted there)
+// only an admin or the record's owner may edit it
 const may_edit = is_admin || is_self || !auth_enabled
 let use_id: boolean = false
 let contributor_data: Partial<ContributorRecord> | null = null
@@ -70,8 +66,8 @@ if (id) {
     if (!result) {
         console.warn(`No contributor found with ID ${id}, falling back to client-side ID entry`)
     } else {
-        // an admin (or the caller viewing their own record) sees the full record; everyone else has the
-        // protected properties stripped. Auth-disabled local dev never redacts (it constructs no identity).
+        // an admin (or the caller viewing their own record) sees the full record; everyone else
+        // gets a redacted version
         contributor_data =
             auth_enabled && !is_admin && !is_self
                 ? (redactProtected(CONTRIBUTOR, result) as Partial<ContributorRecord>)
@@ -110,9 +106,7 @@ const imageAlt = await resolveEntityImageAlt(
                 }
             </p>
             {
-                // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this
-                // record (only when the caller may edit it), or return to the ID-entry view to look up another
-                // (the path without the id query param)
+                // when loaded server-side via ?id=, mirror the client READ flow's follow-up links
                 use_id ? (
                     <p>
                         {may_edit ? (

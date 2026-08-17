@@ -1,17 +1,8 @@
 /**
  * pages/search/advanced/db-search-index.json.ts
  *
- * Build-time facet index for advanced database search — prerendered once to
- * dist/client/search/advanced/db-search-index.json, one row per D1 entity record that actually gets
- * a public page this build. Pagefind's own filters are discrete-value only (no ranges, no comparisons),
- * so /search/advanced and /search's query-syntax path fetch this JSON and filter it directly with
- * lib/search/facets.ts's `matchesFacets`, rather than relying on anything in the rendered page HTML —
- * entity pages render through editor-authored Puck templates, so a field's presence in the DOM depends
- * on whether a designer placed it there.
- *
- * Same dual-source-dependency gate as DatabaseRoot.astro (a noun needs BOTH a published default template
- * AND at least one D1 record) — reused independently here, matching that file's own reasoning — so a
- * facet row can never point at a page the build did not emit.
+ * Stores the database objects and fields used for advanced search
+ * (not ideal, but trying to reduce worker invocations)
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -76,8 +67,8 @@ export const GET: APIRoute = async () => {
             if (record.country) entry.country = record.country
             if (record.role) entry.role = record.role
             if (typeof record.birth_year === "number") entry.birthYear = record.birth_year
-            // -1 is the "living composer" sentinel (format.ts's formatDeathYear) — not a real death year
-            // to filter on.
+            // -1 is the "living composer" sentinel (format.ts's formatDeathYear) - not a real death year
+            // to filter on
             if (typeof record.death_year === "number" && record.death_year !== -1) entry.deathYear = record.death_year
             if (record.tags.length > 0) entry.tags = record.tags.join(", ")
             entries.push(entry)
@@ -86,8 +77,7 @@ export const GET: APIRoute = async () => {
 
     if (availableNouns.has("composition")) {
         // Same-titled, same-composer works are otherwise indistinguishable in results (only name +
-        // composer are shown) — see disambiguatedCompositionNames' header. The entity page's own title is
-        // untouched; this only affects the name shown in search results.
+        // composer are shown)
         const compositionNames = disambiguatedCompositionNames(compositions)
         for (const record of compositions ?? []) {
             const entry: FacetEntry = {
@@ -128,7 +118,7 @@ export const GET: APIRoute = async () => {
         }
     }
 
-    // Composer-then-name for works (groups a composer's works together), plain name order otherwise.
+    // Composer-then-name for works (groups a composer's works together), plain name order otherwise
     entries.sort((a, b) => (a.composer ?? "").localeCompare(b.composer ?? "") || a.name.localeCompare(b.name))
 
     return new Response(JSON.stringify(entries), {

@@ -1,11 +1,7 @@
 /**
  * pages/api/v1/identity/admin.ts
  *
- * Provides a dedicated sub-resource for managing the administrator status of contributor records.
- * This is the counterpart to PATCH /api/v1/identity's admin.elevate/admin.demote operations,
- * extracted so the administrator-status workflow no longer depends on the complex multi-operation
- * PATCH handler. Both verbs remain admin-only (access control is unchanged): elevation grants and
- * demotion revokes administrator authorization.
+ * Provides endpoints related to admin elevation
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -36,10 +32,7 @@ import { auth_check } from "../../../../lib/public/authservice"
 import { emailToId, elevateUser, demoteUser } from "../../../../lib/public/usermgmt"
 
 /**
- * Shared validation and execution for both verbs. Parses the request body, resolves each identity
- * email to its contributor record, and toggles administrator status. Missing records are reported
- * as non-fatal errors (via X-MWMSC-Response-Errors) rather than failing the whole request, mirroring
- * PATCH /api/v1/identity.
+ * Shared validation and execution for both verbs
  *
  * @param context - the Astro API context
  * @param request - the Request object

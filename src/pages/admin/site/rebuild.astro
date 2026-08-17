@@ -43,9 +43,7 @@ if (denied) {
     return denied
 }
 
-// the cooldown override is an admin-only escape hatch; the checkbox is only ever rendered for an admin,
-// mirroring the show_elevate convention on CompositionForm/ContributorForm. This is a UI convenience only:
-// the server independently re-checks admin status on the meta.elevate flag (see POST /api/v1/site)
+// the cooldown override is an admin-only escape hatch
 const is_admin = Astro.locals.identity?.admin === true
 ---
 
@@ -102,26 +100,16 @@ const is_admin = Astro.locals.identity?.admin === true
                 ) as HTMLInputElement | null
 
                 /**
-                 * Detects whether the page is being served from a local development build, mirroring the
-                 * hostname check in lib/api/environment.ts. Development serves only from localhost/127.0.0.1,
-                 * so rebuilds (which redeploy the live Worker) are meaningless and disabled here. The API
-                 * enforces the same restriction server-side.
+                 * Detects whether the page is being served from a local development build
                  */
                 function isDevelopment(): boolean {
                     const hostname = window.location.hostname
                     return hostname === "localhost" || hostname === "127.0.0.1"
                 }
 
-                // ADVISORY ONLY. These are derived from the running build's timestamp, which is a LOWER bound
-                // on the server's window: the server measures its cooldown from the last rebuild TRIGGER
-                // (lib/api/rebuild.ts), so a request can still be refused while these read as elapsed. The
-                // refusal arrives as a 429 whose message carries the exact remaining wait, which is what the
-                // click handler surfaces. Do not treat a pre-gate that has expired as permission to rebuild.
-                //
-                // The earliest time (epoch ms) at which a standard rebuild is permitted.
                 let allowedAt = 0
-                // The same, for an admin-override rebuild (the shorter window). Only ever consulted when the
-                // override checkbox is present and checked; the server enforces its own window on meta.elevate.
+
+                // The same, for an admin-override rebuild (the shorter window)
                 let overrideAllowedAt = 0
 
                 /**
@@ -135,9 +123,7 @@ const is_admin = Astro.locals.identity?.admin === true
 
                 /**
                  * Re-evaluates the cooldown: disables the button and shows the remaining wait while it is active,
-                 * re-enabling it once the window elapses. Schedules itself to refresh while a cooldown is pending.
-                 * Consults the override cooldown instead of the standard one whenever the admin-only override
-                 * checkbox is present and checked.
+                 * re-enabling it once the window elapses
                  */
                 function refreshCooldown(): void {
                     const overridden = overrideCheckbox?.checked === true

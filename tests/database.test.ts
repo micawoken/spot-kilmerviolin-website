@@ -24,13 +24,6 @@
 
 /// <reference path="../src/lib/api/types.d.ts" />
 
-/**
- * Integration tests for the high-level database services (database.ts)
- * Exercises the full stack: SQLStatement -> caching (Cache API + KV) -> D1
- *
- * Key behavior under test: mutations must invalidate both the KV backing store
- * and the per-table Cache API entry so subsequent reads never serve stale data.
- */
 
 import { describe, it, expect, beforeAll } from "vitest"
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
@@ -106,9 +99,7 @@ function makeComposer(name: string): Composer {
     }
 }
 
-// builds a minimal valid CompositionRecord; attachCompositionNames only reads the reference fields
-// (composer_id and author_secondary for composers; contrib_primary_1, contrib_primary_2, and contrib_addl
-// for contributors), so the remaining fields are filler and the compositions table is not needed
+// builds a minimal valid CompositionRecord
 function makeCompositionRecord(overrides: Partial<CompositionRecord>): CompositionRecord {
     return {
         id: 1,
@@ -270,8 +261,7 @@ describe("contributor boolean and array round-tripping", () => {
 
         // active and roles are both protected columns: the data layer refuses to write either unless the
         // caller authorizes it (the usermgmt activation/role/admin functions pass allowProtected after
-        // their own permission check). active joined that set because it is the revocation mechanism —
-        // without it a deactivated user could PATCH their own record back to active.
+        // their own permission check)
         await expect(withCtx(ctx => updateContributorPartial(ctx, id, { active: true })))
             .rejects.toThrow(/protected column/)
         await withCtx(ctx => updateContributorPartial(ctx, id, { active: true }, true))
@@ -374,7 +364,7 @@ describe("automatic composition-name disambiguation", () => {
 
     it("disambiguatedCompositionName appends the part only when both a collision AND a part exist", () => {
         expect(disambiguatedCompositionName("Prelude", "II", true)).toBe("Prelude (II)")
-        // no colliding sibling — name stays bare even though a part is set
+        // no colliding sibling - name stays bare even though a part is set
         expect(disambiguatedCompositionName("Prelude", "II", false)).toBe("Prelude")
         // a colliding sibling exists, but THIS record has no part of its own to disambiguate with
         expect(disambiguatedCompositionName("Prelude", null, true)).toBe("Prelude")

@@ -34,7 +34,7 @@ import {
 import type { EntityNoun } from "../../src/lib/compositor/entity-fields"
 
 // Built via the real D1 converters (same fixture shape tests/build/d1-api.test.ts uses), not hand-authored
-// record literals — the point is to exercise entityRecords against the actual shapes the readers produce.
+// record literals - the point is to exercise entityRecords against the actual shapes the readers produce.
 const composer: D1Composer = {
     composer_id: 1,
     name: "Bach",
@@ -131,7 +131,7 @@ describe("buildReferenceIndex", () => {
         expect(refs.composer.get(1)?.hasPage).toBe(false)
     })
 
-    it("hasPage is true for an INACTIVE contributor when the noun has a template — active no longer gates page existence, only a `hidden` tag does", () => {
+    it("hasPage is true for an INACTIVE contributor when the noun has a template - active no longer gates page existence, only a `hidden` tag does", () => {
         const contributorRecord = formatContribFromD1(inactiveContributor)
         const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES)
         expect(refs.contributor.get(3)).toEqual({ name: "Retired Ray", hasPage: true })
@@ -143,7 +143,7 @@ describe("buildReferenceIndex", () => {
         expect(refs.contributor.get(4)).toEqual({ name: "Hidden Hank", hasPage: false })
     })
 
-    it("REGRESSION GUARD: resolves a hidden contributor's NAME at all — must be built from the unredacted all-contributors list, not fetchContributors' filtered public list", () => {
+    it("REGRESSION GUARD: resolves a hidden contributor's NAME at all - must be built from the unredacted all-contributors list, not fetchContributors' filtered public list", () => {
         // The whole point of buildReferenceIndex taking `allContributors`: a filtered-list caller would
         // never see contributor 4 in its input at all, and every reference to it would resolve blank.
         const refs = buildReferenceIndex([], [formatContribFromD1(hiddenContributor)], ALL_PAGES)
@@ -151,7 +151,7 @@ describe("buildReferenceIndex", () => {
     })
 })
 
-describe("entityRecords — composer/contributor (bare records, pass through)", () => {
+describe("entityRecords - composer/contributor (bare records, pass through)", () => {
     const emptyRefs: EntityReferenceIndex = { composer: new Map(), contributor: new Map() }
 
     it("stringifies id and passes the record through as entry, plus the derived life_span field", () => {
@@ -173,12 +173,12 @@ describe("entityRecords — composer/contributor (bare records, pass through)", 
     })
 })
 
-describe("entityRecords — composition (the reference-fold linchpin)", () => {
+describe("entityRecords - composition (the reference-fold linchpin)", () => {
     it("flattens rating/publication_info back to flat columns and resolves every foreign key", () => {
         const composerRecord = formatCompFromD1(composer)
         const activeRecord = formatContribFromD1(activeContributor)
         const hiddenRecord = formatContribFromD1(hiddenContributor)
-        // References the HIDDEN contributor (id 4) — a local override, not the shared `composition`
+        // References the HIDDEN contributor (id 4) - a local override, not the shared `composition`
         // fixture, which buildRelatedWorksIndex's tests below also depend on referencing contributor 3.
         const object = formatWorkFromD1({ ...composition, contrib_primary_2: 4, contrib_addl: "4" })
         const refs = buildReferenceIndex([composerRecord], [activeRecord, hiddenRecord], ALL_PAGES)
@@ -196,8 +196,7 @@ describe("entityRecords — composition (the reference-fold linchpin)", () => {
 
         expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: "/entity/composer/1", role: "composer" })
         expect(result.entry.contrib_primary_1).toEqual({ id: 2, name: "Ada", href: "/entity/contributor/2" })
-        // REGRESSION GUARD: contrib_primary_2 references the HIDDEN contributor. Its name still
-        // resolves (unredacted map), but href is null — a hidden contributor has no public page.
+        // REGRESSION GUARD: contrib_primary_2 references the HIDDEN contributor
         expect(result.entry.contrib_primary_2).toEqual({ id: 4, name: "Hidden Hank", href: null })
         expect(result.entry.contrib_addl).toEqual([{ id: 4, name: "Hidden Hank", href: null }])
         expect(result.entry.author_secondary).toEqual([])
@@ -232,7 +231,7 @@ describe("entityRecords — composition (the reference-fold linchpin)", () => {
     })
 })
 
-describe("entityRecords — the reader-returned-null case (D1 unconfigured, or that table skipped)", () => {
+describe("entityRecords - the reader-returned-null case (D1 unconfigured, or that table skipped)", () => {
     const emptyRefs: EntityReferenceIndex = { composer: new Map(), contributor: new Map() }
 
     it("contributes no records for any of the three nouns, matching the dual-source-dependency skip rule", () => {
@@ -242,12 +241,12 @@ describe("entityRecords — the reader-returned-null case (D1 unconfigured, or t
     })
 })
 
-describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
+describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
     const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
     const mozart: D1Composer = { ...composer, composer_id: 4, name: "Mozart" }
 
     // work1/work2: both primary-credited to Bach. work3: primary-credited to Mozart, with Bach as a
-    // secondary author — the case that exercises the composer index's two-pass (primary-before-secondary)
+    // secondary author - the case that exercises the composer index's two-pass (primary-before-secondary)
     // ordering.
     const work1: D1Composition = { ...composition, composition_id: 10, name: "Work One", composer_id: 1 }
     const work2: D1Composition = {
@@ -319,7 +318,7 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
             ])
         )
         expect(index.get("contributor:2")).toHaveLength(3)
-        // contributor 3: contrib_primary_2 AND contrib_addl on work1 alone — deduped to one entry.
+        // contributor 3: contrib_primary_2 AND contrib_addl on work1 alone - deduped to one entry.
         expect(index.get("contributor:3")).toEqual([
             { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" }
         ])
@@ -339,8 +338,8 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
     })
 
     it("composition -> related works: same-name siblings (other parts of the same piece) lead the list, sorted alphabetically by part, ahead of the randomized rest", () => {
-        // prelude/preludeMvt2/preludeMvt1 share a name, differing only by part — the same signal the
-        // composer_id+name+part unique index keys on — and must sort before fugue/gavotte, in part order
+        // prelude/preludeMvt2/preludeMvt1 share a name, differing only by part - the same signal the
+        // composer_id+name+part unique index keys on - and must sort before fugue/gavotte, in part order
         // ("I" before "II") rather than encounter/id order (21 was pushed before 24).
         const prelude: D1Composition = { ...composition, composition_id: 20, name: "Prelude", part: null }
         const preludeMvt2: D1Composition = { ...composition, composition_id: 21, name: "Prelude", part: "II" }
@@ -355,7 +354,7 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
 
         const related = nameIndex.get("composition:20")
         // Automatic disambiguation: ids 21/24 share (composer, name) with id 20, so their own `part`
-        // surfaces in parentheses — the composer subtitle alone can't tell the "Prelude"s apart.
+        // surfaces in parentheses - the composer subtitle alone can't tell the "Prelude"s apart.
         expect(related?.slice(0, 2)).toEqual([
             { id: 24, name: "Prelude (I)", href: "/entity/work/24", composer: "Bach" },
             { id: 21, name: "Prelude (II)", href: "/entity/work/21", composer: "Bach" }
@@ -370,7 +369,7 @@ describe("buildRelatedWorksIndex — RelatedEntries' data source", () => {
     })
 })
 
-describe("buildRelatedWorksIndex — same-publication cross-composer matches (isbn/doi source)", () => {
+describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn/doi source)", () => {
     const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
     const mozart: D1Composer = { ...composer, composer_id: 4, name: "Mozart" }
     const haydn: D1Composer = { ...composer, composer_id: 6, name: "Haydn" }
@@ -438,7 +437,7 @@ describe("buildRelatedWorksIndex — same-publication cross-composer matches (is
                 { id: 43, name: "Fantasia", href: "/entity/work/43", composer: "Haydn" }
             ])
         )
-        // id 44 (a different ISBN) never appears — not the same publication.
+        // id 44 (a different ISBN) never appears - not the same publication.
         expect(related.some((work) => work.id === 44)).toBe(false)
     })
 
@@ -466,12 +465,11 @@ describe("buildRelatedWorksIndex — same-publication cross-composer matches (is
     })
 })
 
-describe("buildRelatedWorksIndex — multi-movement grouping (shuffle units, not just tiles)", () => {
+describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not just tiles)", () => {
     const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
 
     // Movements share a long base title (well past the 50%/12-char threshold) and a movement-marker-shaped
-    // remainder, in three of the formats the owner called out: ", [roman]: [name]", "Mvt. [roman]: [name]",
-    // and a bare arabic-numbered variant. Pushed out of movement order to prove ordering isn't accidental.
+    // remainder
     const mvt2: D1Composition = {
         ...composition,
         composition_id: 30,
@@ -490,22 +488,19 @@ describe("buildRelatedWorksIndex — multi-movement grouping (shuffle units, not
         name: "Violin Concerto in D Major, Op. 61 - 3: Rondo",
         composer_id: 1
     }
-    // A normal, unrelated work by the same composer — must stay its own unit, not get absorbed.
+    // A normal, unrelated work by the same composer - must stay its own unit, not get absorbed
     const unrelated: D1Composition = { ...composition, composition_id: 33, name: "Air on the G String", composer_id: 1 }
     // Two movement-marker-shaped names sharing an exact but SHORT base ("Air", 3 chars, well under the
-    // 12-char absolute floor) — must NOT cluster with each other despite a 100% prefix match, since the
-    // floor exists precisely to stop a short shared prefix from counting.
+    // 12-char absolute floor) - must NOT cluster
     const shortDecoyA: D1Composition = { ...composition, composition_id: 34, name: "Air, II: Reprise", composer_id: 1 }
     const shortDecoyB: D1Composition = { ...composition, composition_id: 36, name: "Air, III: Encore", composer_id: 1 }
-    // Looks like a movement number but is actually a catalog number after "No." — must not be misread as
-    // a marker at all (splitMovementMarker should return null for it).
+    // Looks like a movement number but is actually a catalog number after "No."
     const catalogDecoy: D1Composition = { ...composition, composition_id: 35, name: "Sonata No. 5 in G Major", composer_id: 1 }
 
     const composers = [formatCompFromD1(bach)]
     const works = [mvt2, mvt1, mvt3, unrelated, shortDecoyA, shortDecoyB, catalogDecoy].map(formatWorkFromD1)
 
     it("collapses same-work movements into one shuffle unit, kept in movement order, alongside untouched siblings", () => {
-        // composition:33 (unrelated) related list: movements + shortDecoy + catalogDecoy, movements grouped.
         const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
         const related = index.get("composition:33") ?? []
 
@@ -514,7 +509,7 @@ describe("buildRelatedWorksIndex — multi-movement grouping (shuffle units, not
         const i2 = ids.indexOf(30)
         const i3 = ids.indexOf(32)
         // The three movements are contiguous (grouped) and in movement order (I, II, III) regardless of
-        // where the shuffle placed the group as a whole.
+        // where the shuffle placed the group as a whole
         expect(i2).toBe(i1 + 1)
         expect(i3).toBe(i2 + 1)
         expect(ids).toContain(34)
@@ -524,18 +519,12 @@ describe("buildRelatedWorksIndex — multi-movement grouping (shuffle units, not
     })
 
     it("REGRESSION GUARD: an exact but short shared base (under the 12-char absolute floor) does not cluster despite a 100% prefix match", () => {
-        // shortDecoyA/B ("Air, II: Reprise" / "Air, III: Encore") share the exact base "Air" — a 100%
-        // prefix match — but 3 characters is under PARTIAL_MATCH_MIN_CHARS, so they must stay two
-        // independent units, not one group. A grouped pair would always land adjacent to each other, in
-        // marker order (II before III); assert that's NOT guaranteed by checking both possible relative
-        // orders occur across repeated (randomly shuffled) builds — if they were one unit they'd never
-        // shuffle apart from a stable I-then-II adjacency requirement being violated.
+        // shortDecoyA/B ("Air, II: Reprise" / "Air, III: Encore") share the exact base "Air" - a 100%
+        // prefix match - but 3 characters is under PARTIAL_MATCH_MIN_CHARS
         const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
         const related = index.get("composition:33") ?? []
         const ids = related.map((w) => w.id)
-        // Structural guard: a real group's members are always contiguous. If 34/36 were (wrongly) grouped,
-        // any other id could never sit between them. Run several rebuilds (fresh random shuffle each time)
-        // and confirm at least one places another id between 34 and 36.
+        // Structural guard: a real group's members are always contiguous
         let sawSeparation = false
         for (let attempt = 0; attempt < 25; attempt++) {
             const rebuilt = (buildRelatedWorksIndex(composers, works, ALL_PAGES).get("composition:33") ?? []).map(

@@ -1,19 +1,8 @@
 /**
  * scripts/publication.ts
  *
- * Publication-URI display helper shared by the SSR CompositionInfo card and the client-side READ flow.
+ * Publication-URI display helper shared by the SSR CompositionInfo card and the client-side READ flow
  *
- * A composition's publication URI is rendered according to its declared uri_type (the type is
- * authoritative; the server validates the type/URI pairing in lib/api/d1.ts):
- *   https -> the URL rendered as a clickable link
- *   isbn  -> the bare ISBN text linked to its WorldCat lookup (https://www.worldcat.org/isbn/{isbn}),
- *            mirroring citations.ts's ISBN handling
- *   doi   -> the bare DOI text linked to its doi.org resolver (https://doi.org/{doi})
- *
- * The returned string is HTML: every interpolated value is HTML-entity-encoded with escapeHtml first
- * (including inside href attributes, where escapeHtml's quote escaping keeps the value contained), so the
- * result is markup-safe and can be emitted via `set:html` (SSR) or `innerHTML` (client) without injection
- * risk. A null/undefined/blank URI yields the supplied placeholder.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -38,11 +27,7 @@
 import { escapeHtml } from "./escape"
 
 /**
- * Whether a URI carries a web scheme safe to place in an href. Entity-encoding a value does not stop a
- * javascript:/data: URI from executing when clicked, so the scheme must be checked before linking; a
- * value that fails this is rendered as inert escaped text instead. Only https is linkable: the "https"
- * URI type is, by definition, an https address, and constraining the scheme keeps a plaintext http link
- * from ever being emitted (mirrors the https-only image policy in lib/api/validation.ts).
+ * Whether a URI carries a web scheme safe to place in an href
  */
 function isLinkableHttpUri(uri: string): boolean {
     let parsed: URL

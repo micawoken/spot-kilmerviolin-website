@@ -25,17 +25,6 @@
 import { describe, it, expect } from "vitest"
 import { PUBLIC_CSP } from "../src/middleware/headers"
 
-/**
- * The public CSP exists twice and has to: public/_headers is a static text file that covers the
- * prerendered site (served from the ASSETS binding, which never reaches middleware), and PUBLIC_CSP in
- * middleware/headers.ts covers any route that stops being prerendered. Neither can import the other.
- *
- * Drift between them is silent — a page would simply be governed by a different policy depending on
- * whether it happened to be prerendered — so the two are pinned together here.
- *
- * Vite resolves ?raw at transform time, so this needs no filesystem at runtime (same mechanism as
- * admin-csp.test.ts).
- */
 import headersFile from "../public/_headers?raw"
 
 /** The value half of the `Content-Security-Policy:` line in a _headers rule. */

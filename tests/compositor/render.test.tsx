@@ -1,13 +1,7 @@
 /**
  * tests/compositor/render.test.tsx
  *
- * Exercises the BUILD render path end to end (§6.6): a stored design document, through
- * `buildConfig(theme, "build")`, through Puck's static `Render`, to HTML. This is the path
- * `pages/[...slug].astro` uses for a published design page.
- *
- * It guards two things a passing build does not: that the "build" target's passthrough field really
- * delivers stored Portable Text to the renderer (Puck's native richtext field would blank it — the
- * reason the dual-target config exists, §6.3), and that the output carries no JavaScript.
+ * Exercises the BUILD render path end to end
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -168,7 +162,7 @@ describe("rich text link targets", () => {
 
     // The regression this rule exists for. Both editors stamp target="_blank" on every link they produce
     // (Tiptap's Link default, which neither overrides), so honouring `blank` opened internal links in a
-    // new tab — see richtext.tsx's opensInNewTab.
+    // new tab - see richtext.tsx's opensInNewTab.
     it("ignores blank: true on an internal link", () => {
         expect(renderLink({ href: "/database", blank: true })).not.toContain("target=")
     })

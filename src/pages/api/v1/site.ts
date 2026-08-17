@@ -65,8 +65,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * POST /api/v1/site
  * Triggers a rebuild on Worker Builds using the deploy hook
  *
- * Permissions required: rebuild (assigned to every role that carries cms_editor and/or design_editor,
- * since a rebuild only publishes content or design changes)
+ * Permissions required: rebuild
  *
  * Meta: optional
  * Meta fields:
@@ -114,10 +113,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
  * DELETE /api/v1/site
  * Purge the database cache for the site
  *
- * Permissions required: rebuild — the closest existing semantic ("may cause the site to re-materialise").
- * Purging drops every subsequent page build and API read back to D1, at a measured ~8.7s per page
- * cold-cache, so an unrestricted purge is a cheap way to inflate D1 row-read billing and degrade the site.
- * It was previously open to any active contributor.
+ * Permissions required: rebuild
  *
  * Meta: none
  * Body: none

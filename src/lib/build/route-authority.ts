@@ -51,7 +51,7 @@ export type RouteProps =
           entry: Record<string, unknown> | null
           /** Template this entry renders through */
           template: { slug: string; collection: TemplateCollection } | null
-          /** Same `featured_image` field as the portable branch — a `design_page` has no entry behind it
+          /** Same `featured_image` field as the portable branch - a `design_page` has no entry behind it
            * (no EmDash `fields` record), so this is always `undefined` there. */
           image: unknown
       }
@@ -75,7 +75,7 @@ export interface RouteSources {
 
 /**
  * The resolved route table. `warnings` carries fail-soft findings (broken template reference) for the
- * caller to log — module stays pure, unit-testable without a console.
+ * caller to log - module stays pure, unit-testable without a console.
  */
 export interface RouteTable {
     routes: RouteEntry[]
@@ -150,10 +150,10 @@ function resolveTemplate(
 ): BuildTemplate | null {
     if (entry.designRef) {
         // Pointer holds either the template's slug (what an author types) or its EmDash-native item
-        // id — disjoint key spaces, one lookup resolves whichever was stored, no migration needed.
+        // id - disjoint key spaces, one lookup resolves whichever was stored, no migration needed.
         const named = index.byId.get(entry.designRef) ?? index.bySlug.get(entry.designRef)
         if (!named) {
-            // Draft, deleted, or garbage. Fall to D3, NOT the collection default — author chose a
+            // Draft, deleted, or garbage. Fall to D3, NOT the collection default - author chose a
             // specific layout, silently substituting another hides the breakage.
             warnings.push(
                 `[build/route-authority] "${slug}" names design template "${entry.designRef}", which is ` +
@@ -179,7 +179,7 @@ function resolveTemplate(
     return fallback
 }
 
-/** One crumb in a breadcrumb trail: `href: null` renders as plain (unlinked) text — see {@link breadcrumbAncestors}. */
+/** One crumb in a breadcrumb trail: `href: null` renders as plain (unlinked) text - see {@link breadcrumbAncestors}. */
 export interface BreadcrumbAncestor {
     label: string
     href: string | null

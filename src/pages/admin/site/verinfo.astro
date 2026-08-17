@@ -44,18 +44,13 @@ if (denied) {
 
 const info = verinfo(Astro.request)
 
-// Integration token health is an admin-only diagnostic: it makes a live read against the Cloudflare API
-// to confirm the configured secret still works after a migration or rotation. It is gated to
-// administrators and skipped otherwise (including local development, where no identity is present and the
-// secrets/bindings are unavailable). test() never throws — it resolves to false on any failure, so a
-// failing integration never breaks the page render.
+// Integration token health is an admin-only diagnostic
 let tokenHealth: { cloudflare: boolean } | null = null
 if (Astro.locals.identity?.admin === true) {
     tokenHealth = { cloudflare: await accessTokenTest() }
 }
 
-// build timestamp arrives as an ISO string; render it in a readable local form while keeping the raw
-// ISO value as the <time datetime> for fidelity. Falls back to the raw value if it is not parseable.
+// build timestamp arrives as an ISO string; render it in a readable local form
 const buildDate = info.timestamp ? new Date(info.timestamp) : null
 const buildTimestampDisplay =
     buildDate && !isNaN(buildDate.getTime())
@@ -69,9 +64,7 @@ const buildTimestampDisplay =
           })
         : (info.timestamp ?? "(unknown)")
 
-// render a TTL (in seconds) as a human-readable duration scaled up to the largest applicable unit, days
-// being the ceiling (weeks are deliberately excluded): "7 days", "2 hours", "1 hour 30 minutes",
-// "45 seconds". null/undefined render as "(not set)". The raw seconds are shown alongside by the caller.
+// render a TTL (in seconds) as a human-readable duration scaled up to the largest applicable unit
 const pl = (n: number, unit: string): string => `${n} ${unit}${n === 1 ? "" : "s"}`
 const formatTtl = (seconds: number | null | undefined): string => {
     if (seconds === null || seconds === undefined) return "(not set)"
@@ -192,7 +185,7 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                                 <span>
                                     {tokenHealth.cloudflare
                                         ? "OK"
-                                        : "Failed — verify the token is valid and authorized for this account"}
+                                        : "Failed - verify the token is valid and authorized for this account"}
                                 </span>
                             </div>
                         )

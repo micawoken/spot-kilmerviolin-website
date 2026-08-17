@@ -39,7 +39,7 @@ interface SchemaTransform {
 }
 
 /**
- * Splits `Columns`/`Row`'s single `gap` prop into independent `columnGap`/`rowGap` — the
+ * Splits `Columns`/`Row`'s single `gap` prop into independent `columnGap`/`rowGap` - the
  * two axes shared one token under the old shape
  */
 function splitColumnsRowGap(components: unknown[]): void {

@@ -34,9 +34,5 @@ const docs = defineCollection({
         author: z.string()
     })
 })
-
-// The public-facing `pages` collection moved from flat markdoc files into EmDash (the `pages` content type
-// in EMDASH_DB) and is prerendered: src/pages/[...slug].astro reads it at build time over EmDash's HTTP
-// API (src/lib/build/emdash-api.ts). Only the internal developer `docs` collection remains a build-time
-// flat-file collection here.
+// admin docs
 export const collections = { docs }

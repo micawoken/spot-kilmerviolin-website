@@ -34,9 +34,7 @@ import { guardPage } from "../../../../lib/api/page_auth"
 
 export const prerender = false
 
-// design_editor is required, matching ADMIN_PAGE_STRUCTURE (middleware/identity.ts). Repeated here so
-// the page carries its own gate: a directory move once left the map entry stale and these pages
-// reachable by any active contributor, with nothing to catch it.
+// design_editor is required
 const denied = guardPage(Astro.request, Astro.locals.identity, {
     kind: "permission",
     permissions: ["design_editor"]
@@ -93,7 +91,7 @@ if (denied) {
 
             <script>
                 // A real module import forces Astro to emit this as an external hashed module (never inlined),
-                // which the admin CSP (script-src 'self') permits; emptyDesignDoc pulls in no Puck/React runtime.
+                // which the admin CSP (script-src 'self') permits
                 import { emptyDesignDoc } from "../../../../lib/compositor/migrations"
                 import {
                     fetchItems,

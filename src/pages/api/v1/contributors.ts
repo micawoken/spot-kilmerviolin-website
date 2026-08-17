@@ -61,7 +61,7 @@ import { resolveIdentityEmail } from "../../../lib/api/fallback"
  *
  * A build token is a CI credential with no identity behind it, so it previously received the same
  * complete, unredacted set as an elevated administrator: `identity_email`, `roles` and `admin` for every
- * contributor — every enrolled user's sign-in address and the organisation's whole authorization map.
+ * contributor - every enrolled user's sign-in address and the organisation's whole authorization map.
  * Redaction happened only in the build client (lib/build/d1-api.ts's fetchContributors), which is after
  * the data has crossed the wire, so a leaked build token was a full PII disclosure. Doing it here makes
  * the credential match its description; the client-side pass stays as defense in depth.
@@ -80,9 +80,7 @@ const BUILD_TOKEN_SCHEMA = {
  * GET /api/v1/contributors
  * Returns a list of contributor IDs, or the complete records if requested
  *
- * Permissions required: none. The full records are available to any viewer, but the same row-level
- * security as GET /api/v1/contributors/[id] applies: protected properties (CONTRIBUTOR.protected) are
- * redacted from every record that is not the requester's own, unless the requester is an admin.
+ * Permissions required: none
  *
  * Meta: optional
  * Meta fields:
@@ -96,10 +94,6 @@ const BUILD_TOKEN_SCHEMA = {
 export const GET: APIRoute = async (context): Promise<Response> => {
     // returns JSON as an API response
     const { request, locals } = context
-    // build tokens (plan-prelaunch-features.md §2 D9) resolve no identity, so auth_check below would 401
-    // them; middleware/identity.ts has already confined a build-token request to exactly this route with
-    // GET, so here it only needs the "full" signal enforced before returning the inactive-included set
-    // (the build selects which contributors get a public page itself — see BUILD_TOKEN_REDACTED)
     if (locals.buildTokenAuth) {
         const build_request = await parseAPIRequest(request, [])
         if (build_request instanceof Error) {
@@ -148,7 +142,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
                 }
                 // any viewer may request full records; admins see every record unredacted, while other
                 // users see their own record in full and every other record with its protected
-                // properties stripped (the same row-level security as GET /contributors/[id])
+                // properties stripped
                 if (locals.identity!.admin) {
                     return constructResponse(request, data, 200, undefined, timing_headers)
                 }

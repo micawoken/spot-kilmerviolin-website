@@ -65,9 +65,6 @@ import { authEnabled } from "../../../lib/api/environment"
  */
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
-    // build tokens (plan-prelaunch-features.md §2 D9) resolve no identity, so auth_check below would 401
-    // them; middleware/identity.ts has already confined a build-token request to exactly this route with
-    // GET, so here it only needs the "full" signal enforced before returning the complete, unredacted set
     if (locals.buildTokenAuth) {
         const build_request = await parseAPIRequest(request, [])
         if (build_request instanceof Error) {

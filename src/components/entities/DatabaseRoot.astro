@@ -35,7 +35,7 @@ import { resolveEntityTemplates } from "../../lib/build/entity-routes"
 import { ENTITY_NOUN_LABELS, ENTITY_NOUN_SLUGS, type EntityNoun } from "../../lib/compositor/entity-fields"
 
 // Same dual-source-dependency gate as entity/[noun]/index.astro (resolved default template AND at least
-// one D1 record) — reused independently here (not a shared computation, matching that file's own
+// one D1 record) - reused independently here (not a shared computation, matching that file's own
 // reasoning) so this page can never link to a noun with zero detail pages.
 const [composers, contributors, compositions, entityTemplates] = await Promise.all([
     fetchComposers(),

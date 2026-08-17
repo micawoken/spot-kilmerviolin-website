@@ -89,11 +89,7 @@ export const contributor_interface_partial: Record<string, FieldPair> = {
     active: ["boolean", false]
 }
 
-// The self-service profile editor's field set: the non-protected, non-authorization contributor
-// properties a user may freely edit on their own record (no identity_email, roles, admin, or active).
-// All fields are rendered together and submitted as a partial (PATCH) without per-field edit targets,
-// so this form is generated in non-patch mode (every listed field is sent on each save). The identity
-// (sign-in) email is changed separately via PATCH /api/v1/identity/self.
+// The self-service profile editor's field set
 export const contributor_interface_profile: Record<string, FieldPair> = {
     name: ["string", false],
     class_year: ["number", true],
@@ -161,11 +157,6 @@ export const interface_data: Record<
 
 /**
  * CSV column schemas for the admin bulk-import pages (one entity type per file).
- *
- * List-valued cells (tags, contrib_addl, author_secondary) use a semicolon (";") as the in-cell separator,
- * since the comma is the CSV field delimiter. Composition rows reference composers and contributors by
- * NAME (resolved to ids client-side before submission); "contribution_period" is a free-text column the
- * admin maps to phase numbers during the import preview.
  */
 export const CSV_LIST_SEPARATOR = ";"
 
@@ -245,10 +236,7 @@ export function constructRating(suzuki: string | null, nyssma: string | null): C
 }
 
 /**
- * Names which rating member(s) are non-blank but out of range, so a caller building a preview (e.g. the CSV
- * import) can surface exactly what `constructRating` silently rejected instead of committing a bare `null`
- * rating that is indistinguishable from "not rated". A blank member is never an issue; only a present-but-
- * invalid one is.
+ * Names which rating member(s) are non-blank but out of rangw
  */
 export function ratingIssues(suzuki: string | null, nyssma: string | null): string[] {
     const issues: string[] = []

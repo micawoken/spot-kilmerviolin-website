@@ -1,12 +1,28 @@
 /**
  * tools/check-zero-js.mjs
  *
- * Verifies that prerendered design pages ship zero client JavaScript: each given HTML file must
- * contain no <astro-island> element and no <script> tag. Exits non-zero naming every offending
- * file. Part of the Phase 1 verification checklist (§6.8); run manually after `pnpm build` — not
- * wired into the build.
+ * Verifies that prerendered design pages ship zero client JavaScript
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
  *
- *   node tools/check-zero-js.mjs dist/...paths to .html files
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { readFile } from "node:fs/promises"

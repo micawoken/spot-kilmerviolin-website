@@ -1,11 +1,7 @@
 /**
  * pages/api/v1/identity/email.ts
  *
- * Provides a dedicated sub-resource for changing the login (identity) email of other users. This is
- * the admin-only counterpart to PATCH /api/v1/identity's identity_email operation, extracted so the
- * email workflow no longer depends on the complex multi-operation PATCH handler. The self-service
- * equivalent (changing one's own email) remains at PATCH /api/v1/identity/self. Access control is
- * unchanged: this endpoint is admin-only.
+ * Provides endpoints related to email changes
  *
  *
  * Copyright (C) 2026 Michael Wong.

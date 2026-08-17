@@ -4,28 +4,12 @@
  *
  * Reusable data-entry form for composition (work) records
  *
- * Fields are grouped into labelled sections that mirror the organization of the CompositionInfo result
- * view (authorship, notes, work properties, characteristics, rating, publication, contributors), with
- * the image gathered under a Media section and tags last
- *
  * Props:
  * - required (optional): whether fields required by the API are required by the form (use for create)
  * - hidden (optional): if true, the form starts hidden (used by the edit page until an ID is entered)
  * - composition (optional): a CompositionRecord provided by SSR to prefill the form
  * - patch (optional): whether to show the edit target checkboxes for PATCH (partial edit)
  * - show_elevate (optional): whether to render the administrator elevation checkbox
- *
- * The acting user's contributor id (self_id) and direct-management availability (show_direct) are
- * derived from Astro.locals.identity rather than passed in, since identity is request-wide.
- *
- * The primary/additional contributor fields are managed by attachContributorManagement in
- * scripts/interface.ts: contrib_primary_1 and contrib_addl are hidden by default (the acting user is
- * recorded automatically) and revealed only when an administrator opts into direct editing via the
- * show_direct toggle. The additional-primary slot (contrib_primary_2) is addable by anyone, so it is
- * shown on create and shown on edit when empty (and always when an admin edits directly).
- *
- * Input ids follow the form-composition-{param} convention, where param matches the input's
- * name attribute exactly (required by prefillForm in scripts/interface.ts)
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -427,12 +411,6 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <h3 class="form-section-title">Publication</h3>
             <fieldset>
                 <legend>Publication Information</legend>
-                {
-                    /* .field-grid aligns every label/control pair on a shared two-column grid: labels share the
-                    left column and the controls all start (and end) at the same x, so the inputs line up with
-                    one another. It also keeps each label beside its own control instead of inline flow
-                    stranding a label at the end of a row. Collapses to a single column on narrow viewports. */
-                }
                 <div class="field-grid">
                     <label for="form-composition-publish_name">Publisher Name</label>
                     <input

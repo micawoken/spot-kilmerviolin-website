@@ -1,8 +1,6 @@
 /**
- * Unit tests for the contributor-reference display helpers (scripts/references.ts)
- * These format the inline "id (name)" rendering shared by the SSR CompositionInfo card and the
- * client-side READ flow.
- *
+ * tests/contributors.tests.ts
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 

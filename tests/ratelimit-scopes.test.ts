@@ -22,14 +22,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Keeps RLScope (lib/public/ratelimit.ts) in step with the bindings declared in wrangler.jsonc.
- *
- * These drifted apart silently once already: four of the seven declared limiters — RL_API_PUBLIC,
- * RL_API_ADMIN_GLOBAL, RL_API_ADMIN_USER and RL_ADMIN_RENDER — were never referenced, with every scope
- * but the two file ones pointing at RL_FREQ instead. Nothing failed; the configured budgets simply were
- * not in force, and the effective admin-API allowance was more than double the design figure.
- */
 
 import { describe, it, expect } from "vitest"
 import { env } from "cloudflare:workers"
@@ -56,7 +48,7 @@ describe("rate-limit scopes and bindings", () => {
         }
     })
 
-    it("gives every scope a key type — an unmapped scope throws rather than metering the wrong bucket", () => {
+    it("gives every scope a key type - an unmapped scope throws rather than metering the wrong bucket", () => {
         for (const scope of scopes) {
             expect(["ip", "user", "global"]).toContain(scopeKeyType(scope))
         }

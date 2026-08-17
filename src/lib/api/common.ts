@@ -838,7 +838,7 @@ export function sanitizeInputStrings<T>(value: T): T {
     if (value !== null && typeof value === "object") {
         // JSON.parse('{"__proto__": …}') produces an OWN enumerable "__proto__" property, which
         // Object.entries yields. Assigning it to an object literal invokes Object.prototype's __proto__
-        // setter and swaps the new object's prototype instead of adding a property — so a crafted payload
+        // setter and swaps the new object's prototype instead of adding a property - so a crafted payload
         // could give a record inherited properties that Object.keys-based extraneous-key validation
         // (recordTypeAssert) cannot see, while `in` and dotted reads still find them. A null-prototype
         // target has no such setter, and the three keys are skipped outright.

@@ -92,7 +92,7 @@ export async function localizeThemeFonts(
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
         console.warn(
-            `[build/theme-fonts] could not fetch the theme's Google Fonts stylesheet (${reason}) — ` +
+            `[build/theme-fonts] could not fetch the theme's Google Fonts stylesheet (${reason}) - ` +
                 "the theme font is SKIPPED for this build."
         )
         return null
@@ -111,7 +111,7 @@ export async function localizeThemeFonts(
             const reason = error instanceof Error ? error.message : String(error)
             console.warn(
                 `[build/theme-fonts] could not download "${block.family}" (${block.subset}, ` +
-                    `${block.weight} ${block.style}) from Google Fonts (${reason}) — this block is SKIPPED.`
+                    `${block.weight} ${block.style}) from Google Fonts (${reason}) - this block is SKIPPED.`
             )
             continue
         }

@@ -70,7 +70,7 @@ async function readPublishedDesignPages(): Promise<BuildDesignPage[]> {
 
         for (const item of result.items) {
             const slug = normalizeSlug(item.slug)
-            // Unroutable item, unreachable by any URL — skip, not fatal.
+            // Unroutable item, unreachable by any URL - skip, not fatal.
             if (!slug) continue
             const data = item.data ?? {}
 
@@ -142,7 +142,7 @@ function isDesignTemplateCollection(value: string): value is DesignTemplateColle
 
 /** A published design template, before it is known which routing module (pages/posts vs. entity) owns it. */
 interface RawBuildTemplate {
-    /** the EmDash item id — what an entry's `design` reference field points at */
+    /** the EmDash item id - what an entry's `design` reference field points at */
     id: string
     /** the template's identifier slug; never a route (only `design_page` claims URLs) */
     slug: string
@@ -171,7 +171,7 @@ export interface BuildEntityTemplate {
     id: string
     slug: string
     title: string
-    /** which entity noun's records this template renders — every record of that noun uses it (no per-record pointer) */
+    /** which entity noun's records this template renders - every record of that noun uses it (no per-record pointer) */
     collection: EntityNoun
     /** this template is its noun's default; a noun with no default gets no public pages (entity-routes.ts) */
     isDefault: boolean
@@ -180,12 +180,12 @@ export interface BuildEntityTemplate {
 
 /**
  * Fetches every published `design_template` (cursor-paginated), migrating each's stored `design`
- * envelope — same envelope/ladder/version as `design_page`, no fork.
+ * envelope - same envelope/ladder/version as `design_page`, no fork.
  *
- * Collection ABSENCE is legitimate (doesn't exist until setup tooling creates it) — 404 reads as "no
+ * Collection ABSENCE is legitimate (doesn't exist until setup tooling creates it) - 404 reads as "no
  * templates yet" (`allowMissing: true`), every entry falls back to untemplated render (D3). Any other
  * read failure throws (`CmsReadError`). An unmigratable design, or one naming a collection this build
- * doesn't route at all, also THROWS, naming it — published and live, would otherwise silently lose
+ * doesn't route at all, also THROWS, naming it - published and live, would otherwise silently lose
  * its layout.
  *
  * Not exported: callers want `fetchPublishedTemplates` (pages/posts) or
@@ -193,7 +193,7 @@ export interface BuildEntityTemplate {
  *
  * Cached for the build's lifetime, same rationale as {@link fetchPublishedTheme}: `[...slug].astro`,
  * `DatabaseRoot.astro` (rendered at both /entity and /database), `search/advanced/db-search-index.json.ts`, and every
- * entity route's `getStaticPaths` all resolve templates through this one way or another — without a
+ * entity route's `getStaticPaths` all resolve templates through this one way or another - without a
  * cache, one build fires that many redundant cursor-paginated reads of the same collection.
  */
 function fetchAllPublishedTemplates(): Promise<RawBuildTemplate[]> {
@@ -293,7 +293,7 @@ export async function fetchCollectionFields(collection: string): Promise<Collect
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
         console.warn(
-            `[build/design-api] could not read the "${collection}" field schema (${reason}) — the ` +
+            `[build/design-api] could not read the "${collection}" field schema (${reason}) - the ` +
                 "dangling-outlet-field lint is SKIPPED for this build."
         )
         return null
@@ -313,7 +313,7 @@ export async function fetchCollectionFields(collection: string): Promise<Collect
 }
 
 /**
- * Fetches the published `design_theme` token catalog — the `--dtk-*` values every design draws from
+ * Fetches the published `design_theme` token catalog - the `--dtk-*` values every design draws from
  */
 export function fetchPublishedTheme(): Promise<TokenCatalog | null> {
     if (!themeCache) {
@@ -330,7 +330,7 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
     const item = result?.items?.[0]
     if (!item) {
         console.warn(
-            "[build/design-api] no PUBLISHED design_theme found — design pages will render without any " +
+            "[build/design-api] no PUBLISHED design_theme found - design pages will render without any " +
                 "design tokens. Publish the theme in /admin/advanced/designs/theme, then rebuild."
         )
         return null
@@ -339,19 +339,19 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
     const tokens = item.data?.tokens
     if (!isTokenCatalog(tokens)) {
         console.warn(
-            "[build/design-api] the published design_theme is not a valid token catalog — design pages " +
+            "[build/design-api] the published design_theme is not a valid token catalog - design pages " +
                 "will render without any design tokens. Re-save the theme in /admin/advanced/designs/theme."
         )
         return null
     }
 
     // Button variant referencing a deleted token: authoring bug, but emitted var() already fails soft
-    // (CSS fallback) — warn, don't throw. Narrower than DD2 (design referencing a missing token, which
+    // (CSS fallback) - warn, don't throw. Narrower than DD2 (design referencing a missing token, which
     // throws); this is a cosmetic theme-internal dangle.
     for (const finding of lintTokenCatalog(tokens)) {
         console.warn(
             `[build/design-api] button variant "${finding.variant}" ${finding.field} references ` +
-                `${finding.kind} token "${finding.ref}", which is not in the theme — it will render its CSS fallback.`
+                `${finding.kind} token "${finding.ref}", which is not in the theme - it will render its CSS fallback.`
         )
     }
 
@@ -360,7 +360,7 @@ async function resolvePublishedTheme(): Promise<TokenCatalog | null> {
     // is already the safe outcome, and failing the build over it would let a bad value block every deploy.
     for (const finding of lintTokenValues(tokens)) {
         console.warn(
-            `[build/design-api] ${finding.kind} token "${finding.name}" has an unusable ${finding.field} — ` +
+            `[build/design-api] ${finding.kind} token "${finding.name}" has an unusable ${finding.field} - ` +
                 "it will not be emitted, and its consumers fall back. Values may not contain < > ; { } @ or \\."
         )
     }

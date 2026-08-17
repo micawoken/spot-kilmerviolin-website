@@ -1,20 +1,7 @@
 /**
  * middleware/emdash_media_capacity.ts
  *
- * Rejects EmDash CMS media uploads that would push combined R2 usage past the shared storage ceiling,
- * before the write reaches EmDash's own upload handler. That handler is vendored code we do not own
- * (node_modules/emdash/src/astro/routes/api/media.ts) and its R2Storage adapter performs no capacity
- * check of its own (node_modules/@emdash-cms/cloudflare/src/storage/r2.ts) — only a per-file size cap via
- * emdash.config.maxUploadSize. EMDASH_MEDIA is a second bucket in the same Cloudflare account as R2_FILES,
- * so it draws against the same account-wide free-plan storage ceiling, not a separate one; see r2.ts's
- * MAX_R2_STORAGE_BYTES for the combined-usage rationale and getStorageUsage/addFile/replaceFile in
- * files.ts for the R2_FILES-side half of this same check.
- *
- * The check is best-effort, mirroring EmDash's own per-file pre-check (media.ts's "Best-effort size check
- * before buffering the full multipart body"): it reads Content-Length rather than parsing the multipart
- * body itself, since middleware cannot cheaply re-buffer and replay the request body to EmDash's handler
- * afterward. A missing/unparseable Content-Length lets the request through uncapped by this guard — EmDash's
- * own per-file maxUploadSize cap still bounds a single upload's damage in that case.
+ * Intercepts upload paths to attempt to enforce the storage cap
  *
  *
  * Copyright (C) 2026 Michael Wong.

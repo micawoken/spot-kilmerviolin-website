@@ -36,7 +36,7 @@ import { authEnabled } from "../../../lib/api/environment"
 export const prerender = false
 
 // In local dev the Cloudflare Images emulation cannot crop/resize (see optimizeImage), so the upload is
-// stored unchanged; warn the operator. Dev is the same localhost rule that disables auth.
+// stored unchanged; warn the operator
 const isDev = !authEnabled(Astro.request)
 
 // the key being replaced may be supplied via ?id=
@@ -68,7 +68,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                 isDev && (
                     <p class="admin-dev-warning" role="status">
                         <strong>Local development:</strong> image cropping and optimization are{" "}
-                        <strong>skipped here</strong> — the local Cloudflare Images emulation cannot crop, so the file
+                        <strong>skipped here</strong> - the local Cloudflare Images emulation cannot crop, so the file
                         is stored unchanged. You can still frame the crop below; it is applied in production.
                     </p>
                 )

@@ -37,20 +37,14 @@ import { guardPage } from "../../../lib/api/page_auth"
 export const prerender = false
 
 // the user list joins Cloudflare Access with contributor authorization records (a privileged read that
-// bypasses the API); authorize the caller before touching the database, mirroring GET /api/v1/identity
+// bypasses the API); authorize the caller before touching the database
 const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "permission", permissions: ["user_addition"] })
 if (denied) {
     return denied
 }
 
 /**
- * A single rendered row in the user table. Each modifiable column carries an optional href to the
- * admin operation that changes its value: status and type link to the operation that *inverts* the
- * current state, the email links to the "Change Login Email" page, and the roles link to the
- * "Add or Remove Roles" editor. The contributor column instead links to the *view* page for the
- * matched record (it is informational, not a modifiable property). An href of null means there is
- * nothing to act on (e.g. the user is in Cloudflare Access but has no contributor record yet, so it
- * has no contributor id/email/status/type/roles to surface).
+ * A single rendered row in the user table
  */
 interface UserRow {
     email: string
@@ -67,17 +61,7 @@ interface UserRow {
 }
 
 /**
- * A single rendered row in the unlinked-contributors table: contributor records whose identity_email
- * is *not* present in Cloudflare Access, so they never surfaced in the user table above. Every value
- * originates from the contributor record itself; the name, type, and roles cells link to the
- * contributor edit page (keyed by id), and the id cell links to the contributor view page. A fallback
- * identity_email is a placeholder for a contributor who will never sign in, so it is shown as "Missing"
- * rather than exposing the generated address.
- *
- * The email cell links to the "Add User" page (prefilled with the address) so the operator can enroll an
- * unlinked contributor into Cloudflare Access in one click — except when the email is a fallback
- * ("Missing"), where there is no real address to enroll, so it links to the contributor edit page (where
- * a real identity email can be set) instead.
+ * A single rendered row in the unlinked-contributors table
  */
 interface UnlinkedRow {
     name: string
@@ -92,14 +76,13 @@ interface UnlinkedRow {
     roles_label: string
 }
 
-// The user list is rendered server-side. Page access is already gated by the middleware
-// (admin + user_addition), mirroring the GET /api/v1/identity endpoint's own authorization.
+// The user list is rendered server-side
 let rows: UserRow[] = []
 let unlinked: UnlinkedRow[] = []
 let error: string | null = null
 try {
     // Access holds the set of login-permitted emails; contributor records hold their authorization
-    // state (active/admin/roles). Join the two by identity email to populate the per-user columns.
+    // state (active/admin/roles)
     const emails = await list_users()
     const contributors = await listContributors(Astro.locals.cfContext)
     const records = new Map<string, ContributorRecord>()
@@ -148,8 +131,7 @@ try {
         }
     })
     // Contributors whose identity_email is not in Access are "unlinked": they hold an authorization
-    // record but no sign-in is permitted for it, so they never appeared above. emails are lowercased,
-    // so compare against the lowercased contributor identity_email.
+    // record but no sign-in is permitted for it, so they don't appear as true users
     const access_emails = new Set(emails)
     unlinked = (contributors ?? [])
         .filter((contributor) => !access_emails.has(contributor.identity_email.toLowerCase()))

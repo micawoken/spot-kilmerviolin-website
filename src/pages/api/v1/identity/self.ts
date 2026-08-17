@@ -137,22 +137,9 @@ export const POST: APIRoute = async (context): Promise<Response> => {
 
 /**
  * PATCH /api/v1/identity/self
+ *
  * Change the authenticated user's own identity (sign-in) email
  *
- * This is the self-service counterpart to PATCH /api/v1/identity's identity_email operation, which is
- * admin-only and keyed by another user's email: here the target is always the caller's own contributor
- * record, derived from the authenticated identity, so no special permissions are required. The old email
- * is read from the caller's own record (changeLoginEmail), so the body carries only the new email.
- *
- * Permissions required: none (must be self and active; an enrollable login without a record is rejected
- * by selfmgmt)
- *
- * KNOWN GAP: there is no proof that the caller controls the new address — no confirmation token, no
- * domain allowlist. The address is written straight into the Access include rules, so a contributor can
- * point their record (and its roles) at a third party's address, invisibly to administrators unless they
- * diff the policy. Closing it means either routing this through the admin-only operation or issuing a
- * signed single-use token to the new address; both are product decisions, not defects. Recorded here so
- * the next reader does not mistake the validation below for ownership verification.
  *
  * Meta: none
  * Body: required, JSON array containing one string (the new identity email)
@@ -176,10 +163,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     if (api_request.payload === null || !Array.isArray(api_request.payload) || api_request.payload.length !== 1) {
         return constructResponse(request, null, 400, "Invalid request body: must be an array with a single item")
     }
-    // Validate the new email. This value is written into the Cloudflare Access policy's include rules
-    // (changeLoginEmail -> _changeLoginEmail -> add_user), i.e. into the outer authentication boundary of
-    // the whole application, so it gets the same shape check every other email input gets rather than a
-    // bare "contains @" — which admitted `a@b`.
+    // Validate the new email
     const new_email = api_request.payload[0]
     if (typeof new_email !== "string" || !isValidEmail(new_email)) {
         return constructResponse(
@@ -189,21 +173,15 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             "Invalid request body: new identity email must be a valid email string"
         )
     }
-    // a reserved fallback address can never be enrolled in Access (see lib/api/fallback.ts); reject it
-    // before the contributor record is mutated and enrollment then fails. Parity with _parseIdEmail, the
-    // admin-side counterpart in /api/v1/identity, which has always rejected these.
+    // a reserved fallback address can never be enrolled in Access
     if (isFallbackEmail(new_email.trim())) {
         return constructResponse(request, null, 400, "Cannot set your identity email to a reserved fallback address")
     }
-    // the change targets the caller's own record; selfmgmt guarantees an allowed (non-enrollable) identity,
-    // but guard the id explicitly (e.g. when authentication is disabled in local development, identity is absent)
+    // the change targets the caller's own record
     if (locals.identity === undefined || locals.identity.id === undefined || locals.identity.id === null) {
         return constructResponse(request, null, 403, "No contributor record is associated with your login")
     }
-    // selfmgmt admits an INACTIVE caller so a deactivated user can still reach the self-service flows —
-    // but re-pointing a sign-in identity is not one they should reach. Deactivation is the system's
-    // revocation mechanism; letting a revoked user move their record onto an address they control (or
-    // hand it to a third party, roles included) would undo it from inside.
+    // selfmgmt admits an INACTIVE caller so a deactivated user can still reach the self-service flows
     if (authEnabled(request) && !locals.identity.active) {
         return constructResponse(
             request,
@@ -225,11 +203,6 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
  * DELETE /api/v1/identity/self
  * Deactivate the authenticated user's own contributor record (self-service)
  *
- * This is the self-service counterpart to the admin-only deactivation keyed by another user's email
- * (DELETE /api/v1/identity's activation operation): here the target is always the caller's own record,
- * derived from the authenticated identity, so no special permissions are required. Deactivation marks the
- * record inactive — the user keeps the ability to sign in but loses write access (read-only). It does not
- * remove the user from Cloudflare Access. Idempotent: deactivating an already-inactive record is a no-op.
  *
  * Permissions required: none (must be self; an enrollable login without a record is rejected by selfmgmt)
  *

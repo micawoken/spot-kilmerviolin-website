@@ -28,7 +28,7 @@
  * A published entry of a routed content collection (`pages` or `posts`)
  */
 export interface BuildPage {
-    /** the EmDash item id — what a `reference` field on another item points at */
+    /** the EmDash item id - what a `reference` field on another item points at */
     id: string
     /** the on-site path segment(s), without a leading or trailing slash (e.g. "about", "docs/setup") */
     slug: string
@@ -137,7 +137,7 @@ export class CmsReadError extends Error {
         super(
             `[build/emdash-api] GET ${path} failed: ${reason}\n` +
                 "CONTENT_API_BASE is set, so the CMS was expected to answer. The build is stopping rather " +
-                "than emitting a site with content missing — a fail-soft rebuild during a CMS outage would " +
+                "than emitting a site with content missing - a fail-soft rebuild during a CMS outage would " +
                 "publish empty pages over the live ones. Check the API's health and rebuild."
         )
         this.name = "CmsReadError"
@@ -156,7 +156,7 @@ export async function emdashGet<T>(path: string, options: GetOptions = {}): Prom
     if (!config) {
         if (!warnedUnconfigured) {
             console.warn(
-                "[build/emdash-api] CONTENT_API_BASE is unset — skipping CMS reads; content pages will " +
+                "[build/emdash-api] CONTENT_API_BASE is unset - skipping CMS reads; content pages will " +
                     "not be generated and site chrome falls back to consts.ts defaults."
             )
             warnedUnconfigured = true
@@ -177,7 +177,7 @@ export async function emdashGet<T>(path: string, options: GetOptions = {}): Prom
 
         let response: Response
         try {
-            // Generous by design — a short abort here poisons the isolate. See READ_TIMEOUT_MS.
+            // Generous by design - a short abort here poisons the isolate. See READ_TIMEOUT_MS.
             response = await fetch(`${config.base}${path}`, {
                 headers: config.headers,
                 signal: AbortSignal.timeout(READ_TIMEOUT_MS)
@@ -198,7 +198,7 @@ export async function emdashGet<T>(path: string, options: GetOptions = {}): Prom
         reason =
             `${response.status} ${response.statusText}` +
             (response.status === 401 || response.status === 403
-                ? " — check the Access service token and that its EmDash role grants read permission"
+                ? " - check the Access service token and that its EmDash role grants read permission"
                 : "")
         // A 4xx is a standing fact about this request; retrying it only delays the failure.
         if (!isRetryable(response.status)) break
@@ -346,7 +346,7 @@ function getPageHrefMap(): Promise<Map<string, string>> {
             const map = new Map<string, string>()
             // mirrors the two route-naming rules pages/[...slug].astro applies when it emits these same
             // entries as static routes: the "home"-slug page owns "/", and every post sits under "/posts/"
-            // (lib/build/route-authority.ts POSTS_PREFIX — inlined here rather than imported, since that
+            // (lib/build/route-authority.ts POSTS_PREFIX - inlined here rather than imported, since that
             // module imports BuildPage's *type* from this one and a value import back would invert it)
             for (const page of pages) map.set(`pages:${page.id}`, page.slug === "home" ? "/" : `/${page.slug}`)
             for (const post of posts) map.set(`posts:${post.id}`, `/posts/${post.slug}`)
@@ -377,7 +377,7 @@ const menuCache = new Map<string, Promise<BuildMenuItem[]>>()
 
 async function resolveMenu(name: string): Promise<BuildMenuItem[]> {
     // allowMissing: an unauthored menu (e.g. no "footer" menu created yet) 404s: that's a legitimate site
-    // state (chrome falls back to no links), not a CMS outage — see the allowMissing doc on GetOptions.
+    // state (chrome falls back to no links), not a CMS outage - see the allowMissing doc on GetOptions.
     const menu = await emdashGet<ApiMenu>(`/_emdash/api/menus/${name}`, { allowMissing: true })
     const items = menu?.items ?? []
     if (items.length === 0) {

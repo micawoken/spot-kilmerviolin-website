@@ -2,17 +2,8 @@
 /**
  * pages/404.astro
  *
- * Static Not Found page. Prerendered so that an unmatched path — including an unknown CMS slug, which no
- * longer exists as a route now that public pages are prerendered — is served from the Cloudflare ASSETS
- * binding with no D1 or KV lookup.
+ * Static Not Found page
  *
- * Designable (8-task plan #8): an owner can author the 404 body through the compositor, the same way they
- * author any other design page, by giving a `design_page` the reserved slug `NOT_FOUND_PAGE_SLUG` (see its
- * doc comment in lib/build/design-api.ts) in /admin/advanced/designs. That page is looked up here, linted the same
- * way [...slug].astro lints every design page (loud and early — a design that fails the a11y/safety lint
- * must not reach the public 404), and rendered through the same zero-JS Puck path. With no such page
- * published, this falls back to the original static markup below, so a fresh build with no CMS content
- * still ships a working Not Found page.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -56,7 +47,7 @@ const { notFoundPage } = partitionDesignPages(designPages)
 if (notFoundPage) {
     const findings = lintDesign(notFoundPage.doc, theme, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
     for (const finding of findings.filter((candidate) => candidate.severity === "warning")) {
-        console.warn(`[build] 404 design page — ${finding.path}: ${finding.message}`)
+        console.warn(`[build] 404 design page - ${finding.path}: ${finding.message}`)
     }
     if (hasBlockingError(findings)) {
         const errors = findings

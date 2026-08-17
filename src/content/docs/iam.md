@@ -59,6 +59,9 @@ Use the relevant links to perform these operations.
 The available roles are:
 - reviewer: grants permission "overrides_lockout", allowing modification of compositions that one is not a primary on (conferrable)
 - userenroll: grants permissions "user_activation" and "user_addition", allowing adding new IAM users and activating contributor accounts (not conferrable)
-- siteeditor: grants permissions "cms_editor", "design_editor", and "rebuild", allowing for site content, design, and publication permissions
-- designer: grants permissions "design_editor" and "rebuild", allowing for site design and publication permissions
-- pagewriter: grants permissions "cms_editor" and "rebuild", allowing for site content and publication permissions
+- siteeditor: grants permissions "cms_editor", "design_editor", and "rebuild", allowing for site content, design, and publication permissions (not conferrable)
+- designer: grants permissions "design_editor" and "rebuild", allowing for site design and publication permissions (not conferrable)
+- pagewriter: grants permissions "cms_editor" and "rebuild", allowing for site content and publication permissions (conferrable)
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

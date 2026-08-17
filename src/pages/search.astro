@@ -2,19 +2,8 @@
 /**
  * pages/search.astro
  *
- * Public site search. Static shell (prerendered, no JS-dependent server logic) around a Pagefind-powered
- * client search: Pagefind indexes `dist/client` after `astro build` (see the "build" script), which is
- * exactly the prerendered public output — `/admin` and `/_emdash` never render to static HTML (they are
- * server-rendered per-request, see layouts/AdminDocument.astro and the emdash integration), so they are
- * never crawled and can never appear in results without any allow/deny-list to maintain here.
+ * Public site search
  *
- * The index only exists post-build: `astro dev` does not run Pagefind, so search only works against a
- * built site (`npm run preview`, or the deployed worker) — see the empty-index handling in the script.
- *
- * Query syntax: typing a recognized `field:value` token (see lib/search/facets.ts's `parseFacetQuery`)
- * snaps this page to the same JSON+Pagefind hybrid
- * pages/search/advanced.astro uses, restricted to database entries — without exposing that page's
- * criteria form. A plain query with no recognized token behaves exactly as before.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -62,21 +51,16 @@ export const prerender = true
         </form>
         {
             /* Fixed above the content-type filter: leaving the page and jumping down it are both new actions,
-            while content type only filters the results already on screen — see the fieldset below. The
+            while content type only filters the results already on screen - see the fieldset below. The
             jump summary sits opposite the link (search-form.css's .search-actions) so a completed search
             reports itself without the visitor scrolling past the filters to find out. */
         }
         <div class="search-actions">
             <p class="search-advanced-link">
-                <a href="/search/advanced" id="search-advanced-link">Advanced search ->></a>
+                <a href="/search/advanced" id="search-advanced-link">Advanced search →</a>
             </p>
             <p id="search-jump" class="search-jump" hidden></p>
         </div>
-        {
-            /* Populated by the client script from Pagefind's own `filters()` counts, and only once a search has
-            actually run — a type absent from the index this build (zero pages of that kind) never renders a
-            dead checkbox, and the control stays out of the way until there are results to filter. */
-        }
         <fieldset id="search-type-filters" class="search-type-filters" hidden>
             <legend>Content type</legend>
         </fieldset>
@@ -88,7 +72,7 @@ export const prerender = true
 
 <style>
     .search-page {
-        /* Matches /search/advanced's `.search-page` so the search bar is the same width on both pages. */
+        /* Matches /search/advanced's `.search-page` so the search bar is the same width on both pages */
         max-width: 48rem;
     }
     .visually-hidden {
@@ -111,9 +95,6 @@ export const prerender = true
         letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
         text-transform: uppercase;
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
-        /* Stronger separation from the search controls above it than plain whitespace gives. Only shown
-           once there's actual status text (see :not(:empty) below) — otherwise this hairline+padding would
-           render as a bare empty line before any search has run. */
         margin-top: var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem));
     }
     #search-status:not(:empty) {
@@ -136,10 +117,7 @@ export const prerender = true
         margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
     }
     /* An author `display` declaration on the element itself (this file's rule above) beats the UA
-       stylesheet's `[hidden] { display: none }` regardless of selector specificity — origin, not
-       specificity, decides that cascade — so `hidden`/`.hidden = true` alone did nothing here without this
-       explicit override. Without it, the empty "Content type" legend showed on every page load, before any
-       search had run. */
+       stylesheet's `[hidden] { display: none }` regardless of selector specificity */
     .search-type-filters[hidden] {
         display: none;
     }
@@ -159,16 +137,9 @@ export const prerender = true
         align-items: center;
         gap: 0.35em;
     }
-    /* On the row, not the link inside it: `#search-form`'s section-space bottom margin collapses with this
-       (adjacent block siblings) and wins, which is what lands this at section-space below the search bar.
-       The link itself must stay margin-free — a flex item collapses with nothing, so a margin there would
-       add to this one instead of collapsing into it. See search-form.css's .search-actions. */
     .search-actions {
         margin: var(--dtk-chrome-vertical-space-control, var(--dtk-space-sm, 0.75rem)) 0 0;
     }
-    /* The results list, its items and its pagination live in styles/search-form.css — identical on both
-       search pages, and every node inside them is created by the client script at runtime, where Astro
-       applies no scoping class. */
 </style>
 
 <script>
@@ -183,17 +154,12 @@ export const prerender = true
         type PageWindow
     } from "../lib/search/pagination"
 
-    /** Lazily loaded Pagefind module — only exists at `/pagefind/pagefind.js` once a build has indexed the
-     * site (see the "build" npm script), so it is dynamically imported (never bundled: the path does not
-     * exist in the source tree) and cached after the first successful load. See env.d.ts (PagefindApi) for
-     * why this is a runtime cast rather than a typed import. */
     let pagefind: PagefindApi | null = null
 
     async function loadPagefind(): Promise<PagefindApi> {
         if (!pagefind) {
             // The path is built at runtime (not a string literal) so neither Vite nor TypeScript tries to
-            // resolve this module now — it is generated post-build by the "build" npm script and does not
-            // exist in the source tree.
+            // resolve this module now; generated post build
             const pagefindPath = "/pagefind/pagefind.js"
             const mod = (await import(/* @vite-ignore */ pagefindPath)) as PagefindApi
             await mod.init()
@@ -202,8 +168,7 @@ export const prerender = true
         return pagefind
     }
 
-    /** Lazily loaded, cached for the page's lifetime — only fetched when the query syntax snaps this page
-     *  to database mode (see the module header). */
+    /** Lazily loaded, cached for the page's lifetime */
     let facetsCache: FacetEntry[] | null = null
     async function loadFacets(): Promise<FacetEntry[]> {
         if (!facetsCache) {
@@ -244,8 +209,7 @@ export const prerender = true
     }
 
     // Wrapped in a function (rather than narrowing inline at module scope) so the guard clause's narrowing
-    // of `status`/`results` is visible inside the nested closures below — TS does not carry module-scope
-    // `if` narrowing into function bodies, only a function-scope early return.
+    // of `status`/`results` is visible inside the nested closures below
     function initSearch(): void {
         const form = document.getElementById("search-form")
         const input = document.getElementById("search-input")
@@ -267,8 +231,7 @@ export const prerender = true
         ) {
             return
         }
-        // Rebound to their own (non-nullable) consts: TS narrows `status`/`results`/`input` above, but that
-        // narrowing does not carry into the nested closures below, only a fresh binding's own static type.
+        // Rebound to their own (non-nullable) consts
         const statusEl = status
         const resultsEl = results
         const paginationEl = pagination
@@ -277,17 +240,10 @@ export const prerender = true
         const advancedLinkEl = advancedLink
         const jumpEl = jump
 
-        // "database" restricts results to pages carrying data-pagefind-filter="scope:database" (the three
-        // entity nouns' index/detail pages, see layouts/PublicPage.astro) — used by the /entity root
-        // page's search box and the Puck pagefind-search component's "Database only" scope option.
         const scope = new URLSearchParams(location.search).get("scope")
         const scopeNote = document.getElementById("search-scope-note")
         if (scope === "database" && scopeNote) scopeNote.hidden = false
 
-        // Reflects the current input into the "Advanced search" link's target so a visitor who already typed
-        // something doesn't have to retype it there — carried as a `#q=` hash fragment (not a `?q=` search
-        // param) since /search/advanced.astro only auto-runs a search off `location.search`, so the hash
-        // prefills the field on arrival without executing anything.
         function updateAdvancedLink(): void {
             const query = inputEl.value.trim()
             advancedLinkEl.href = query ? `/search/advanced#q=${encodeURIComponent(query)}` : "/search/advanced"
@@ -305,9 +261,7 @@ export const prerender = true
             const types = selectedTypes()
             if (types.length > 0) {
                 // An explicit type selection fully defines scope on its own (and may mix database nouns with
-                // "page"/"post"), so it replaces rather than joins the scope:database restriction below —
-                // otherwise checking "Pages" here would never show a result, since every page fails
-                // scope:database.
+                // "page"/"post"), so it replaces rather than joins the scope:database restriction below
                 filters.type = types
             } else if (scope === "database") {
                 filters.scope = ["database"]
@@ -316,11 +270,7 @@ export const prerender = true
         }
 
         // Rebuilt after every plain-mode search from THAT search's own `.filters` (never a separate
-        // `pf.filters()` call) — Pagefind computes each returned count as "results if this value were also
-        // applied on top of the current filters/query" (docs/js-api-filtering), so a value already checked
-        // doesn't drop its siblings' counts to zero and hide them; the numbers are also specific to the
-        // current query rather than the whole site. Nothing renders (fieldset stays hidden) until a search
-        // has actually produced these — see runSearch's early-return on an empty query.
+        // `pf.filters()` call)
         function updateTypeFilters(counts: Record<string, number>): void {
             typeFiltersEl.replaceChildren()
             const entries = Object.entries(counts).filter(([, count]) => count > 0)
@@ -337,8 +287,7 @@ export const prerender = true
                 checkbox.value = type
                 checkbox.checked = initialTypes.has(type)
                 checkbox.addEventListener("change", () => {
-                    // A changed filter is a new result set — reflect the now-checked types into the URL
-                    // (so pagination/back-forward/sharing keeps them) and reset back to page one.
+                    // A changed filter is a new result set
                     const params = currentParams()
                     params.delete("type")
                     for (const selected of selectedTypes()) params.append("type", selected)
@@ -391,7 +340,7 @@ export const prerender = true
 
                 const next = document.createElement("button")
                 next.type = "button"
-                next.textContent = "Next ->>"
+                next.textContent = "Next →"
                 next.disabled = pageWindow.page >= pageWindow.totalPages
                 next.addEventListener("click", () => goTo(withPage(params, pageWindow.page + 1)))
                 nav.appendChild(next)
@@ -427,7 +376,7 @@ export const prerender = true
         ): Promise<void> {
             // Database mode never consults the content-type checkboxes (its scope:database restriction is
             // hardcoded below), so leaving a prior plain search's checkboxes on screen here would be inert
-            // and misleading — hide them, matching the empty-query state.
+            // and misleading
             typeFiltersEl.hidden = true
             const facets = await loadFacets()
             const matched = facets.filter((entry) => matchesFacets(entry, criteria))
@@ -438,14 +387,11 @@ export const prerender = true
                 )
                 return
             }
-            // Keyed by normalizeUrl, not the raw url string — see that function's doc comment for why an
-            // exact-string join between a Pagefind result and a db-search-index.json entry always misses.
+            // Keyed by normalizeUrl, not the raw url string
             const matchedByUrl = new Map(matched.map((entry) => [normalizeUrl(entry.url), entry]))
             const pf = await loadPagefind()
             const search = await pf.search(text, { filters: { scope: ["database"] } })
-            // Resolved and deduped up front, not sliced-then-resolved like runPlainSearch below — this path
-            // already has to see every hit's data() to intersect it against matchedByUrl, so there's no lazy
-            // option here (matching /search/advanced's identical hybrid keyword+filter path).
+            // Resolved and deduped up front, not sliced-then-resolved like runPlainSearch below
             const rawItems = await Promise.all(
                 search.results.map(async (result): Promise<ResultItem | null> => {
                     const data = await result.data()
@@ -464,11 +410,7 @@ export const prerender = true
             const search = await pf.search(query, buildSearchOptions())
             updateTypeFilters(search.filters.type ?? {})
             // Every hit is resolved up front (not sliced-to-the-visible-page first, as this used to do) so
-            // dedupeByUrl can collapse same-page chunk hits before the count/page math ever sees them — a
-            // very short or generic query (e.g. "a") can rank several chunks of the same long page highest,
-            // which otherwise rendered as duplicate results differing only in which part of the page their
-            // excerpt matched. The lazy slice-then-resolve approach traded away here can't tell duplicates
-            // apart from distinct results without already knowing every hit's URL.
+            // dedupeByUrl can collapse same-page chunk hits before the count/page math ever sees them
             const items: ResultItem[] = dedupeByUrl(
                 await Promise.all(
                     search.results.map(async (result) => {
@@ -493,8 +435,7 @@ export const prerender = true
         async function runSearch(query: string, params: URLSearchParams = currentParams()): Promise<void> {
             resultsEl.replaceChildren()
             paginationEl.replaceChildren()
-            // Cleared up front, then re-rendered only once a search actually produces a count — otherwise
-            // the previous search's total would sit there claiming to describe this one.
+            // Cleared up front, then re-rendered only once a search actually produces a count
             clearJumpLink(jumpEl)
             if (query === "") {
                 statusEl.textContent = ""
@@ -512,7 +453,7 @@ export const prerender = true
                 await runPlainSearch(query, params)
             } catch {
                 // Most likely cause: the page was opened via `astro dev`, which never runs Pagefind, so
-                // /pagefind/pagefind.js 404s. `npm run preview` (or the deployed site) has the real index.
+                // /pagefind/pagefind.js 404s
                 statusEl.textContent = "Search is unavailable right now."
             }
         }
@@ -526,7 +467,7 @@ export const prerender = true
             } else {
                 params.delete("q")
             }
-            // A new query is a new result set — start back at page one.
+            // A new query is a new result set - start back at page one
             params.delete("page")
             params.delete("perPage")
             setUrlParams(params)
@@ -540,9 +481,7 @@ export const prerender = true
             updateAdvancedLink()
             void runSearch(initialQuery)
         } else {
-            // The mirror of updateAdvancedLink above: /search/advanced's "← Back to search" carries its
-            // keyword as a `#q=` hash fragment precisely so it prefills here without running, letting a
-            // visitor carry a query between the two pages and edit it before searching again.
+            // The mirror of updateAdvancedLink above
             const prefill = new URLSearchParams(location.hash.replace(/^#/, "")).get("q")
             if (prefill) {
                 input.value = prefill

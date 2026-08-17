@@ -39,7 +39,7 @@ function template(overrides: Partial<BuildEntityTemplate> & Pick<BuildEntityTemp
     }
 }
 
-describe("resolveEntityTemplates — no templates published yet", () => {
+describe("resolveEntityTemplates - no templates published yet", () => {
     it("resolves every noun to null, in ENTITY_NOUNS order", () => {
         expect(resolveEntityTemplates([])).toEqual([
             { noun: "composer", template: null },
@@ -49,7 +49,7 @@ describe("resolveEntityTemplates — no templates published yet", () => {
     })
 })
 
-describe("resolveEntityTemplates — one default per noun", () => {
+describe("resolveEntityTemplates - one default per noun", () => {
     it("resolves each noun to its published default, leaving un-templated nouns null", () => {
         const composerDefault = template({ collection: "composer", isDefault: true })
         const compositionDefault = template({ collection: "composition", isDefault: true })
@@ -74,8 +74,8 @@ describe("resolveEntityTemplates — one default per noun", () => {
     })
 })
 
-describe("resolveEntityTemplates — the None sentinel", () => {
-    it("resolves to null, same as having no default at all — an explicit opt-out of public pages", () => {
+describe("resolveEntityTemplates - the None sentinel", () => {
+    it("resolves to null, same as having no default at all - an explicit opt-out of public pages", () => {
         const none = template({ collection: "contributor", isDefault: true, slug: TEMPLATE_NONE_SLUG })
 
         expect(resolveEntityTemplates([none])).toEqual([
@@ -86,7 +86,7 @@ describe("resolveEntityTemplates — the None sentinel", () => {
     })
 })
 
-describe("resolveEntityTemplates — an ambiguous default", () => {
+describe("resolveEntityTemplates - an ambiguous default", () => {
     it("throws when two published templates both default the same noun", () => {
         const first = template({ id: "a", slug: "a", collection: "composer", isDefault: true })
         const second = template({ id: "b", slug: "b", collection: "composer", isDefault: true })

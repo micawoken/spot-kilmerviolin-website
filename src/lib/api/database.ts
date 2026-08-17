@@ -211,7 +211,7 @@ async function _resolveTable(
         console.warn(`KV read failed for table '${table}'; degrading to D1`, error)
     }
 
-    // Tier 3: D1 (authoritative source of truth) — a failure here is terminal
+    // Tier 3: D1 (authoritative source of truth) - a failure here is terminal
     const result = await exec_string(`SELECT * FROM ${table}`)
     const rows = result.results as Record<string, string | number | null>[]
     // repopulate both faster tiers best-effort so the next read does not have to reach D1
@@ -249,7 +249,7 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
     const identifier = stmt.identifier()
     if (identifier === null) {
         // SQLStatement.identifier() returns null if the verb is not "SELECT": these verbs mutate state, so
-        // they can only be served by the authoritative D1 tier. There is no fallback for a write — a usage
+        // they can only be served by the authoritative D1 tier. There is no fallback for a write - a usage
         // limit here propagates because the change genuinely cannot be persisted anywhere else.
         const output = await exec_stmt(stmt)
         // the write succeeded, so the now-stale caches are invalidated best-effort (a failed eviction must
@@ -316,7 +316,7 @@ async function _exec_wrap(stmt: SQLStatement, ctx: ExecutionContext): Promise<Ex
     // Last resort: pull the whole table from whatever tier is still available and execute the statement on
     // the virtual engine (VirtualSQLTable.execute supports ORDER BY and LIMIT, so the output is correct).
     // This is gated behind D1 exhaustion only because it reads the entire table rather than letting D1 do a
-    // targeted query. If no tier can supply the table either, _resolveTable throws and the request fails —
+    // targeted query. If no tier can supply the table either, _resolveTable throws and the request fails -
     // every option has then been exhausted.
     const { rows } = await _resolveTable(stmt.from!, true, ctx)
     const output = new VirtualSQLTable(stmt.schema, rows).execute(stmt)
@@ -742,7 +742,7 @@ function nameConflictKey(name: string, discriminator?: string): string {
  *
  * @param existing the existing records of this entity, or null when the table is empty
  * @param candidates the records about to be written; a `role` makes the conflict check (name, role)-scoped,
- *   matching idx_composers_name_role — omit it for name-only entities (contributors)
+ *   matching idx_composers_name_role - omit it for name-only entities (contributors)
  * @param label the entity noun used in the human-readable message (e.g. "composer", "contributor")
  * @returns per-candidate findings (by index) describing each within-request or existing-name collision
  */

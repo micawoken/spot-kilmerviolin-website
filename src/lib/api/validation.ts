@@ -27,7 +27,7 @@
 import { MAX_ALT_TEXT_LENGTH } from "../../consts"
 
 // Pragmatic email check: a single @ separating non-empty, space-free local and (dotted) domain parts.
-// This is deliberately lenient — it guards links/prefills against junk, not against every RFC edge case.
+// This is deliberately lenient - it guards links/prefills against junk, not against every RFC edge case.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
@@ -95,12 +95,12 @@ export function isDeathYearConsistent(birth_year: number, death_year: number): b
 }
 
 /**
- * Two notes separated by a dash, each a letter A–G with an optional accidental (# sharp or b flat) and
- * a 1–2 digit octave, e.g. "G3-A5" or "Bb3-C6". Letters may be entered in either case.
+ * Two notes separated by a dash, each a letter A-G with an optional accidental (# sharp or b flat) and
+ * a 1-2 digit octave, e.g. "G3-A5" or "Bb3-C6". Letters may be entered in either case.
  *
  * Note: the flat marker is the lowercase letter "b"; it is deliberately distinct from the note letter
  * "B", so "Bb" is B-flat. This is why normalization (see normalizePitchRange) uppercases only the note
- * letter and never the accidental — uppercasing the whole string would corrupt flats.
+ * letter and never the accidental - uppercasing the whole string would corrupt flats.
  */
 export const PITCH_RANGE_PATTERN = /^([A-Ga-g])([#b]?)(\d{1,2})-([A-Ga-g])([#b]?)(\d{1,2})$/
 
@@ -169,18 +169,18 @@ export function normalizePitchRange(value: string): string {
 }
 
 /**
- * Pattern matching a positive 1–2 digit integer, the alternative input form for a position
+ * Pattern matching a positive 1-2 digit integer, the alternative input form for a position
  */
 export const POSITION_INTEGER_PATTERN = /^[1-9][0-9]?$/
 
 /**
- * Pattern matching a Roman numeral representing 1–99, the canonical stored form for a position
+ * Pattern matching a Roman numeral representing 1-99, the canonical stored form for a position
  */
 const ROMAN_NUMERAL_PATTERN = /^(?=[IVXLC])(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/
 
 /**
  * Whether a string is a valid position: a Roman numeral (case-insensitive on input) or a
- * positive 1–2 digit integer
+ * positive 1-2 digit integer
  *
  * @param {string} value - the candidate position
  * @returns {boolean} - true if the trimmed value is a valid position
@@ -191,7 +191,7 @@ export function isValidPosition(value: string): boolean {
 }
 
 /**
- * Converts an integer in 1–99 to its Roman-numeral representation
+ * Converts an integer in 1-99 to its Roman-numeral representation
  *
  * @param {number} value - the integer to convert
  * @returns {string} - the Roman numeral
@@ -290,7 +290,7 @@ export function validateAltText(value: string): string | null {
 }
 
 /**
- * Whether a comma-separated input contains stray (empty) segments — a leading, trailing, or
+ * Whether a comma-separated input contains stray (empty) segments - a leading, trailing, or
  * doubled comma that yields a blank entry
  *
  * Used client-side to validate input responses (the server has separate logic that removes blank entries automatically)

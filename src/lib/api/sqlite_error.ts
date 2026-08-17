@@ -158,8 +158,8 @@ const sqlite_errors_extended: Record<string, SQLiteErrorMsg> = {
  */
 function processConstraintUnique(error_message: string): [boolean, number, string] {
     // the composite composition-identity index is an EXPRESSION index (composer_id, name, COALESCE(part,'')),
-    // so SQLite reports the violation by index name — "UNIQUE constraint failed: index
-    // 'idx_compositions_composer_name_part'" — rather than listing columns. Match that (and the older
+    // so SQLite reports the violation by index name - "UNIQUE constraint failed: index
+    // 'idx_compositions_composer_name_part'" - rather than listing columns. Match that (and the older
     // column-listing form of the pre-part index, in case it lingers) so the (composer, name, part) violation
     // gets a clear message rather than falling through to the generic default. Mirrors
     // _assertNoCompositionDuplicates.

@@ -7,7 +7,7 @@
  * Element ids follow the contributor-{key} convention used by populateInfo in scripts/interface.ts
  *
  * Protected properties are filtered by the API for non-self, non-escalated requests, which strips those
- * keys from the record entirely (redactProtected, lib/api/d1.ts) rather than nulling them — so the whole
+ * keys from the record entirely (redactProtected, lib/api/d1.ts) rather than nulling them - so the whole
  * authorization-fields section (#contributor-authinfo) is hidden, not left blank, when they are absent.
  * The client-side READ flow (scripts/interface.ts's toggleContributorAuthSection) mirrors this same
  * check after a live lookup, since populateInfo alone cannot re-hide a section a prior, authorized
@@ -72,7 +72,7 @@ const protected_label = protected_fields
     .join(", ")
 
 // redactProtected (lib/api/d1.ts) deletes every protected key from a record it redacts, rather than
-// nulling them out — so a protected key's presence is a reliable signal that the caller is authorized
+// nulling them out - so a protected key's presence is a reliable signal that the caller is authorized
 // to see it (checking one is enough: they are always redacted together). Absent entirely (no record
 // loaded yet) is treated the same as unauthorized, matching the container's own `hidden` state.
 const authorized = contributor !== null && "identity_email" in contributor

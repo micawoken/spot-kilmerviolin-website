@@ -90,9 +90,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Meta: none
  * Body: required; multipart/form-data with a "file" part, a required "alt" (alt text, 1-256 chars) part,
- *   and an optional "name" field. Unlike the JSON entity endpoints, files are binary, so this endpoint
- *   accepts a multipart upload rather than a single-item JSON array. The object key is derived from
- *   "name" (or the upload's filename).
+ *   and an optional "name" field
  *
  * @param context - the Astro API context
  * @returns the created file's metadata, or an error message

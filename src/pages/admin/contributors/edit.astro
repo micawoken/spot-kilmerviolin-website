@@ -51,8 +51,7 @@ const self_id = Astro.locals.identity?.id ?? null
 const auth_enabled = authEnabled(Astro.request)
 
 // A non-admin may only edit their own contributor record (the API PATCH allows self-edits and rejects
-// edits to other records), so SSR prefill via the id query param is limited to admins and to the caller
-// editing their own record. Auth-disabled local dev constructs no identity, so prefill is unrestricted there.
+// edits to other records), so SSR prefill via the id query param is limited to admins and to the self caller
 const id = Astro.url.searchParams.get("id")
 const is_self = id !== null && self_id !== null && self_id === Number(id)
 const may_prefill = is_admin || is_self || !auth_enabled
@@ -73,12 +72,9 @@ if (id && may_prefill) {
 }
 
 const hidden_form = use_id && contributor_data ? true : false
-// a non-admin supplied another contributor's id via the URL: they are not authorized to edit it, so the
-// prefill was skipped above. Surface the authorization failure explicitly rather than silently dropping
-// back to the ID entry form (which would look like the record simply wasn't found).
+// a non-admin supplied another contributor's id via the URL
 const unauthorized_prefill = Boolean(id) && auth_enabled && !is_admin && !is_self
-// an id was supplied and the caller was allowed to prefill it, but no record could be loaded (it does not
-// exist): a genuine not-found, distinct from the authorization case above
+// an id was supplied and the caller was allowed to prefill it, but no record could be loaded
 const prefill_failed = Boolean(id) && may_prefill && !use_id
 ---
 
@@ -158,11 +154,7 @@ const prefill_failed = Boolean(id) && may_prefill && !use_id
                             throw new Error("No record retrieved for the entered ID, cannot prefill edit form")
                         }
                         // client-side edit-permission gate: a non-admin may only load their own record into the
-                        // edit form. The server remains the authority (PATCH rejects a non-self, non-elevated
-                        // edit); this is an earlier, clearer block that also keeps another user's record from ever
-                        // being loaded into the form. The acting user's id and admin status are read from the
-                        // form's dataset (data-self-id / data-is-admin, set by ContributorForm.astro); a blank
-                        // self id means no identity was constructed (auth-disabled local dev), so the gate is skipped.
+                        // edit form
                         const contributor_form = document.getElementById("generic-form-contributors")
                         const acting_is_admin =
                             contributor_form instanceof HTMLElement && contributor_form.dataset.isAdmin === "true"

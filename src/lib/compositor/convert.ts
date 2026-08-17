@@ -32,12 +32,12 @@ import { RICH_TEXT_EXTENSIONS } from "./richtext-extensions"
 import type { DesignDoc, PuckData } from "./types"
 import { isPuckComponent, isRecord } from "./types"
 
-/** A link's explicit "Opens in" choice, href-keyed — see the module header for why href, not occurrence. */
+/** A link's explicit "Opens in" choice, href-keyed - see the module header for why href, not occurrence. */
 type LinkTargetMap = Map<string, "_self" | "_blank">
 
 /** Collects the explicit `target` already on each link markDef, keyed by href (first occurrence in
  *  document order wins). A markDef with no `target` (never authored, or "Automatic") contributes no
- *  entry — the mirror of {@link collectPmLinkTargets}. */
+ *  entry - the mirror of {@link collectPmLinkTargets}. */
 function collectPtLinkTargets(blocks: unknown): LinkTargetMap {
     const targets: LinkTargetMap = new Map()
     if (!Array.isArray(blocks)) return targets
@@ -72,7 +72,7 @@ function applyPmLinkTargets(nodes: unknown[], targets: LinkTargetMap): void {
 }
 
 /** Collects the live `target` attr of each link mark in a ProseMirror doc, keyed by href (first
- *  occurrence in document order wins) — the mirror of {@link collectPtLinkTargets}, read from the editor
+ *  occurrence in document order wins) - the mirror of {@link collectPtLinkTargets}, read from the editor
  *  state instead of stored markDefs. */
 function collectPmLinkTargets(nodes: unknown[], targets: LinkTargetMap = new Map()): LinkTargetMap {
     for (const node of nodes) {

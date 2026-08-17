@@ -1,15 +1,8 @@
 /**
  * lib/content/nav.ts
  *
- * Build-time accessors for the CMS-authored navigation menus. The public site is prerendered, so these
- * run during `astro build` and read EmDash's built-in menus over its HTTP API (see
- * src/lib/build/emdash-api.ts, fetchMenu), not the request-scoped `emdash` reader. Publishing a menu
- * change requires a site rebuild.
+ * Build-time accessors for the CMS-authored navigation menus
  *
- * The header and footer each render a flat list, so only a menu's top-level items are used (nested
- * children are ignored). Each EmDash menu item exposes `label` and `url`, mapped here to {label, href}.
- *
- * Consumed by components/PublicHeader.astro (primary) and components/PublicFooter.astro (footer).
  *
  * Copyright (C) 2026 Michael Wong.
  *

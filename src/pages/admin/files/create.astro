@@ -36,7 +36,7 @@ import { authEnabled } from "../../../lib/api/environment"
 export const prerender = false
 
 // In local dev the Cloudflare Images emulation cannot crop/resize (see optimizeImage), so the upload is
-// stored unchanged; warn the operator. Dev is the same localhost rule that disables auth.
+// stored unchanged; warn the operator
 const isDev = !authEnabled(Astro.request)
 
 // current usage seeds the live storage estimate (the client projects usage after the chosen file)
@@ -64,7 +64,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                 isDev && (
                     <p class="admin-dev-warning" role="status">
                         <strong>Local development:</strong> image cropping and optimization are{" "}
-                        <strong>skipped here</strong> — the local Cloudflare Images emulation cannot crop, so the file
+                        <strong>skipped here</strong> - the local Cloudflare Images emulation cannot crop, so the file
                         is stored unchanged. You can still frame the crop below; it is applied in production.
                     </p>
                 )
@@ -106,11 +106,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                                 required></textarea>
                         </div>
                     </fieldset>
-                    {
-                        /* live storage figure (mirrors /admin/files); updates with a projection once a file is chosen.
-                        used/max bytes are carried in data attributes for the client estimate (a define:vars script
-                        cannot also use module imports, so the values are read from the DOM instead). */
-                    }
+                    {/* live storage figure (mirrors /admin/files); updates with a projection once a file is chosen */}
                     <p id="file-storage-usage" class="general-infohelp" data-used={usage.used} data-max={usage.max}>
                         Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
                     </p>
@@ -154,9 +150,7 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                 ) {
                     const input = file_input
 
-                    // the ImageCrop component owns the crop UI and its too-small warning; it reports the current
-                    // selection here so we can forward it on submit. The image-only hard error stays the page's
-                    // concern (it also gates submit below).
+                    // the ImageCrop component owns the crop UI and its too-small warning
                     let crop: CropSelection | null = null
                     crop_elem?.addEventListener("imagecrop:change", (evt) => {
                         crop = (evt as CustomEvent<ImageCropChangeDetail>).detail.crop

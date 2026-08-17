@@ -26,17 +26,12 @@
 
 /**
  * Tests for the keyword search engine in src/lib/api/search.ts
- *
- * These cover the pure, per-table search functions (no I/O): keyword matching across the indexed
- * columns, the composition display format ("{composer}: {composition}"), composer-name search on
- * compositions, field boosting (name/composer/notes/tags outrank incidental columns), and that each
- * function stamps the correct `database` onto its hits.
  */
 
 import { describe, it, expect } from "vitest"
 import { MAX_QUERY_LENGTH, searchComposers, searchCompositions, searchContributors } from "../src/lib/api/search.ts"
 
-// minimal record factories — only the columns the search reads need to be present; the rest are
+// minimal record factories - only the columns the search reads need to be present; the rest are
 // filled loosely and cast, since the search functions never touch them
 function composer(id: number, fields: Partial<ComposerRecord>): ComposerRecord {
     return { id, name: "", role: "composer", birth_year: 1900, death_year: -1, country: "", bio: "", image: null, tags: [], entry_date: 0, change_date: 0, ...fields } as ComposerRecord
@@ -130,9 +125,7 @@ describe("searchCompositions", () => {
 
 /**
  * The per-isolate index cache (search.ts's indexCache). runSearch used to build a fresh MiniSearch index
- * on every call — O(rows x indexed fields) per request, three times over for an all-tables search, on an
- * endpoint any active contributor may hit. Caching it introduces the one failure mode a rebuild-always
- * design cannot have: serving results from a stale corpus. These pin that it does not.
+ * on every call
  */
 describe("index caching", () => {
     it("reflects an edit to an existing record (change_date moves the version)", () => {
@@ -181,7 +174,7 @@ describe("query length bounds", () => {
         expect(() => searchComposers(records, "ab")).toThrow(/at least 3/)
     })
 
-    it("rejects an unbounded query — SEARCH_RESULT_CAP bounds the response, not the work", () => {
+    it("rejects an unbounded query - SEARCH_RESULT_CAP bounds the response, not the work", () => {
         expect(() => searchComposers(records, "a".repeat(MAX_QUERY_LENGTH + 1))).toThrow(/at most/)
     })
 

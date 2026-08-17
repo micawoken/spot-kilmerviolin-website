@@ -25,13 +25,7 @@
 import { describe, it, expect } from "vitest"
 
 /**
- * Guards the admin CSP's script-src 'self' (middleware/headers.ts) against the one mistake that
- * silently defeats it: an Astro client directive on an admin page. Astro renders an island's bootstrap
- * as inline <script> tags with no nonce or hash, so the CSP blocks them and the island never hydrates —
- * a failure with no build error and no visible symptom beyond an empty page. This shipped once already
- * (the compositor's editors, which now mount from a module script instead).
- *
- * Vite resolves the glob at transform time, so this reads the pages without a filesystem at runtime.
+ * Guards the admin CSP's script-src 'self' (middleware/headers.ts) against an Astro client directive
  */
 const adminPages = import.meta.glob("../src/pages/admin/**/*.astro", {
     query: "?raw",
@@ -40,11 +34,7 @@ const adminPages = import.meta.glob("../src/pages/admin/**/*.astro", {
 }) as Record<string, string>
 
 /**
- * A client directive applied to a framework component. Anchored to the opening tag — rather than
- * matching the bare directive anywhere — so that prose mentioning `client:only` (as edit.astro's own
- * comment does) is not a finding. Astro only honors these on imported components, which are always
- * capitalized; a lowercase tag is emitted as a plain HTML element. `[^>]*?` cannot cross the `>` that
- * ends the tag, so a match is necessarily an attribute of that component.
+ * A client directive applied to a framework component
  */
 const CLIENT_DIRECTIVE = /<[A-Z][A-Za-z0-9_.]*\s[^>]*?(client:(?:load|idle|visible|media|only))/s
 
@@ -54,11 +44,11 @@ describe("admin pages under the CSP", () => {
     })
 
     // Keeps the check above from rotting into a vacuous pass: the pattern must still catch the directive
-    // as it was actually written when this shipped broken, and must still ignore a prose mention of it.
+    // as it was actually written when this shipped broken, and must still ignore a prose mention of it
     it("detects a client directive, and only in markup", () => {
         expect(CLIENT_DIRECTIVE.exec(`<DesignEditor id={id} client:only="react" />`)?.[1]).toBe("client:only")
         expect(CLIENT_DIRECTIVE.exec(`<ThemeEditor\n    client:load\n/>`)?.[1]).toBe("client:load")
-        expect(CLIENT_DIRECTIVE.exec(`// mounted here rather than with client:only — see headers.ts`)).toBeNull()
+        expect(CLIENT_DIRECTIVE.exec(`// mounted here rather than with client:only - see headers.ts`)).toBeNull()
     })
 
     it.each(Object.keys(adminPages))("%s uses no Astro client directive", (path) => {

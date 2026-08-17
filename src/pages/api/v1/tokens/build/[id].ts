@@ -1,7 +1,7 @@
 /**
  * /api/v1/tokens/build/[id]
  *
- * Revokes a specific build token.
+ * Revokes a specific build token
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -32,8 +32,7 @@ import { buildTokenExists, revokeBuildToken } from "../../../../../lib/api/token
 
 /**
  * DELETE /api/v1/tokens/build/[id]
- * Revokes a build token. Idempotent: an already-revoked token still returns 204. There is no owning
- * contributor to authorize against (unlike DELETE /api/v1/tokens/[id]), so this is admin-only outright.
+ * Revokes a build token
  *
  * Permissions required: *admin*
  *

@@ -39,7 +39,7 @@ function truncate(text: string, maxLength: number): string {
     return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`
 }
 
-/** Non-blank string field, or undefined — the shared "is this field usable" check every generator below needs. */
+/** Non-blank string field, or undefined - the shared "is this field usable" check every generator below needs. */
 function str(value: unknown): string | undefined {
     return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined
 }

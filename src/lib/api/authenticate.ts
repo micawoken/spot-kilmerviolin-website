@@ -41,7 +41,7 @@ type CredentialResult = ["cookie" | "Cf-Header" | "Auth-Header", string]
 // the credential source type is provided for convenience, but is not expected to be actually useful beyond logs
 
 // createRemoteJWKSet is meant to be created once and reused: it caches the fetched key set internally
-// (with a cooldown before refetching), so re-creating it on every call — as a request-scoped local would —
+// (with a cooldown before refetching), so re-creating it on every call - as a request-scoped local would -
 // defeats that cache and forces a network round-trip to Access's /cdn-cgi/access/certs endpoint on every
 // request. env.TEAM_DOMAIN cannot be read at module-evaluation time (no request context yet), so the
 // singleton is built lazily on first use and reused for the isolate's remaining lifetime.

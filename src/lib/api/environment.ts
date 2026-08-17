@@ -123,7 +123,7 @@ export function isActiveRequestDev(): boolean {
 export function dbWriteEnabled(request?: Request): boolean {
     const url = request?.url ?? activeRequestUrl
     // Without a request context (e.g. unit tests, or a write issued outside the request lifecycle)
-    // there is no hostname to identify staging, so writes default on — matching the previous
+    // there is no hostname to identify staging, so writes default on - matching the previous
     // DB_ENABLE_WRITE default. Staging is always reached through the middleware that records the
     // URL, so its writes remain gated.
     if (!url) {

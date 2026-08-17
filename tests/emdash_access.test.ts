@@ -23,9 +23,7 @@
 
 /**
  * Tests the cms_editor authorization rule that src/middleware/emdash_access.ts applies to /_emdash,
- * exercised the same way the app applies it: satisfiesAccess({ kind: "permission", permissions: ["cms_editor"] })
- * against an Identity built from permissionsFromRoles, so the mapping from role -> permission stays in
- * sync with src/lib/api/authorize.ts rather than being hand-duplicated here.
+ * exercised the same way the app applies it
  */
 
 import { describe, it, expect } from "vitest"
@@ -73,12 +71,7 @@ function buildIdentity(
 }
 
 /**
- * An identity holding design_editor but NOT cms_editor — the caller the /_emdash allowlist exists to bound.
- *
- * Its permissions are built directly rather than from a role because NO ROLE GRANTS THIS TODAY: `siteeditor`
- * carries both permissions, so every real caller currently takes the cms_editor branch and never reaches the
- * allowlist. The gate must nevertheless be correct BEFORE such a role exists — the day one is added, this is
- * what stands between that user and the CMS. Testing it only through today's roles would test nothing.
+ * An identity holding design_editor but NOT cms_editor
  */
 function designOnlyIdentity(): Identity {
     return buildIdentity(["siteeditor"], false, true, {
@@ -135,14 +128,9 @@ describe("/_emdash cms_editor gate (satisfiesAccess against EMDASH_ACCESS)", () 
 })
 
 /**
- * The design_editor branch of the /_emdash gate (middleware/emdash_access.ts + lib/api/emdash_design_access.ts).
- *
- * A design_editor is NOT a CMS editor. They may reach exactly the paths the design system calls and nothing
- * else — the permission alone opens no door. The DENY cases below are the point of the whole gate: each one
- * is a way a design editor could otherwise reach content they have no business writing, and EmDash itself
- * would allow every one of them (their EmDash role is Editor, which the field pickers' `schema:read` needs).
+ * The design_editor branch of the /_emdash gate (middleware/emdash_access.ts + lib/api/emdash_design_access.ts)
  */
-describe("/_emdash design_editor allowlist — what the design system needs", () => {
+describe("/_emdash design_editor allowlist - what the design system needs", () => {
     it("admits its own collections, including create, autosave and publish", () => {
         expect(designEditorMayReach("GET", "/_emdash/api/content/design_template")).toBe(true)
         expect(designEditorMayReach("POST", "/_emdash/api/content/design_template")).toBe(true)
@@ -164,7 +152,7 @@ describe("/_emdash design_editor allowlist — what the design system needs", ()
     })
 })
 
-describe("/_emdash design_editor allowlist — what it must REFUSE", () => {
+describe("/_emdash design_editor allowlist - what it must REFUSE", () => {
     it("refuses the EmDash admin UI: a design editor is not a CMS editor", () => {
         expect(designEditorMayReach("GET", "/_emdash")).toBe(false)
         expect(designEditorMayReach("GET", "/_emdash/admin")).toBe(false)
@@ -183,7 +171,7 @@ describe("/_emdash design_editor allowlist — what it must REFUSE", () => {
     it("refuses the static sub-routes that sit beside an entry id", () => {
         // /authors carries author emails and reveals the authors of unpublished entries; /trash carries
         // deleted content. Both are 4-segment GETs under a template collection, which is why the rule
-        // matches an id SHAPE rather than a segment count.
+        // matches an id SHAPE rather than a segment count
         expect(designEditorMayReach("GET", "/_emdash/api/content/pages/authors")).toBe(false)
         expect(designEditorMayReach("GET", "/_emdash/api/content/pages/trash")).toBe(false)
         expect(designEditorMayReach("GET", "/_emdash/api/content/posts/authors")).toBe(false)
@@ -197,18 +185,18 @@ describe("/_emdash design_editor allowlist — what it must REFUSE", () => {
         expect(designEditorMayReach("GET", "/_emdash/api/content/settings")).toBe(false)
     })
 
-    it("refuses schema WRITES — the field pickers only ever read", () => {
+    it("refuses schema WRITES - the field pickers only ever read", () => {
         expect(designEditorMayReach("POST", "/_emdash/api/schema/collections/pages/fields")).toBe(false)
         expect(designEditorMayReach("DELETE", "/_emdash/api/schema/collections/pages/fields")).toBe(false)
         expect(designEditorMayReach("POST", "/_emdash/api/schema/collections")).toBe(false)
     })
 
-    it("refuses media uploads — the picker only lists what a CMS editor already uploaded", () => {
+    it("refuses media uploads - the picker only lists what a CMS editor already uploaded", () => {
         expect(designEditorMayReach("POST", "/_emdash/api/media")).toBe(false)
         expect(designEditorMayReach("DELETE", "/_emdash/api/media/med-1")).toBe(false)
     })
 
-    it("refuses the rest of the CMS — settings, menus, users", () => {
+    it("refuses the rest of the CMS - settings, menus, users", () => {
         expect(designEditorMayReach("GET", "/_emdash/api/settings")).toBe(false)
         expect(designEditorMayReach("PUT", "/_emdash/api/settings")).toBe(false)
         expect(designEditorMayReach("GET", "/_emdash/api/menus/primary")).toBe(false)
@@ -228,7 +216,7 @@ describe("/_emdash design_editor allowlist — what it must REFUSE", () => {
 
 /**
  * The role -> permission mapping the gate rests on. siteeditor holds BOTH permissions, so a siteeditor keeps
- * full CMS access exactly as before this split; design_editor is additive, never a downgrade.
+ * full CMS access exactly as before this split; design_editor is additive, never a downgrade
  */
 describe("design_editor role grants", () => {
     it("grants a siteeditor both design_editor and cms_editor (no loss of access)", () => {
@@ -253,8 +241,7 @@ describe("design_editor role grants", () => {
 
 /**
  * Claim classification behind the /_emdash service-credential delegation (identity.ts): a verified Access
- * JWT is delegated to EmDash's own auth only when its claims identify a service principal — a service
- * token's common_name with no email. Anything email-bearing or ambiguous must take the user-identity flow.
+ * JWT is delegated to EmDash's own auth only when its claims identify a service principal
  */
 describe("isServicePrincipalClaims (/_emdash service-credential delegation)", () => {
     it("accepts service-token claims (common_name, no email)", () => {
@@ -279,7 +266,7 @@ describe("isServicePrincipalClaims (/_emdash service-credential delegation)", ()
 /**
  * The credential-SHAPE half of the /_emdash service delegation (identity.ts). retrieveCredential labels
  * ANY `Authorization: Bearer <anything>` as "Auth-Header", so delegating on that label alone let an
- * unauthenticated caller past the gate. This is the cheap early-out; isEmdashServiceRequest is the bound.
+ * unauthenticated caller past the gate
  */
 describe("isEmdashApiToken (/_emdash Bearer shape)", () => {
     it("accepts EmDash personal and OAuth access tokens", () => {
@@ -298,11 +285,9 @@ describe("isEmdashApiToken (/_emdash Bearer shape)", () => {
 })
 
 /**
- * The PATH half of the delegation (lib/api/emdash_service_access.ts). The bypass mattered because EmDash
- * evaluates isPublicEmDashRoute BEFORE its bearer check, so its anonymous routes never reach a token
- * check at all. This allowlist is what keeps them unreachable — the DENY block is the whole point.
+ * The PATH half of the delegation (lib/api/emdash_service_access.ts)
  */
-describe("/_emdash service allowlist — what the build and setup tooling call", () => {
+describe("/_emdash service allowlist - what the build and setup tooling call", () => {
     it("admits the build's chrome and content reads", () => {
         expect(serviceMayReach("GET", "/_emdash/api/settings")).toBe(true)
         expect(serviceMayReach("GET", "/_emdash/api/menus/primary")).toBe(true)
@@ -323,7 +308,7 @@ describe("/_emdash service allowlist — what the build and setup tooling call",
     })
 })
 
-describe("/_emdash service allowlist — what it must REFUSE", () => {
+describe("/_emdash service allowlist - what it must REFUSE", () => {
     it("refuses EmDash's anonymous-by-design routes, which its own bearer check never sees", () => {
         expect(serviceMayReach("GET", "/_emdash/api/auth/mode")).toBe(false)
         expect(serviceMayReach("GET", "/_emdash/api/setup/status")).toBe(false)

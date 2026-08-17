@@ -222,10 +222,10 @@ function validateCompRatingDetail(record: unknown, partial: boolean): string | n
     }
     const r = record as { [key: string]: any }
     if ("suzuki" in r && !validateRatingMember(r.suzuki, 1, 10)) {
-        return "Record has invalid value for rating_suzuki (expected an integer 1–10, or null)"
+        return "Record has invalid value for rating_suzuki (expected an integer 1-10, or null)"
     }
     if ("nyssma" in r && !validateRatingMember(r.nyssma, 1, 6)) {
-        return "Record has invalid value for rating_nyssma (expected an integer 1–6, or null)"
+        return "Record has invalid value for rating_nyssma (expected an integer 1-6, or null)"
     }
     return "Record has invalid value for rating"
 }

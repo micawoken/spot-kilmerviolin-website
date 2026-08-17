@@ -1,15 +1,8 @@
 /**
  * lib/content/site.ts
  *
- * Build-time accessor for the site-wide title/description authored in the CMS. The public site is
- * prerendered, so this runs during `astro build` and reads EmDash's built-in General Settings over its
- * HTTP API (see src/lib/build/emdash-api.ts), not the request-scoped `emdash` reader (which needs a bound
- * D1 unavailable at build). EmDash exposes `title` and `tagline` (there is no separate site description
- * field), so the meta description maps to `tagline`. Publishing a settings change requires a site rebuild.
+ * Build-time accessor for the site-wide title/description authored in the CMS
  *
- * The values in src/consts.ts remain the fallback defaults: a blank CMS field — or an unavailable read —
- * falls back to the hardcoded constant rather than rendering an empty title/description. consts.ts is
- * still the source of truth for the admin UI and anywhere a synchronous import is needed.
  *
  * Copyright (C) 2026 Michael Wong.
  *

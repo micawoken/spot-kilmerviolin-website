@@ -2,23 +2,7 @@
  * tools/gate/serve-fixture.mjs
  *
  * Serves a frozen set of EmDash responses over HTTP so `astro build` can run against a deterministic
- * CMS instead of a live one. A shell `CONTENT_API_BASE` overrides `.env`, so pointing the build at this
- * server is enough to isolate it from prod.
- *
- * Two reasons this exists rather than building against the real API:
- *  - Determinism. A phase gate that compares two builds is only meaningful if the content underneath
- *    them cannot move between the runs.
- *  - Reachability. The CMS host publishes AAAA records, and workerd (which executes the prerender step)
- *    does not fall back to IPv4 — so on a machine with no IPv6 route every CMS read stalls until the
- *    75s abort. A loopback fixture never resolves an AAAA record.
- *
- * A path the build requests that is NOT in the fixture is recorded as UNRECORDED and answered with a
- * 404. That guard is load-bearing: the build's readers fail soft on some 404s, so an unrecorded path
- * would silently drop content out of `dist/` and a gate comparing that `dist/` would happily pass. The
- * caller MUST treat a non-empty unrecorded set as a gate failure.
- *
- * As a module:  const server = await startFixtureServer(fixture); … server.unrecorded; await server.close()
- * As a CLI:     node tools/gate/serve-fixture.mjs <name|file> [port]   (port 0 = ephemeral)
+ * CMS instead of a live one
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -68,10 +52,7 @@ export async function startFixtureServer(fixture, port = 0) {
         response.end(recorded.body)
     })
 
-    // Node closes an idle keep-alive connection after 5s by default. workerd pools connections across a
-    // build, so that close can land exactly as it reuses one — which it reports as an opaque "internal
-    // error" on EVERY read, and the build then dies with a CmsReadError that looks nothing like the
-    // failure under test. Outlast any plausible build instead; nothing here is long-lived enough to care.
+    // Node closes an idle keep-alive connection after 5s by default
     server.keepAliveTimeout = 120_000
     server.headersTimeout = 125_000
 
@@ -90,7 +71,7 @@ export async function startFixtureServer(fixture, port = 0) {
 }
 
 // CLI mode: run it in one terminal, then build against it in another (e.g. to run `npm run check`
-// against a fixture, which the gate runner does not do for you).
+// against a fixture, which the gate runner does not do for you)
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const name = process.argv[2]
     if (!name) {
@@ -100,7 +81,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const { FIXTURES } = await import("./fixtures.mjs")
     const fixture = FIXTURES[name]
     if (!fixture) {
-        console.error(`unknown fixture "${name}" — expected one of ${Object.keys(FIXTURES).join(", ")}`)
+        console.error(`unknown fixture "${name}" - expected one of ${Object.keys(FIXTURES).join(", ")}`)
         process.exit(1)
     }
     const server = await startFixtureServer(fixture, Number(process.argv[3] ?? 0))

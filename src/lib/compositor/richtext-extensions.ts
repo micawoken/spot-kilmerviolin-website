@@ -50,7 +50,7 @@ export const COMPOSITOR_LINK = Link.extend({
     }
 })
 
-/** Matches Puck's `PuckRichText` default extension set, at its default options — except `Link`, which is
+/** Matches Puck's `PuckRichText` default extension set, at its default options - except `Link`, which is
  *  {@link COMPOSITOR_LINK} (see its doc for why). */
 export const RICH_TEXT_EXTENSIONS: Extensions = [
     Document,

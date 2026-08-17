@@ -1,20 +1,7 @@
 /**
  * scripts/import_build.ts
  *
- * The DOM-free core of the admin CSV import: it maps CSV cells to API record objects, resolves composer and
- * contributor NAME references to ids (with fuzzy "did you mean…?" suggestions), maps the free-text
- * "contribution period" to phase numbers, sanitizes/interprets messy spreadsheet text (see the per-field
- * comments in buildComposition), and reports the client-side issues/warnings that block or flag a row. The
- * DOM wiring (file picking, the editable preview grid, the server dry-run/commit) lives in import.ts and
- * calls into this module, so this logic can be unit-tested without a browser.
- *
- * Sanitization split: the general hygiene rules (trim/control-character cleanup, tag hygiene, enum-case
- * unification, image URL validation, ISBN-13 preference) mirror lib/api/d1.ts's server-side enforcement, so
- * this is a client-side preview of the same rules, not their only enforcement. The messier interpretive
- * rules specific to importing free-text spreadsheet cells (rating/publish_year digit extraction, uri_type
- * inference, the key/range/position_highest auto-correction, the secondary-author "Name (Role)" matcher)
- * are import-only: they exist to cure CSV text a purpose-built form field would never contain, and surface
- * a non-blocking `warnings` entry wherever they interpreted something ambiguous.
+ * The DOM-free core of the admin CSV import
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -77,11 +64,7 @@ export interface NamedRecord {
 }
 
 /**
- * A client-side blocking issue or non-blocking warning: a human-readable message plus, when it concerns
- * exactly one grid column, that column's name. `column` lets import.ts highlight the right input directly
- * instead of guessing from the message text (its columnsFromIssue heuristic, still used for server dry-run
- * issues, which arrive as plain strings) — guessing is what let an unresolved author_secondary name wrongly
- * light up the composer column, since resolveReference's generic label there is also "composer".
+ * A client-side blocking issue or non-blocking warning
  */
 export interface BuildIssue {
     message: string
@@ -90,9 +73,7 @@ export interface BuildIssue {
 
 /**
  * The outcome of building one record from its cells: the API object, any client-side blocking issues, and
- * any non-blocking warnings. A warning (e.g. "uri_type was inferred", "used the first of several keys
- * given") means the row was interpreted rather than rejected — it does not gate validate/commit the way an
- * issue does, but is worth the admin's attention.
+ * any non-blocking warnings
  */
 export interface BuildResult {
     record: Record<string, unknown>
@@ -101,15 +82,11 @@ export interface BuildResult {
 }
 
 /**
- * Resolution context for composition imports: the name->>record maps and candidate name lists used to resolve
- * references and suggest corrections, plus the set of composer+name keys already present in the database and
- * the admin-supplied period->>phase mapping.
+ * Resolution context for composition imports
  */
 export interface WorksContext {
     composerByName: Map<string, NamedRecord>
-    /** (name, role) ->> composer record, used only for secondary authors (see resolveSecondaryAuthor) —
-     *  composers are unique on (name, role) (idx_composers_name_role), so a name-only lookup can resolve to
-     *  the wrong role variant when the same person appears under more than one role. */
+    /** (name, role) -> composer record, used only for secondary authors */
     composerByNameRole: Map<string, NamedRecord>
     contributorByName: Map<string, NamedRecord>
     composerNames: string[]
@@ -119,7 +96,7 @@ export interface WorksContext {
     phaseMap: Map<string, string>
 }
 
-/** The per-type column set and whether extra columns are tolerated (contributors ignore extras). */
+/** The per-type column set and whether extra columns are tolerated (contributors ignore extras) */
 export function columnSpec(type: ImportType): { columns: string[]; allowExtra: boolean } {
     switch (type) {
         case "composers":
@@ -136,25 +113,16 @@ export function normalizeName(name: string): string {
     return name.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
-/** Spellings donated CSV data commonly uses for "the composer is not known" — collapsed to the
- *  "Unknown" sentinel below. Distinct from {@link TRADITIONAL_COMPOSER_ALIASES}: this means "we don't
- *  know who wrote it", not "there was no individual composer". Matched against normalizeName's output
- *  with one trailing "." stripped, so "Unknown", "UNKNOWN COMPOSER", "unk.", and "N/A" all collapse the
- *  same way. */
+/**
+ * Spellings donated CSV data commonly uses for "the composer is not known"
+ */
 const UNKNOWN_COMPOSER_ALIASES = new Set(["unknown", "unknown composer", "unk", "n/a", "na"])
 
-/** Spellings for a work with no individual composer (the folk/anonymous-authorship case) — collapsed to
- *  the "Traditional" sentinel below. See {@link UNKNOWN_COMPOSER_ALIASES} for the contrast. */
+/** Spellings for a work with no individual composer (the folk/anonymous-authorship case) */
 const TRADITIONAL_COMPOSER_ALIASES = new Set(["traditional", "trad"])
 
 /**
- * Collapses a composer-name cell to one of two canonical sentinel names — "Unknown" or "Traditional" —
- * when it's a recognized variant meaning "not a known individual composer" (see the two alias sets
- * above). Applied before {@link resolveReference} so every recognized variant resolves against the SAME
- * composer record instead of the resolver treating "Unknown", "unk.", and "N/A" as three different,
- * unresolvable names (or, once created, three near-duplicate composer rows). Returns `raw` unchanged for
- * every other name — a composer actually named e.g. "Unknown" would need to collide with this list to be
- * affected, which is not a realistic concern for a person/ensemble name.
+ * Collapses a composer-name cell to one of two canonical sentinel names - unknown and traditional
  */
 export function sentinelComposerName(raw: string): string {
     const key = normalizeName(raw).replace(/\.+$/, "")
@@ -164,15 +132,13 @@ export function sentinelComposerName(raw: string): string {
 }
 
 /**
- * Composite dedup key for a composition: composer id + case-insensitively-normalized name + part. A null or
- * blank part is treated as an empty part so two part-less works still collide (mirrors the server's
- * compositionDuplicateKey and the COALESCE(part,'') UNIQUE index).
+ * Composite dedup key for a composition: composer id + case-insensitively-normalized name + part
  */
 export function compositionKey(composerId: number, name: string, part: string | null): string {
     return `${composerId} ${normalizeName(name)} ${normalizeName(part ?? "")}`
 }
 
-/** Parses an optional integer cell: blank ->> null; otherwise the parsed value, or null when unparseable. */
+/** Parses an optional integer cell: blank -> null; otherwise the parsed value, or null when unparseable. */
 function numberOrNull(raw: string): number | null {
     const trimmed = raw.trim()
     if (trimmed === "") {
@@ -182,7 +148,7 @@ function numberOrNull(raw: string): number | null {
     return isNaN(value) ? null : value
 }
 
-/** Parses an optional string cell: blank (after control-character/whitespace cleanup) ->> null; otherwise the
+/** Parses an optional string cell: blank (after control-character/whitespace cleanup) -> null; otherwise the
  *  cleaned value. */
 function stringOrNull(raw: string): string | null {
     const cleaned = cleanText(raw)
@@ -198,9 +164,7 @@ function splitList(raw: string): string[] {
 }
 
 /**
- * Extracts a rating/publish_year cell's leading digits, tolerating stray prose around the number (e.g.
- * "Level 5 stars" -> "5", "c. 1923" -> "1923", "(1923?)" -> "1923"); blank stays blank. Import-only: a
- * purpose-built number input would never contain this kind of text.
+ * Extracts a rating/publish_year cell's leading digits, tolerating stray prose around the number
  */
 function digitsOrRaw(raw: string): string | null {
     const cleaned = cleanText(raw)
@@ -211,7 +175,7 @@ function digitsOrRaw(raw: string): string | null {
     return extracted === null ? cleaned : extracted.toString()
 }
 
-/** Parses a phase-map input (comma/semicolon separated) into a sorted, de-duplicated list of phase numbers. */
+/** Parses a phase-map input (comma/semicolon separated) into a sorted, de-duplicated list of phase numbers */
 export function parsePhases(raw: string): number[] {
     const seen = new Set<number>()
     for (const token of raw.split(/[,;]/)) {
@@ -223,7 +187,7 @@ export function parsePhases(raw: string): number[] {
     return Array.from(seen).sort((a, b) => a - b)
 }
 
-/** Builds a name->>record map plus the candidate-name list for a set of known records. */
+/** Builds a name->record map plus the candidate-name list for a set of known records */
 export function indexByName(records: NamedRecord[]): { byName: Map<string, NamedRecord>; names: string[] } {
     const byName = new Map<string, NamedRecord>()
     const names: string[] = []
@@ -239,10 +203,7 @@ export function indexByName(records: NamedRecord[]): { byName: Map<string, Named
 }
 
 /**
- * Builds a (normalized name, normalized role) ->> record map for composer secondary-author resolution.
- * Composers are unique on (name, role) (idx_composers_name_role), so — unlike the primary `composer`
- * field's plain indexByName lookup — this lets the same name resolve to a different id depending on the
- * role a secondary-author entry names (or defaults to; see resolveSecondaryAuthor).
+ * Builds a (normalized name, normalized role) -> record map for composer secondary-author resolution
  */
 export function indexByNameRole(records: Array<NamedRecord & { role: string }>): Map<string, NamedRecord> {
     const byNameRole = new Map<string, NamedRecord>()
@@ -258,13 +219,10 @@ export function indexByNameRole(records: Array<NamedRecord & { role: string }>):
 /**
  * Resolves a single (required or optional) name reference to an id.
  *
- * @param label the human noun used in the message (e.g. "composer", "contributor") — may legitimately
- *   collide with a different field's own column name (author_secondary resolves against composer names),
- *   so it is never used for column highlighting; `column` carries that instead.
- * @param column the exact grid column this reference came from, tagged onto the issue so import.ts can
- *   highlight it directly
+ * @param label the human noun used in the message (e.g. "composer", "contributor")
+ * @param column the exact grid column this reference came from
  * @returns the resolved id (or null when blank/unresolved) and, when unresolved, a human-readable issue that
- *   includes a "did you mean…?" suggestion where a close match exists
+ *   includes a suggestion
  */
 function resolveReference(
     raw: string,
@@ -282,15 +240,12 @@ function resolveReference(
         return { id: match.id, issue: null }
     }
     const suggestion = nearestName(trimmed, candidates)
-    const hint = suggestion !== null ? ` — did you mean "${suggestion}"?` : ""
+    const hint = suggestion !== null ? ` - did you mean "${suggestion}"?` : ""
     return { id: null, issue: { message: `unknown ${label} "${trimmed}"${hint}`, column } }
 }
 
 /**
- * Parses a secondary-author entry's optional "(Role)" suffix — e.g. "J.S. Bach (arranger)" — defaulting to
- * "arranger" when no role is given (owner decision: an unannotated secondary-author credit is almost always
- * an arrangement). The role's casing is unified against AuthorRole when it matches one of the six canonical
- * values, mirroring the general enum-case-unification rule.
+ * Parses a secondary-author entry's optional "(Role)" suffix
  */
 function parseSecondaryAuthorEntry(raw: string): { name: string; role: string } {
     const cleaned = cleanText(raw)
@@ -306,10 +261,7 @@ function parseSecondaryAuthorEntry(raw: string): { name: string; role: string } 
 }
 
 /**
- * Resolves a composition's secondary-author entry ("Name" or "Name (Role)") to a composer id via the
- * (name, role) index (see {@link parseSecondaryAuthorEntry} and `WorksContext.composerByNameRole`) — unlike
- * {@link resolveReference}, which the primary `composer` field still uses and which cannot disambiguate two
- * composers who share a name under different roles.
+ * Resolves a composition's secondary-author entry ("Name" or "Name (Role)") to a composer id
  */
 function resolveSecondaryAuthor(
     raw: string,
@@ -328,11 +280,11 @@ function resolveSecondaryAuthor(
         return { id: match.id, issue: null }
     }
     const suggestion = nearestName(name, ctx.composerNames)
-    const hint = suggestion !== null ? ` — did you mean "${suggestion}"?` : ""
+    const hint = suggestion !== null ? ` - did you mean "${suggestion}"?` : ""
     return { id: null, issue: { message: `unknown composer "${name}" with role "${role}"${hint}`, column } }
 }
 
-/** Builds a composer record from its CSV cells (blank optional fields ->> null; tags split on ";"). */
+/** Builds a composer record from its CSV cells (blank optional fields -> null; tags split on ";"). */
 export function buildComposer(cells: Record<string, string>): BuildResult {
     const issues: BuildIssue[] = []
     const name = normalizeUnicodeForm(cleanText(cells.name))
@@ -340,7 +292,7 @@ export function buildComposer(cells: Record<string, string>): BuildResult {
         issues.push({ message: "name is required", column: "name" })
     }
 
-    // role is a NOT NULL column, but (unlike name) that was never enforced client-side — blank slipped
+    // role is a NOT NULL column, but (unlike name) that was never enforced client-side - blank slipped
     // through to a generic server dry-run failure instead of a clear preview issue
     const roleRaw = cleanText(cells.role)
     if (roleRaw === "") {
@@ -375,8 +327,7 @@ export function buildComposer(cells: Record<string, string>): BuildResult {
 }
 
 /**
- * Builds a name-only "inactive placeholder" contributor from its CSV cells. Extra columns are ignored; the
- * blank identity_email is filled with a generated fallback address server-side. No permissions are conferred.
+ * Builds a name-only "inactive placeholder" contributor from its CSV cells
  */
 export function buildContributor(cells: Record<string, string>): BuildResult {
     const issues: BuildIssue[] = []
@@ -406,9 +357,7 @@ export function buildContributor(cells: Record<string, string>): BuildResult {
 
 /**
  * Builds a composition record from its CSV cells, resolving composer/contributor names to ids and mapping
- * the free-text contribution period to phase numbers. Unresolved names and unmapped non-blank periods are
- * reported as issues (with typo suggestions); the resulting record's unresolved id fields are left null so
- * the authoritative server dry-run reports any remaining problems.
+ * the free-text contribution period to phase numbers
  */
 export function buildComposition(cells: Record<string, string>, ctx: WorksContext): BuildResult {
     const issues: BuildIssue[] = []
@@ -464,7 +413,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
             issues.push(resolved.issue)
         }
     }
-    // secondary authors resolve on (name, role), not name alone — see resolveSecondaryAuthor
+    // secondary authors resolve on (name, role), not name alone - see resolveSecondaryAuthor
     const secondary = splitList(cells.author_secondary).map((entry) =>
         resolveSecondaryAuthor(entry, ctx, "author_secondary")
     )
@@ -474,7 +423,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
 
-    // free-text contribution period ->> phase numbers (blank period->-> no phases, no mapping required)
+    // free-text contribution period -> phase numbers (blank period-> no phases, no mapping required)
     const periodRaw = cleanText(cells.contribution_period)
     let phases: number[] = []
     if (periodRaw !== "") {
@@ -550,7 +499,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
 
     // a rating member that is non-blank but out of range is silently nulled by constructRating (indistinguishable
     // from "not rated"), so check for that separately and block the row instead of dropping the data. Each raw
-    // cell is first reduced to its leading digits, tolerating prose like "Level 5 stars".
+    // cell is first reduced to its leading digits, tolerating prose like "Level 5 stars"
     const suzuki = digitsOrRaw(cells.rating_suzuki)
     const nyssma = digitsOrRaw(cells.rating_nyssma)
     issues.push(...ratingIssues(suzuki, nyssma).map((message) => ({ message })))
@@ -613,7 +562,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
 
 /**
  * Builds one row's record for the given import type. For compositions, `ctx` must be supplied (it carries the
- * name resolution maps and the period->>phase mapping).
+ * name resolution maps and the period->phase mapping).
  */
 export function buildRecord(type: ImportType, cells: Record<string, string>, ctx: WorksContext | null): BuildResult {
     switch (type) {
@@ -631,7 +580,7 @@ export function buildRecord(type: ImportType, cells: Record<string, string>, ctx
 
 /**
  * Flags duplicate compositions (same composer + case-insensitive name) both within the built set and against
- * the database, appending an issue to each affected result in place. Only applies to composition imports.
+ * the database, appending an issue to each affected result in place
  *
  * @param results the per-row build results (their records must carry composer_id and name)
  * @param existingKeys the set of composer+name keys already present in the database
@@ -673,8 +622,6 @@ export function flagCompositionDuplicates(results: BuildResult[], existingKeys: 
 
 /**
  * Builds a row's dedup key: its normalized name alone, or name+role when the record carries a `role`
- * (composers only — mirrors idx_composers_name_role, UNIQUE on (name, role), not name alone). Contributor
- * records have no `role` field, so they fall back to the name-only key (contributors.name is UNIQUE alone).
  */
 function nameDuplicateKey(record: Record<string, unknown>): string | null {
     const name = record.name
@@ -685,10 +632,7 @@ function nameDuplicateKey(record: Record<string, unknown>): string | null {
 
 /**
  * Flags composer/contributor rows whose (name[, role]) collides with an existing record or repeats another
- * row within the file, appending an issue to each affected result in place. contributors.name is UNIQUE
- * server-side; composers has idx_composers_name_role, UNIQUE on (name, role) — a collision on either would
- * abort the atomic import, so flagging it in the preview lets the file be cured before submitting. Mirrors
- * the server's findNameConflicts.
+ * row within the file, appending an issue to each affected result in place
  *
  * @param results the per-row build results (their records must carry a name, and a role for composers)
  * @param existingKeys the {@link nameDuplicateKey}-shaped keys already present in the database for this entity

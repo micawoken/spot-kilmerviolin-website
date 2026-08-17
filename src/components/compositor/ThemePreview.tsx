@@ -40,26 +40,26 @@ import {
 import { tokenVar } from "../../lib/compositor/tokens"
 
 /**
- * One editable token row — same generic (kind -> bag of string fields) shape `ThemeEditor.tsx` edits
+ * One editable token row - same generic (kind -> bag of string fields) shape `ThemeEditor.tsx` edits
  * every kind in. Every field read defensively (`row.x ?? ""`), matching that file's `toEditable`/
  * `toCatalog`, instead of a per-kind interface.
  */
 type Row = Record<string, string>
 
-/** A short, realistic sample line — not lorem ipsum — so a specimen reads like real site copy. */
+/** A short, realistic sample line - not lorem ipsum - so a specimen reads like real site copy. */
 const SAMPLE_LINE = "All human beings are born free and equal in dignity and rights."
 
 /**
  * Colors, in context: each swatch is the color as a background with sample text laid over it. Typography
- * tokens carry no color (`tokens.ts`'s `TypographyToken` has no color field) — no real background->text
+ * tokens carry no color (`tokens.ts`'s `TypographyToken` has no color field) - no real background->text
  * binding to reproduce, so swatch text is set to whichever of black/white gives better WCAG contrast
- * against the swatch's own resolved value (`bestTextColorFor`, `theme-controls.ts`) — locked to the
+ * against the swatch's own resolved value (`bestTextColorFor`, `theme-controls.ts`) - locked to the
  * selected light/dark side, flipping away from that side's usual convention only when the author's color
  * demands it (e.g. an unusually light color on the dark channel). A color this module can't parse (named
  * color, `var()`, `oklch()`, …) falls back to the ambient inherited page text color rather than guessing.
  *
  * A color stored as `light-dark(L, D)` (adaptive scheme) resolves against the `color-scheme` CSS
- * property of the element or ancestor, not the OS/browser preference once an element declares its own —
+ * property of the element or ancestor, not the OS/browser preference once an element declares its own -
  * so the Light/Dark toggle is pure CSS: flip local state, set `style={{ colorScheme: mode }}` on the
  * wrapping div. Only shown for `colorScheme === "adaptive"`; in `"fixed"` mode there's no dark variant to
  * reveal, stored value used as-is.
@@ -94,7 +94,7 @@ export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorSc
             <div className="theme-preview__grid">
                 {rows.map((color) => {
                     // Resolve to the side being previewed (light-dark() pair split by mode, else value
-                    // as-is) — contrast judged against what this swatch shows, not the pair's other side.
+                    // as-is) - contrast judged against what this swatch shows, not the pair's other side.
                     const pair = showToggle ? parseLightDark(color.value) : null
                     const resolved = pair ? (mode === "light" ? pair.light : pair.dark) : color.value
                     const textColor = bestTextColorFor(resolved)
@@ -120,7 +120,7 @@ export function ColorReference({ colors, colorScheme }: { colors: Row[]; colorSc
 }
 
 /**
- * Site Chrome color roles this check measures, by name (each a `colors` token name, or `""` if unset) —
+ * Site Chrome color roles this check measures, by name (each a `colors` token name, or `""` if unset) -
  * narrow slice of `ThemeEditor.tsx`'s `SiteChromeRow`, kept local so this module doesn't import that
  * editor-only type.
  */
@@ -137,7 +137,7 @@ export interface ChromeColorRoles {
  * Foreground/background role pairings the public site frame actually renders together
  * (`styles/public-chrome.css`), checked by `SiteChromeContrastCheck`: body/link/link-hover text against
  * page background (`html body`, `main a`, `main a:hover`), muted nav/footer text against each of its two
- * backgrounds. Real rendered pairings only, not every combination — e.g. not muted-text-on-page-
+ * backgrounds. Real rendered pairings only, not every combination - e.g. not muted-text-on-page-
  * background's hover state, which repaints as body text (already covered above), not a new color.
  */
 const CONTRAST_TARGETS: ReadonlyArray<{ id: string; label: string; fg: keyof ChromeColorRoles; bg: keyof ChromeColorRoles }> = [
@@ -149,19 +149,19 @@ const CONTRAST_TARGETS: ReadonlyArray<{ id: string; label: string; fg: keyof Chr
 ]
 
 /** One color role resolved to what it renders: raw CSS string (post light/dark split, for the swatch's
- *  inline style) plus parsed RGB (for contrast math) — either may be null independently, since a browser
+ *  inline style) plus parsed RGB (for contrast math) - either may be null independently, since a browser
  *  can render a color (named color, `var()`, `oklch()`, …) this module's parser can't measure. */
 interface ResolvedChromeColor {
     value: string | null
     rgb: RgbColor | null
 }
 
-/** Unresolved/unset color — a pairing with an empty role name still renders ("not assigned") instead of
+/** Unresolved/unset color - a pairing with an empty role name still renders ("not assigned") instead of
  *  silently vanishing. */
 const UNRESOLVED_CHROME_COLOR: ResolvedChromeColor = { value: null, rgb: null }
 
 /**
- * Resolves a Site Chrome role's token name to what it renders, split to the given light/dark mode — same
+ * Resolves a Site Chrome role's token name to what it renders, split to the given light/dark mode - same
  * as `ColorReference`'s swatches ("resolve to the side being previewed"). Contrast check always measures
  * the shown mode, not the pair's other side.
  */
@@ -186,9 +186,9 @@ function unresolvedReason(fgName: string, bgName: string, fg: ResolvedChromeColo
 /**
  * WCAG AA/AAA contrast for every fg/bg pairing the Site Chrome roles actually render together on the
  * public site (`CONTRAST_TARGETS`), each with a live swatch on its real background. Reuses
- * `ColorReference`'s Light/Dark toggle — an adaptive pairing can pass one mode and fail the other, both
+ * `ColorReference`'s Light/Dark toggle - an adaptive pairing can pass one mode and fail the other, both
  * checkable one at a time. Unset role, dangling token, or unparseable color format shows why instead of
- * a ratio — never a guessed pass/fail.
+ * a ratio - never a guessed pass/fail.
  */
 export function SiteChromeContrastCheck({
     colors,
@@ -278,11 +278,11 @@ export function SiteChromeContrastCheck({
 /**
  * One live specimen per typography token, set at its real family/size/weight/line-height/letter-spacing.
  * Google-hosted web fonts don't load inside the admin editor (CSP has no `style-src` for
- * `fonts.googleapis.com`) — a family naming one renders its CSS fallback here, hint below says so rather
+ * `fonts.googleapis.com`) - a family naming one renders its CSS fallback here, hint below says so rather
  * than silently showing the wrong typeface.
  *
- * `usedBy` (Puck "Component.field" strings, from `TOKEN_PROPS` — see `catalog.tsx`'s `tokenKindUsers`)
- * answers "which Puck components use this" — not obvious from a flat token table. Custom preview-text
+ * `usedBy` (Puck "Component.field" strings, from `TOKEN_PROPS` - see `catalog.tsx`'s `tokenKindUsers`)
+ * answers "which Puck components use this" - not obvious from a flat token table. Custom preview-text
  * input lets an author see their own copy at each size/weight; blank keeps the sample line.
  */
 export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; usedBy?: string[] }) {
@@ -343,8 +343,8 @@ export function TypographySpecimen({ typography, usedBy }: { typography: Row[]; 
 }
 
 /**
- * Comparative bar per space token, one shared scale — relative magnitude visible at a glance (a flat
- * "1.5rem" alone conveys no size). Bar width is `var(--dtk-space-<name>)` itself, not re-derived —
+ * Comparative bar per space token, one shared scale - relative magnitude visible at a glance (a flat
+ * "1.5rem" alone conveys no size). Bar width is `var(--dtk-space-<name>)` itself, not re-derived -
  * exactly what the token resolves to, in its authored unit (rem/px/%/vw/…). Track scrolls rather than
  * clips, so an unusually large value (`%`/`vw` token) stays honest instead of silently capped.
  */
@@ -401,7 +401,7 @@ export function ShadowSwatches({ shadows }: { shadows: Row[] }) {
 /**
  * Grid of boxes bordered by each border token, resolved through the same
  * `--dtk-border-<name>-{width,style,color}` properties `tokensToCss` emits (`colorRef` indirection
- * included) — a dangling `colorRef` shows here exactly as on the site: an unset border color.
+ * included) - a dangling `colorRef` shows here exactly as on the site: an unset border color.
  */
 export function BorderSwatches({ borders }: { borders: Row[] }) {
     const rows = borders.filter((token) => (token.name ?? "").trim() !== "")
@@ -429,7 +429,7 @@ export function BorderSwatches({ borders }: { borders: Row[] }) {
 
 /**
  * Comparative bar per breakpoint, same idea as `SpacingScale` but using the raw stored `minWidth`
- * directly — breakpoints are never emitted as `--dtk-*` custom properties (can't appear in `@media`
+ * directly - breakpoints are never emitted as `--dtk-*` custom properties (can't appear in `@media`
  * conditions), so no token var to resolve; the one real consumer (`Columns`' stack point, via
  * `columnsStackBreakpointCss`) reads the value directly at CSS-generation time. `activeName` (editor's
  * "Columns stacks below" selection) is highlighted, rest stay documentary.
@@ -468,12 +468,12 @@ const PREVIEW_WIDTHS: ReadonlyArray<{ label: string; width: number | null }> = [
 ]
 
 /**
- * Wraps a preview specimen in a width-constrained container with preset-width buttons — an author sees a
+ * Wraps a preview specimen in a width-constrained container with preset-width buttons - an author sees a
  * specimen at common widths without resizing the browser window.
  *
  * Honest limit, not a bug: resizes an inner `<div>`, not the viewport. `compositor.css`'s Columns
  * breakpoint is a real `@media (max-width: 767.98px)` query, and any `vw`-based token is viewport-
- * relative — neither responds to this container shrinking. Only a `%`-based value responds correctly.
+ * relative - neither responds to this container shrinking. Only a `%`-based value responds correctly.
  * Caption says so; resizing the real window is the only way to see actual responsive behavior.
  */
 export function ResponsivePreviewFrame({ children }: { children: ReactNode }) {
@@ -506,7 +506,7 @@ export function ResponsivePreviewFrame({ children }: { children: ReactNode }) {
 }
 
 /**
- * Real `Button` component rendered once per variant, labeled with the variant's name — pixel-identical
+ * Real `Button` component rendered once per variant, labeled with the variant's name - pixel-identical
  * to a page's Button via the same exported `renderButtonTag`. `href="#"` never navigates: wrapper
  * swallows the click.
  */

@@ -56,12 +56,6 @@ const dispDeath = (value: number | null | undefined): string =>
 ---
 
 <div id="generic-result-composer" class={`entity-result-container${hidden ? " hidden" : ""}`}>
-    {
-        /* head: the identifying header (name/ID + country/role/birth-death infoline) sits top-left, the bio
-        flows in the column beneath it, and the image occupies the top-right. The tags are pulled out below
-        the head so they follow the bio text. Source order is header -> image -> groups so the image stacks
-        directly below the title on narrow viewports. */
-    }
     <div class="entity-result-head">
         <div class="entity-result-header">
             <h2 id="composer-name" class="entity-result-name">{composer?.name}</h2>
@@ -98,11 +92,6 @@ const dispDeath = (value: number | null | undefined): string =>
             </div>
         </div>
         <div id="composer-image-container" class="entity-result-image-container">
-            {
-                /* the <img> is always present (hidden when there is no image) so the client-side READ flow
-                (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
-                src is omitted when absent to avoid a broken-image request. */
-            }
             <img
                 id="composer-image"
                 class={`entity-result-image${composer?.image ? "" : " hidden"}`}
@@ -124,11 +113,6 @@ const dispDeath = (value: number | null | undefined): string =>
     {/* tags follow the bio text, pulled below the head to span the full card width */}
     <div id="composer-details-tags" class="entity-result-fullwidth entity-result-details">
         <div class="entity-field"><strong>Tags:</strong> <span id="composer-tags">{disp(composer?.tags)}</span></div>
-        {
-            /* citations render as a comma-separated list of hyperlinks (key as display text); renderCitationsList
-            returns markup-safe HTML (every value escapeHtml-encoded), so it is emitted via set:html. Mirrored
-            client-side in populateInfo. */
-        }
         <div class="entity-field">
             <strong>Citations:</strong>
             <span id="composer-citations" set:html={renderCitationsList(composer?.citations, NOT_PROVIDED)} />

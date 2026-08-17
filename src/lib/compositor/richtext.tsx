@@ -34,7 +34,7 @@ import type { PortableTextBlock } from "emdash"
  */
 export const SAFE_URL_SCHEME_RE = /^(https?:|mailto:|tel:|\/(?!\/)|#)/i
 
-/** Returns the url when it uses a safe scheme, otherwise "#". Shared by the catalog Button and lint (§6.7). */
+/** Returns the url when it uses a safe scheme, otherwise "#". Shared by the catalog Button and lint */
 export function sanitizeHref(url: string | undefined | null): string {
     return url && SAFE_URL_SCHEME_RE.test(url) ? url : "#"
 }
@@ -88,7 +88,7 @@ const components: PortableTextComponents = {
         superscript: (props) => <sup>{props.children as ReactNode}</sup>,
         subscript: (props) => <sub>{props.children as ReactNode}</sub>,
         link: (props) => {
-            // `blank` is deliberately not read — see opensInNewTab for why it carries no author intent.
+            // `blank` is deliberately not read - see opensInNewTab for why it carries no author intent.
             const markDef = props.value as { href?: string; target?: string } | undefined
             const href = sanitizeHref(markDef?.href)
             const newTab = opensInNewTab(href, markDef?.target)
@@ -127,6 +127,6 @@ const components: PortableTextComponents = {
 /** Renders a stored Portable Text body to React elements with `pages`-parity output. */
 export function RichTextView({ value }: { value: PortableTextBlock[] }): JSX.Element {
     // emdash's PortableTextBlock is structurally the stored form; @portabletext/react types its value
-    // against @portabletext/types' near-identical shape — bridge the two nominal types here.
+    // against @portabletext/types' near-identical shape - bridge the two nominal types here.
     return <PortableText value={value as never} components={components} />
 }
