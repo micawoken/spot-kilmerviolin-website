@@ -45,7 +45,7 @@ if (denied) {
 }
 
 // the middleware has already resolved the caller's identity; the profile is the caller's own record, so
-// it is read directly by the caller's contributor id (a self read, so protected properties are fine to show)
+// it is read directly by the caller's contributor id
 const identity = Astro.locals.identity ?? null
 const self_id = identity?.id ?? null
 
@@ -78,13 +78,6 @@ if (self_id !== null && self_id !== undefined) {
             {
                 contributor_data ? (
                     <div class="profile-content">
-                        <p class="general-infohelp">
-                            This is your user profile, connected to your contributor record. The non-protected
-                            information of your record displayed here will be published to the website. To change your
-                            personal information, use <a href="/admin/profile/edit">Edit my profile</a>. To change the
-                            email you sign in with (the identity email), use{" "}
-                            <a href="/admin/profile/reset_login">Change sign-in email</a>.
-                        </p>
                         <ContributorInfo contributor={contributor_data} />
                         <div class="entity-result-details">
                             <span>
