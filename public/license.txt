@@ -11,7 +11,7 @@ software bill of materials, please reference the GitHub repository
 at https://github.com/micawoken/spot-kilmerviolin-website.
 
 Copyright
-&copy; 2026 Michael Wong.
+Copyright (c) 2026 Michael Wong.
 
 This program is licensed under the GNU Affero General Public License, version 3 or later, whose text follows.
 Additional terms are specified following the statement of the license.

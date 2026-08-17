@@ -61,7 +61,7 @@ The staging gate `staging.yaml` runs on every pull request into `main`. It verif
 
 When the staging checks pass, a feature branch can be merged into main. Upon merge, Cloudflare Worker Builds picks up the event and triggers continuous deployment. This is one of the two triggers for CD - the other is the user-triggered deploy hook (stored as a Worker secret), fired when database or CMS content has been updated for publication.
 
-- Merge once the staging preview check is green and review (§6) is complete.
+- Merge once the staging preview check is green and review (section 6) is complete.
 - Cloudflare Worker Builds has its own Git integration on `main` and auto-builds/deploys on merge. There is no separate GitHub Actions deploy step for production.
 - `CF_DEPLOY_HOOK` exists as a manual rebuild trigger, rate-limited by `REBUILD_COOLDOWN_SEC` (1800s).
 
