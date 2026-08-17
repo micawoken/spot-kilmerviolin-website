@@ -415,8 +415,10 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
                 const fieldNouns = (field.dataset.nouns ?? "").split(" ").filter(Boolean)
                 const hidden = nouns.length > 0 && !fieldNouns.some((noun) => nouns.includes(noun))
                 field.hidden = hidden
-                for (const control of field.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")) {
-                    control.disabled = hidden
+                for (const control of field.querySelectorAll("input, select")) {
+                    if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
+                        control.disabled = hidden
+                    }
                 }
                 if (!hidden) anyFieldVisible = true
             }
@@ -431,7 +433,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         function updateOperatorControls(): void {
             for (const opSelect of formEl.querySelectorAll(".search-advanced__op")) {
                 if (!(opSelect instanceof HTMLSelectElement)) continue
-                const fieldHidden = opSelect.closest<HTMLElement>(".search-advanced__field")?.hidden ?? false
+                const fieldHidden = opSelect.closest<HTMLElement>(".search-advanced__field")?.hidden === true
                 const param = opSelect.name.replace(/_op$/, "")
                 const isBetween = opSelect.value === "between"
                 const isAlive = opSelect.value === "alive"
