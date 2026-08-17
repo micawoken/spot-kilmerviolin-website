@@ -70,12 +70,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_compositions_composer_name_part ON composi
 
 -- entry_date is the creation timestamp and must never change after insert; only change_date tracks edits.
 -- Fires only when entry_date is actually being set to a new value, so ordinary UPDATEs that don't touch it are unaffected.
-CREATE TRIGGER trg_contributors_entry_date_immutable
-BEFORE UPDATE OF entry_date ON contributors
-WHEN NEW.entry_date <> OLD.entry_date
-BEGIN
-    SELECT RAISE(ABORT, 'entry_date is immutable after creation');
-END;
 
 CREATE TRIGGER trg_composers_entry_date_immutable
 BEFORE UPDATE OF entry_date ON composers
