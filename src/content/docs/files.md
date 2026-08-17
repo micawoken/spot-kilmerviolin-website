@@ -41,3 +41,6 @@ To set a file onto a database record, enter the file key into the image field. Y
 If you are not an administrator, and you want to update the image for your account, **you can only use a photo you upload.** This is to prevent anyone else from using your profile photo on their account. This restriction does not apply to composers or compositions.
 
 (Non-administrators cannot edit other contributors, so they cannot modify their images.)
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

@@ -57,7 +57,7 @@ export interface LintFinding {
     message: string
 }
 
-/** Portable Text block `_type`s the RichText renderer supports (§6.4); any other warns. */
+/** Portable Text block `_type`s the RichText renderer supports; any other warns. */
 const SUPPORTED_PT_TYPES = new Set(["block", "code"])
 
 /** Whether a value is a non-empty string href that fails the safe-scheme allowlist. */
@@ -90,7 +90,7 @@ interface LintState {
     tokenProps: TokenPropRegistry
     outletProps: OutletPropRegistry
     context: LintPairingContext | undefined
-    /** true when linting a document about to be published — hardens `unknown-token` to an error (DD2). */
+    /** true when linting a document about to be published - hardens `unknown-token` to an error (DD2). */
     published: boolean
     findings: LintFinding[]
     headings: HeadingRef[]
@@ -98,9 +98,7 @@ interface LintState {
 }
 
 /**
- * Pushes a `HeadingRef` for every PT block styled `h1`–`h6` in a rich-text body, in block order (the
- * §1.11 fix): these render as real heading tags, so the single-h1/skip checks must see them.
- */
+ * Pushes a `HeadingRef` for every PT block styled `h1`-`h6` in a rich-text body, in block order */
 function collectPtHeadings(body: unknown, path: string, headings: HeadingRef[]): void {
     if (!Array.isArray(body)) return
     for (const block of body) {
@@ -195,7 +193,7 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
                     rule: "dangling-spacer-field",
                     path,
                     message:
-                        `Spacer is linked to field "${linkedField}", which does not exist in the collection schema — ` +
+                        `Spacer is linked to field "${linkedField}", which does not exist in the collection schema - ` +
                         "it will always be treated as empty and never render"
                 })
             }
@@ -225,7 +223,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     const field = typeof props.field === "string" ? props.field : ""
 
     // Field binding vs the collection schema (error: the outlet can never render). Skipped when the
-    // schema could not be read (schemaFields null) — the caller has already warned about that.
+    // schema could not be read (schemaFields null) - the caller has already warned about that.
     let dangling = false
     const schemaField = context.schemaFields?.find((candidate) => candidate.slug === field)
     if (context.schemaFields !== null) {
@@ -288,7 +286,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
                 rule: "force-link-inert",
                 path,
                 message:
-                    `${type}'s "Force hyperlink" has no effect on field "${field}" — ` +
+                    `${type}'s "Force hyperlink" has no effect on field "${field}" - ` +
                     `its type ("${schemaField.type}") already renders its own link`
             })
         }
@@ -300,7 +298,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
     const value = entry[field]
 
     const emptyValue = (): void => {
-        // ContentField never omits its row on empty — `onEmpty` controls what shows instead (placeholder,
+        // ContentField never omits its row on empty - `onEmpty` controls what shows instead (placeholder,
         // blank+hidden-label, or blank as-is; see catalog.tsx's ContentField render)
         const onEmpty = typeof props.onEmpty === "string" ? props.onEmpty : "doNothing"
         const outcome =
@@ -340,13 +338,13 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
                 emptyValue()
             } else if (isRecord(value) && (typeof value.alt !== "string" || value.alt.trim() === "")) {
                 // Only EmDash media carries an authorable `alt` slot; a string-sourced (D1 entity) image
-                // has none to check — the render accepts that gap (renders alt="")
+                // has none to check - the render accepts that gap (renders alt="")
                 findings.push({
                     severity: "error",
                     rule: "content-image-alt",
                     path,
                     message:
-                        `${type}'s image (field "${field}") has no alt text — ` + "set it on the media item in the CMS"
+                        `${type}'s image (field "${field}") has no alt text - ` + "set it on the media item in the CMS"
                 })
             }
             break
@@ -360,7 +358,7 @@ function lintOutlet(component: PuckComponent, path: string, state: LintState): v
 
 /**
  * Lints a stored rich-text body: must be a PT array (a raw string here means the editor's
- * ProseMirror-to-PT conversion was skipped or failed — see convert.ts — and would render as literal
+ * ProseMirror-to-PT conversion was skipped or failed - see convert.ts - and would render as literal
  * text instead of formatted content)
  */
 function lintRichText(body: unknown, path: string, findings: LintFinding[]): void {

@@ -2,19 +2,8 @@
  * pages/theme-head.css.ts
  *
  * Prerendered, build-time CSS file for the theme's site-wide @font-face rules and --dtk-* custom-property
- * block (theme-head.ts's fontFaceCss + tokenCss) — the two pieces of PublicPage's fused inline <style>
- * that are identical across every public page of a build, same as compositor.css was before it moved to
- * CompositorStyles.astro. Linked once from PublicPage.astro instead of duplicated inline on every page, so
- * the browser fetches it once (fetchPublishedTheme() is build-lifetime-memoized, so this costs no extra
- * theme read beyond what each page already pays) and reuses it across the whole site.
+ * block
  *
- * columnsBreakpointCss and viewTransitionCss stay in PublicPage's inline block, not here — see that file
- * for why.
- *
- * No content hash in the filename (unlike the Vite-bundled /_astro/* chunks): this isn't compile-time
- * known, so Vite can't fingerprint it. Workers Static Assets' default `must-revalidate` cache policy
- * (public/_headers' header comment) covers correctness instead — a redeployed theme is never served stale,
- * it just costs a conditional-GET round trip instead of a free cache hit.
  *
  * Copyright (C) 2026 Michael Wong.
  *

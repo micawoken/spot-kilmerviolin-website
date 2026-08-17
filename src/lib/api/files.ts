@@ -463,7 +463,7 @@ export async function deleteFile(ctx: ExecutionContext, key: string): Promise<vo
  * Reports current and maximum storage usage against the shared ceiling
  *
  * `used` is combined across both buckets this app owns (R2_FILES + EMDASH_MEDIA) since they draw against
- * the same account-wide capacity ceiling — see r2.ts's MAX_R2_STORAGE_BYTES.
+ * the same account-wide capacity ceiling - see r2.ts's MAX_R2_STORAGE_BYTES.
  *
  * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @returns {Promise<{ used: number, max: number }>} combined bytes used and the configured ceiling

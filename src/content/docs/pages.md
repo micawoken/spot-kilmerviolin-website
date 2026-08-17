@@ -79,3 +79,6 @@ There are five special components only meant for design templates:
 3. Content image: for database pages - contains the image associated with a database record
 4. Content field: for database fields - contains the value of a specific value in a record, with a label by default
 5. Media + text: for database fields, puts the content image and a configurable container together
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

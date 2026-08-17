@@ -131,7 +131,7 @@ export async function listComposers(ctx: ExecutionContext): Promise<ComposerReco
 
 /**
  * Conflict-detection hook for composer bulk creates: flags candidate names that already exist or repeat
- * within the request, so the (UNIQUE) idx_composers_name_role collision — on (name, role), not name alone —
+ * within the request, so the (UNIQUE) idx_composers_name_role collision - on (name, role), not name alone -
  * is reported by the dry-run/preview rather than only surfacing as an aborted atomic write.
  *
  * @param ctx the Cloudflare Worker ExecutionContext

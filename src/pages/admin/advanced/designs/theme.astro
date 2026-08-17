@@ -2,10 +2,8 @@
 /**
  * pages/admin/advanced/designs/theme.astro
  *
- * The theme editor page (impl §6.5): admin chrome hosting the ThemeEditor island, which edits the
- * single `design_theme` item's token catalog (the `--dtk-*` values every design draws from, §4.3).
- * A form page rather than a canvas, so it keeps the normal AdminHeader/Footer chrome. Middleware
- * already gates /admin/advanced/designs/* on cms_editor (middleware/identity.ts).
+ * Theme editor page to modify site constants
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -38,9 +36,7 @@ import { guardPage } from "../../../../lib/api/page_auth"
 
 export const prerender = false
 
-// design_editor is required, matching ADMIN_PAGE_STRUCTURE (middleware/identity.ts). Repeated here so
-// the page carries its own gate: a directory move once left the map entry stale and these pages
-// reachable by any active contributor, with nothing to catch it.
+// design_editor is required
 const denied = guardPage(Astro.request, Astro.locals.identity, {
     kind: "permission",
     permissions: ["design_editor"]
@@ -68,8 +64,8 @@ if (denied) {
             <div id="theme-editor"></div>
 
             <script>
-                // Mounted from this module rather than as an Astro island — see edit.astro for why a client
-                // directive cannot be used under the admin CSP (middleware/headers.ts).
+                // Mounted from this module rather than as an Astro island - see edit.astro for why a client
+                // directive cannot be used under the admin CSP
                 import { createElement } from "react"
                 import { createRoot } from "react-dom/client"
                 import ThemeEditor from "../../../../components/compositor/ThemeEditor"

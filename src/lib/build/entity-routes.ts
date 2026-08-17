@@ -30,7 +30,7 @@ import { TEMPLATE_NONE_SLUG, type BuildEntityTemplate } from "./design-api"
 /** The resolved outcome for one entity noun: the template every record of it renders through, or none. */
 export interface EntityTemplateResolution {
     noun: EntityNoun
-    /** null when this noun has no public pages this build — no default template, or the default is "None" */
+    /** null when this noun has no public pages this build - no default template, or the default is "None" */
     template: BuildEntityTemplate | null
 }
 

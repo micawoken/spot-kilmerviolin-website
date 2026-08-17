@@ -1,8 +1,7 @@
 /**
  * tests/scripts/common.test.ts
  *
- * Covers the new citations surface added to scripts/common.ts; does not attempt full coverage of the
- * pre-existing argParse/FIELD_VALIDATORS machinery.
+ * Covers the new citations surface added to scripts/common.ts
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -29,7 +28,7 @@ import { describe, it, expect } from "vitest"
 
 import { argParse, validateCitationsField } from "../../src/scripts/common"
 
-describe("argParse — citations type", () => {
+describe("argParse - citations type", () => {
     it("parses a 'Source Name: value' textarea into a citations object", () => {
         const raw = "IMSLP: https://imslp.org/wiki/Test"
         expect(argParse("citations", "citations", raw)).toEqual({ IMSLP: "https://imslp.org/wiki/Test" })

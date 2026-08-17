@@ -177,7 +177,7 @@ export async function optimizeImage(
         return { bytes: passthrough, content_type, width: null, height: null, optimized: false }
     }
 
-    // IMPORTANT — local development limitation: the IMAGES binding's transform pipeline DOES NOT WORK under
+    // IMPORTANT - local development limitation: the IMAGES binding's transform pipeline DOES NOT WORK under
     // local emulation (`astro dev` / local `wrangler dev`); skip the transform entirely in development and
     // store the original bytes unchanged
 

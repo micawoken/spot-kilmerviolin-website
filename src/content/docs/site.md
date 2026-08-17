@@ -43,3 +43,6 @@ You can only initiate a rebuild *at least 30 minutes after the last rebuild.* (A
 When you edit the database, we don't immediately update other references to the database in the website's memory. This may cause search results and views of database records to be outdated.
 
 To fix this, you can **purge the cache**: this deletes our temporary copies in our memory of the database, making your results correct immediately. However, **you do not need to do this**: your work was saved, and any visual problems you see are temporary and will go away over time.
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

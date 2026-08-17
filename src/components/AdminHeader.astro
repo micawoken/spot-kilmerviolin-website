@@ -23,10 +23,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Astro.locals.identity is undefined (not null) when no identity was constructed - notably in local
-// development, where the identity middleware bypasses auth and never sets locals.identity. Coalesce to
-// null here so the `identity !== null` guards below also catch undefined; otherwise `undefined !== null`
-// is true and reading identity.enrollable/.active throws, blanking the page mid-render.
 const identity: Identity | null = Astro.props.identity ?? null
 
 // the display name varies with identity status: a verified Access userinfo name when available, then the
@@ -35,11 +31,6 @@ const display_name = identity?.userinfo?.ok ? identity.userinfo.name : identity?
 const name_defined = identity?.userinfo?.ok || identity?.email
 ---
 
-{
-    /* the first focusable element on every admin page (this component is rendered at the top of <body> on
-    every admin page and layout - see AdminDocument.astro/DocInfo.astro and the ~60 hand-rolled admin
-    pages, all of which give their <main> the matching id="admin-main-content") */
-}
 <a class="skip-link" href="#admin-main-content">Skip to content</a>
 <header role="banner">
     <h1><a href="/admin">Administrative Services</a></h1>
@@ -51,11 +42,6 @@ const name_defined = identity?.userinfo?.ok || identity?.email
         <a href="/admin/logout" class="col-item-link">Logout</a>
     </nav>
 </header>
-{
-    /* Account-status callouts live in the header so they appear on every admin page, not just the home page.
-    Enrollment (the higher-priority blocker) shows when the profile has no contributor record; the inactive
-    notice shows when the profile is marked inactive. */
-}
 {
     identity !== null && identity.enrollable ? (
         <div id="enroll-container" class="callout-invert">

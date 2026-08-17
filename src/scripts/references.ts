@@ -2,19 +2,7 @@
  * scripts/references.ts
  *
  * Entity-reference rendering shared by the SSR info cards (CompositionInfo) and the client-side READ
- * flow. A composition references other records — its composer, its secondary authors, and its
- * contributors — by numeric id (with a resolved display name). These helpers render those references in
- * two forms:
- *
- *   - as plain text "id (name)" (formatContributorRef / formatContributorRefs), and
- *   - as anchors that link to the referenced record's admin info page,
- *     /admin/<segment>/info?id=<id> (renderContributorRefLink(s) / renderComposerNameLink(s)),
- *
- * so an operator can jump straight from a composition to the composer or contributor it names.
- *
- * The render*-prefixed helpers return HTML: every interpolated value (label and href) is
- * HTML-entity-encoded with escapeHtml first, so the result is markup-safe and can be emitted via
- * `set:html` (SSR) or `innerHTML` (client) without injection risk, mirroring renderPublicationUri.
+ * flow
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -39,15 +27,8 @@
  */
 import { escapeHtml } from "./escape"
 
-// ---------------------------------------------------------------------------
-// Plain-text formatting (no markup)
-// ---------------------------------------------------------------------------
-
 /**
- * Formats a single contributor reference for inline display as "id (name)".
- *
- * When the id is null/undefined (e.g. an omitted contrib_primary_2) the supplied placeholder is returned
- * When the name is blank (an unresolvable id) the bare id is returned without empty parentheses
+ * Formats a single contributor reference for inline display as "id (name)"
  *
  * @param {number | null | undefined} id the contributor id, or null/undefined when no contributor is set
  * @param {string | null | undefined} name the resolved contributor name, if any
@@ -65,10 +46,7 @@ export function formatContributorRef(
 }
 
 /**
- * Formats a list of contributor references for inline display as "id (name), id (name), ...".
- *
- * Names are matched to ids positionally; a missing or blank name renders that entry as the bare id. An
- * empty id list yields the supplied placeholder
+ * Formats a list of contributor references for inline display as "id (name), id (name), ..."
  *
  * @param {number[] | null | undefined} ids the contributor ids
  * @param {string[] | null | undefined} names the resolved contributor names, aligned with ids by position
@@ -99,10 +77,7 @@ function anchor(href: string, label: string): string {
 }
 
 /**
- * Renders a single contributor reference as an "id (name)" anchor linking to its contributor info page.
- *
- * Mirrors formatContributorRef's text form: a null/undefined id yields the placeholder (no link), and a
- * blank name yields a bare-id label without empty parentheses.
+ * Renders a single contributor reference as an "id (name)" anchor linking to its contributor info page
  *
  * @param {number | null | undefined} id the contributor id, or null/undefined when none is set
  * @param {string | null | undefined} name the resolved contributor name, if any
@@ -121,8 +96,7 @@ export function renderContributorRefLink(
 }
 
 /**
- * Renders a list of contributor references as comma-separated "id (name)" anchors (see
- * renderContributorRefLink). Names are matched to ids positionally; an empty id list yields the placeholder.
+ * Renders a list of contributor references as comma-separated "id (name)" anchors
  *
  * @param {number[] | null | undefined} ids the contributor ids
  * @param {string[] | null | undefined} names the resolved contributor names, aligned with ids by position
@@ -139,11 +113,7 @@ export function renderContributorRefLinks(
 }
 
 /**
- * Renders a composer's name as an anchor linking to its composer info page. The composer id is shown in a
- * separate field on the card, so only the name is linked here; the link target is the id.
- *
- * When the id is null/undefined the (escaped) name — or the placeholder, if the name is blank — is
- * returned without a link.
+ * Renders a composer's name as an anchor linking to its composer info page
  *
  * @param {number | null | undefined} id the composer id (the link target), or null/undefined when none
  * @param {string | null | undefined} name the resolved composer name, if any
@@ -163,8 +133,7 @@ export function renderComposerNameLink(
 
 /**
  * Renders a list of composer names (e.g. secondary authors) as comma-separated anchors, each linking to
- * that composer's info page. Names are matched to ids positionally; a blank name falls back to the bare
- * id as the label. An empty id list yields the placeholder.
+ * that composer's info page
  *
  * @param {number[] | null | undefined} ids the composer ids (the link targets)
  * @param {string[] | null | undefined} names the resolved composer names, aligned with ids by position

@@ -32,14 +32,6 @@ import {
 import { CURRENT_SCHEMA_VERSION, migrateDesign } from "../../src/lib/compositor/migrations"
 import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
 
-// Puck's richtext field's real onChange value is `editor.getHTML()` — a string. Converting it needs a
-// DOM (convert.ts calls @tiptap/html's browser `generateJSON`, which parses via `window.DOMParser`) that
-// this repo's Cloudflare Workers test pool cannot provide (not even happy-dom's Window can construct
-// here — it needs `node:vm`'s `Script`, which workerd doesn't expose). Mocked to a deterministic
-// stand-in so the "HTML string (§ Puck's actual richtext value)" tests below can verify convert.ts's
-// dispatch — a string is routed through the conversion pipeline, not passed through raw — without a
-// real DOM; the HTML->ProseMirror parsing itself (Puck's own @tiptap/html dependency) was verified
-// separately against the real implementation via a standalone Node script outside this harness.
 vi.mock("@tiptap/html", () => ({
     generateJSON: vi.fn((html: string) => ({
         type: "doc",
@@ -136,10 +128,7 @@ function stripKeys(value: unknown): unknown {
 }
 
 /**
- * Canonicalizes a PT body for cross-pass comparison. Beyond stripping `_key`, a markDef's key and
- * the reference to it inside `span.marks` are an opaque matched pair the converter regenerates on
- * every pass (spike (d)) — so both are rewritten to a stable index-based id (`md0`, `md1`, …). Only
- * annotation references change; literal decorators (strong/em/…) are left as-is.
+ * Canonicalizes a PT body for cross-pass comparison
  */
 function normalizeBody(body: unknown): unknown {
     if (!Array.isArray(body)) return stripKeys(body)
@@ -174,8 +163,8 @@ function slotChildren(doc: DesignDoc): Array<{ type: string; props: Record<strin
     return section.props.content as Array<{ type: string; props: Record<string, unknown> }>
 }
 
-/** A design doc with a single top-level RichText (no Section wrapper) — the shape link-target-round-trip
- *  fixtures below use, matching the "Puck's actual richtext value" describe block's own doc shape. */
+/** A design doc with a single top-level RichText (no Section wrapper) - the shape link-target-round-trip
+ *  fixtures below use, matching the "Puck's actual richtext value" describe block's own doc shape */
 function docWithBody(body: unknown): DesignDoc {
     return { schemaVersion: 1, puck: { content: [{ type: "RichText", props: { id: "rt-1", body } }] } as unknown as PuckData }
 }
@@ -244,19 +233,15 @@ describe("editorFormToDesign", () => {
         expect(Array.isArray(slotChildren(design)[0].props.body)).toBe(true)
     })
 
-    it("returns the whole envelope the editor stores — so the next read can migrate it", () => {
+    it("returns the whole envelope the editor stores - so the next read can migrate it", () => {
         const design = editorFormToDesign(designToEditorForm(makeDoc(), REGISTRY), REGISTRY)
         expect(design.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
         expect(() => migrateDesign(design)).not.toThrow()
     })
 })
 
-describe("editorFormToDesign — Puck's actual richtext value (HTML string)", () => {
-    // Puck's richtext field's real onChange value is `editor.getHTML()` — a string, never the
-    // `{type: "doc"}` object the field's name suggests. This is what a saved editor session actually
-    // hands editorFormToDesign; the ProseMirror-doc fixtures elsewhere in this file are the pre-Puck
-    // shape and never caught the regression this guards. See the top-of-file vi.mock for why
-    // generateJSON is stubbed rather than exercised for real.
+describe("editorFormToDesign - Puck's actual richtext value (HTML string)", () => {
+    // Puck's richtext field's real onChange value is `editor.getHTML()`
     function docWithHtmlBody(html: string): DesignDoc {
         return {
             schemaVersion: 1,
@@ -279,9 +264,7 @@ describe("editorFormToDesign — Puck's actual richtext value (HTML string)", ()
 })
 
 describe("link target round-trip (Opens in)", () => {
-    // EmDash's converters are lossy for `target` in both directions (see convert.ts's header): load
-    // collapses any stored `target` into `blank ? "_blank" : null`, and save keeps only `blank`. These
-    // pin the pure passes that wrap those calls to actually carry `target` through.
+    // EmDash's converters are lossy for `target` in both directions (see convert.ts's header)
 
     it("loads an explicit _blank target onto the ProseMirror mark", () => {
         const editor = designToEditorForm(docWithBody(ptBodyWithLink({ target: "_blank", blank: false })), REGISTRY)
@@ -294,9 +277,7 @@ describe("link target round-trip (Opens in)", () => {
     })
 
     it("loads legacy content (blank: true, no target) as Automatic, not New tab", () => {
-        // EmDash's own portableTextToProsemirror would set target: "_blank" here (blank ? "_blank" :
-        // null) — every link either editor has ever produced carries blank: true, so this is the trap
-        // the unconditional overwrite in applyPmLinkTargets exists to close.
+        // EmDash's own portableTextToProsemirror would set target
         const editor = designToEditorForm(docWithBody(ptBodyWithLink({ blank: true })), REGISTRY)
         expect(findLinkMarkAttrs(topLevelBody(editor), "https://example.com")?.target).toBeNull()
     })
@@ -316,7 +297,7 @@ describe("link target round-trip (Opens in)", () => {
         expect(markDef.target).toBe("_self")
     })
 
-    it("clears a stale target when the live mark has none (Automatic) — no target key at all, not null", () => {
+    it("clears a stale target when the live mark has none (Automatic) - no target key at all, not null", () => {
         const pmDoc = {
             type: "doc",
             content: [
@@ -331,7 +312,7 @@ describe("link target round-trip (Opens in)", () => {
         expect("target" in markDef).toBe(false)
     })
 
-    it("shares one target across two occurrences of the same href — the first explicit occurrence wins", () => {
+    it("shares one target across two occurrences of the same href - the first explicit occurrence wins", () => {
         const pmDoc = {
             type: "doc",
             content: [

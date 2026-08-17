@@ -26,17 +26,6 @@ import { describe, it, expect } from "vitest"
 import { CONTRIBUTOR_TABLE } from "../src/lib/api/tables.ts"
 import { redactProtected } from "../src/lib/build/d1-schema.ts"
 
-/**
- * PATCH /api/v1/contributors/[id] gates a write on exactly this expression:
- *
- *     CONTRIBUTOR.protected!.some((prop) => prop in record) && !is_elevated_admin && auth_enabled
- *
- * and it runs under auth_check(..., [], false, "selfmgmt"), which deliberately ADMITS an inactive
- * caller (authservice.ts's _checkInactiveCredential returns null for inactive-but-allowed in selfmgmt
- * mode) so a deactivated user can still reach the self-service flows. Those two facts together are why
- * the protected list is load-bearing for revocation, not merely for privacy — reproduced here directly
- * rather than through the endpoint, which needs a live D1 binding.
- */
 const isProtectedWrite = (record: object): boolean => CONTRIBUTOR_TABLE.protected!.some((prop) => prop in record)
 
 describe("contributor protected columns", () => {
@@ -46,7 +35,7 @@ describe("contributor protected columns", () => {
         }
     })
 
-    it("refuses a non-elevated write to `active` — a deactivated user cannot re-activate themselves", () => {
+    it("refuses a non-elevated write to `active` - a deactivated user cannot re-activate themselves", () => {
         // The attack: a user an administrator deactivated is still enrolled in Access and still
         // authenticates, so they PATCH their OWN id (which satisfies the self check) with this body.
         expect(isProtectedWrite({ active: true })).toBe(true)

@@ -9,7 +9,7 @@ author: Michael Wong
 The Advanced Options section organizes several special-purpose and rarely-used operations. In general, you are unlikely to ever use them, but they are provided for convenience.
 
 These actions are:
-- **Access database terminal** - allows administrators to run arbitrary SQL queries against the database
+- **Access database terminal** - allows administrators to run arbitrary SQL commands against the database
 - **View entity metadata** - allows users to view creation/last modification data
 - **View self-enrollment flow** - allows un-enrolled users to perform self-enrollment to create their contribution record
 - **Manage design pages** - allows design editors and administrators the ability to create custom pages
@@ -17,7 +17,7 @@ These actions are:
 - **Manage design theme** - allows design editors and administrators the ability to modify design standards on the site
 
 ## Database Terminal
-The database terminal is a SQL terminal provided to administrators. The terminal allows them to run arbitrary SQL queries. If you do not know what you are doing, *do not use the terminal*. A bad command could break the database or inject a bad configuration.
+The database terminal is a SQL terminal provided to administrators. The terminal allows them to run arbitrary SQL commands. If you do not know what you are doing, *do not use the terminal*. A bad command could break the database or inject a bad configuration.
 
 ## Entity Metadata
 By default, the creation and last modification date are not exposed when you view a database record. You can use the entity metadata tool to view this information for any record.

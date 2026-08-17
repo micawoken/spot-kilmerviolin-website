@@ -350,7 +350,7 @@ export class SQLStatement {
             throw new Error("Missing target table for SQL statement")
         }
 
-        // The table name is interpolated, not bound, so it must be the schema's own — the same rule the
+        // The table name is interpolated, not bound, so it must be the schema's own - the same rule the
         // column and WHERE-parameter checks below enforce. Every construction site already passes
         // schema.name; asserting it here puts the guarantee in the function instead of in the discipline
         // of its callers.

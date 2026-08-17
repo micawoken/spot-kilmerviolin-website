@@ -2,10 +2,8 @@
  * tests/api/d1-sanitize.test.ts
  *
  * Unit tests for the write-time sanitization wired into lib/api/d1.ts's record validators
- * (sanitizeContributorFields / sanitizeCompositionFields — sanitizeComposerFields is covered alongside the
- * rest of composers.test.ts). These run on every write path (single-record admin forms, bulk import,
- * direct API), not just the CSV import pipeline.
- *
+ * 
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at
@@ -96,7 +94,7 @@ describe("contributor write-time sanitization", () => {
         expect(_stateTypeAssertCompleteContributor(makeContributor({ tags }), false)).toBeTypeOf("string")
     })
 
-    it("only trims roles — no dedup or case change, since roles is permission-adjacent", () => {
+    it("only trims roles - no dedup or case change, since roles is permission-adjacent", () => {
         const record = makeContributor({ roles: ["  President  ", "president"] })
         _stateTypeAssertCompleteContributor(record, false)
         expect(record.roles).toEqual(["President", "president"])

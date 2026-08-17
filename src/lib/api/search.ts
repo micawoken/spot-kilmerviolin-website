@@ -68,7 +68,7 @@ const MIN_QUERY_LENGTH = 3
 
 /**
  * Per-isolate index cache. Building the index is O(rows x indexed fields) and it was rebuilt on EVERY
- * request — for a search covering all three tables, three full index builds per call, on an endpoint any
+ * request - for a search covering all three tables, three full index builds per call, on an endpoint any
  * active contributor may hit. The corpus changes only when the underlying table does, so the index is
  * keyed on a cheap version stamp and rebuilt only then.
  *
@@ -79,7 +79,7 @@ const indexCache = new Map<SearchDatabase, { version: string; index: MiniSearch<
 
 /**
  * A cheap identity for a table's current contents: row count plus the newest change_date. An edit bumps
- * change_date, an insert or delete changes the count — so any mutation the search should see changes
+ * change_date, an insert or delete changes the count - so any mutation the search should see changes
  * this, without hashing the records themselves (which would cost as much as rebuilding the index).
  *
  * @param {Array<{ change_date?: number | null }>} records the table's records
@@ -95,7 +95,7 @@ export function recordsVersion(records: Array<{ change_date?: number | null }>):
 }
 
 /**
- * A version stamp for a resolved-name lookup map. FNV-1a over the entries — O(total characters), which is
+ * A version stamp for a resolved-name lookup map. FNV-1a over the entries - O(total characters), which is
  * negligible beside tokenizing the corpus, and unlike a size check it changes when a name is edited.
  *
  * @param {Map<number, string>} map the lookup map
@@ -239,7 +239,7 @@ export function searchCompositions(
     query: string
 ): SearchResult[] {
     // Same-titled, same-composer works are otherwise indistinguishable among hits (composer + name is all
-    // that's shown) — see disambiguatedCompositionName's header (db_composition.ts). Only the displayed
+    // that's shown) - see disambiguatedCompositionName's header (db_composition.ts). Only the displayed
     // `display` string is disambiguated; the indexed `name` field stays raw so matching is unaffected.
     const collisionCounts = new Map<string, number>()
     for (const record of records) {

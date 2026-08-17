@@ -1,14 +1,7 @@
 /**
  * scripts/import.ts
  *
- * DOM wiring for the admin CSV bulk-import pages (composers, contributors, compositions). It reads an
- * uploaded CSV, delegates record building / name resolution / phase mapping / duplicate flagging to
- * import_build.ts, renders an editable/deletable preview grid so a file can be "cured" in-browser without
- * re-uploading, runs an authoritative server dry-run (meta dry_run), and commits the cured rows atomically
- * (meta bulk) via the existing bulk endpoints.
- *
- * There is no dedicated import endpoint — the ordinary bulk create endpoints are the single write path; the
- * server stays authoritative through per-record validation, the dry-run report, and the atomic transaction.
+ * DOM wiring for the admin CSV bulk-import pages
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -52,10 +45,10 @@ import { listComposer, listContributor, listWork, bulkDryRun, bulkCreate, type B
 
 export type { ImportType }
 
-/** Either a plain server-reported message (BulkDryRunReport.rows[].issues) or a client BuildIssue. */
+/** Either a plain server-reported message (BulkDryRunReport.rows[].issues) or a client BuildIssue */
 type RowIssue = string | BuildIssue
 
-/** One preview row: the editable raw CSV cells plus the DOM handles used to update its status in place. */
+/** One preview row: the editable raw CSV cells plus the DOM handles used to update its status in place */
 interface RowState {
     /** editable raw cell values keyed by CSV column name */
     cells: Record<string, string>
@@ -66,14 +59,12 @@ interface RowState {
     /** the per-column editable inputs, so a specific field can be highlighted when it causes an issue */
     inputs: Record<string, HTMLInputElement>
     /**
-     * Issues from the last server dry-run that named this row, kept until the row itself is edited. Server
-     * checks (FK/business rules) can catch things the client build never does, so a client-only recompute
-     * must not silently drop them from a row that hasn't changed — only editing that row invalidates them.
+     * Issues from the last server dry-run that named this row, kept until the row itself is edited
      */
     serverIssues: RowIssue[]
 }
 
-/** Requires an element by id, throwing a clear error if the page markup is missing it. */
+/** Requires an element by id, throwing a clear error if the page markup is missing it */
 function requireElement<T extends HTMLElement>(id: string): T {
     const element = document.getElementById(id)
     if (element === null) {
@@ -84,7 +75,7 @@ function requireElement<T extends HTMLElement>(id: string): T {
 
 /**
  * Wires up an admin CSV import page. The page must provide the import control markup (see the import.astro
- * pages); this attaches the load/validate/commit behavior and renders the editable preview grid.
+ * pages)
  *
  * @param type the entity type being imported (composers | contributors | works)
  */
@@ -104,15 +95,12 @@ export function initImport(type: ImportType): void {
     // resolution context is only populated (and the phase-map UI shown) for compositions
     let ctx: WorksContext | null = null
     // normalized names already present in the DB for this entity, used to flag existing-name collisions in
-    // the preview (composers/contributors only; compositions dedup on composer+name+part via ctx.existingKeys)
+    // the preview
     let existingNames = new Set<string>()
     // a successful server dry-run gates commit; any edit invalidates it and re-disables the commit button
     let validated = false
 
-    // Maps a server/client field token to the CSV grid column(s) it should highlight. Most tokens are the
-    // column itself; these are the composition-only cases where the API/D1 field name differs from the CSV
-    // column (composer_id -> the "composer" name column; phases -> the free-text period column; the nested
-    // publication_info / rating objects fan out to their flattened D1 columns, which are the CSV columns).
+    // Maps a server/client field token to the CSV grid column(s) it should highlight
     const fieldToColumns: Record<string, string[]> =
         type === "works"
             ? {
@@ -139,11 +127,7 @@ export function initImport(type: ImportType): void {
     }
 
     /**
-     * Extracts the grid columns implicated by an issue message. Server dry-run issues are plain strings, so
-     * they are matched by word: both the server and the client builders name fields by token (e.g.
-     * "…parameter(s): name, type", "…invalid value for publish_year…"); any word matching a known
-     * column/field token is mapped to its grid column(s) so the exact input can be highlighted. Unmatched
-     * messages simply highlight the row without a specific box.
+     * Extracts the grid columns implicated by an issue message
      */
     function columnsFromIssue(issue: string): string[] {
         const found = new Set<string>()
@@ -158,11 +142,7 @@ export function initImport(type: ImportType): void {
     }
 
     /**
-     * Resolves the grid column(s) an issue implicates. Client BuildIssues that name their column directly
-     * are trusted as-is — this is what fixes the pre-server column misalignment, since some client messages
-     * share a generic noun (e.g. "composer") with a different column's own name and would otherwise
-     * word-match the wrong one. Falls back to the word-matching heuristic for plain-string issues, which is
-     * all the server dry-run report provides.
+     * Resolves the grid column(s) an issue implicates
      */
     function columnsForIssue(issue: RowIssue): string[] {
         if (typeof issue !== "string" && issue.column !== undefined) {
@@ -173,9 +153,7 @@ export function initImport(type: ImportType): void {
 
     /**
      * Renders a row's issues/warnings in place: updates its status cell, row highlight, and per-field input
-     * highlights. Warnings (e.g. "uri_type was inferred") never block the row — they are informational only,
-     * so a warning-only row still reads "ok" for row/input highlighting purposes but keeps its message
-     * visible in the status cell.
+     * highlights
      */
     function markRow(row: RowState, issues: RowIssue[], warnings: BuildIssue[]): void {
         for (const input of Object.values(row.inputs)) {
@@ -222,9 +200,7 @@ export function initImport(type: ImportType): void {
 
     /**
      * Repaints every row from its live client-computed issues/warnings merged with any still-relevant server
-     * issues (cleared per-row as soon as that row is edited — see the grid input handler), and returns how
-     * many rows are currently clean (warning-only rows count as clean). Does not touch the
-     * validated/button-gating state; callers decide that separately.
+     * issues
      */
     function repaintRows(): number {
         const built = buildAll()
@@ -240,7 +216,7 @@ export function initImport(type: ImportType): void {
         return clean
     }
 
-    /** Recomputes every row's issues, updates the summary, and gates the validate/commit buttons. */
+    /** Recomputes every row's issues, updates the summary, and gates the validate/commit buttons */
     function recompute(): void {
         const clean = repaintRows()
         const hasIssues = clean !== rows.length
@@ -376,7 +352,7 @@ export function initImport(type: ImportType): void {
         gridBox.appendChild(table)
     }
 
-    /** Fetches the composer/contributor/existing-work data needed to resolve composition references. */
+    /** Fetches the composer/contributor/existing-work data needed to resolve composition references */
     async function loadWorksContext(): Promise<WorksContext> {
         const [composers, contributors, works] = await Promise.all([
             listComposer(true) as Promise<NamedRecordLike[] | null>,
@@ -407,7 +383,7 @@ export function initImport(type: ImportType): void {
         }
     }
 
-    /** Parses the selected file, builds the preview, and (for compositions) fetches resolution data. */
+    /** Parses the selected file, builds the preview, and (for compositions) fetches resolution data */
     async function loadFile(): Promise<void> {
         errorBox.textContent = ""
         statusBox.textContent = ""
@@ -432,7 +408,7 @@ export function initImport(type: ImportType): void {
                 ctx = await loadWorksContext()
             } else {
                 // composers/contributors: load existing (name[, role]) keys so preview can flag collisions
-                // mirroring idx_composers_name_role — composers key on (name, role), contributors on name alone
+                // mirroring idx_composers_name_role - composers key on (name, role), contributors on name alone
                 const list = (await (type === "composers" ? listComposer(true) : listContributor(true))) as
                     NamedRecordLike[] | null
                 existingNames = new Set<string>(
@@ -462,7 +438,7 @@ export function initImport(type: ImportType): void {
         }
     }
 
-    /** Runs the authoritative server dry-run and renders its per-row report; passing enables commit. */
+    /** Runs the authoritative server dry-run and renders its per-row report; passing enables commit */
     async function validate(): Promise<void> {
         statusBox.textContent = "Validating with the server…"
         validateButton.disabled = true
@@ -548,9 +524,7 @@ export function initImport(type: ImportType): void {
     commitButton.disabled = true
 }
 
-/** The shape of a record returned by the list endpoints that carries an id and a name. `role` is present
- *  on composer records only (see idx_composers_name_role) — the existing-name-collision preflight keys
- *  composers on (name, role) and everything else on name alone. */
+/** The shape of a record returned by the list endpoints that carries an id and a name */
 interface NamedRecordLike {
     id: number
     name: string

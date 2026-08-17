@@ -1,18 +1,28 @@
 /*
  * styles/admin-typeface.css
  *
- * The admin typeface — the self-hosted Inter variable font — and nothing else.
+ * The admin typeface - loads Inter
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
  *
- * Split out of admin-entities.css so a page can adopt the admin typeface WITHOUT also pulling in the
- * entity component styles (forms, list results, info cards). The visual editor is exactly that case: it
- * renders no entities, but it must not fall back to the user-agent serif — and Puck's own UI asks for
- * "Inter" by name in its default token (--puck-font-family), so declaring the face here is what lets the
- * editor chrome and the admin around it share one typeface.
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
- * Load this through <AdminTypeface />, never by importing it directly: the normal face is declared
- * `font-display: optional`, which only renders when the font is already available at first paint. The
- * component emits the matching <link rel="preload"> that makes that true. Import the stylesheet on its
- * own and Inter silently never appears.
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 @font-face {

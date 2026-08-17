@@ -36,14 +36,14 @@ export function isEmdashApiToken(token: string): boolean {
     return EMDASH_TOKEN_PATTERN.test(token)
 }
 
-/** The design system's own collections — the only ones the setup tooling creates or seeds entries in. */
+/** The design system's own collections - the only ones the setup tooling creates or seeds entries in. */
 const DESIGN_COLLECTIONS = ["design_page", "design_template", "design_theme"]
 
 /** An /_emdash request reduced to what the rules match on. */
 interface EmdashServiceRequest {
     /** the uppercase HTTP method */
     method: string
-    /** the path components after "_emdash" — e.g. ["api", "settings"] for /_emdash/api/settings */
+    /** the path components after "_emdash" - e.g. ["api", "settings"] for /_emdash/api/settings */
     segments: string[]
 }
 
@@ -61,12 +61,12 @@ const SAFE_SEGMENT = /^[A-Za-z0-9_-]+$/
 
 const SERVICE_RULES: readonly ServiceRule[] = [
     {
-        why: "build/emdash-api.ts fetchSettings — site chrome title/tagline",
+        why: "build/emdash-api.ts fetchSettings - site chrome title/tagline",
         allows: ({ method, segments }) =>
             method === "GET" && segments.length === 2 && segments[0] === "api" && segments[1] === "settings"
     },
     {
-        why: "build/emdash-api.ts fetchMenu — the primary and footer menus",
+        why: "build/emdash-api.ts fetchMenu - the primary and footer menus",
         allows: ({ method, segments }) =>
             method === "GET" &&
             segments.length === 3 &&
@@ -75,8 +75,8 @@ const SERVICE_RULES: readonly ServiceRule[] = [
             SAFE_SEGMENT.test(segments[2])
     },
     {
-        why: "build/{emdash,design}-api.ts collection reads — pages, posts, design_page/template/theme",
-        // GET /api/content/<collection> — list only. A per-item read (/<id>) is not a call the build makes.
+        why: "build/{emdash,design}-api.ts collection reads - pages, posts, design_page/template/theme",
+        // GET /api/content/<collection> - list only. A per-item read (/<id>) is not a call the build makes.
         allows: ({ method, segments }) =>
             method === "GET" &&
             segments.length === 3 &&
@@ -85,7 +85,7 @@ const SERVICE_RULES: readonly ServiceRule[] = [
             SAFE_SEGMENT.test(segments[2])
     },
     {
-        why: "tools/{setup-design-collections,seed-entity-templates}.mjs — seed the design collections",
+        why: "tools/{setup-design-collections,seed-entity-templates}.mjs - seed the design collections",
         // POST /api/content/<design collection> only; never a content collection the site publishes from.
         allows: ({ method, segments }) =>
             method === "POST" &&
@@ -95,7 +95,7 @@ const SERVICE_RULES: readonly ServiceRule[] = [
             DESIGN_COLLECTIONS.includes(segments[2])
     },
     {
-        why: "tools/setup-design-collections.mjs — publish a seeded design entry",
+        why: "tools/setup-design-collections.mjs - publish a seeded design entry",
         // POST /api/content/<design collection>/<id>/publish
         allows: ({ method, segments }) =>
             method === "POST" &&
@@ -107,7 +107,7 @@ const SERVICE_RULES: readonly ServiceRule[] = [
             segments[4] === "publish"
     },
     {
-        why: "tools/setup-design-collections.mjs — list/create the design collections' schemas",
+        why: "tools/setup-design-collections.mjs - list/create the design collections' schemas",
         // GET and POST /api/schema/collections. Schema writes are deliberately in scope: the setup script
         // creates the design collections. No other method reaches it.
         allows: ({ method, segments }) =>

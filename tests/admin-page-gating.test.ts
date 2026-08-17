@@ -22,23 +22,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Binds ADMIN_PAGE_STRUCTURE (middleware/identity.ts) to the admin pages that actually exist on disk.
- *
- * tests/admin-page-coverage.test.ts checks every admin page is LINKED from somewhere. Nothing checked
- * that a page is correctly GATED, which is how a directory move silently un-gated the visual compositor:
- * commit 0758b43 moved the design pages to /admin/advanced/designs and the token pages to
- * /admin/user/tokens without moving their map entries. adminPageAccess breaks on the first unmatched
- * segment and keeps the inherited requirement, so /admin/advanced/designs/theme fell through to the
- * "active" default — reachable by any active contributor, with or without design_editor. Neither entry
- * matched a real path any more, and nothing failed.
- *
- * Two directions, because each catches a different mistake:
- *   1. every path the map names must exist  — catches a page that MOVED away from its entry
- *   2. every page's resolved access must match the expectation below — catches a gate that was DELETED,
- *      loosened, or never added to a new page
- */
-
 import { describe, it, expect } from "vitest"
 import { ADMIN_PAGE_STRUCTURE, adminPageAccess } from "../src/middleware/identity.ts"
 import type { AdminAccess } from "../src/lib/api/page_auth.ts"
@@ -75,17 +58,14 @@ function describeAccess(access: AdminAccess): string {
 }
 
 /**
- * Every admin page whose gate is NOT the "active" default, and what that gate must be. A page missing
- * from this map must resolve to "active"; a page present must resolve to exactly this value. Both
- * directions are asserted, so loosening a gate, dropping an entry, or adding an ungated page under a
- * gated section all fail here.
+ * Every admin page whose gate is NOT the "active" default
  */
 const EXPECTED_ACCESS: Record<string, string> = {
     // the database terminal maps to POST /api/v1/command
     "/admin/advanced/command": "admin",
     // the self-enrollment flow must be reachable by a not-yet-enrolled (inactive) caller
     "/admin/advanced/selfenroll": "any",
-    // the visual compositor — the pages this test exists because of
+    // the visual compositor - the pages this test exists because of
     "/admin/advanced/designs": "permission:design_editor",
     "/admin/advanced/designs/edit": "permission:design_editor",
     "/admin/advanced/designs/templates": "permission:design_editor",
@@ -150,7 +130,7 @@ describe("ADMIN_PAGE_STRUCTURE is bound to the pages on disk", () => {
         expect(describeAccess(adminPageAccess(["admin"]))).toBe("any")
     })
 
-    it("names only paths that exist — a page that moved leaves its entry stale and ungated", () => {
+    it("names only paths that exist - a page that moved leaves its entry stale and ungated", () => {
         // The exact failure this test was written for: "designs" sat at the top level (matching
         // /admin/designs/**) after the pages moved to /admin/advanced/designs/**, and "advanced.tokens"
         // after they moved to /admin/user/tokens. Both entries matched nothing and gated nothing.

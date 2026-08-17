@@ -25,9 +25,7 @@
 /// <reference path="../src/lib/api/types.d.ts" />
 
 /**
- * Tests for the user-scoped API token primitives: secret generation/hashing (src/lib/api/tokens.ts),
- * DB-backed lookup/issue/revoke, resolution to an
- * Identity (authorizeContributorId), and the D2 guard (token-authenticated requests cannot manage tokens).
+ * Tests for the user-scoped API token primitives
  */
 
 import { describe, it, expect, beforeAll } from "vitest"

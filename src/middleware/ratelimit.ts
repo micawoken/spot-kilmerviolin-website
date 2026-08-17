@@ -65,7 +65,7 @@ function scopesForPath(path_components: string[], method: string): RLScope[] {
     return scopes
 }
 
-/** Whether rate limiting applies at all — the bindings are Cloudflare-only, so skip local development. */
+/** Whether rate limiting applies at all - the bindings are Cloudflare-only, so skip local development. */
 function metered(request: Request): boolean {
     return detectEnvironment(request) !== "development"
 }
@@ -81,13 +81,7 @@ function partitionScopes(request: Request): { preIdentity: RLScope[]; postIdenti
 }
 
 /**
- * IP- and globally-keyed limiting, applied BEFORE authentication.
- *
- * Rate limiting used to run last in the chain, after identity. Every rejection path in identity.ts
- * returns a Response instead of calling next(), so a request that failed authentication was never
- * metered at all — an unauthenticated caller could flood /api/* and /admin/* without limit, each request
- * costing a Worker invocation and a JWKS signature verification. These scopes need no identity, so they
- * run first and cover rejected requests too.
+ * IP- and globally-keyed limiting, applied BEFORE authentication
  */
 export const rateLimitIp: MiddlewareHandler = async (context, next) => {
     if (!metered(context.request)) {
@@ -104,10 +98,7 @@ export const rateLimitIp: MiddlewareHandler = async (context, next) => {
 }
 
 /**
- * User-keyed limiting, applied AFTER identity has been constructed.
- *
- * auto_global is false: the shared per-IP frequency limit (RL_FREQ) was already applied by the
- * pre-identity pass, and counting one request against it twice would halve the effective allowance.
+ * User-keyed limiting, applied AFTER identity has been constructed
  */
 export const rateLimitUser: MiddlewareHandler = async (context, next) => {
     if (!metered(context.request)) {

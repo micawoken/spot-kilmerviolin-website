@@ -60,7 +60,7 @@ export interface FieldSpec {
      */
     valueType?: "boolean"
     /**
-     * When set, field is a REFERENCE to another token (by name) of that kind — renders as a `<select>`
+     * When set, field is a REFERENCE to another token (by name) of that kind - renders as a `<select>`
      * over that kind's names, not free text
      */
     refKind?: TokenKind
@@ -71,7 +71,7 @@ export interface FieldSpec {
 }
 
 /**
- * A token-reference select: names available in the referenced kind, plus unset and now-missing states —
+ * A token-reference select: names available in the referenced kind, plus unset and now-missing states -
  * a stored value is never silently rewritten to the first option
  */
 export function RefSelect({
@@ -100,14 +100,14 @@ export function RefSelect({
     )
 }
 
-/** A plain free-text token input — the raw view of any cell, and the fallback for a value no friendly
+/** A plain free-text token input - the raw view of any cell, and the fallback for a value no friendly
  * control can round-trip. */
 export function TextControl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     return <input type="text" value={value} onChange={(event) => onChange(event.target.value)} />
 }
 
 /**
- * A boolean flag control (e.g. italic/bold/underline defaults). Always a checkbox in both views — no
+ * A boolean flag control (e.g. italic/bold/underline defaults). Always a checkbox in both views - no
  * "raw CSS string" form of a JS boolean to fall back to, unlike every other control here. Row storage:
  * checked = `"true"`, unchecked = `""`.
  */
@@ -154,7 +154,7 @@ export function LengthControl({
 
 /**
  * Coerces a hex color to `#rrggbb` for a native `<input type="color">` (can't show 3/4/8-digit hex or
- * alpha). Display only — the authored string stays source of truth in the paired text field.
+ * alpha). Display only - the authored string stays source of truth in the paired text field.
  */
 function toColorInputValue(hex: string): string {
     const match = /^#([0-9a-f]{3,8})$/i.exec(hex.trim())
@@ -192,7 +192,7 @@ function ColorChannel({ value, onChange }: { value: string; onChange: (value: st
 }
 
 /** A color editor. `adaptive`: `light-dark(L, D)` as two channels (plain color seeds both; first edit
- * becomes a pair). `fixed`: single channel — a stored `light-dark()` there is out of step with the
+ * becomes a pair). `fixed`: single channel - a stored `light-dark()` there is out of step with the
  * scheme, falls back to raw text rather than dropping the dark channel. Emits a plain color when only
  * one channel is filled, so a half-authored pair never produces invalid `light-dark(x, )`. */
 export function ColorControl({
@@ -355,7 +355,7 @@ const SYSTEM_STACKS: { label: string; value: string }[] = [
 ]
 
 /** A `<select>` over a fixed keyword set that never rewrites an unrecognized value: out-of-set shows as
- * "(custom)" and is preserved; empty shows "— choose —". Editing an unusual value needs raw mode — the
+ * "(custom)" and is preserved; empty shows "— choose —". Editing an unusual value needs raw mode - the
  * dropdown covers common cases without ever clobbering one. */
 export function KeywordSelect({
     value,
@@ -436,7 +436,7 @@ export function FamilySelect({
 
 /** Renders the right editor for one token cell. A reference field is always `RefSelect` (both views).
  * Raw mode: everything else is plain text. Friendly mode: `control` selects a friendly editor,
- * unannotated falls through to text. Both views always edit the same stored string — the raw toggle
+ * unannotated falls through to text. Both views always edit the same stored string - the raw toggle
  * can never disagree. */
 export function CellControl({
     field,

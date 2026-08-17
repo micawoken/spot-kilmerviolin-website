@@ -25,12 +25,7 @@
 import { describe, it, expect } from "vitest"
 
 /**
- * Guards against an admin page that exists on disk but is reachable only by typing its URL — the exact
- * gap that let /admin/advanced/designs sit undiscoverable for weeks (plan-prelaunch-features.md §4). Every page
- * under src/pages/admin/** must appear as a literal href somewhere in admin.astro or another admin page
- * (a section landing page linking to its own children, e.g. profile.astro -> profile/edit).
- *
- * Vite resolves both globs at transform time, so this reads page source without a filesystem at runtime.
+ * Guards against an admin page that exists on disk but is reachable only by typing its URL
  */
 const sectionPages = import.meta.glob("../src/pages/admin/**/*.astro", {
     query: "?raw",
@@ -44,10 +39,6 @@ const dashboardPage = import.meta.glob("../src/pages/admin.astro", {
     eager: true
 }) as Record<string, string>
 
-// AdminFooter is rendered on nearly every admin page (via layouts/AdminDocument.astro) and carries the
-// literal hrefs for the help/legal pages (docs, terms-of-use, privacy-policy, security-policy). Those
-// pages are genuinely reachable from any admin page's footer, not just from admin.astro or a section
-// page, so the footer's source has to be part of the haystack too.
 const sharedChrome = import.meta.glob("../src/components/AdminFooter.astro", {
     query: "?raw",
     import: "default",

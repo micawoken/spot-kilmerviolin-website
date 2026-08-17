@@ -53,8 +53,13 @@ To import a composition, you need to upload a CSV file in the following format:
 - header row: (all column names comma-separated; citations are not imported)
 - remaining rows: compositions to import
 
+**You must be an administrator to perform this operation.**
+
 Once uploaded, click "Load" to process the file. Fix any errors the system reports.
 
 Once errors are fixed, run server validation: the system will tell you what other problems there are.
 
 Once you fix the server-detected errors, you can complete import.
+
+## Questions
+Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

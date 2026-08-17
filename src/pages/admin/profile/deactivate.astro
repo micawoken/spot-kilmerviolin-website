@@ -33,7 +33,7 @@ import { guardPage } from "../../../lib/api/page_auth"
 export const prerender = false
 
 // self-service deactivation acts on the caller's own record; it is reachable while active, but still
-// authorize before offering the operation (mirrors the profile page's own guard)
+// authorize before offering the operation
 const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "any" })
 if (denied) {
     return denied

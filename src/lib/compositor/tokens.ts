@@ -38,7 +38,7 @@ export interface ValueToken {
  */
 export type TextTransform = "none" | "uppercase" | "lowercase" | "capitalize"
 
-/** A typography token: emitted as one custom property per sub-value (impl §4.3). */
+/** A typography token: emitted as one custom property per sub-value */
 export interface TypographyToken {
     name: string
     family: string
@@ -51,9 +51,9 @@ export interface TypographyToken {
     /** `font-style: italic` when true */
     italic?: boolean
     /** Forces the emitted weight to `"bold"`, overriding `weight` for that one property only (the
-     * field itself is untouched — unchecking restores it) */
+     * field itself is untouched - unchecking restores it) */
     bold?: boolean
-    /** `text-decoration-line` components — independent flags since CSS allows combining them (e.g.
+    /** `text-decoration-line` components - independent flags since CSS allows combining them (e.g.
      * underline + line-through) */
     underline?: boolean
     lineThrough?: boolean
@@ -127,16 +127,16 @@ export interface SiteChromeRoles {
     horizontalSpaceInset?: string
     horizontalSpaceContentInset?: string
     /**
-     * names a `space` token; the horizontal gap between repeated items in a row — nav links, footer
+     * names a `space` token; the horizontal gap between repeated items in a row - nav links, footer
      * links, header nav's title/toggle grid columns, and the NavTiles/entity-list grids.
      */
     horizontalSpaceItemGap?: string
     /**
-     * names a `space` token; horizontal padding inside, and the gap between, interactive controls — the
+     * names a `space` token; horizontal padding inside, and the gap between, interactive controls - the
      * header and search-page search boxes, and entity list-result cards.
      */
     horizontalSpaceControl?: string
-    /** names a `space` token; vertical rhythm separating major page blocks — `main > article`/unwrapped
+    /** names a `space` token; vertical rhythm separating major page blocks - `main > article`/unwrapped
      * `main` top/bottom padding, NavTiles/entity-list grid margins, search-page form margin. Header/
      * footer have their own split-out roles below rather than sharing this one. */
     verticalSpaceSection?: string
@@ -145,14 +145,14 @@ export interface SiteChromeRoles {
     /** names a `space` token; the footer's own top/bottom padding and the margin above it, independent of the header's. */
     verticalSpaceFooter?: string
     /**
-     * names a `space` token; the vertical gap between repeated/stacked items — header nav's title/toggle
+     * names a `space` token; the vertical gap between repeated/stacked items - header nav's title/toggle
      * row vs. its nav row (below the header breakpoint), the footer's own link-row/copy stack, the
      * and the NavTiles/entity-list grids' row gap.
      */
     verticalSpaceItemGap?: string
     /**
      * names a `space` token; vertical padding inside interactive controls, and small margins tied to a
-     * control's own content — the header/search-page search boxes, NavTiles tiles, entity list-result
+     * control's own content - the header/search-page search boxes, NavTiles tiles, entity list-result
      * cards (and their corner ID badge), and the search pages' scope note / result rows / result excerpts.
      */
     verticalSpaceControl?: string
@@ -164,7 +164,7 @@ export interface TokenCatalog {
     schemaVersion: number
     /** How colors are authored. `"adaptive"` (default when absent) means values carry a
      * `light-dark(L, D)` pair following viewer color scheme; `"fixed"` means a single value.
-     * Authoring metadata only — theme editor picks one color picker or two; `tokensToCss` never reads
+     * Authoring metadata only - theme editor picks one color picker or two; `tokensToCss` never reads
      * it, emits `value` verbatim. Trap A: a pre-field theme must still validate. */
     colorScheme?: "adaptive" | "fixed"
     colors: ValueToken[]
@@ -179,7 +179,7 @@ export interface TokenCatalog {
      * `tokensToCss`. */
     fonts?: WebFont[]
     /** Public site frame's semantic color/border role mapping. Trap A; every role within is
-     * independently optional too — partial adoption (e.g. only `pageBackground`) is valid. */
+     * independently optional too - partial adoption (e.g. only `pageBackground`) is valid. */
     siteChrome?: SiteChromeRoles
     layoutStackBreakpoint?: string
     /** Whether cross-document view transitions are enabled site-wide. Like `layoutStackBreakpoint`, a
@@ -283,7 +283,7 @@ export function tokenSelectOptions(catalog: TokenCatalog, kind: TokenKind): { la
     return (catalog[kind] ?? []).map((token) => ({ label: token.name, value: token.name }))
 }
 
-/** `text-decoration-line` value for a typography token's underline/lineThrough/overline flags — CSS
+/** `text-decoration-line` value for a typography token's underline/lineThrough/overline flags - CSS
  * allows combining these on one element, so each flag contributes independently */
 function textDecorationLine(token: TypographyToken): string {
     const lines: string[] = []
@@ -339,7 +339,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
         // colorRef resolves to the color token's own property; a dangling ref yields an unset var.
         emit(tokenVarName("borders", token.name, "color"), tokenVar("colors", token.colorRef))
     }
-    // Each variant field is a var() to another token's property (like borders' colorRef) — a dangling
+    // Each variant field is a var() to another token's property (like borders' colorRef) - a dangling
     // ref yields an unset var, not a crash. Border sub-values emit only when `border` names a token.
     for (const variant of catalog.buttonVariants ?? []) {
         if (!isValidTokenName(variant.name)) continue
@@ -355,7 +355,7 @@ export function tokensToCss(catalog: TokenCatalog): string {
             emit(tokenVarName("buttonVariants", variant.name, "border-color"), tokenVar("borders", border, "color"))
         }
         // Hover cue: a `filter: brightness()` multiplier computed from the variant's own resolved
-        // colors (not its var() references — brightness() needs real RGB to simulate), emitted only
+        // colors (not its var() references - brightness() needs real RGB to simulate), emitted only
         // when it actually helps
         const bgColor = catalog.colors.find((token) => token.name === variant.background)?.value
         const textColor = catalog.colors.find((token) => token.name === variant.text)?.value
@@ -553,7 +553,7 @@ function isWebFont(value: unknown): value is WebFont {
     )
 }
 
-/** Whether a value is a structurally valid TokenCatalog — validates the stored `design_theme` item
+/** Whether a value is a structurally valid TokenCatalog - validates the stored `design_theme` item
  * before use. Structural only, doesn't check values are legal CSS or names are unique. */
 export function isTokenCatalog(value: unknown): value is TokenCatalog {
     return (

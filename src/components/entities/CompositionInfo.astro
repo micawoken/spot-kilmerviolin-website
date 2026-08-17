@@ -53,7 +53,7 @@ const imageAlt: string | undefined = Astro.props.imageAlt
 
 // renders a field value, substituting a clear marker when the value is null, undefined, blank, or an
 // empty array, so a "not supplied" field is visually distinct from an unset/blank render (shared with
-// CompositionDetail, catalog.tsx — see composition-fields.ts)
+// CompositionDetail, catalog.tsx - see composition-fields.ts)
 const disp = (value: unknown, placeholder?: string): string => displayValue(value, placeholder || NOT_PROVIDED)
 ---
 

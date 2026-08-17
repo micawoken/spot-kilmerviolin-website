@@ -1,18 +1,28 @@
 /**
  * tools/apply-fixes.mjs
  *
- * QoL wrapper for `pnpm run fix`: applies the mechanical fixes SDLC.md §5 requires before opening
- * a PR, without a human having to remember when each one applies.
+ * QoL wrapper for `pnpm run fix` - runs Prettier write and SBOM regen (automatic, but can be triggered by --sbom)
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
  *
- *   1. Prettier --write (`pnpm run format`) — always safe, always run.
- *   2. SBOM regeneration (`pnpm sbom --sbom-format spdx --out=./sbom.json`) — only when
- *      pnpm-lock.yaml actually changed on this branch. The SBOM embeds a `created` timestamp, so
- *      regenerating it unconditionally would produce a spurious diff on every run even with no
- *      dependency changes.
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
- * Lockfile-changed detection compares the working tree against the merge-base with main (falling
- * back to uncommitted status if no merge-base can be resolved, e.g. shallow clone). Use --sbom /
- * --no-sbom to override the auto-detection.
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import { execSync } from "node:child_process"
@@ -52,8 +62,8 @@ function lockfileChangedOnBranch() {
 const shouldRegenSbom = forceSbom || (!skipSbom && lockfileChangedOnBranch())
 
 if (shouldRegenSbom) {
-    console.log(forceSbom ? "--sbom passed — regenerating SBOM" : "pnpm-lock.yaml changed — regenerating SBOM")
+    console.log(forceSbom ? "--sbom passed - regenerating SBOM" : "pnpm-lock.yaml changed - regenerating SBOM")
     run("pnpm sbom --sbom-format spdx --out=./sbom.json")
 } else {
-    console.log("No dependency changes detected — skipping SBOM regen (use --sbom to force)")
+    console.log("No dependency changes detected - skipping SBOM regen (use --sbom to force)")
 }

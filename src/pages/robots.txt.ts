@@ -1,16 +1,7 @@
 /**
  * pages/robots.txt.ts
  *
- * Replaces the formerly-static public/robots.txt with a build-time-configurable version, so flipping the
- * site from pre-launch (block every crawler) to public (allow crawling, point at the sitemap) doesn't
- * require editing and redeploying a file by hand. SITE_ALLOW_INDEXING (.env.example) gates it; unset —
- * or any value other than "true" — keeps the original pre-launch default (Disallow: /), so an unconfigured
- * build stays closed rather than accidentally opening up.
- *
- * A prerendered page endpoint here, not a public/ file, for the same reason pages/sitemap.xml.ts is one:
- * Workers Static Assets serves public/ straight from the ASSETS binding with no way to vary its content
- * per build. There is no filename collision with a public/robots.txt (deleted by this change) the way
- * sitemap.xml.ts had to route around @astrojs/sitemap's own output — this is the only source of the file.
+ * Generates a dynamic robots.txt with a default-deny based on env
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -41,7 +32,7 @@ const allowIndexing = (import.meta.env.SITE_ALLOW_INDEXING ?? process.env.SITE_A
 export const GET: APIRoute = ({ site }) => {
     const body = allowIndexing
         ? `User-agent: *\nDisallow:\n\nSitemap: ${new URL("/sitemap.xml", site).href}\n`
-        : `#  this config is temp until finalized\nUser-agent: *\nDisallow: /\n`
+        : `#  indexing is disabled by config\nUser-agent: *\nDisallow: /\n`
 
     return new Response(body, { headers: { "Content-Type": "text/plain" } })
 }

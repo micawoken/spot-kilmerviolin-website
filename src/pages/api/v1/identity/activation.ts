@@ -1,11 +1,7 @@
 /**
  * pages/api/v1/identity/activation.ts
  *
- * Provides a dedicated sub-resource for managing the active state of contributor records, with
- * per-method authorization. This is the delegated counterpart to PATCH /api/v1/identity's
- * active.activate/active.deactivate operations (which are admin-only): activation is opened up to the
- * user_activation permission so enrollment-capable users can bring accounts online, while
- * deactivation (which revokes an active user's access) remains admin-only.
+ * Provides an endpoint specific to activation
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -36,10 +32,7 @@ import { auth_check } from "../../../../lib/public/authservice"
 import { emailToId, activateUser, deactivateUser } from "../../../../lib/public/usermgmt"
 
 /**
- * Shared validation and execution for both verbs. Parses the request body, resolves each identity
- * email to its contributor record, and toggles the active state. Missing records are reported as
- * non-fatal errors (via X-MWMSC-Response-Errors) rather than failing the whole request, mirroring
- * PATCH /api/v1/identity.
+ * Shared validation and execution for both verbs
  *
  * @param context - the Astro API context
  * @param request - the Request object
@@ -68,7 +61,7 @@ async function _processActivation(context: APIContext, request: Request, activat
     }
     const errors: string[] = []
     // the toggles run sequential DB transactions; wrap them so a thrown error is reported as a clean
-    // error response (with the errors accumulated so far) rather than escaping as an unhandled exception
+    // error response
     try {
         for (const email of emails) {
             const id = await emailToId(email)

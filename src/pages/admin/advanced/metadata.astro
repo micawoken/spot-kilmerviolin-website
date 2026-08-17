@@ -2,6 +2,9 @@
 /**
  * pages/admin/advanced/metadata.astro
  *
+ * Allows viewing of creation and modification metadata on database objects
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at
@@ -41,8 +44,7 @@ import { formatTimestamp } from "../../../scripts/format"
 export const prerender = false
 
 // any active caller may view entity metadata (entry/change timestamps are non-protected on every entity,
-// so the API already exposes them to all active callers); guard the direct (API-bypassing) read below as
-// "active" to mirror that policy. Administrators always satisfy it.
+// so the API already exposes them to all active callers)
 const denied = guardPage(Astro.request, Astro.locals.identity, { kind: "active" })
 if (denied) {
     return denied
@@ -66,8 +68,7 @@ interface MetadataView {
 }
 
 // SSR path: when the page is reached with ?type=&id=, load and render that entity's metadata server-side
-// (mirrors the on-page fetch the client does when a search result is selected). Any other arrival renders
-// just the search box.
+// (mirrors the on-page fetch the client does when a search result is selected)
 const type_param = Astro.url.searchParams.get("type")
 const id_param = Astro.url.searchParams.get("id")
 

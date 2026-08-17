@@ -27,54 +27,26 @@ type Runtime = import("@astrojs/cloudflare").Runtime<Env>
 declare namespace App {
     interface Locals extends Runtime {
         identity?: Identity
-        /**
-         * Set by middleware/identity.ts when a /_emdash request authenticated with a non-browser service
-         * credential (EmDash API token or Access service-token JWT). EmDash's own auth layer validates and
-         * authorizes such credentials; middleware/emdash_access.ts then skips the cms_editor page gate.
-         */
+        // service authorization
         emdashServiceAuth?: boolean
-        /**
-         * Set by middleware/identity.ts when a valid user-scoped API token (plan-prelaunch-features.md §2)
-         * authenticated an /api/ request. `locals.identity` is also populated (the token's owning
-         * contributor's live Identity) so downstream authorization is unchanged; this flag exists only so
-         * /api/v1/tokens can refuse token-authenticated requests (D2 - a leaked token cannot mint successors
-         * or revoke evidence).
-         */
         tokenAuth?: boolean
-        /**
-         * Set by middleware/identity.ts when a valid build token (plan-prelaunch-features.md §2, D9)
-         * authenticated an /api/ request. Unlike tokenAuth, no Identity is set - a build token has no
-         * owning contributor. The middleware itself enforces the route whitelist (buildTokenRouteAllowed),
-         * so by the time a handler observes this flag it is already known to be one of the three permitted
-         * GET collection routes.
-         */
+        // build tokens
         buildTokenAuth?: boolean
     }
 }
 
 // Build-time configuration for the CMS content fetch (src/lib/build/emdash-api.ts) and media publicUrl
-// (astro.config.mjs). Read only during `astro build` (prerendering) - never bound as wrangler runtime
-// secrets/vars. Merges with Vite's ImportMetaEnv. See .env.example.
+// (astro.config.mjs)
 interface ImportMetaEnv {
     readonly CONTENT_API_BASE?: string
     readonly CF_ACCESS_CLIENT_ID?: string
     readonly CF_ACCESS_CLIENT_SECRET?: string
     readonly EMDASH_API_TOKEN?: string
-    // Build token (plan-prelaunch-features.md §2 D9) for src/lib/build/d1-api.ts's entity-table reads.
     readonly BUILD_API_TOKEN?: string
     readonly EMDASH_MEDIA_PUBLIC_URL?: string
-    // Public origin (R2 custom domain) for our own R2_FILES bucket - see .env.example and media.ts's publicFileUrl.
     readonly FILES_PUBLIC_URL?: string
-    // Cloudflare Web Analytics beacon token (public, non-secret - it ships verbatim in every page's HTML).
-    // Build-time-only like the rest of this interface: public pages are prerendered (see PublicHead.astro),
-    // so this must come from the build environment, not a wrangler runtime var. See .env.example.
     readonly CF_WEB_ANALYTICS_TOKEN?: string
-    // Site-wide og:image/twitter:image fallback (absolute URL) for a page with no image of its own. See
-    // PublicHead.astro and .env.example. Unset by default - the tags are omitted, not pointed at a
-    // placeholder.
     readonly SITE_DEFAULT_OG_IMAGE?: string
-    // Whether the built robots.txt (pages/robots.txt.ts) permits crawling. Unset/anything other than
-    // "true" keeps the pre-launch default (Disallow: /) - see that file and .env.example.
     readonly SITE_ALLOW_INDEXING?: string
 }
 
@@ -227,8 +199,7 @@ interface AccessEmailRule {
 // any include/exclude/require rule; only AccessEmailRule is inspected, other rule types are preserved opaquely
 type AccessRule = AccessEmailRule | Record<string, unknown>
 
-// a reusable Access policy as returned by GET and accepted (minus read-only keys) by PUT. Unknown editable
-// fields are kept via the index signature so a read-modify-write round-trips without dropping settings.
+// a reusable Access policy as returned by GET and accepted (minus read-only keys) by PUT
 interface AccessPolicy {
     id?: string
     name?: string

@@ -1,10 +1,7 @@
 /**
  * scripts/format.ts
  *
- * Value/display formatters for the admin entity info cards. These turn stored record values into the
- * human-readable text shown in the READ view, mirroring the SSR `disp` helpers in the entity Info
- * components (ComposerInfo / CompositionInfo / ContributorInfo) so the client-side READ flow renders
- * identically.
+ * Value/display formatters for the admin entity info cards
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -35,7 +32,7 @@ const region_display = new Intl.DisplayNames(["en"], { type: "region", fallback:
 
 /**
  * Resolves a country code to its English display name, falling back to the normalized code itself when
- * the runtime cannot resolve it.
+ * the runtime cannot resolve it
  *
  * @param {string} code the ISO 3166-1 alpha-2 country code
  * @returns {string} the English country name, or the normalized code if it cannot be resolved
@@ -50,7 +47,7 @@ export function countryCodeName(code: string): string {
 }
 
 // A handful of common informal names that Intl.DisplayNames does not resolve on its own, mapped to their
-// ISO 3166-1 alpha-2 codes so a user can type the everyday name rather than the formal one.
+// ISO 3166-1 alpha-2 codes so a user can type the everyday name rather than the formal one
 const COUNTRY_NAME_ALIASES: Record<string, string> = {
     usa: "US",
     "u.s.a.": "US",
@@ -65,8 +62,7 @@ const COUNTRY_NAME_ALIASES: Record<string, string> = {
 }
 
 // Lazily-built reverse index from a country's English display name (lowercased) to its ISO 3166-1 alpha-2
-// code. Built by resolving every alpha-2 code through region_display, the same resolver countryCodeName
-// uses, so the names accepted here are exactly the names rendered elsewhere.
+// code
 let country_name_index: Map<string, string> | null = null
 
 function buildCountryNameIndex(): Map<string, string> {
@@ -85,7 +81,7 @@ function buildCountryNameIndex(): Map<string, string> {
             index.set(name.toLowerCase(), code)
         }
     }
-    // overlay the informal aliases (these take precedence is irrelevant — the keys do not overlap)
+    // overlay the informal aliases (these take precedence is irrelevant - the keys do not overlap)
     for (const [alias, code] of Object.entries(COUNTRY_NAME_ALIASES)) {
         index.set(alias, code)
     }
@@ -94,8 +90,7 @@ function buildCountryNameIndex(): Map<string, string> {
 
 /**
  * Resolves a country's common English name (e.g. "France", "South Korea", "USA") to its ISO 3166-1 alpha-2
- * code, case-insensitively. Returns null when the name is blank or not recognised. Used to let a user enter
- * a country name in the composer country field, which is converted to the code the API requires.
+ * code, case-insensitively
  *
  * @param {string} name the country name to resolve
  * @returns {string | null} the ISO 3166-1 alpha-2 code, or null if unrecognised
@@ -109,10 +104,7 @@ export function countryNameToCode(name: string): string | null {
 
 /**
  * Resolves a composer's death_year to its display text: the "Present" sentinel for a living composer
- * (stored as -1), or the year itself otherwise. The single source of truth for that conversion — reused
- * by {@link formatInfoValue} and {@link formatLifespan}, and by `catalog.tsx`'s `ContentField` outlet, so
- * the public entity pages, the admin READ view, and the client-side READ flow can never render this
- * sentinel differently from one another.
+ * (stored as -1), or the year itself otherwise
  *
  * @param {number} deathYear the stored death_year value
  * @returns {string} "Present" for -1, otherwise the year as a string
@@ -122,21 +114,19 @@ export function formatDeathYear(deathYear: number): string {
 }
 
 /**
- * Builds a composer's birth–death year range for display, e.g. "1841–1904" or "1841–Present" (see
- * {@link formatDeathYear}). Mirrors `ComposerInfo.astro`'s birth/death infoline, joined with the same
- * en dash, as a single pre-built string a template can bind as one content field.
+ * Builds a composer's birth-death year range for display, e.g. "1841-1904" or "1841-Present" (see
+ * {@link formatDeathYear})
  *
  * @param {number} birthYear the composer's birth year
  * @param {number} deathYear the composer's death year (or -1 if living)
- * @returns {string} the "birth–death" range
+ * @returns {string} the "birth-death" range
  */
 export function formatLifespan(birthYear: number, deathYear: number): string {
     return `${birthYear}–${formatDeathYear(deathYear)}`
 }
 
 /**
- * Title-cases a role string for public display (e.g. "primary author" -> "Primary Author"). Splits on
- * whitespace so multi-word roles are cased consistently regardless of how an editor typed them.
+ * Title-cases a role string for public display (e.g. "primary author" -> "Primary Author")
  *
  * @param {string} role the stored role text
  * @returns {string} the title-cased role
@@ -149,13 +139,7 @@ export function titleCaseRole(role: string): string {
 }
 
 /**
- * Formats a scalar record field value for the entity info card, mirroring the SSR `disp` helper: a
- * null/undefined/blank/empty-array value renders as the shared "not provided" marker, and per-entity
- * special cases (living-composer death year, country code -> name, top-level id "ID #" prefix, contributor
- * admin account type, plain booleans) are rendered as their human-readable forms.
- *
- * Image, publication-URI, and phases fields are handled separately by the caller (they require markup or
- * a distinct label) and are not passed here.
+ * Formats a scalar record field value for the entity info card
  *
  * @param {string} type_name the entity type ("composer" | "composition" | "contributor")
  * @param {string} key the field key
@@ -193,10 +177,7 @@ export function formatInfoValue(type_name: string, key: string, value: unknown, 
 
 /**
  * Formats a stored epoch-millisecond timestamp (a record's entry_date/change_date) into a human-readable
- * date-and-time string for display, using the same format as the admin footer (see AdminFooter.astro). A
- * missing value renders as the shared "not provided" marker, and an unparseable value falls back to the
- * raw value (stringified) so nothing is silently dropped. Shared by the metadata page's SSR view and its
- * client-side fetch.
+ * date-and-time string for display
  *
  * @param {number | null | undefined} epochMs the epoch-millisecond timestamp, or null/undefined when absent
  * @param {string} [timeZone] the IANA time zone to render in (e.g. the visitor's Cloudflare cf.timezone on

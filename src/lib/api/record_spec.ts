@@ -118,7 +118,7 @@ export const _invalidStringMaxLen = (maxLen: number) => (v: any) => typeof v !==
 // a nullable string field additionally bounded by a max length
 export const _invalidNullableStringMaxLen = (maxLen: number) => (v: any) =>
     (typeof v !== "string" && v !== null) || (typeof v === "string" && v.length > maxLen)
-// tags is optional (mirrors citations/_invalidOptionalObject — every existing caller either omits it or
+// tags is optional (mirrors citations/_invalidOptionalObject - every existing caller either omits it or
 // supplies []) and, when present, must be an array of strings; length/count hygiene is enforced in
 // elementCheck. The array itself is already deduplicated/trimmed by the sanitize* functions below before
 // validation runs, so a violation reported here reflects the post-hygiene (deduplicated) list.

@@ -1,9 +1,7 @@
 /**
  * scripts/escape.ts
  *
- * Provides a small function to escape HTML special characters to reduce XSS. Shared by the
- * record-rendering helpers (references.ts, publication.ts) so every interpolated value emitted via
- * `set:html` (SSR) or `innerHTML` (client) is markup-safe.
+ * Provides a small function to escape HTML special characters to reduce XSS
  *
  *
  * Copyright (C) 2026 Michael Wong.

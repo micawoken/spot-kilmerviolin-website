@@ -1,7 +1,7 @@
 /**
  * /pages/api/v1/files/[id].ts
  *
- * Read, replace, and delete a single file in the R2 file store. The [id] segment is the file key.
+ * Read, replace, and delete a single file in the R2 file store
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -49,17 +49,7 @@ import { authEnabled } from "../../../../lib/api/environment"
 import { env } from "cloudflare:workers"
 
 /**
- * Refuses a destructive operation on a file the caller did not upload.
- *
- * PUT and DELETE were gated on nothing but "any active contributor", so one contributor could replace the
- * bytes behind another's published entity-page image, or delete an object a live page references. The
- * ownership metadata to prevent that already existed and was already consulted on the read side — PATCH
- * /api/v1/contributors/[id] checks `meta.uploader` before letting a non-admin attach an uploaded file to
- * their own record — just not on the routes that destroy something.
- *
- * Administrators bypass it, matching that endpoint. A file with no recorded uploader (predating the
- * metadata, or written by a migration) is treated as unowned and left to administrators only, which is
- * the fail-closed reading.
+ * Refuses a destructive operation on a file the caller did not upload
  *
  * @param {APIContext} context - the Astro API context
  * @param {string} key - the file key being modified
@@ -85,8 +75,8 @@ async function denyUnlessFileOwner(context: APIContext, key: string): Promise<Re
  * GET /api/v1/files/{id}
  * Returns the raw bytes of a file (not a JSON envelope), with its stored content type
  *
- * Permissions required: none (authenticated identity). All file routes require authentication; admin
- * pages are the only consumers of a file's API address, and public pages are statically generated.
+ * Permissions required: none (authenticated identity)
+ *
  *
  * @param context - the Astro API context
  * @returns the file bytes, or a JSON error
@@ -116,14 +106,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * PUT /api/v1/files/{id}
- * Replaces an existing file's bytes, optimizing it when it is an image; or, when the "file" part is
- * omitted, updates only the file's stored alt text (the admin "modify alt text" affordance)
+ * Replaces an existing file's bytes, optimizing it when it is an image, or updates the alt text only
  *
- * Permissions required: none, but the caller must be the file's uploader or an administrator
- * (see denyUnlessFileOwner)
+ * Permissions required: none
  *
- * Body: required; multipart/form-data. Either a "file" part plus a required "alt" part (1-256 chars,
- *   see POST /api/v1/files), or an "alt" part alone to update alt text without touching the file's bytes.
+ * Body: required; multipart/form-data
  *
  * @param context - the Astro API context
  * @returns 204 on success, or a JSON error

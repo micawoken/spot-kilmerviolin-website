@@ -1,10 +1,7 @@
 /**
  * /pages/api/v1/tokens/build.ts
  *
- * Issues and lists build tokens. A build token has no owning contributor and resolves no Identity — it
- * authenticates the build process, not a person — so, unlike
- * user-scoped API tokens, this file is admin-only end to end: there is no self-service caller to scope a
- * list to.
+ * Issues and lists build tokens
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -44,13 +41,13 @@ import {
 
 /**
  * GET /api/v1/tokens/build
- * Lists every issued build token.
+ * Lists every issued build token
  *
  * Permissions required: *admin*
  *
  * Meta: none
  * Body: none
- * Response: an array of token metadata (id, label, token_prefix, entry_date, expires_date, revoked_date) —
+ * Response: an array of token metadata (id, label, token_prefix, entry_date, expires_date, revoked_date) -
  * the token_hash and plaintext secret are never included
  *
  * @param context - the Astro API context
@@ -81,7 +78,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Meta: none
  * Body: required, JSON array containing one object of the shape
  *  { label: string, expiry_days: 7 | 30 | 180 | 365 | "never" }
- * Response: 201 with { id, secret, label, token_prefix, entry_date, expires_date } — secret is the
+ * Response: 201 with { id, secret, label, token_prefix, entry_date, expires_date } - secret is the
  * plaintext token, shown exactly this once; it is never recoverable afterward. expires_date is null when
  * expiry_days was "never".
  *

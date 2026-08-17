@@ -27,10 +27,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { CmsReadError, EMDASH_MAX_WAIT_MS, READ_TIMEOUT_MS, emdashGet } from "../../src/lib/build/emdash-api"
 
 /**
- * Fetches a fresh module instance. `fetchPublishedPages`/`fetchPublishedPosts` each cache their read for
- * the life of one build process (see their doc comments in emdash-api.ts) — exactly the thing each of
- * these tests must NOT share, or an earlier test's mocked response (or thrown error) would leak into a
- * later test's assertions. Same rationale as `freshFetchMenu` below, for `fetchMenu`'s own cache.
+ * Fetches a fresh module instance
  */
 async function freshEmdashApi() {
     vi.resetModules()
@@ -47,11 +44,7 @@ function withCms() {
 }
 
 /**
- * Settles a read under the fake clock. Reads back off between attempts, so the clock must be run forward
- * or the promise never settles.
- *
- * Handlers are attached synchronously — before the clock advances — because the read can reject while the
- * timers run, and a rejection observed later than that is reported as an unhandled rejection.
+ * Settles a read under the fake clock
  */
 async function settle<T>(promise: Promise<T>): Promise<T> {
     const outcome = promise.then(
@@ -77,7 +70,7 @@ afterEach(() => {
     vi.unstubAllGlobals()
 })
 
-describe("emdashGet — no CMS configured (the bootstrap build)", () => {
+describe("emdashGet - no CMS configured (the bootstrap build)", () => {
     it("returns null instead of throwing, so a build with no worker yet still completes", async () => {
         vi.stubEnv("CONTENT_API_BASE", "")
         const fetchSpy = vi.fn()
@@ -88,7 +81,7 @@ describe("emdashGet — no CMS configured (the bootstrap build)", () => {
     })
 })
 
-describe("emdashGet — a configured CMS that fails to answer", () => {
+describe("emdashGet - a configured CMS that fails to answer", () => {
     it("throws on a network error or timeout rather than falling soft", async () => {
         withCms()
         const timeout = Object.assign(new Error("The operation was aborted due to timeout"), {
@@ -116,12 +109,10 @@ describe("emdashGet — a configured CMS that fails to answer", () => {
     })
 })
 
-describe("emdashGet — waiting out a cold CMS", () => {
+describe("emdashGet - waiting out a cold CMS", () => {
     it("does not abort below EmDash's cold-start budget", () => {
         // The regression this guards: a client abort mid-cold-start poisons the worker isolate EmDash is
         // initializing in, so "every subsequent request in the isolate hangs until the platform kills it"
-        // (emdash/src/utils/init-lock.ts). A queued request there needs up to EMDASH_MAX_WAIT_MS, so any
-        // timeout at or below that re-creates the CMS "flapping" this fix removed — the old value was 15s.
         expect(READ_TIMEOUT_MS).toBeGreaterThan(EMDASH_MAX_WAIT_MS)
     })
 
@@ -157,7 +148,7 @@ describe("emdashGet — waiting out a cold CMS", () => {
     })
 })
 
-describe("emdashGet — a missing collection", () => {
+describe("emdashGet - a missing collection", () => {
     it("throws on a 404 by default: a route-bearing collection must exist", async () => {
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { message: "not found" } })))
@@ -175,7 +166,7 @@ describe("emdashGet — a missing collection", () => {
     })
 })
 
-describe("emdashGet — a successful read", () => {
+describe("emdashGet - a successful read", () => {
     it("unwraps the { data } envelope", async () => {
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { title: "Site" } })))
@@ -184,7 +175,7 @@ describe("emdashGet — a successful read", () => {
     })
 })
 
-describe("fetchPublishedPages — an outage must not look like an empty site", () => {
+describe("fetchPublishedPages - an outage must not look like an empty site", () => {
     it("throws instead of returning [], which a deploy would publish over the live pages", async () => {
         const { CmsReadError: FreshCmsReadError, fetchPublishedPages } = await freshEmdashApi()
         withCms()
@@ -203,7 +194,7 @@ describe("fetchPublishedPages — an outage must not look like an empty site", (
     })
 })
 
-describe("fetchPublishedPosts — the same shape, out of a differently-shaped collection", () => {
+describe("fetchPublishedPosts - the same shape, out of a differently-shaped collection", () => {
     /** One published post, as EmDash's list API serves it. */
     const postItem = {
         id: "post-1",
@@ -230,7 +221,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
         expect(fetchSpy.mock.calls[0][0]).toContain("status=published")
     })
 
-    it("maps `excerpt` onto description — posts have no `description` field", async () => {
+    it("maps `excerpt` onto description - posts have no `description` field", async () => {
         const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
@@ -250,7 +241,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
         expect(post.published_at).toBeNull()
     })
 
-    it("carries featured_image through in `fields` — the only image field an outlet can bind", async () => {
+    it("carries featured_image through in `fields` - the only image field an outlet can bind", async () => {
         const { fetchPublishedPosts } = await freshEmdashApi()
         withCms()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [postItem] } })))
@@ -305,9 +296,7 @@ describe("fetchPublishedPosts — the same shape, out of a differently-shaped co
 describe("fetchMenu", () => {
     /**
      * Fetches a fresh module instance and returns its `fetchMenu`. `fetchMenu` resolves page/post
-     * references through a module-level cache (see `getPageHrefMap` in emdash-api.ts) that is meant to
-     * survive one `astro build`'s worth of page renders — exactly the thing each of these tests must NOT
-     * share, or an earlier test's mocked pages/posts would leak into a later test's assertions.
+     * references through a module-level cache
      */
     async function freshFetchMenu() {
         vi.resetModules()
@@ -432,10 +421,7 @@ describe("fetchMenu", () => {
     })
 
     it("resolving a page reference reuses [...slug].astro's own fetchPublishedPages read, not a second one", async () => {
-        // [...slug].astro's getStaticPaths calls fetchPublishedPages()/fetchPublishedPosts() directly; every
-        // page's Header/Footer then calls fetchMenu, which (via getPageHrefMap) reads the same collections
-        // again to resolve a page/post reference item. Both call sites must share fetchPublishedPages'/
-        // fetchPublishedPosts' own cache, or a build pays for the pages/posts collections twice.
+        // [...slug].astro's getStaticPaths calls fetchPublishedPages()/fetchPublishedPosts() directly
         withCms()
         const fetchSpy = vi.fn(async (url: string) => {
             if (url.includes("/_emdash/api/menus/footer")) {

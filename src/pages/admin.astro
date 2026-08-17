@@ -151,13 +151,6 @@ const identity = locals.identity !== undefined ? locals.identity : null
 </html>
 
 <style>
-    /* Each header block (h2 + link list) is an independent grid cell, so the
-     * blocks pack uniformly and collapse to a single column on narrow viewports
-     * instead of the two flex rows wrapping to mismatched column counts. The
-     * min(16rem, 100%) floor keeps a lone column from overflowing tight screens.
-     * auto-fit (not auto-fill) collapses the empty trailing tracks so the four
-     * sections stretch to fill the viewport width instead of huddling at their
-     * min size with blank space to their right. */
     .admin-sections {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
@@ -165,10 +158,6 @@ const identity = locals.identity !== undefined ? locals.identity : null
         align-items: start;
         margin-block: 1.5rem;
     }
-    /* The flex <body> stops the first grid's top margin from collapsing into the header's bottom
-     * margin, so without this the home page would sit 1.5rem lower than the section/leaf pages
-     * (whose first child is an <h2> with no top margin). Zero it so the header-to-content gap is the
-     * header's 1.5rem on every admin page. */
     .admin-sections:first-of-type {
         margin-block-start: 0;
     }

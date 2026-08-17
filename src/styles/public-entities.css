@@ -1,17 +1,7 @@
 /* styles/public-entities.css
  *
- * Public-facing styling for the D1-backed entity list results (components/entities/ListResults.astro,
- * ListResult.astro). Those components are shared with the admin's `/admin/{noun}s/list` pages, which get
- * their own grid/card treatment from styles/admin-entities.css — this file is their public counterpart,
- * loaded only by the public `/entity/{noun}/` index pages so the admin styling isn't duplicated or
- * fought over on the same shared markup. Unlike admin-entities.css this binds to the published design
- * theme's `--dtk-*` tokens (see public-chrome.css for the fallback-chain convention this follows).
- *
- * Results flow into a fixed three-column grid on wide viewports (an explicit column count, not an
- * auto-fill/minmax content-driven grid like the admin list, since a intentionally-columnar catalog page
- * is the desired look here), stepping down to two and then one column as the viewport narrows.
- *
- * PUBLIC ONLY. Imported directly by pages/entity/[noun]/index.astro.
+ * Public-facing styling for the D1-backed entity list results
+
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -95,11 +85,7 @@
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 
-/* "Stretched link" pattern: the visible <a> stays sized to its text, but this pseudo-element expands
-   to the nearest positioned ancestor (.list-result-container), making the whole card clickable instead
-   of just the name. No markup change needed — .list-result-container is admin/public shared markup, but
-   this rule lives in the public-only stylesheet, so admin's list (with its separate Edit link) is
-   unaffected. */
+/* "Stretched link" pattern */
 .list-result-link::after {
 	content: "";
 	position: absolute;

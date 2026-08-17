@@ -1,6 +1,5 @@
 /**
- *
- *
+ * scripts/file_picker.ts
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -28,9 +27,7 @@ import { errorMessage, renderSearchProgress, submitOnEnter } from "./common"
 import { fileApiUrl, listFiles } from "./connector"
 
 /**
- * The build-time pool of optimized src/files assets, fetched once and reused across pickers.
- * Resolves to an empty array when the manifest is absent (e.g. local dev, where the build step that
- * emits /files-manifest.json has not run).
+ * The build-time pool of optimized src/files assets, fetched once and reused across pickers
  */
 let _bundled_files_cache: FilePickerEntry[] | null = null
 
@@ -70,13 +67,7 @@ async function _loadBundledFiles(): Promise<FilePickerEntry[]> {
 }
 
 /**
- * Appends the build-time bundled (src/files) assets to the file listing as additional rows.
- *
- * The file list page renders the R2 (database) files server-side; bundled assets live only in the static
- * build manifest (/files-manifest.json), so they are added client-side here. Each row mirrors the SSR
- * list markup and is tagged "Local (src/files)" so its source is clear alongside the "Database (R2)"
- * rows. Bundled assets are immutable build artifacts, so they carry no replace/delete actions; the name
- * links directly to the served file. No-ops (silently) when the manifest is absent, e.g. in local dev.
+ * Appends the build-time bundled (src/files) assets to the file listing as additional rows
  *
  * @param {string} container_id DOM id of the list-results container to append rows into
  */
@@ -112,12 +103,7 @@ export async function appendBundledFiles(container_id: string): Promise<void> {
 }
 
 /**
- * Attaches an image file picker to an image-URL field, drawing from build-time bundled assets and R2.
- *
- * Modeled on attachSearchHelper: on button click it gathers the available files, filters them by the
- * query (a case-insensitive substring of the file name; an empty query matches all), and renders each
- * match as a link that, when clicked, fills the target image input with the file's URL. Bundled
- * (src/files) entries are listed before R2 entries so they take selection priority.
+ * Attaches an image file picker to an image-URL field, drawing from build-time bundled assets and R2
  *
  * @param {string} input_id DOM id of the picker's query text input
  * @param {string} button_id DOM id of the picker's search button
@@ -197,23 +183,14 @@ export function attachFilePicker(
 }
 
 /**
- * Attaches a file search box that finds uploaded (R2) files and links each hit to its info page.
- *
- * Modeled on attachFilePicker, but instead of filling a target input it renders each match as a link
- * to /admin/files/info?id=<key> so the operator can browse to a file without knowing its exact key.
- * Only R2 (uploaded) files are searched, since bundled (src/files) assets have no info page. An empty
- * query matches all files; matching is a case-insensitive substring of the file key.
+ * Attaches a file search box that finds uploaded (R2) files and links each hit to its info page
  *
  * @param {string} input_id DOM id of the search query text input
  * @param {string} button_id DOM id of the search button
  * @param {string} results_div_id DOM id of the element in which to render results
  */
 /**
- * Internal: wires a file-name search box, delegating per-result link setup to `bindResult`.
- *
- * On button click, lists uploaded files and renders each key-substring match as a link. Callers control
- * what selecting a hit does via `bindResult`, which receives the freshly created anchor and the matched
- * file key so it can either set an href (navigation) or attach an on-page click handler.
+ * Internal: wires a file-name search box, delegating per-result link setup to `bindResult`
  *
  * @param {string} input_id DOM id of the file-name text input
  * @param {string} button_id DOM id of the search button
@@ -263,9 +240,7 @@ function _attachFileSearch(
 }
 
 /**
- * Attaches a navigating file-name search box (used by the file info/view page).
- *
- * Each hit becomes a link to that file's info page.
+ * Attaches a navigating file-name search box (used by the file info/view page)
  *
  * @param {string} input_id DOM id of the file-name text input
  * @param {string} button_id DOM id of the search button
@@ -278,10 +253,7 @@ export function attachFileSearch(input_id: string, button_id: string, results_di
 }
 
 /**
- * Attaches an on-page (non-navigating) file-name search box, used by the replace/delete pages.
- *
- * Selecting a hit invokes `onSelect` with the matched key instead of navigating, so those pages can fill
- * the key into their form field rather than leaving the page.
+ * Attaches an on-page (non-navigating) file-name search box, used by the replace/delete pages
  *
  * @param {string} input_id DOM id of the file-name text input
  * @param {string} button_id DOM id of the search button
@@ -304,14 +276,7 @@ export function attachFileSearchInline(
 }
 
 /**
- * Live storage-usage estimate for the file upload and replace forms.
- *
- * Renders the current "Storage used: X GB of Y GB (Z%)" line (matching the figure on /admin/files) into
- * the display element, and — once a file is chosen — appends a projection of usage after the upload so the
- * operator can see how much room will remain. For the replace flow (key_input_id supplied) the new bytes
- * overwrite the existing object at the key, so its current size is looked up from the file listing and
- * subtracted from the projection. The selected file's raw size is used as an upper bound; images are
- * optimized smaller on upload, so the real result is no worse than shown.
+ * Live storage-usage estimate for the file upload and replace forms
  *
  * @param {number} used current bytes used (from getStorageUsage, embedded by the page)
  * @param {number} max the storage ceiling in bytes

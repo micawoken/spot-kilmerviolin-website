@@ -155,7 +155,7 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
 export const DEFAULT_RELATED_LIMIT = 6
 
 /** Illustrative canvas-only tiles, shown when there is no route context at all (mirrors
- *  `Breadcrumbs`' fallback trail) — `href: null` so they render as plain, non-navigating tiles */
+ *  `Breadcrumbs`' fallback trail) - `href: null` so they render as plain, non-navigating tiles */
 const ILLUSTRATIVE_RELATED_WORKS: RelatedWork[] = [
     { id: -1, name: "Example Work", href: null, composer: "Example Composer" },
     { id: -2, name: "Another Example Work", href: null, composer: "Example Composer" }
@@ -213,7 +213,7 @@ export function renderRelatedEntriesTag(
 
 // --- ContentField / MediaText (unified field-outlet rewrite) ----------------------------------------
 // Replaces the old dedicated CompositionDetail block: every entity field, of any kind, is bindable
-// through these two generic, collection-agnostic outlets — no per-noun render code lives here
+// through these two generic, collection-agnostic outlets - no per-noun render code lives here
 
 /** A resolved foreign-key reference, as `entity-records.ts`'s normalizer attaches it to an entry. */
 interface ResolvedReferenceLike {
@@ -362,7 +362,7 @@ export function formatFieldValue(value: unknown, kind: string | undefined, plain
         case "text":
             return typeof value === "string" ? value : ""
         default: {
-            // Shape-based fallback — no catalog kind available for this field (see header).
+            // Shape-based fallback - no catalog kind available for this field (see header).
             if (typeof value === "string") return value
             if (typeof value === "number") return String(value)
             if (Array.isArray(value)) {

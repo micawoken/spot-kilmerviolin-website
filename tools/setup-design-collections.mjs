@@ -1,36 +1,28 @@
 /**
  * tools/setup-design-collections.mjs
  *
- * Idempotent setup of the visual compositor's EmDash collections (impl §4.1) and the seed
- * design_theme item (impl §4.3). Standalone one-off op — NEVER part of the build; safe to run
- * repeatedly.
+ * Idempotent setup of the visual compositor's EmDash collections
+ * 
+ * 
+ * Copyright (C) 2026 Michael Wong.
  *
- * Creates, only when missing, three collections that support drafts + revisions:
- *   design_theme    — one json field `tokens` (required); seeded with a starter token catalog when
- *                     the collection is empty, as a draft to review + publish in the theme UI.
- *   design_page     — string `title` (required), text `description`, json `design` (required).
- *   design_template — string `title` (required), select `collection` (pages/posts, required),
- *                     boolean `is_default`, json `design` (required); the content-routing pivot's
- *                     layout-that-content-flows-through (pivot §3). Seeded with the published
- *                     "None (plain article)" sentinel item (reserved slug "none"), the explicit
- *                     opt-out from a collection's default template (pivot §7.4).
+ * This file is part of the spot-kilmerviolin-website program, available at 
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
- * Also adds the `design` reference field (-> design_template) to the EXISTING `pages` and `posts`
- * collections — the per-entry template pointer (pivot D4). Neither is created here (`pages` is
- * authored in the EmDash admin; `posts` is an EmDash seed collection), so the absence of either is a
- * warning, never a create.
+ * This license is also subject to additional terms as specified in the README.md.
  *
- * Existing collections and fields are never deleted or mutated: a live field whose type/required
- * diverges from the spec prints a warning and is left untouched (so a hand-edited schema is
- * surfaced, not silently "fixed").
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
  *
- * Auth mirrors src/lib/build/emdash-api.ts. Against a deployed worker (owner runs this — note the
- * prod service token is read-only, so schema writes need a credential carrying schema:manage):
- *   node --env-file=.env tools/setup-design-collections.mjs
- * Against a local dev server, using the DEV-only auth bypass:
- *   node tools/setup-design-collections.mjs --base http://localhost:4321 --dev-bypass
- *
- * Prints one line per step and exits non-zero on the first unexpected API response.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 const args = process.argv.slice(2)
@@ -42,7 +34,7 @@ function arg(name) {
 
 const base = (arg("--base") ?? process.env.CONTENT_API_BASE)?.replace(/\/+$/, "")
 if (!base) {
-    console.error("No --base flag and no CONTENT_API_BASE in env — nothing to target.")
+    console.error("No --base flag and no CONTENT_API_BASE in env - nothing to target.")
     process.exit(1)
 }
 const useDevBypass = args.includes("--dev-bypass")
@@ -61,7 +53,7 @@ let cookie = ""
 
 /**
  * Calls an EmDash API path and returns { status, json }. On an unexpected non-2xx response (when
- * expectOk) it logs the error envelope and exits non-zero — this script must never continue past a
+ * expectOk) it logs the error envelope and exits non-zero - this script must never continue past a
  * failed schema write.
  */
 async function api(method, path, body, expectOk = true) {
@@ -90,8 +82,7 @@ const ok = (msg) => console.log(`OK   ${msg}`)
 const warn = (msg) => console.warn(`WARN ${msg}`)
 
 /**
- * Desired collections and fields (impl §4.1). `create` is the collection-create body; `fields` are
- * ordered field-create bodies. Kept declarative so the ensure logic below is a plain diff.
+ * Desired collections and fields
  */
 const COLLECTIONS = [
     {
@@ -144,7 +135,7 @@ const COLLECTIONS = [
                 // both because authors pick a template's target from one list regardless of source.
                 validation: { options: ["pages", "posts", "composer", "composition", "contributor"] }
             },
-            // Field slugs must match /^[a-z][a-z0-9_]*$/ (emdash api/schemas/common.ts) — no camelCase.
+            // Field slugs must match /^[a-z][a-z0-9_]*$/ (emdash api/schemas/common.ts) - no camelCase.
             { slug: "is_default", label: "Default template for its collection", type: "boolean", required: false },
             { slug: "design", label: "Design", type: "json", required: true }
         ]
@@ -156,7 +147,7 @@ const COLLECTIONS = [
  * The entry-level template pointer (pivot D4): a `reference` stores the target item's id, and the
  * target collection rides in widget `options.collection` (emdash FieldWidgetOptions.collection).
  *
- * Both routed collections get the identical field — `posts` (pivot D8/Phase C) is not a special case,
+ * Both routed collections get the identical field - `posts` (pivot D8/Phase C) is not a special case,
  * which is the point: routing a collection through a template costs one reference field and nothing else.
  */
 const DESIGN_REFERENCE_FIELD = {
@@ -177,9 +168,7 @@ const FIELD_ADDITIONS = [
 ]
 
 /**
- * Seed token catalog for design_theme (impl §4.3). A minimal set derived from the site chrome
- * palette in src/styles/global.css — colors as light-dark() pairs so design pages track the site's
- * light/dark scheme. Written as a draft; the theme UI is where it gets reviewed and published.
+ * Seed token catalog for design_theme
  */
 const SEED_THEME = {
     schemaVersion: 1,
@@ -225,9 +214,7 @@ const SEED_THEME = {
         { name: "md", minWidth: "768px" },
         { name: "lg", minWidth: "1024px" }
     ],
-    // Theme-authored button styles (impl §6.3/§7.4). These reference tokens above and reproduce the old
-    // hardcoded primary/secondary/ghost look exactly. Fresh-install seed only — prod's existing theme is
-    // updated by a separate content op (plan-compositor-phase-d.md §2.3), NOT by this script.
+    // Theme-authored button styles
     buttonVariants: [
         { name: "primary", background: "accent", text: "page-bg", radius: "md", paddingX: "md", paddingY: "sm" },
         { name: "secondary", background: "transparent", text: "accent", radius: "md", paddingX: "md", paddingY: "sm", border: "accent" },
@@ -235,7 +222,7 @@ const SEED_THEME = {
     ]
 }
 
-/** Creates a field via the schema API (impl §4.1 shapes). `validation`/`options` are sent only when specified. */
+/** Creates a field via the schema API */
 async function createField(collectionSlug, field) {
     const body = {
         slug: field.slug,
@@ -275,7 +262,7 @@ async function ensureCollection(spec) {
             warn(
                 `  field ${spec.slug}.${field.slug} diverges from spec ` +
                     `(live type=${live.type} required=${Boolean(live.required)}; ` +
-                    `spec type=${field.type} required=${wantRequired}) — left untouched`
+                    `spec type=${field.type} required=${wantRequired}) - left untouched`
             )
         } else {
             ok(`  field ${spec.slug}.${field.slug} matches spec`)
@@ -283,7 +270,7 @@ async function ensureCollection(spec) {
         // Options are compared separately from type/required: they don't affect which requests EmDash
         // accepts, only what the admin UI's <select> offers, so a mismatch is worth a warning but not a
         // "diverges from spec" alarm. NOT auto-fixed: this script only ever creates fields it finds
-        // missing (see the file header), and EmDash's field-update API is out of scope here — widening
+        // missing (see the file header), and EmDash's field-update API is out of scope here - widening
         // this array in the source is a no-op against an already-created live field until the owner edits
         // the select's options by hand in the EmDash admin (or the field is deleted and recreated).
         const wantOptions = field.validation?.options
@@ -293,7 +280,7 @@ async function ensureCollection(spec) {
             if (missing.length > 0) {
                 warn(
                     `  field ${spec.slug}.${field.slug} is missing select option(s) [${missing.join(", ")}] ` +
-                        `(live options: [${liveOptions.join(", ")}]) — this script cannot add them to an ` +
+                        `(live options: [${liveOptions.join(", ")}]) - this script cannot add them to an ` +
                         "existing field; add them by hand in the EmDash admin's collection schema editor."
                 )
             }
@@ -303,14 +290,14 @@ async function ensureCollection(spec) {
 
 /**
  * Adds one field to a collection this script does not own. The collection missing entirely is a
- * warning, not a create — `pages` is authored in the EmDash admin, and creating a bare shell of it
+ * warning, not a create - `pages` is authored in the EmDash admin, and creating a bare shell of it
  * here would mask a misconfigured target.
  */
 async function ensureFieldAddition({ collection, field }) {
     const list = await api("GET", "/_emdash/api/schema/collections")
     const exists = (list.json?.data?.items ?? []).some((c) => c.slug === collection)
     if (!exists) {
-        warn(`collection ${collection} does not exist — field ${collection}.${field.slug} NOT added`)
+        warn(`collection ${collection} does not exist - field ${collection}.${field.slug} NOT added`)
         return
     }
     const fieldList = await api("GET", `/_emdash/api/schema/collections/${collection}/fields`)
@@ -320,23 +307,20 @@ async function ensureFieldAddition({ collection, field }) {
         return
     }
     if (live.type !== field.type) {
-        warn(`  field ${collection}.${field.slug} diverges from spec (live type=${live.type}; spec type=${field.type}) — left untouched`)
+        warn(`  field ${collection}.${field.slug} diverges from spec (live type=${live.type}; spec type=${field.type}) - left untouched`)
     } else {
         ok(`  field ${collection}.${field.slug} matches spec`)
     }
 }
 
 /**
- * Seeds the reserved "None (plain article)" sentinel template (pivot §3, §7.4) and publishes it —
- * resolution only reads published templates, and an unpublished opt-out would silently do nothing.
- * Its (required) `collection` value is irrelevant: the sentinel is exempt from the collection-
- * mismatch check and serves every routed collection.
+ * Seeds the reserved "None (plain article)" sentinel template
  */
 async function seedNoneSentinel() {
     const list = await api("GET", "/_emdash/api/content/design_template?limit=100")
     const existing = (list.json?.data?.items ?? []).find((item) => item.slug === "none")
     if (existing) {
-        ok('design_template sentinel "none" already exists — seed skipped')
+        ok('design_template sentinel "none" already exists - seed skipped')
         return
     }
     const created = await api("POST", "/_emdash/api/content/design_template", {
@@ -346,7 +330,7 @@ async function seedNoneSentinel() {
             title: "None (plain article)",
             collection: "pages",
             is_default: false,
-            // The empty design envelope (migrations.ts emptyDesignDoc; kept in sync by hand — this
+            // The empty design envelope (migrations.ts emptyDesignDoc; kept in sync by hand - this
             // script is plain Node and cannot import the TS module).
             design: { schemaVersion: 1, puck: { root: {}, content: [] } }
         }
@@ -365,7 +349,7 @@ async function seedTheme() {
     const list = await api("GET", "/_emdash/api/content/design_theme?limit=1")
     const count = list.json?.data?.items?.length ?? 0
     if (count > 0) {
-        ok("design_theme already has an item — seed skipped")
+        ok("design_theme already has an item - seed skipped")
         return
     }
     await api("POST", "/_emdash/api/content/design_theme", {
@@ -379,7 +363,7 @@ async function seedTheme() {
 
 /**
  * EmDash rejects any collection or field slug outside this pattern (api/schemas/common.ts `slugPattern`).
- * Notably it forbids camelCase, and it rejects each field as the script POSTs it — so an illegal slug
+ * Notably it forbids camelCase, and it rejects each field as the script POSTs it - so an illegal slug
  * authored below would otherwise be found only *after* earlier writes had already landed, leaving a
  * half-created collection on the server. Checked up front so the run is all-or-nothing.
  */

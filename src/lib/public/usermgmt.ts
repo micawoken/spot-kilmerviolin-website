@@ -38,9 +38,7 @@ function isEmailInAccess(email: string, accessList: string[]): boolean {
 }
 
 /**
- * Builds a Contributor record for enrollment, applying the shared defaults (public_email mirrors the
- * identity email; bio "", no image, not an admin, null phases, empty tags). Caller supplies the
- * fields that differ between create and finish flows (roles and active state).
+ * Builds a Contributor record for enrollment, applying the shared defaults
  */
 function buildContributor(
     identity_email: string,
@@ -68,7 +66,7 @@ function buildContributor(
 
 /**
  * Looks up the raw (uncached) Contributor primitive by identity email, returning null when the user is
- * absent or the lookup fails. Shared by finishUser and emailToId.
+ * absent or the lookup fails
  */
 async function getContributorPrimitiveByEmail(email: string): Promise<Record<string, string | number | null> | null> {
     try {
@@ -80,6 +78,7 @@ async function getContributorPrimitiveByEmail(email: string): Promise<Record<str
 
 /**
  * Retrieves user information for an identity email from Cloudflare Access and the Contributor table
+ *
  * @param identity_email the email of the user (which is used to authenticate with Access)
  * @returns a tuple, first with the ContributorRecord and second with whether the user is found in Access
  */
@@ -203,7 +202,7 @@ export async function finishUser(
  */
 export async function activateUser(ctx: ExecutionContext, id: number): Promise<void> {
     // allowProtected: "active" is a protected column (it is authorization state, not a profile field), and
-    // this function is the deliberate, permission-checked path for writing it — PUT /api/v1/identity/activation
+    // this function is the deliberate, permission-checked path for writing it - PUT /api/v1/identity/activation
     // gates on user_activation. Same contract as elevateUser/demoteUser below.
     await updateContributorPartial(ctx, id, { active: true }, true)
 }
@@ -217,7 +216,7 @@ export async function activateUser(ctx: ExecutionContext, id: number): Promise<v
  */
 export async function deactivateUser(ctx: ExecutionContext, id: number): Promise<void> {
     // allowProtected: see activateUser. Callers are the admin-only DELETE /api/v1/identity/activation, the
-    // self-service DELETE /api/v1/identity/self, and removeUser's autodeactivation — each authorized upstream.
+    // self-service DELETE /api/v1/identity/self, and removeUser's autodeactivation - each authorized upstream.
     await updateContributorPartial(ctx, id, { active: false }, true)
 }
 

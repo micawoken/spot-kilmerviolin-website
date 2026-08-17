@@ -1,24 +1,7 @@
 /**
  * middleware/emdash_access.ts
  *
- * Authorizes /_emdash requests. Runs after identity.ts, which constructs context.locals.identity for this
- * path but performs no _emdash-specific authorization itself (that decision belongs to the service being
- * requested — for /admin and /api that's the page/route itself; EmDash is a third-party integration whose
- * routes this app doesn't own, so this middleware plays that role instead). EmDash's own Cloudflare Access
- * adapter still authenticates the request separately; this is an additional in-app gate on top, not a
- * replacement.
- *
- * Three credentials reach /_emdash, NOT equal:
- *
- *   cms_editor    the whole CMS — admin UI, every collection, settings, media, users.
- *   design_editor ONLY the paths the visual design system calls (lib/api/emdash_design_access.ts).
- *   service       ONLY the paths the build and setup tooling call (lib/api/emdash_service_access.ts),
- *                 bounded in identity.ts before this middleware runs.
- *
- * Complete chokepoint: EmDash is mounted INSIDE this worker, every request to it passes through this
- * middleware. Also the only thing bounding a design_editor or a service credential — EmDash's own gate
- * exempts its anonymous routes from the bearer check, so it cannot be relied on as the backstop. Read
- * both allowlist modules' headers before widening a rule.
+ * Authorizes access to EmDash based on user roles and path
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -48,10 +31,10 @@ import { authEnabled } from "../lib/api/environment"
 import { satisfiesAccess, comment_401, comment_403, type AdminAccess } from "../lib/api/page_auth"
 import { isDesignSystemRequest } from "../lib/api/emdash_design_access"
 
-/** Full CMS access. An administrator also satisfies this (satisfiesAccess approves admins outright). */
+/** Full CMS access */
 const CMS_ACCESS: AdminAccess = { kind: "permission", permissions: ["cms_editor"] }
 
-/** Design-system access — admitted only to the paths in lib/api/emdash_design_access.ts. */
+/** Design-system access */
 const DESIGN_ACCESS: AdminAccess = { kind: "permission", permissions: ["design_editor"] }
 
 export const emdashAccess: MiddlewareHandler = async (context, next) => {
@@ -60,14 +43,11 @@ export const emdashAccess: MiddlewareHandler = async (context, next) => {
     if (path_components[0] !== "_emdash") {
         return next()
     }
-    // local development bypasses authentication entirely (no identity is constructed by identity.ts),
-    // matching every other admin surface
+    // local development bypasses authentication entirely (no identity is constructed by identity.ts)
     if (!authEnabled(context.request)) {
         return next()
     }
-    // service credentials (EmDash API token / Access service token) were validated and delegated by
-    // identity.ts; EmDash's own auth layer authorizes them (Bearer validation with per-token scopes, or
-    // the Access adapter's role mapping), so the cms_editor page gate does not apply
+
     if (context.locals.emdashServiceAuth === true) {
         return next()
     }
@@ -82,8 +62,7 @@ export const emdashAccess: MiddlewareHandler = async (context, next) => {
     if (satisfiesAccess(CMS_ACCESS, identity)) {
         return next()
     }
-    // a design_editor without cms_editor reaches ONLY what the design system calls; everything else in the
-    // CMS — the admin UI, other collections, schema writes, settings, users — is denied
+    // a design_editor without cms_editor reaches ONLY what the design system needs
     if (
         satisfiesAccess(DESIGN_ACCESS, identity) &&
         isDesignSystemRequest(context.request.method, path_components.slice(1))

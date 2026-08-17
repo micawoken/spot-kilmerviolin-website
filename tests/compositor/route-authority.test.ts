@@ -48,8 +48,8 @@ function page(slug: string, overrides: Partial<BuildPage> = {}): BuildPage {
 }
 
 /**
- * A published `posts` entry. Same {@link BuildPage} shape as a page — the reader normalizes the
- * collections' differing field names — so what distinguishes a post here is purely which source array it
+ * A published `posts` entry. Same {@link BuildPage} shape as a page - the reader normalizes the
+ * collections' differing field names - so what distinguishes a post here is purely which source array it
  * arrives in, which is exactly the property these tests exercise.
  */
 function post(slug: string, overrides: Partial<BuildPage> = {}): BuildPage {
@@ -76,7 +76,7 @@ function template(id: string, overrides: Partial<BuildTemplate> = {}): BuildTemp
 
 const NONE = template("none-id", { slug: TEMPLATE_NONE_SLUG, title: "None (plain article)" })
 
-describe("collectRoutes — merging the two sources", () => {
+describe("collectRoutes - merging the two sources", () => {
     it("emits one route per slug, portable pages before design pages", () => {
         const { routes } = collectRoutes({
             pages: [page("about")],
@@ -109,7 +109,7 @@ describe("collectRoutes — merging the two sources", () => {
         expect(design.doc.schemaVersion).toBe(1)
     })
 
-    it("gives a design_page a null entry and template — it has no content record behind it", () => {
+    it("gives a design_page a null entry and template - it has no content record behind it", () => {
         const { routes } = collectRoutes({ pages: [], posts: [], designPages: [designPage("gallery")], templates: [] })
 
         const design = routes[0].props
@@ -131,7 +131,7 @@ describe("collectRoutes — merging the two sources", () => {
         expect(portable.image).toBe("/files/hero.jpg")
     })
 
-    it("gives a design_page's props.image undefined — no EmDash entry, no featured_image field", () => {
+    it("gives a design_page's props.image undefined - no EmDash entry, no featured_image field", () => {
         const { routes } = collectRoutes({ pages: [], posts: [], designPages: [designPage("gallery")], templates: [] })
 
         const design = routes[0].props
@@ -153,7 +153,7 @@ describe("collectRoutes — merging the two sources", () => {
     })
 })
 
-describe("collectRoutes — D4 template resolution", () => {
+describe("collectRoutes - D4 template resolution", () => {
     it("renders an entry through the template its design field names", () => {
         const tpl = template("t1")
         const { routes, warnings } = collectRoutes({
@@ -192,7 +192,7 @@ describe("collectRoutes — D4 template resolution", () => {
 
     it("resolves the design pointer by the template's slug, not only its id", () => {
         // EmDash's reference field is a raw text box, so authors type the readable slug ("tpl-t1"), not
-        // the opaque id ("t1"). Both must resolve; this covers the slug path (the id path is above).
+        // the opaque id ("t1"). Both must resolve; this covers the slug path (the id path is above)
         const tpl = template("t1")
         const { routes, warnings } = collectRoutes({
             pages: [page("about", { designRef: tpl.slug })],
@@ -256,7 +256,7 @@ describe("collectRoutes — D4 template resolution", () => {
     })
 })
 
-describe("collectRoutes — a broken reference falls soft to D3", () => {
+describe("collectRoutes - a broken reference falls soft to D3", () => {
     it("renders bare and warns when the named template is not published", () => {
         const { routes, warnings } = collectRoutes({
             pages: [page("about", { designRef: "ghost" })],
@@ -286,7 +286,7 @@ describe("collectRoutes — a broken reference falls soft to D3", () => {
     })
 })
 
-describe("collectRoutes — the None sentinel opts an entry out", () => {
+describe("collectRoutes - the None sentinel opts an entry out", () => {
     it("renders bare when the entry references the sentinel", () => {
         const fallback = template("t-default", { isDefault: true })
         const { routes, warnings } = collectRoutes({
@@ -311,7 +311,7 @@ describe("collectRoutes — the None sentinel opts an entry out", () => {
         expect(routes[0].props.kind).toBe("portable")
     })
 
-    it("is exempt from the collection-mismatch check — one sentinel serves every collection", () => {
+    it("is exempt from the collection-mismatch check - one sentinel serves every collection", () => {
         const sentinel = template("none-id", { slug: TEMPLATE_NONE_SLUG, collection: "posts" })
         expect(() =>
             collectRoutes({
@@ -324,7 +324,7 @@ describe("collectRoutes — the None sentinel opts an entry out", () => {
     })
 })
 
-describe("collectRoutes — authored-wrong pairings fail the build", () => {
+describe("collectRoutes - authored-wrong pairings fail the build", () => {
     it("throws when an entry names a template that renders another collection", () => {
         const postsTemplate = template("t-posts", { collection: "posts" })
         expect(() =>
@@ -366,7 +366,7 @@ describe("collectRoutes — authored-wrong pairings fail the build", () => {
     })
 })
 
-describe("collectRoutes — duplicate slugs fail the build", () => {
+describe("collectRoutes - duplicate slugs fail the build", () => {
     it("throws when a design page claims a slug an existing page owns", () => {
         expect(() =>
             collectRoutes({ pages: [page("about")], posts: [], designPages: [designPage("about")], templates: [] })
@@ -405,7 +405,7 @@ describe("collectRoutes — duplicate slugs fail the build", () => {
     })
 })
 
-describe("collectRoutes — posts are routed under the /posts/ prefix", () => {
+describe("collectRoutes - posts are routed under the /posts/ prefix", () => {
     it("prefixes a post's slug, and leaves a page's alone", () => {
         const { routes } = collectRoutes({
             pages: [page("about")],
@@ -493,7 +493,7 @@ describe("collectRoutes — posts are routed under the /posts/ prefix", () => {
     })
 })
 
-describe("breadcrumbAncestors — auto-derives the trail's ancestor crumbs", () => {
+describe("breadcrumbAncestors - auto-derives the trail's ancestor crumbs", () => {
     it("gives a post the fixed, unlinked Posts ancestor regardless of the route table", () => {
         const { routes } = collectRoutes({ pages: [], posts: [post("first")], designPages: [], templates: [] })
         expect(breadcrumbAncestors(routes, "posts/first")).toEqual([{ label: "Posts", href: null }])
@@ -538,7 +538,7 @@ describe("breadcrumbAncestors — auto-derives the trail's ancestor crumbs", () 
     })
 })
 
-describe("collectRoutes — the prefix keeps the collision check meaningful", () => {
+describe("collectRoutes - the prefix keeps the collision check meaningful", () => {
     it("catches a page that claims a post's prefixed path", () => {
         // The whole reason the prefix is applied at route collection: both sources are compared on the
         // path they really own, so this is a collision rather than two silent claimants on one URL.

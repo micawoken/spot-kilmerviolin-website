@@ -2,14 +2,8 @@
 /**
  * pages/admin/advanced/designs/edit.astro
  *
- * Full-viewport host for the visual editor (impl §6.5). Deliberately minimal — no AdminHeader/Footer
- * chrome, and AdminTypeface instead of the full AdminHead — because the Puck editor owns the whole
- * viewport and renders none of the admin entity components AdminHead's stylesheet exists for. The
- * typeface is NOT optional dressing: Puck's own UI asks for "Inter" by name, and without the @font-face
- * both it and our chrome fall back to the user-agent serif. It resolves the `design_page` id from the
- * query string and mounts the editor below; all loading, autosave, and publishing happen client-side
- * against the EmDash API (see DesignEditor.tsx). Middleware already gates /admin/advanced/designs/* on
- * design_editor (middleware/identity.ts).
+ * Full-viewport host for the visual editor
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -40,9 +34,7 @@ import { guardPage } from "../../../../lib/api/page_auth"
 
 export const prerender = false
 
-// design_editor is required, matching ADMIN_PAGE_STRUCTURE (middleware/identity.ts). Repeated here so
-// the page carries its own gate: a directory move once left the map entry stale and these pages
-// reachable by any active contributor, with nothing to catch it.
+// design_editor is required
 const denied = guardPage(Astro.request, Astro.locals.identity, {
     kind: "permission",
     permissions: ["design_editor"]
@@ -51,13 +43,13 @@ if (denied) {
     return denied
 }
 
-// A design id is required; without one there is nothing to edit, so send the user back to the list.
+// A design id is required
 const id = Astro.url.searchParams.get("id")
 if (!id) {
     return Astro.redirect("/admin/advanced/designs")
 }
 
-// `type=template` edits a design_template; anything else (or nothing) edits a design_page.
+// `type=template` edits a design_template
 const kind = Astro.url.searchParams.get("type") === "template" ? "template" : "page"
 ---
 
@@ -77,11 +69,6 @@ const kind = Astro.url.searchParams.get("type") === "template" ? "template" : "p
         <div id="design-editor" data-design-id={id} data-design-kind={kind}></div>
 
         <script>
-            // Mounted from this module rather than as an Astro island (`client:only="react"`): for any
-            // client directive Astro emits its island bootstrap as *inline* <script> tags, which carry no
-            // nonce or hash and so are blocked by the admin CSP's script-src 'self' (middleware/headers.ts),
-            // leaving the island unhydrated. The imports below keep this script an external hashed module,
-            // which that CSP permits. Do not reintroduce a client directive on an /admin page.
             import { createElement } from "react"
             import { createRoot } from "react-dom/client"
             import DesignEditor from "../../../../components/compositor/DesignEditor"
@@ -89,7 +76,7 @@ const kind = Astro.url.searchParams.get("type") === "template" ? "template" : "p
             const host = document.getElementById("design-editor")
             if (!host) throw new Error("The design editor host element is missing")
 
-            // Set from the server-resolved query params above; edit.astro redirects when the id is absent.
+            // Set from the server-resolved query params above; edit.astro redirects when the id is absent
             const id = host.dataset.designId
             if (!id) throw new Error("The design editor host element carries no design id")
             const kind = host.dataset.designKind === "template" ? ("template" as const) : ("page" as const)

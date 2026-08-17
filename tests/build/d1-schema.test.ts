@@ -26,11 +26,6 @@ import { describe, it, expect } from "vitest"
 
 import { CONTRIBUTOR_SCHEMA, COMPOSER_SCHEMA, COMPOSITION_SCHEMA, redactProtected } from "../../src/lib/build/d1-schema"
 
-// This suite runs under @cloudflare/vitest-pool-workers (workerd), where `cloudflare:workers`
-// resolves fine — so it cannot prove this module is safe to import from a plain-Node `astro build`.
-// That property is exercised by actually building (see the Step 1 spike in the entity-page-
-// generation plan), not by these tests. These tests only guard the schema shape itself against
-// drift from the authoritative src/lib/api/d1.ts constants.
 
 describe("CONTRIBUTOR_SCHEMA", () => {
     it("mirrors d1.ts's CONTRIBUTOR column list and primary key", () => {
@@ -63,7 +58,7 @@ describe("CONTRIBUTOR_SCHEMA", () => {
 })
 
 describe("COMPOSER_SCHEMA / COMPOSITION_SCHEMA", () => {
-    it("carry no protected columns — composer and composition records are fully public", () => {
+    it("carry no protected columns - composer and composition records are fully public", () => {
         expect(COMPOSER_SCHEMA.protected).toBeUndefined()
         expect(COMPOSITION_SCHEMA.protected).toBeUndefined()
     })

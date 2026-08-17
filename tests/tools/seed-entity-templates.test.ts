@@ -1,11 +1,9 @@
 /**
  * tests/tools/seed-entity-templates.test.ts
  *
- * Lints the exact seed design docs tools/seed-entity-templates.mjs writes, against the REAL
- * entityFields catalog, OUTLET_PROPS, and TOKEN_PROPS — so a future entity-fields.ts change (a
- * renamed/removed field, a new required kind) that would make a seeded doc dangling or unpublishable
- * fails a test instead of surfacing only when the owner tries to publish it.
- *
+ * Lints the exact seed design docs tools/seed-entity-templates.mjs writes
+ * 
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 
@@ -38,10 +36,7 @@ import type { DesignDoc } from "../../src/lib/compositor/types"
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import { SEEDS } from "../../tools/seed-entity-templates.mjs"
 
-// Mirrors setup-design-collections.mjs's SEED_THEME's token NAMES (not values — irrelevant to lint):
-// "body"/"display" typography, "md" space. A seed doc using any other token name would fail this test,
-// which is the point — it proves the doc lints clean against the theme it will actually be reviewed
-// against, not an artificially permissive fixture.
+// Mirrors setup-design-collections.mjs's SEED_THEME's token NAMES
 const THEME: TokenCatalog = {
     schemaVersion: 1,
     colors: [],
@@ -56,7 +51,7 @@ const THEME: TokenCatalog = {
     breakpoints: []
 }
 
-// A representative entry per noun, covering every field kind the seed docs bind — including a
+// A representative entry per noun, covering every field kind the seed docs bind - including a
 // resolved reference/referenceList/uri, matching entity-records.ts's normalized shape.
 const ENTRIES: Record<EntityNoun, Record<string, unknown>> = {
     composer: {
@@ -125,7 +120,7 @@ function seedFor(noun: EntityNoun): Seed {
     return seed
 }
 
-describe("tools/seed-entity-templates.mjs — seed docs pass the real pairing lint", () => {
+describe("tools/seed-entity-templates.mjs - seed docs pass the real pairing lint", () => {
     it("seeds exactly the three entity nouns, one each", () => {
         expect((SEEDS as Seed[]).map((s) => s.noun).sort()).toEqual([...ENTITY_NOUNS].sort())
     })

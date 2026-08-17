@@ -1,28 +1,8 @@
 /**
  * lib/content/theme-head.ts
  *
- * Build-time accessor for the design theme's whole-page head contribution: the site-wide, self-hosted
- * web-font `@font-face`/preload markup (`design_theme.tokens.fonts`, localized by `theme-fonts.ts`) and
- * the `--dtk-*` custom-property block (`tokensToCss`). Both are site-wide concerns — the fonts because a
- * family is loaded once for the document, and the tokens because the public chrome (layouts/PublicPage ->
- * styles/public-chrome.css) now binds `body`, the header, and the footer to them, not only the
- * compositor's design pages. So this is consumed by layouts/PublicPage.astro (every public page) from a
- * single `fetchPublishedTheme()` read.
+ * Build-time accessor for the design theme's head contribution
  *
- * The public site is prerendered, so this runs during `astro build` and reads the published theme over
- * EmDash's HTTP API (see src/lib/build/design-api.ts, fetchPublishedTheme). Publishing a theme change
- * requires a site rebuild.
- *
- * The font markup itself does NOT come from calling `theme-fonts.ts` here: this module's code runs as
- * part of a page's own render, which `@astrojs/cloudflare` executes inside an actual workerd sandbox
- * during prerendering — no writable disk there, so a `localizeThemeFonts` call from this file can never
- * successfully download/self-host anything (see theme-fonts.ts's header for the full story). Instead
- * `integrations/theme-fonts.mjs` resolves the fonts in a real-Node build hook and writes the result to
- * `theme-fonts-manifest.generated.json`, imported below as a plain source module.
- *
- * It fails soft: any read error, a missing theme, or an invalid catalog all resolve to "no links, no
- * tokens", so the theme system can never break a public page build — the chrome simply falls back to its
- * built-in styles/global.css look (every `--dtk-*` binding carries a `--color-*` fallback).
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -67,7 +47,7 @@ export interface ThemeHead {
 }
 
 // No published theme still needs the Columns breakpoint rule at its historical fixed cutoff, and view
-// transitions default to enabled — both used to be unconditionally present in the static stylesheets,
+// transitions default to enabled - both used to be unconditionally present in the static stylesheets,
 // theme or not.
 const NO_THEME_HEAD: ThemeHead = {
     preloadHrefs: [],
@@ -80,7 +60,7 @@ const NO_THEME_HEAD: ThemeHead = {
 /**
  * Returns the published theme's web-font links, `--dtk-*` custom-property block, and Columns breakpoint
  * rule from a single theme read, or empty/fallback values when no theme is authored or the theme cannot
- * be read. Never throws — a theme-read failure degrades to the built-in chrome look rather than failing
+ * be read. Never throws - a theme-read failure degrades to the built-in chrome look rather than failing
  * the page build.
  *
  * @returns {Promise<ThemeHead>} the font links, token CSS, and breakpoint CSS to render into the head

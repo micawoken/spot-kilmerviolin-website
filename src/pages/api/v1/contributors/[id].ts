@@ -205,8 +205,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     }
     try {
         // read the current record through the cached whole-table layer (writes invalidate it, so it is
-        // current); used only for existence and the fallback-email name slug below, neither of which gates
-        // authorization (that is driven by locals.identity)
+        // current)
         const existing_record = await getContributor(
             context.locals.cfContext,
             CONTRIBUTOR.primary_key,
@@ -227,9 +226,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         }
 
         // an explicitly blanked identity_email is replaced with a generated fallback address so the
-        // record keeps a valid (NOT NULL UNIQUE) sign-in email (see lib/api/fallback.ts). The slug is
-        // drawn from the name in this update if present, else the existing record's name. identity_email
-        // is a protected property, so this edit is still gated by the elevation check below.
+        // record keeps a valid (NOT NULL UNIQUE) sign-in email (see lib/api/fallback.ts)
         const raw = api_request.payload[0]
         if (
             raw !== null &&
@@ -258,9 +255,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
             )
         }
         // a non-admin setting their own image to an uploaded file may only reference a file they uploaded
-        // themselves (portraits are personal). Bundled assets (/files/<name>) and external URLs are not
-        // uploaded files, so extractUploadedFileKey returns null for them and they are unaffected. Admins
-        // bypass RLS and may attach any file to any contributor, so this guard does not apply to them.
+        // themselves (portraits are personal)
         if (auth_enabled && !locals.identity?.admin && "image" in record && typeof record.image === "string") {
             const file_key = extractUploadedFileKey(record.image)
             if (file_key !== null) {

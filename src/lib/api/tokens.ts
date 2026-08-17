@@ -28,8 +28,8 @@
 import { exec_string } from "./d1.ts"
 import { authorizeContributorId } from "./authorize.ts"
 
-/** Server-side allowlist for a token's lifetime. The client never supplies a date — only one of these
- * day counts — so "expiration under one year" is structural rather than merely validated. */
+/** Server-side allowlist for a token's lifetime. The client never supplies a date - only one of these
+ * day counts - so "expiration under one year" is structural rather than merely validated. */
 export const EXPIRY_WINDOWS_DAYS = [7, 30, 180, 365] as const
 export type ExpiryWindowDays = (typeof EXPIRY_WINDOWS_DAYS)[number]
 const MS_PER_DAY = 24 * 60 * 60 * 1000
@@ -99,7 +99,7 @@ export async function hashToken(secret: string): Promise<string> {
         .join("")
 }
 
-/** A row as returned to a token owner or admin — metadata only, never token_hash or the plaintext. */
+/** A row as returned to a token owner or admin - metadata only, never token_hash or the plaintext. */
 export interface ApiTokenRow {
     id: number
     contributor_id: number
@@ -202,7 +202,7 @@ export async function resolveApiTokenIdentity(secret: string, now: number): Prom
     return authorizeContributorId(row.contributor_id)
 }
 
-/** A row as returned to an admin managing build tokens — metadata only, never token_hash or the plaintext */
+/** A row as returned to an admin managing build tokens - metadata only, never token_hash or the plaintext */
 export interface BuildTokenRow {
     id: number
     label: string

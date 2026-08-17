@@ -31,7 +31,7 @@ const validDoc = {
     puck: { root: { props: {} }, content: [{ type: "Heading", props: { id: "h1", text: "Hi" } }] }
 }
 
-describe("migrateDesign — valid input", () => {
+describe("migrateDesign - valid input", () => {
     it("returns a document at the current version", () => {
         const result = migrateDesign(validDoc)
         expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
@@ -43,7 +43,7 @@ describe("migrateDesign — valid input", () => {
     })
 })
 
-describe("migrateDesign — pre-envelope documents", () => {
+describe("migrateDesign - pre-envelope documents", () => {
     it("reads a bare Puck tree (saved by the early editor) as a version-1 envelope", () => {
         const result = migrateDesign(validDoc.puck)
         expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
@@ -54,7 +54,7 @@ describe("migrateDesign — pre-envelope documents", () => {
     })
 })
 
-describe("migrateDesign — malformed input throws", () => {
+describe("migrateDesign - malformed input throws", () => {
     it("rejects non-objects", () => {
         expect(() => migrateDesign(null)).toThrow(/expected an object/)
         expect(() => migrateDesign(42)).toThrow(/expected an object/)
@@ -78,12 +78,9 @@ describe("migrateDesign — malformed input throws", () => {
     })
 })
 
-describe("migrateDesign — backfills missing component ids", () => {
+describe("migrateDesign - backfills missing component ids", () => {
     // Puck's editor store indexes every node BY `props.id` (required in @puckeditor/core's own types,
-    // not optional); a component written without one — e.g. by a hand-authored seed script, as
-    // tools/seed-entity-templates.mjs once did — collides with every other id-less sibling on the same
-    // index key, corrupting the store and driving the editor into an infinite re-render loop that OOMs
-    // the tab. Every read must self-heal this, not just re-running the writer.
+    // not optional)
     it("assigns a unique id to a top-level component missing one", () => {
         const result = migrateDesign({
             schemaVersion: 1,
@@ -129,7 +126,7 @@ describe("migrateDesign — backfills missing component ids", () => {
     })
 })
 
-describe("migrateDesign — v1 -> v2: splits Columns/Row's gap into columnGap/rowGap", () => {
+describe("migrateDesign - v1 -> v2: splits Columns/Row's gap into columnGap/rowGap", () => {
     it("splits a top-level Columns' gap into columnGap and rowGap", () => {
         const result = migrateDesign({
             schemaVersion: 1,

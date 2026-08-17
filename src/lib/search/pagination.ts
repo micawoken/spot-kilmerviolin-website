@@ -1,11 +1,8 @@
 /**
  * lib/search/pagination.ts
  *
- * Pure result-list math shared by pages/search.astro and pages/search/advanced.astro's client scripts —
- * both compute a full ordered result set client-side (Pagefind results, or JSON-facet matches, or the two
- * intersected), dedupe it by URL, and then slice it for display, so this has no DOM/fetch concerns of its
- * own. `page` (1-indexed) and `perPage=all` are the two URL params either page's script reads/writes;
- * `perPage=all` is the "show all" escape hatch requested alongside sensible pagination defaults.
+ * Pure result-list math shared by pages/search.astro and pages/search/advanced.astro's client scripts
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -28,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** No product spec pins this number — a round default chosen to keep a page of results short. */
+/** No product spec pins this number - a round default chosen to keep a page of results short. */
 export const SEARCH_PAGE_SIZE = 20
 
 export interface PageWindow {
@@ -51,9 +48,10 @@ export function readShowAll(params: URLSearchParams): boolean {
     return params.get("perPage") === "all"
 }
 
-/** Everything a pagination-controls renderer needs to know, given the full (unsliced) result count and
- *  the current URL params. A `page` past the end clamps to the last page rather than producing an empty
- *  window, so a stale bookmark/back-navigation still shows results. */
+/**
+ * Everything a pagination-controls renderer needs to know, given the full (unsliced) result count and
+ * the current URL params
+ */
 export function computePageWindow(
     totalCount: number,
     params: URLSearchParams,
@@ -69,8 +67,10 @@ export function computePageWindow(
     return { start, end, page, totalPages, showingAll: false, totalCount }
 }
 
-/** Returns params identical to `base` except for the paging keys, set for page `page` (an explicit "1"
- *  simply clears `page`/`perPage` back to the paginated default). */
+/**
+ * Returns params identical to `base` except for the paging keys, set for page `page` (an explicit "1"
+ * simply clears `page`/`perPage` back to the paginated default)
+ */
 export function withPage(base: URLSearchParams, page: number): URLSearchParams {
     const params = new URLSearchParams(base)
     params.delete("perPage")
@@ -89,19 +89,13 @@ export function withShowAll(base: URLSearchParams): URLSearchParams {
 
 /** Strips a single trailing slash (except the bare root) so a Pagefind-crawled result URL and a
  *  db-search-index.json entry URL can be compared for equality despite differing trailing-slash
- *  conventions: Pagefind derives a URL from the prerendered file's on-disk path (always folder/index.html,
- *  so always trailing-slash), while db-search-index.json's url comes from entityHref, which follows this
- *  site's `trailingSlash: "never"` convention and so never has one. Shared by both search pages' database
- *  mode rather than duplicated per-file, after the same mismatch was fixed in one page but not the other. */
+ *  conventions */
 export function normalizeUrl(url: string): string {
     return url.length > 1 && url.endsWith("/") ? url.slice(0, -1) : url
 }
 
 /** Collapses same-URL entries to their first (highest-ranked, since Pagefind returns results pre-sorted by
- *  relevance) occurrence, preserving order. Pagefind can return more than one match for a single page — a
- *  long page indexed as several text chunks, each separately outranking the others for a very short or
- *  generic query — which would otherwise render as duplicate results linking to the same page and
- *  differing only in which part of the page their excerpt happens to match. */
+ *  relevance) occurrence, preserving order */
 export function dedupeByUrl<T extends { url: string }>(items: T[]): T[] {
     const seen = new Set<string>()
     const deduped: T[] = []

@@ -1,10 +1,7 @@
 /**
  * /pages/api/v1/tokens.ts
  *
- * Issues and lists user-scoped API tokens. A token acts as the contributor who issued it, inheriting
- * their live permissions in full except token self-management: every
- * handler here refuses a token-authenticated caller (locals.tokenAuth) so a leaked token cannot mint
- * successors or revoke evidence of its own use.
+ * Issues and lists user-scoped API tokens
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -55,7 +52,7 @@ import {
  *
  * Body: none
  * Response: an array of token metadata (id, contributor_id, label, token_prefix, entry_date, expires_date,
- * revoked_date) — the token_hash and plaintext secret are never included
+ * revoked_date) - the token_hash and plaintext secret are never included
  *
  * @param context - the Astro API context
  * @returns a Response object
@@ -92,15 +89,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * POST /api/v1/tokens
- * Issues a new API token to the caller (self only — issuing on another user's behalf is not offered, to
- * avoid reintroducing the write-attribution ambiguity an admin-scoped token would carry)
+ * Issues a new API token to the caller
  *
  * Permissions required: none
  *
  * Meta: none
  * Body: required, JSON array containing one object of the shape
  *  { label: string, expiry_days: 7 | 30 | 180 | 365 }
- * Response: 201 with { id, secret, label, token_prefix, entry_date, expires_date } — secret is the
+ * Response: 201 with { id, secret, label, token_prefix, entry_date, expires_date } - secret is the
  * plaintext token, shown exactly this once; it is never recoverable afterward
  *
  * @param context - the Astro API context

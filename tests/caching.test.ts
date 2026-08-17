@@ -1,8 +1,9 @@
 /**
+ * tests/caching.test.ts
+ * 
  * Tests the database caching layer
- * 
- * 
  *
+ * 
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at 

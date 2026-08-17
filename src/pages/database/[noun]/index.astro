@@ -3,14 +3,8 @@
  * pages/database/[noun]/index.astro
  *
  * Mirror of pages/entity/[noun]/index.astro under /database (extended beyond the root to the noun
- * indexes): renders the exact same markup via the shared
- * `EntityIndex.astro` component, so /database/{noun} serves identical content to /entity/{noun} without
- * an HTTP redirect. Individual entries are NOT mirrored — /entity/{noun}/{id} stays the only route for a
- * detail page (ListResult.astro always links there); only this reachability index is duplicated.
+ * indexes)
  *
- * This file independently re-runs `getStaticPaths`' D1/template fetch rather than importing the other
- * file's — Astro's build has no shared cache between page files (the same reasoning entity/[noun]/[id].astro
- * and entity/[noun]/index.astro already document for their own duplicated reads).
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -62,12 +56,11 @@ export async function getStaticPaths() {
     ) as Record<EntityNoun, boolean>
     const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
     // Same as entity/[noun]/index.astro: disambiguates same-titled, same-composer works in this list only
-    // — the detail page's own title (entityRecords' entry.name) is untouched. See
-    // disambiguatedCompositionNames' header.
+    // - the detail page's own title (entityRecords' entry.name) is untouched
     const compositionNames = disambiguatedCompositionNames(compositions)
 
     // See entity/[noun]/index.astro's matching comment: declared inside getStaticPaths, not at module
-    // scope, because Astro extracts getStaticPaths into its own build-time chunk.
+    // scope, because Astro extracts getStaticPaths into its own build-time chunk
     const toListItem = (record: { id: string; entry: Record<string, unknown> }): EntityListItem => ({
         id: Number(record.id),
         name: typeof record.entry.name === "string" ? record.entry.name : `#${record.id}`

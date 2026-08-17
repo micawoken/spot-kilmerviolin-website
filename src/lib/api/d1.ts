@@ -321,7 +321,7 @@ export async function getRecordSpecificProp(schema: D1Schema, param: string, val
     if (!schema.columns.includes(param)) {
         throw new Error(`Invalid column '${param}' for table '${schema.name}'`)
     }
-    // explicit columns, not `*` — see getRecord: selecting only schema columns tolerates a DB that still
+    // explicit columns, not `*` - see getRecord: selecting only schema columns tolerates a DB that still
     // carries a since-removed column, so a schema/DB drift cannot throw in recordTypeAssertComplete and
     // silently lock out authorization (the identity_email lookup that backs every request runs through here)
     const statement = `SELECT ${schema.columns.join(", ")} FROM ${schema.name} WHERE ${param} = ?;`

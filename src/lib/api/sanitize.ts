@@ -170,7 +170,7 @@ export function preferIsbn13(value: string): string {
 /**
  * Extracts the first run of digits in `text` as a number, or null when none is present. Used to pull a
  * number out of free text a spreadsheet cell was never meant to carry (e.g. "c. 1923" -> 1923, "Level 5
- * stars" -> 5) — CSV-import-only, since a purpose-built form field would just be typed correctly
+ * stars" -> 5) - CSV-import-only, since a purpose-built form field would just be typed correctly
  *
  * @param text the candidate text
  * @returns the first embedded integer, or null if none is present

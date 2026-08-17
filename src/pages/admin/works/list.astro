@@ -65,7 +65,7 @@ if (enhanced_compositions instanceof Response) {
 }
 
 // automatic disambiguation: a name collides with a sibling composition's when they share the same
-// (composer_id, name) pair — see disambiguatedCompositionName's header — regardless of list order
+// (composer_id, name) pair - see disambiguatedCompositionName's header - regardless of list order
 const name_collision_counts = new Map<string, number>()
 for (const { object } of enhanced_compositions) {
     const key = compositionNameCollisionKey(object.composer_id, object.name)

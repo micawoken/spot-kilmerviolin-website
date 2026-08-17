@@ -203,7 +203,7 @@ const primary = { name: "primary", background: "accent", text: "page-bg", radius
 const secondary = { name: "secondary", background: "page-bg", text: "accent", radius: "md", paddingX: "md", paddingY: "md", border: "default" }
 const withVariants: TokenCatalog = { ...catalog, buttonVariants: [primary, secondary] }
 
-describe("isTokenCatalog — buttonVariants is optional (trap A)", () => {
+describe("isTokenCatalog - buttonVariants is optional (trap A)", () => {
     it("ACCEPTS a catalog that omits buttonVariants entirely", () => {
         // The single most important guard in Phase D: the live published theme predates the key, and a
         // rejection here would make fetchPublishedTheme return null and unstyle every design page silently.
@@ -234,7 +234,7 @@ describe("hasToken / tokenSelectOptions with buttonVariants absent (no throw)", 
     })
 })
 
-describe("tokensToCss — button variants", () => {
+describe("tokensToCss - button variants", () => {
     it("emits one var() per sub-value, resolving each ref to the referenced token's property", () => {
         const css = tokensToCss(withVariants)
         expect(css).toContain("--dtk-btn-primary-bg: var(--dtk-color-accent);")
@@ -255,18 +255,18 @@ describe("tokensToCss — button variants", () => {
     })
 })
 
-describe("tokensToCss — site chrome paragraph spacing", () => {
+describe("tokensToCss - site chrome paragraph spacing", () => {
     it("emits --dtk-chrome-paragraph-spacing resolving to the named token's paragraph-spacing sub-value", () => {
         const withRole: TokenCatalog = { ...catalog, siteChrome: { paragraphTypography: "display" } }
         expect(tokensToCss(withRole)).toContain("--dtk-chrome-paragraph-spacing: var(--dtk-type-display-paragraph-spacing);")
     })
-    it("emits nothing when the role is unset — no magic token name is assumed", () => {
+    it("emits nothing when the role is unset - no magic token name is assumed", () => {
         expect(tokensToCss(catalog)).not.toContain("--dtk-chrome-paragraph-spacing")
         expect(tokensToCss({ ...catalog, siteChrome: {} })).not.toContain("--dtk-chrome-paragraph-spacing")
     })
 })
 
-describe("tokensToCss — site chrome horizontal spacing", () => {
+describe("tokensToCss - site chrome horizontal spacing", () => {
     const withSplitRoles: TokenCatalog = {
         ...catalog,
         space: [...catalog.space, { name: "xs", value: "0.5rem" }, { name: "sm", value: "1rem" }],
@@ -311,7 +311,7 @@ describe("tokensToCss — site chrome horizontal spacing", () => {
     })
 })
 
-describe("isTokenCatalog — site chrome horizontal spacing roles", () => {
+describe("isTokenCatalog - site chrome horizontal spacing roles", () => {
     it("accepts the three split roles alongside the deprecated singular field", () => {
         expect(
             isTokenCatalog({
@@ -330,7 +330,7 @@ describe("isTokenCatalog — site chrome horizontal spacing roles", () => {
     })
 })
 
-describe("tokensToCss — site chrome vertical spacing", () => {
+describe("tokensToCss - site chrome vertical spacing", () => {
     const withVerticalRoles: TokenCatalog = {
         ...catalog,
         space: [...catalog.space, { name: "xs", value: "0.5rem" }, { name: "sm", value: "1rem" }],
@@ -361,7 +361,7 @@ describe("tokensToCss — site chrome vertical spacing", () => {
     })
 })
 
-describe("isTokenCatalog — site chrome vertical spacing roles", () => {
+describe("isTokenCatalog - site chrome vertical spacing roles", () => {
     it("accepts the three vertical roles", () => {
         expect(
             isTokenCatalog({
@@ -379,7 +379,7 @@ describe("isTokenCatalog — site chrome vertical spacing roles", () => {
     })
 })
 
-describe("tokensToCss — site chrome vertical-space-static nudge", () => {
+describe("tokensToCss - site chrome vertical-space-static nudge", () => {
     it("emits --dtk-chrome-vertical-space-static when set", () => {
         const withStatic: TokenCatalog = {
             ...catalog,
@@ -395,7 +395,7 @@ describe("tokensToCss — site chrome vertical-space-static nudge", () => {
     })
 })
 
-describe("isTokenCatalog — site chrome vertical-space-static role", () => {
+describe("isTokenCatalog - site chrome vertical-space-static role", () => {
     it("accepts the static role alongside the other vertical roles", () => {
         expect(
             isTokenCatalog({
@@ -409,16 +409,6 @@ describe("isTokenCatalog — site chrome vertical-space-static role", () => {
     })
 })
 
-/**
- * The emitters' output is injected with `set:html` into `<style>` elements in the head of EVERY public
- * page (layouts/PublicPage.astro), unescaped — as `<style>` content must be. A theme is authored by a
- * `design_editor`, the least-privileged CMS role, who can also publish and trigger the rebuild that bakes
- * it into `dist/`. So a value that closes the `<style>` element is stored XSS against every anonymous
- * visitor, self-serviceable end to end.
- *
- * This asserts the property that actually matters — no emitter may put `<` or `>` into its output — rather
- * than the specific payloads below, so a new sink or a new payload shape is still caught.
- */
 describe("emitted CSS cannot break out of its <style> element", () => {
     const BREAKOUT = 'red; } </style><script>alert(1)</script><style> :root { --x: y'
 
@@ -470,7 +460,7 @@ describe("emitted CSS cannot break out of its <style> element", () => {
         expect(css).not.toContain("script")
     })
 
-    it("drops poisoned REFERENCE names too — they land in the value half of a declaration", () => {
+    it("drops poisoned REFERENCE names too - they land in the value half of a declaration", () => {
         // A border's colorRef, a button variant's field refs and the site-chrome roles are theme-authored
         // names that were interpolated straight into an emitted var(), not just the token's own name.
         const css = tokensToCss(poisoned)
@@ -538,7 +528,7 @@ describe("lintTokenCatalog", () => {
 
 // --- Web fonts -------------------------------------------------------------------------------------
 
-describe("isTokenCatalog — fonts is optional (trap A)", () => {
+describe("isTokenCatalog - fonts is optional (trap A)", () => {
     it("ACCEPTS a catalog that omits fonts entirely", () => {
         expect("fonts" in catalog).toBe(false)
         expect(isTokenCatalog(catalog)).toBe(true)
@@ -553,7 +543,7 @@ describe("isTokenCatalog — fonts is optional (trap A)", () => {
     })
 })
 
-describe("isTokenCatalog — colorScheme is optional (trap A)", () => {
+describe("isTokenCatalog - colorScheme is optional (trap A)", () => {
     it("ACCEPTS a catalog that omits colorScheme entirely", () => {
         expect("colorScheme" in catalog).toBe(false)
         expect(isTokenCatalog(catalog)).toBe(true)
@@ -568,7 +558,7 @@ describe("isTokenCatalog — colorScheme is optional (trap A)", () => {
     })
 })
 
-describe("isTokenCatalog — viewTransitions is optional (trap A)", () => {
+describe("isTokenCatalog - viewTransitions is optional (trap A)", () => {
     it("ACCEPTS a catalog that omits viewTransitions entirely", () => {
         expect("viewTransitions" in catalog).toBe(false)
         expect(isTokenCatalog(catalog)).toBe(true)
@@ -674,7 +664,7 @@ describe("fontFaceKey", () => {
 
 describe("referencedFontFaces", () => {
     it("returns only the faces a typography token actually names", () => {
-        // The fixture catalog authors system-ui at 400 (body) and 700 (display) — a weight nothing
+        // The fixture catalog authors system-ui at 400 (body) and 700 (display) - a weight nothing
         // references (500, the case this whole cull exists for) must not appear.
         const faces = referencedFontFaces(catalog)
         expect(faces).toEqual(new Set([fontFaceKey("system-ui", "400"), fontFaceKey("system-ui", "700")]))
@@ -689,7 +679,7 @@ describe("referencedFontFaces", () => {
         expect(referencedFontFaces(bolded)).toEqual(new Set([fontFaceKey("Spectral", "700")]))
     })
 
-    it("is empty for a catalog with no typography tokens — the signal to preload everything", () => {
+    it("is empty for a catalog with no typography tokens - the signal to preload everything", () => {
         expect(referencedFontFaces(EMPTY_TOKEN_CATALOG).size).toBe(0)
     })
 

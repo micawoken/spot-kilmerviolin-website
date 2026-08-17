@@ -29,8 +29,7 @@ import type { CollectionField } from "../../src/lib/build/design-api"
 import type { TokenCatalog, TokenPropRegistry } from "../../src/lib/compositor/tokens"
 import type { DesignDoc, PuckData } from "../../src/lib/compositor/types"
 
-// Catalog v1's token-select props (mirrors catalog.tsx TOKEN_PROPS); kept local so this unit test
-// stays free of the catalog's React/Puck import, matching the token pass's decoupling intent.
+// Catalog's token-select props
 const TOKEN_PROPS: TokenPropRegistry = {
     Section: { background: "colors", paddingY: "space" },
     Columns: { gap: "space" },
@@ -41,8 +40,7 @@ const TOKEN_PROPS: TokenPropRegistry = {
     Button: { variant: "buttonVariants" }
 }
 
-// The content outlets and their accepted field types (mirrors catalog.tsx OUTLET_PROPS), local for
-// the same decoupling reason.
+// The content outlets and their accepted field types
 const OUTLET_PROPS: OutletPropRegistry = {
     ContentText: ["string", "text"],
     ContentRichText: ["portableText"],
@@ -94,7 +92,7 @@ function rules(findings: ReturnType<typeof lint>) {
     return findings.map((finding) => finding.rule)
 }
 
-describe("lintDesign — clean documents", () => {
+describe("lintDesign - clean documents", () => {
     it("returns no findings for a valid page", () => {
         const findings = lint([heading("h1"), heading("h2")])
         expect(findings).toEqual([])
@@ -107,7 +105,7 @@ describe("lintDesign — clean documents", () => {
     })
 })
 
-describe("lintDesign — heading rules", () => {
+describe("lintDesign - heading rules", () => {
     it("errors when there is no H1", () => {
         const findings = lint([heading("h2"), heading("h3")])
         expect(rules(findings)).toContain("single-h1")
@@ -129,7 +127,7 @@ describe("lintDesign — heading rules", () => {
     })
 })
 
-describe("lintDesign — a11y and safety errors", () => {
+describe("lintDesign - a11y and safety errors", () => {
     it("errors on an Image with empty alt", () => {
         const findings = lint([heading("h1"), { type: "Image", props: { alt: "  ", aspect: "original" } }])
         expect(rules(findings)).toContain("image-alt")
@@ -153,7 +151,7 @@ describe("lintDesign — a11y and safety errors", () => {
     })
 })
 
-describe("lintDesign — warnings", () => {
+describe("lintDesign - warnings", () => {
     it("warns on a token name absent from the theme, skipping None ('')", () => {
         const findings = lint([
             heading("h1"),
@@ -212,14 +210,12 @@ describe("lintDesign — warnings", () => {
     })
 })
 
-// --- §1.11 fix: PT blocks styled h1–h6 inside rich-text bodies feed the heading checks -------------
-
 /** A PT block styled as a heading, for RichText bodies and entry body values. */
 function ptHeading(style: string, text = "PT heading") {
     return { _type: "block", _key: `k-${style}-${text}`, style, markDefs: [], children: [{ _type: "span", _key: "s", text, marks: [] }] }
 }
 
-describe("lintDesign — PT headings inside RichText bodies (§1.11)", () => {
+describe("lintDesign - PT headings inside RichText bodies", () => {
     it("accepts a page whose only H1 comes from a RichText body", () => {
         expect(lint([{ type: "RichText", props: { body: [ptHeading("h1")] } }])).toEqual([])
     })
@@ -241,7 +237,7 @@ describe("lintDesign — PT headings inside RichText bodies (§1.11)", () => {
     })
 })
 
-// --- Pairing rules (pivot §5.5) ---------------------------------------------------------------------
+// --- Pairing rules ---------------------------------------------------------------------
 
 const SCHEMA: CollectionField[] = [
     { slug: "title", label: "Title", type: "string" },
@@ -301,7 +297,7 @@ function lintTemplate(content: unknown[], context: Partial<LintPairingContext> =
     return lint(content, THEME, { entry: ENTRY, schemaFields: SCHEMA, ...context })
 }
 
-describe("lintDesign — outlet-outside-template", () => {
+describe("lintDesign - outlet-outside-template", () => {
     it("errors on any outlet in a design_page doc (no pairing context)", () => {
         const findings = lint([heading("h1"), contentText("title", "h2"), contentRichText("body"), contentImage("cover")])
         expect(findings.filter((f) => f.rule === "outlet-outside-template")).toHaveLength(3)
@@ -315,7 +311,7 @@ describe("lintDesign — outlet-outside-template", () => {
     })
 })
 
-describe("lintDesign — dangling-outlet-field", () => {
+describe("lintDesign - dangling-outlet-field", () => {
     it("errors on an unbound outlet", () => {
         const findings = lintTemplate([contentText(""), contentRichText("body")])
         const dangling = findings.filter((f) => f.rule === "dangling-outlet-field")
@@ -341,7 +337,7 @@ describe("lintDesign — dangling-outlet-field", () => {
     })
 })
 
-describe("lintDesign — dangling-spacer-field", () => {
+describe("lintDesign - dangling-spacer-field", () => {
     it("is not an outlet: an unlinked Spacer outside a template raises no findings at all", () => {
         expect(lint([heading("h1"), spacer()])).toEqual([])
     })
@@ -365,7 +361,7 @@ describe("lintDesign — dangling-spacer-field", () => {
     })
 })
 
-describe("lintDesign — empty-outlet-value and content-image-alt", () => {
+describe("lintDesign - empty-outlet-value and content-image-alt", () => {
     it("warns when the entry's value for a bound field is missing or empty", () => {
         const entry = { ...ENTRY, title: "   ", body: [] }
         const findings = lintTemplate([contentText("title"), contentRichText("body")], { entry })
@@ -393,7 +389,7 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
         expect(rules(findings)).not.toContain("content-image-alt")
     })
 
-    it("warns when the image value carries only a media id — it resolves to nothing at render", () => {
+    it("warns when the image value carries only a media id - it resolves to nothing at render", () => {
         // Lint must predict the renderer: a bare id is not a usable handle, so this renders no <img>.
         // Reporting it as "present" would let a silently-imageless page publish clean.
         const entry = { ...ENTRY, cover: { id: "med_1", alt: "A violin" } }
@@ -401,7 +397,7 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
         expect(rules(findings)).toContain("empty-outlet-value")
     })
 
-    it("accepts a string-sourced (D1 entity) image without requiring alt text — there is no alt field to set", () => {
+    it("accepts a string-sourced (D1 entity) image without requiring alt text - there is no alt field to set", () => {
         const entry = { ...ENTRY, cover: "https://images.example.test/composer.jpg" }
         const findings = lintTemplate([contentText("title"), contentImage("cover")], { entry })
         expect(rules(findings)).not.toContain("empty-outlet-value")
@@ -409,7 +405,7 @@ describe("lintDesign — empty-outlet-value and content-image-alt", () => {
     })
 })
 
-describe("lintDesign — ContentField (unified field-outlet rewrite)", () => {
+describe("lintDesign - ContentField (unified field-outlet rewrite)", () => {
     it("errors on an unbound field and on a field slug absent from the schema, same as other outlets", () => {
         expect(rules(lintTemplate([contentField("")]))).toContain("dangling-outlet-field")
         expect(rules(lintTemplate([contentField("no-such-field")]))).toContain("dangling-outlet-field")
@@ -485,7 +481,7 @@ describe("lintDesign — ContentField (unified field-outlet rewrite)", () => {
     })
 })
 
-describe("lintDesign — ContentField forced hyperlink", () => {
+describe("lintDesign - ContentField forced hyperlink", () => {
     function forcedLink(field: string, linkHref: string, forceLink: "yes" | "no" = "yes") {
         return {
             type: "ContentField",
@@ -533,7 +529,7 @@ describe("lintDesign — ContentField forced hyperlink", () => {
     })
 })
 
-describe("lintDesign — MediaText (collapsing media+text primitive)", () => {
+describe("lintDesign - MediaText (collapsing media+text primitive)", () => {
     it("shares ContentImage's dangling-field and empty-value/alt rules", () => {
         expect(rules(lintTemplate([mediaText("")]))).toContain("dangling-outlet-field")
 
@@ -551,7 +547,7 @@ describe("lintDesign — MediaText (collapsing media+text primitive)", () => {
     })
 })
 
-describe("lintDesign — heading order over the combined template+entry sequence", () => {
+describe("lintDesign - heading order over the combined template+entry sequence", () => {
     it("errors when a ContentText h1 duplicates the entry body's h1", () => {
         const entry = { ...ENTRY, body: [ptHeading("h1", "Body h1")] }
         const findings = lintTemplate([contentText("title", "h1"), contentRichText("body")], { entry })
@@ -594,7 +590,7 @@ describe("lintDesign — heading order over the combined template+entry sequence
     })
 })
 
-describe("lintDesign — template-no-outlets", () => {
+describe("lintDesign - template-no-outlets", () => {
     it("warns on a template containing zero outlets", () => {
         const findings = lintTemplate([heading("h1"), { type: "Spacer", props: { size: "md" } }])
         const warning = findings.filter((f) => f.rule === "template-no-outlets")
@@ -609,7 +605,7 @@ describe("lintDesign — template-no-outlets", () => {
 
 // --- Phase D: unknown-token severity by publication state (DD2) -------------------------------------
 
-describe("lintDesign — unknown-token fires on Button.variant and hardens when published", () => {
+describe("lintDesign - unknown-token fires on Button.variant and hardens when published", () => {
     // THEME declares no buttonVariants, so any Button.variant is a dangling reference.
     const button = { type: "Button", props: { label: "Go", href: "/x", variant: "primary" } }
 
@@ -620,14 +616,14 @@ describe("lintDesign — unknown-token fires on Button.variant and hardens when 
         expect(unknown[0].message).toContain("buttonVariants")
     })
 
-    it("is a WARNING for a draft (published omitted/false) — does not block the editor", () => {
+    it("is a WARNING for a draft (published omitted/false) - does not block the editor", () => {
         const findings = lintDesign(doc([heading("h1"), button]), THEME, TOKEN_PROPS, OUTLET_PROPS, undefined, false)
         const unknown = findings.filter((f) => f.rule === "unknown-token")
         expect(unknown[0].severity).toBe("warning")
         expect(hasBlockingError(findings)).toBe(false)
     })
 
-    it("is an ERROR when published — fails the build (DD2)", () => {
+    it("is an ERROR when published - fails the build (DD2)", () => {
         const findings = lintDesign(doc([heading("h1"), button]), THEME, TOKEN_PROPS, OUTLET_PROPS, undefined, true)
         const unknown = findings.filter((f) => f.rule === "unknown-token")
         expect(unknown[0].severity).toBe("error")

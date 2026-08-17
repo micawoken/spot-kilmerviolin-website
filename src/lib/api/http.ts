@@ -110,7 +110,7 @@ export const preflight_headers = {
  *
  * @param {Request} request - the original Request object
  * @returns {string} the Origin to echo (when allowlisted) or the fallback origin (WORKER_ORIGIN, this
- *   worker's own origin — see wrangler.jsonc)
+ *   worker's own origin - see wrangler.jsonc)
  */
 export function resolveAllowedOrigin(request: Request): string {
     const origin = request.headers.get("Origin")
@@ -199,7 +199,7 @@ export const MAX_BULK_ITEMS = 999
  */
 /**
  * The status codes `constructResponse`/`constructErrorPage` accept. Exported so sqlite_error.ts can name
- * the code it resolves to without redeclaring the table — a type-only dependency, so the runtime import
+ * the code it resolves to without redeclaring the table - a type-only dependency, so the runtime import
  * edge between the two modules stays one-way (http.ts -> sqlite_error.ts).
  */
 export type HttpStatus = keyof typeof http_codes
@@ -552,7 +552,7 @@ export interface BulkCreateHandlers<T> {
  *   item needs no signal and keeps the original response shape (201 + Location header), so existing
  *   single-record callers are unaffected.
  * - The `dry_run` meta flag (`meta.dry_run = true`) validates, authorizes, and conflict-checks every row
- *   and returns a per-row report **without writing anything** — this backs the import preview.
+ *   and returns a per-row report **without writing anything** - this backs the import preview.
  * - On commit, every item is validated (400 with per-index errors on any failure), authorized (403), and
  *   conflict-checked (409) before a single atomic batch write; a single item returns its Location, many
  *   items return the id array.
@@ -853,7 +853,7 @@ export function constructOptionsResponse(request: Request): Response {
 export function constructErrorPage(code: keyof typeof http_codes, force_comment?: string): Response {
     const { statusText, comment } = http_codes[code]
     // no request reaches this page-fallback path, so the footer renders the generic (unauthenticated,
-    // UTC) variant — see the "inject when available, else generic" footer contract in errorFooterTokens
+    // UTC) variant - see the "inject when available, else generic" footer contract in errorFooterTokens
     const data = fillErrorTemplate(code, statusText, force_comment ? force_comment : comment, errorFooterTokens())
     return new Response(data, {
         status: code,

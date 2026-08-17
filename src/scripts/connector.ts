@@ -94,8 +94,7 @@ function constructMeta(objects: object | null | undefined): Record<string, strin
  */
 function stripAPILocation(location: string): number | null {
     // a leading slash yields an empty first component, so "/api/v1/{noun}/{id}" splits into exactly five
-    // segments: ["", "api", "v{ver}", "{noun}", "{id}"]. Require the id segment to be present (length >= 5,
-    // not just >= 4 where components[4] is undefined) and validate the api/v# prefix by component.
+    // segments: ["", "api", "v{ver}", "{noun}", "{id}"]
     const components = location.split("/")
     const validate =
         components.length >= 5 &&
@@ -214,8 +213,7 @@ function interpretPayload(data_response: APIResponse | string | undefined) {
  * Builds a RequestInit for an API call.
  *
  * Request bodies follow the single-item array convention (see API contract): when `item` is provided it
- * is wrapped as `[item]`, JSON-serialized, and the JSON Content-Type header is set. Optional `meta` is
- * serialized into the X-MWMSC-Request-Meta header via constructMeta (omitted when empty/oversized).
+ * is wrapped as `[item]`, JSON-serialized, and the JSON Content-Type header is set
  *
  * @param method the HTTP method
  * @param item the single body item to send, or undefined for a body-less request
@@ -236,7 +234,7 @@ function jsonInit(method: string, item?: unknown, meta?: object | null): Request
  * Builds a RequestInit for a bulk API call.
  *
  * Unlike {@link jsonInit}, the items array is sent as-is (not wrapped), and the `bulk` meta signal is set
- * automatically (the server requires it for multi-item bodies). Extra meta (e.g. `dry_run`) is merged in.
+ * automatically (the server requires it for multi-item bodies)
  *
  * @param method the HTTP method
  * @param items the body items to send (sent as a JSON array)
@@ -252,7 +250,7 @@ function jsonInitBulk(method: string, items: unknown[], meta?: object | null): R
 }
 
 /**
- * Issues a request and returns the interpreted response payload (or null).
+ * Issues a request and returns the interpreted response payload (or null)
  *
  * @param url the request URL
  * @param init the fetch init
@@ -266,7 +264,7 @@ async function requestPayload(url: string, init: RequestInit, null_request_heade
 
 /**
  * Issues a request that must not return a payload (the write/PUT/PATCH/DELETE convention), throwing if
- * the server unexpectedly returns one.
+ * the server unexpectedly returns one
  *
  * @param operation the operation name, used in the mismatch error message
  * @param url the request URL
@@ -294,7 +292,7 @@ export type BulkNoun = "composers" | "contributors" | "works"
 
 /**
  * The per-row report returned by a bulk dry-run (meta.dry_run = true): the server validated, authorized,
- * and conflict-checked every row without writing anything. `ok` is true only when every row is clean.
+ * and conflict-checked every row without writing anything
  */
 export interface BulkDryRunReport {
     dry_run: true
@@ -307,7 +305,7 @@ export interface BulkDryRunReport {
  * POST /api/v1/{noun} with the bulk contract, dry-run mode.
  *
  * Submits the items for server-side validation/authorization/conflict-checking and returns the per-row
- * report; nothing is written. Backs the import preview.
+ * report; nothing is written
  *
  * @param noun the entity endpoint (composers | contributors | works)
  * @param items the candidate records (already name-resolved for compositions)
@@ -321,9 +319,7 @@ export async function bulkDryRun(noun: BulkNoun, items: unknown[]): Promise<Bulk
 /**
  * POST /api/v1/{noun} with the bulk contract, commit mode.
  *
- * Commits the items in a single atomic transaction (all-or-nothing) and returns the new ids in order. A
- * single-item array is accepted (the server returns its Location, which is normalized here to a one-element
- * id array) so callers need not special-case count.
+ * Commits the items in a single atomic transaction (all-or-nothing) and returns the new ids in order
  *
  * @param noun the entity endpoint (composers | contributors | works)
  * @param items the records to create
@@ -424,10 +420,6 @@ export async function deleteComposer(id: number): Promise<void> {
 /**
  * Type guard distinguishing the enhanced composition response from a plain Composition API object.
  *
- * When the `names` flag is passed to getWork/listWork, the server resolves the composition's referenced
- * composer and contributor names and returns a CompositionWithNames ({ object, names }) instead of a bare Composition.
- * Consumers call this to branch on which shape they received before reading the data.
- *
  * @param value the value to test
  * @returns true if the value is a CompositionWithNames (carrying resolved names)
  */
@@ -452,10 +444,6 @@ export async function listWork(full?: boolean, names?: boolean): Promise<any | n
 
 /**
  * GET /api/v1/works/{id}
- *
- * By default the plain Composition object is returned. When `names` is set, the server resolves the
- * referenced composer and contributor names and returns a CompositionWithNames ({ object, names }); use
- * isCompositionWithNames to discriminate the result.
  *
  * @param id the work ID to retrieve
  * @param names if true, returns a CompositionWithNames object with resolved composer and contributor names
@@ -642,7 +630,7 @@ export async function searchDatabase(
  * Builds the API URL that serves a file's bytes
  *
  * This is the value stored in a record's image field (so the admin UI can load the image through the
- * authenticated files API).
+ * authenticated files API)
  *
  * @param key the file key
  * @returns the file's API address, e.g. /api/v1/files/hero.webp
@@ -663,8 +651,7 @@ export async function listFiles(full?: boolean): Promise<string[] | FileMeta[] |
 
 /**
  * Appends an optional crop selection to a file upload's form body as the crop_* fields the API expects
- * (see parseCropFromForm in lib/api/images.ts). A null/undefined crop is omitted, so the server applies
- * its default centered portrait crop.
+ * (see parseCropFromForm in lib/api/images.ts)
  *
  * @param body the FormData being assembled for the upload
  * @param crop the normalized crop selection (aspect plus a 0..1 region), or null/undefined to omit
@@ -891,7 +878,7 @@ export async function deleteIdentity(email: string, autodeactivation?: boolean):
 
 // API TOKENS
 
-/** Token metadata as returned by the tokens API — never the hash or the plaintext secret. */
+/** Token metadata as returned by the tokens API - never the hash or the plaintext secret. */
 export interface ApiTokenSummary {
     id: number
     contributor_id: number
@@ -1021,10 +1008,6 @@ export async function purgeSite(): Promise<any | null> {
  * POST /api/v1/command
  * Execute one or more SQL commands on the server
  *
- * A single command yields a single D1Result; multiple commands yield an array of D1Results (one per
- * command, in order). When more than one command is supplied and `batch` is true (the default), the
- * server runs them as a single atomic transaction so any failure rolls back the whole set; passing
- * `batch` as false runs them sequentially as independent statements (no rollback).
  *
  * @param commands the SQL command string(s) to execute, in order
  * @param batch whether multiple commands should run as an atomic batch (default true)
@@ -1050,9 +1033,6 @@ export async function getSelf(): Promise<Identity | null> {
  * PATCH /api/v1/identity/self
  * Change the authenticated user's own identity (sign-in) email
  *
- * The server changes the login email of the caller's own contributor record (and the underlying Access
- * policy); no special permissions are required, but the request only ever affects the caller themselves.
- *
  * @param new_email the new identity (sign-in) email to set
  */
 export async function updateSelfLogin(new_email: string): Promise<void> {
@@ -1073,8 +1053,6 @@ export async function enrollSelf(record: Partial<Contributor>): Promise<void> {
  * DELETE /api/v1/identity/self
  * Deactivate the authenticated user's own contributor record (self-service)
  *
- * The server marks the caller's own record inactive (read-only access); the user keeps the ability to
- * sign in. No special permissions are required, but the request only ever affects the caller themselves.
  */
 export async function deactivateSelf(): Promise<void> {
     return requestVoid("deactivateSelf", composeUrl("identity/self"), jsonInit("DELETE"))

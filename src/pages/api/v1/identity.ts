@@ -639,8 +639,8 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     }
     const target_email = api_request.payload[0]
     try {
-        // Removing a user rewrites the Access policy with their include rule deleted, so this endpoint —
-        // delegated to user_addition, not admin — can revoke authentication for the whole application.
+        // Removing a user rewrites the Access policy with their include rule deleted, so this endpoint -
+        // delegated to user_addition, not admin - can revoke authentication for the whole application.
         // Two targets are therefore off limits to a non-administrator holding that permission:
         //
         //  - an administrator, who would otherwise be locked out of /admin, /api and /_emdash alike (all

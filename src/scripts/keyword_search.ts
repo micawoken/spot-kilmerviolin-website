@@ -1,8 +1,5 @@
 /**
- *
- *
- *
- *
+ * scripts/keyword_search.ts
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -29,11 +26,7 @@ import { errorMessage, renderSearchProgress, submitOnEnter } from "./common"
 import { listComposer, listContributor, searchDatabase } from "./connector"
 
 /**
- * Resets and re-reveals the keyword search box that the info pages pair with the ID entry form.
- *
- * The on-page READ flow (processSubmit) hides both the ID entry form and the keyword search box when a
- * record is loaded; this restores the keyword box (clearing its input and results) so the next task can
- * search again. No-ops on pages without a keyword box (e.g. create/delete), so it is safe to call generally.
+ * Resets and re-reveals the keyword search box that the info pages pair with the ID entry form
  */
 export function _resetKeywordSearch(): void {
     const search_container = document.getElementById("entity-search-container")
@@ -56,8 +49,7 @@ export function _resetKeywordSearch(): void {
 
 /**
  * Singular, human-readable label for each searchable database, used to prefix a hit's result text so the
- * operator can tell which database it came from (most useful for an all-databases search, where the
- * results are interleaved).
+ * operator can tell which database it came from
  */
 const search_database_label: Record<SearchDatabase, string> = {
     composers: "Composer",
@@ -67,10 +59,6 @@ const search_database_label: Record<SearchDatabase, string> = {
 
 /**
  * Attaches an on-page (non-navigating) keyword-search box, used by the entity info (view) pages.
- *
- * Selecting a hit invokes `onSelect` instead of navigating, so the info pages can load the record in
- * place via the same READ flow used by the ID entry form (which hides both search boxes and renders the
- * record), keeping ID search and keyword search behaviorally identical.
  *
  * @param {string} input_id DOM id of the keyword text input
  * @param {string} button_id DOM id of the search button
@@ -95,12 +83,7 @@ export function attachKeywordSearchInline(
 }
 
 /**
- * Internal: wires a keyword-search box, delegating per-result link setup to `bindResult`.
- *
- * On button click, sends the keyword (and the database returned by getDatabase) to /api/v1/search and
- * renders each hit as a link. Callers control what selecting a hit does via `bindResult`, which receives
- * the freshly created anchor and its result so it can either set an href (navigation) or attach an
- * on-page click handler.
+ * Internal: wires a keyword-search box, delegating per-result link setup to `bindResult`
  *
  * @param {string} input_id DOM id of the keyword text input
  * @param {string} button_id DOM id of the search button
@@ -161,11 +144,7 @@ function _attachKeywordSearch(
 }
 
 /**
- * Attaches a navigating keyword-search box (used by the standalone search page and the edit pages).
- *
- * Each hit becomes a link whose target is produced by getHref: the standalone search page routes each
- * hit to its entity's info page, while the edit pages route to the current page's "?id=" SSR flow (which
- * prefills the edit form).
+ * Attaches a navigating keyword-search box (used by the standalone search page and the edit pages)
  *
  * @param {string} input_id DOM id of the keyword text input
  * @param {string} button_id DOM id of the search button
@@ -187,9 +166,6 @@ export function attachKeywordSearch(
 
 /**
  * Attaches a name-search helper to an entity ID input
- *
- * On button click, fetches the full record list, filters by name (case-insensitive substring),
- * and renders clickable results which fill the target ID input when selected
  *
  * @param {"composer" | "contributor"} kind which record list to search
  * @param {string} input_id DOM id of the search text input

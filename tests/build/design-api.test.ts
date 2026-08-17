@@ -28,13 +28,7 @@ import { NOT_FOUND_PAGE_SLUG, partitionDesignPages, type BuildDesignPage } from 
 import { emptyDesignDoc } from "../../src/lib/compositor/migrations"
 
 /**
- * Fetches a fresh instance of design-api.ts (plus emdash-api.ts's `CmsReadError`, off the SAME reset
- * module registry, so `instanceof` checks against design-api's internally-thrown error still match).
- * `fetchPublishedDesignPages` and the shared `fetchAllPublishedTemplates` reader behind
- * `fetchPublishedTemplates`/`fetchPublishedEntityTemplates` each cache their read for the life of one
- * build process (see their doc comments in design-api.ts) — exactly the thing each of these tests must
- * NOT share, or an earlier test's mocked response (or thrown error) would leak into a later test's
- * assertions. Mirrors emdash-api.test.ts's `freshFetchMenu` helper for the same reason.
+ * Fetches a fresh instance of design-api.ts
  */
 async function freshApis() {
     vi.resetModules()
@@ -51,12 +45,7 @@ function json(status: number, body: unknown): Response {
 }
 
 /**
- * One `design_template` item as the list API returns it.
- *
- * `is_default` is 0, NOT false, because that is what EmDash actually puts on the wire: a boolean field is
- * a SQLite INTEGER column, and while writes serialize true/false to 1/0, reads never convert them back.
- * A fixture that hand-authors a JS boolean here only confirms our own assumption — which is exactly how
- * the `=== true` bug reached production.
+ * One `design_template` item as the list API returns it
  */
 function templateItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -68,11 +57,7 @@ function templateItem(overrides: Record<string, unknown> = {}): Record<string, u
 }
 
 /**
- * Settles a read under the fake clock. A read retries transient failures with backoff, so the clock must
- * be run forward or the promise never settles.
- *
- * Handlers are attached synchronously — before the clock advances — because the read can reject while the
- * timers run, and a rejection observed later than that is reported as an unhandled rejection.
+ * Settles a read under the fake clock
  */
 async function settle<T>(promise: Promise<T>): Promise<T> {
     const outcome = promise.then(
@@ -99,19 +84,17 @@ afterEach(() => {
     vi.unstubAllGlobals()
 })
 
-describe("fetchPublishedTemplates — the collection does not exist yet", () => {
+describe("fetchPublishedTemplates - the collection does not exist yet", () => {
     it("reads a 404 as 'no templates', so every build before Phase B still succeeds", async () => {
         const { fetchPublishedTemplates } = await freshApis()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { message: "not found" } })))
 
-        // The regression this guards: `design_template` does not exist until the setup tooling creates it.
-        // Without allowMissing, the CMS-outage guard turns that 404 into a CmsReadError and fails EVERY
-        // build — the site cannot deploy at all until the collection is created.
+        // The regression this guards: `design_template` does not exist until the setup tooling creates it
         await expect(settle(fetchPublishedTemplates())).resolves.toEqual([])
     })
 })
 
-describe("fetchPublishedTemplates — a real read failure", () => {
+describe("fetchPublishedTemplates - a real read failure", () => {
     it("still throws, so an outage cannot silently strip every entry of its template", async () => {
         const { CmsReadError, fetchPublishedTemplates } = await freshApis()
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("socket hang up")))
@@ -127,11 +110,11 @@ describe("fetchPublishedTemplates — a real read failure", () => {
     })
 })
 
-describe("fetchPublishedTemplates — an authored-wrong template", () => {
+describe("fetchPublishedTemplates - an authored-wrong template", () => {
     it("throws when a published template targets a collection the build does not route", async () => {
         const { fetchPublishedTemplates } = await freshApis()
         // "composers" (plural) is deliberately not a valid target: it is neither an EmDash TemplateCollection
-        // ("pages"/"posts") nor a D1 EntityNoun ("composer", singular) — a typo, not a real entity noun.
+        // ("pages"/"posts") nor a D1 EntityNoun ("composer", singular)
         const items = [templateItem({ collection: "composers" })]
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items } })))
 
@@ -155,7 +138,7 @@ describe("fetchPublishedTemplates — an authored-wrong template", () => {
     })
 })
 
-describe("fetchPublishedTemplates — a well-formed template", () => {
+describe("fetchPublishedTemplates - a well-formed template", () => {
     it("flattens it to what the route table needs", async () => {
         const { fetchPublishedTemplates } = await freshApis()
         const items = [templateItem({ title: "Article", collection: "pages", is_default: 1 })]
@@ -180,7 +163,7 @@ function templateItemWithId(id: string, slug: string, overrides: Record<string, 
     return { ...item, id, slug }
 }
 
-describe("fetchPublishedTemplates / fetchPublishedEntityTemplates — the pages/posts vs. entity split", () => {
+describe("fetchPublishedTemplates / fetchPublishedEntityTemplates - the pages/posts vs. entity split", () => {
     it("fetchPublishedTemplates only returns pages/posts templates, never entity ones", async () => {
         const { fetchPublishedTemplates } = await freshApis()
         const items = [
@@ -222,9 +205,7 @@ describe("fetchPublishedTemplates / fetchPublishedEntityTemplates — the pages/
 
     it("fetchPublishedTemplates and fetchPublishedEntityTemplates share ONE network read, not one each", async () => {
         // The memoized reader behind both (fetchAllPublishedTemplates) is what collapses the historical
-        // duplication: entity/index.astro, database/index.astro, search/advanced/db-search-index.json.ts, every entity
-        // route's getStaticPaths, and [...slug].astro all resolved templates independently before this cache
-        // existed, each paying its own cursor-paginated read of the same collection.
+        // duplication
         const { fetchPublishedEntityTemplates, fetchPublishedTemplates } = await freshApis()
         const items = [
             templateItemWithId("tpl-pages", "article", { collection: "pages" }),
@@ -240,14 +221,10 @@ describe("fetchPublishedTemplates / fetchPublishedEntityTemplates — the pages/
 })
 
 /**
- * The regression this guards (found on prod, 2026-07-13): EmDash serializes a boolean field to its
- * INTEGER column as 1/0 and never deserializes it back, so `is_default` arrives as a NUMBER. Reading it
- * with `is_default === true` made every default template read as NOT default — which silently disabled
- * the collection-default branch of route resolution (D4) AND made the "two published defaults fail the
- * build" invariant unfireable. Nothing else catches this: the build succeeds, types check, and a fixture
- * that hand-authors a JS boolean passes. Only the wire shape refutes it, so the wire shape is pinned.
+ * The regression this guards: EmDash serializes a boolean field to its
+ * INTEGER column as 1/0 and never deserializes it back
  */
-describe("fetchPublishedTemplates — EmDash's 1/0 boolean encoding", () => {
+describe("fetchPublishedTemplates - EmDash's 1/0 boolean encoding", () => {
     it("reads the number 1 as a set default, so the collection default is honored at all", async () => {
         const { fetchPublishedTemplates } = await freshApis()
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { data: { items: [templateItem({ is_default: 1 })] } })))
@@ -271,15 +248,15 @@ describe("fetchPublishedTemplates — EmDash's 1/0 boolean encoding", () => {
     })
 })
 
-/** One `design_page` item as the list API returns it (the raw shape `fetchPublishedDesignPages` flattens). */
+/** One `design_page` item as the list API returns it (the raw shape `fetchPublishedDesignPages` flattens) */
 function designPageItem(id: string, slug: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return { id, slug, status: "published", data: { title: `Page ${slug}`, design: emptyDesignDoc(), ...overrides } }
 }
 
-describe("fetchPublishedDesignPages — memoization", () => {
+describe("fetchPublishedDesignPages - memoization", () => {
     it("reads the network once no matter how many callers ask for it in one build", async () => {
         // Historically DatabaseRoot.astro's own render and [...slug].astro's getStaticPaths each triggered
-        // their own cursor-paginated read of design_page — this cache is what collapses them to one.
+        // their own cursor-paginated read of design_page - this cache is what collapses them to one
         const { fetchPublishedDesignPages } = await freshApis()
         const items = [designPageItem("pg-1", "about")]
         const fetchSpy = vi.fn().mockResolvedValue(json(200, { data: { items } }))

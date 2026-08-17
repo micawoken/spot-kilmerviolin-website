@@ -24,7 +24,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Type-only, erased at build — doesn't pull the editor runtime into any bundle like a bare
+// Type-only, erased at build - doesn't pull the editor runtime into any bundle like a bare
 // `@puckeditor/core` value import would.
 import type { Data as PuckData } from "@puckeditor/core"
 
@@ -60,15 +60,15 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-/** Structural shape of a stored Puck component — string `type` + props record. Tells a slot array
+/** Structural shape of a stored Puck component - string `type` + props record. Tells a slot array
  * (components) apart from a rich-text array (Portable Text blocks) during a design-data walk. */
 export function isPuckComponent(value: unknown): value is PuckComponent {
     return isRecord(value) && typeof value.type === "string" && isRecord(value.props)
 }
 
-/** Reads an EmDash boolean field. Use for every one — strict `=== true` silently reads every set
+/** Reads an EmDash boolean field. Use for every one - strict `=== true` silently reads every set
  * flag as false. EmDash serializes true/false to a SQLite INTEGER 1/0 on write, never converts back
- * on read — the API returns the number 1 or 0, not a boolean. No compiler or test net catches this. */
+ * on read - the API returns the number 1 or 0, not a boolean. No compiler or test net catches this. */
 export function cmsBoolean(value: unknown): boolean {
     return value === true || value === 1
 }

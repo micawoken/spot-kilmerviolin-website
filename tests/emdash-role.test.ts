@@ -25,16 +25,7 @@
 import { describe, it, expect } from "vitest"
 
 /**
- * Guards the EmDash role a Cloudflare Access user is provisioned at (astro.config.mjs, `access()`).
- *
- * The Access adapter defaults to role level 30 — which its own doc comment mislabels as "Editor",
- * when 30 is AUTHOR and EDITOR is 40 (@emdash-cms/auth Role). At 30, `schema:read` (Editor+) is
- * DENIED, and the design editor's outlet field pickers list a collection's fields over that very
- * endpoint: they 403, render empty, and no outlet can be bound — so no template can be published.
- * Content reads still work at 30, which is what makes the regression so quiet.
- *
- * Removing `defaultRole` therefore breaks template authoring while every build, type check, and
- * content read stays green. That is a silent failure, so it gets a guard rather than a comment.
+ * Guards the EmDash role a Cloudflare Access user is provisioned at (astro.config.mjs, `access()`)
  */
 const config = import.meta.glob("../astro.config.mjs", {
     query: "?raw",
@@ -54,7 +45,7 @@ describe("EmDash Access role provisioning", () => {
         const source = Object.values(config)[0] ?? ""
         const match = /defaultRole:\s*(\d+)/.exec(source)
 
-        expect(match, "astro.config.mjs must set access({ defaultRole }) — the adapter's default is AUTHOR").not.toBeNull()
+        expect(match, "astro.config.mjs must set access({ defaultRole }) - the adapter's default is AUTHOR").not.toBeNull()
         expect(Number(match?.[1])).toBe(ROLE_EDITOR)
     })
 })

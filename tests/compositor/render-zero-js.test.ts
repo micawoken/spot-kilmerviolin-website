@@ -1,12 +1,7 @@
 /**
  * tests/compositor/render-zero-js.test.ts
  *
- * Fixture-level zero-JS gate for the templated render path (pivot §6 Phase B gate 2). Drives the same
- * renderer `[...slug].astro` uses — Puck's RSC `<Render>` over `buildConfig(theme, "build", { entry })`
- * — across a design doc that exercises every content outlet, and asserts the emitted HTML carries the
- * entry's values and NO client JavaScript (no <script>, no <astro-island>). The dist-level sweep
- * (tools/check-zero-js.mjs) still runs against a real templated page once one exists on prod (gate 4);
- * this test is the deterministic local stand-in, per the recorded-fixtures convention.
+ * Fixture-level zero-JS gate for the templated render path 
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -90,7 +85,7 @@ const templatedDoc = {
     ]
 } as unknown as PuckData
 
-describe("templated render path — zero client JS", () => {
+describe("templated render path - zero client JS", () => {
     const config = buildConfig(theme, "build", { entry, mediaBaseUrl: MEDIA_ORIGIN })
     const html = renderToStaticMarkup(createElement(Render, { config, data: templatedDoc }))
 
@@ -101,7 +96,7 @@ describe("templated render path — zero client JS", () => {
         expect(html).toContain('alt="Cover art"')
     })
 
-    it("references no Access-gated URL — every visitor of a prerendered page is anonymous", () => {
+    it("references no Access-gated URL - every visitor of a prerendered page is anonymous", () => {
         expect(html).not.toContain("/_emdash")
     })
 

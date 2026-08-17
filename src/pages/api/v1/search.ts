@@ -1,7 +1,7 @@
 /**
  * /pages/api/v1/search.ts
  *
- * Keyword search across the composer, composition, and contributor tables.
+ * Keyword search across the composer, composition, and contributor tables
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -36,10 +36,9 @@ import { constructResponse, constructResponseErrorHook } from "../../../lib/api/
 
 /**
  * POST /api/v1/search
- * Runs a ranked keyword search and returns matching records as { database, id, name } hits.
+ * Runs a ranked keyword search and returns matching records as { database, id, name } hits
  *
- * Permissions required: none beyond a valid identity (results are only id + name over non-protected
- * columns, so nothing sensitive is exposed)
+ * Permissions required: none (active)
  *
  * Meta: none
  * Body: required; an array with a single item of the shape

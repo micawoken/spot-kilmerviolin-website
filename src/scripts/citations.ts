@@ -2,33 +2,8 @@
  * scripts/citations.ts
  *
  * Citations display helper shared by the SSR ComposerInfo/CompositionInfo cards, catalog.tsx's
- * ContentField outlet (public pages), and the client-side READ flow.
+ * ContentField outlet (public pages), and the client-side READ flow
  *
- * A composer/composition's citations are an optional key-value map: the key is a source name (the
- * display text), and the value is an https link,
- * a DOI, or an ISBN. Unlike a composition's own publication URI, a citation carries no separate declared
- * type field — classifyCitationValue (lib/api/validation.ts) sniffs it from the value's shape. Every
- * entry renders as a hyperlink:
- *   https -> the value itself is the URL
- *   doi   -> linked to its doi.org resolver (https://doi.org/{doi}), mirroring publication.ts
- *   isbn  -> linked to its Open Library page (https://openlibrary.org/isbn/{isbn}) — unlike the
- *            composition publication URI's bare "isbn:{value}" text, a citation always renders as a
- *            hyperlink (owner decision), so ISBNs need a resolvable target
- *
- * The returned string is HTML: every interpolated value is HTML-entity-encoded with escapeHtml first
- * (including inside href attributes), so the result is markup-safe and can be emitted via `set:html`
- * (SSR) or `innerHTML` (client) without injection risk, mirroring publication.ts/references.ts. An
- * entry whose value no longer classifies (defense in depth — write-time validation should prevent this)
- * is silently skipped rather than rendered as a dead link. A null/undefined/empty map yields the supplied
- * placeholder.
- *
- * The admin forms (ComposerForm/CompositionForm) collect citations through a single textarea, one entry
- * per line as "Source Name: value" — parseCitationsTextarea/citationsToTextarea convert between that
- * form-friendly text and the Record<string,string> shape the API expects, splitting each line on its
- * FIRST colon only (a value, e.g. an https URL, commonly contains further colons). A malformed line
- * (no colon, or a blank key/value) is silently dropped by the parse, mirroring the existing
- * comma-separated list fields (tags, phases); FIELD_VALIDATORS' live/submit-gate validation is what
- * actually catches and blocks a malformed or unclassifiable entry before submission.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -85,10 +60,7 @@ export function renderCitationsList(citations: Record<string, string> | null | u
 }
 
 /**
- * Parses the citations textarea's "Source Name: value" per-line format into a citations map. Splits each
- * non-blank line on its FIRST colon only, trims both sides, and drops a line with no colon or a blank key
- * or value. This is a lossy, best-effort parse for the form's convenience; FIELD_VALIDATORS is what
- * surfaces a malformed or unclassifiable entry to the user before submission.
+ * Parses the citations textarea's "Source Name: value" per-line format into a citations map
  */
 export function parseCitationsTextarea(raw: string): Record<string, string> {
     const citations: Record<string, string> = {}
@@ -111,7 +83,7 @@ export function parseCitationsTextarea(raw: string): Record<string, string> {
     return citations
 }
 
-/** Serializes a citations map back to the textarea's "Source Name: value" per-line format, for prefill. */
+/** Serializes a citations map back to the textarea's "Source Name: value" per-line format, for prefill */
 export function citationsToTextarea(citations: Record<string, string> | null | undefined): string {
     if (!citations) {
         return ""

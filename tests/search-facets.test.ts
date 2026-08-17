@@ -97,7 +97,7 @@ describe("matchesFacets", () => {
         noun: "composer",
         name: "Living Composer",
         country: "US"
-        // no birthYear/deathYear — mirrors search/advanced/db-search-index.json.ts omitting the -1 "living" sentinel
+        // no birthYear/deathYear - mirrors search/advanced/db-search-index.json.ts omitting the -1 "living" sentinel
     }
 
     it("matches on an empty criteria object (no filters applied)", () => {
@@ -146,11 +146,11 @@ describe("matchesFacets", () => {
         expect(matchesFacets(workNoKeyOrType, { keyRef: NONE_VALUE })).toBe(true)
         expect(matchesFacets(work, { type: NONE_VALUE })).toBe(false)
         expect(matchesFacets(workNoKeyOrType, { type: NONE_VALUE })).toBe(true)
-        // keyRef/type are composition-only — a composer entry can't satisfy NONE_VALUE either, since the
+        // keyRef/type are composition-only - a composer entry can't satisfy NONE_VALUE either, since the
         // field isn't merely unset for it, it doesn't apply to composers at all.
         expect(matchesFacets(composer, { keyRef: NONE_VALUE })).toBe(false)
         expect(matchesFacets(composer, { type: NONE_VALUE })).toBe(false)
-        // `composer` has a role set; `livingComposer` doesn't — role applies to both, so this is a genuine
+        // `composer` has a role set; `livingComposer` doesn't - role applies to both, so this is a genuine
         // "unset" case, not a noun mismatch.
         expect(matchesFacets(composer, { role: NONE_VALUE })).toBe(false)
         expect(matchesFacets(livingComposer, { role: NONE_VALUE })).toBe(true)
@@ -165,7 +165,7 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { year: { op: "between", value: 1800, valueTo: 1850 } })).toBe(false)
         expect(matchesFacets(work, { year: { op: "around", value: 1725 } })).toBe(true)
         expect(matchesFacets(work, { year: { op: "around", value: 2000 } })).toBe(false)
-        // year is composition-only (ADVANCED_FIELDS) — a composer entry has no publish_year at all, so a
+        // year is composition-only (ADVANCED_FIELDS) - a composer entry has no publish_year at all, so a
         // year criterion excludes it rather than passing it through untouched.
         expect(matchesFacets(composer, { year: { op: "is", value: 1723 } })).toBe(false)
     })
@@ -177,7 +177,7 @@ describe("matchesFacets", () => {
         expect(matchesFacets(work, { suzuki: { op: "is", value: 4 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "between", value: 3, valueTo: 5 } })).toBe(true)
         expect(matchesFacets(work, { suzuki: { op: "between", value: 5, valueTo: 6 } })).toBe(false)
-        // suzuki is composition-only — see the year case above for why a composer entry is excluded.
+        // suzuki is composition-only - see the year case above for why a composer entry is excluded.
         expect(matchesFacets(composer, { suzuki: { op: "atLeast", value: 1 } })).toBe(false)
     })
 
@@ -194,12 +194,7 @@ describe("matchesFacets", () => {
     })
 
     it("a criterion for a field that doesn't apply to the entry's noun is a hard mismatch, excluding the entry", () => {
-        // Regression coverage for the noun-leak bug: a noun-specific filter (e.g. "Work type: Chamber") must
-        // narrow results to nouns the field applies to, not pass every other noun's entries through
-        // untouched — a composer/contributor has no `type` at all, so it can never satisfy that filter.
-        // /search/advanced's own form is what keeps a *stale* value (typed before switching entity-type
-        // checkboxes) from ever reaching this function in the first place — see updateFieldVisibility's
-        // disabled-controls handling in advanced.astro.
+        // Regression coverage for the noun-leak bug
         expect(matchesFacets(composer, { composer: { op: "contains", value: "bach" } })).toBe(false)
         expect(matchesFacets(work, { country: { op: "contains", value: "de" } })).toBe(false)
         expect(matchesFacets(work, { role: "composer" })).toBe(false)
@@ -212,7 +207,7 @@ describe("matchesFacets", () => {
 
     it("no explicit noun restriction plus a noun-specific filter still excludes entries the field doesn't apply to", () => {
         // The exact bug report: selecting a composition-only filter (e.g. Work type) with no noun checkboxes
-        // checked must not leak composer/contributor entries into the results.
+        // checked must not leak composer/contributor entries into the results
         const criteria = { type: "Chamber" }
         expect(matchesFacets(work, criteria)).toBe(true)
         expect(matchesFacets(composer, criteria)).toBe(false)
@@ -382,7 +377,7 @@ describe("ADVANCED_FIELDS", () => {
     it("every select-control field is backed by a nullable FacetEntry property, so all get a '(None)' entry", () => {
         for (const field of ADVANCED_FIELDS) {
             if (field.control !== "select") continue
-            // (None) sits LAST, below the real values — it moved there from position 1 when the dropdowns
+            // (None) sits LAST, below the real values - it moved there from position 1 when the dropdowns
             // were reordered; the invariant is that it is present, not where it sits among the values
             expect(field.options?.[field.options.length - 1]).toEqual({ label: "(None)", value: NONE_VALUE })
         }
@@ -398,7 +393,7 @@ describe("ADVANCED_FIELDS", () => {
         }
     })
 
-    it("does not include a 'noun' entry — entity type is its own checkbox group, not an ADVANCED_FIELDS control", () => {
+    it("does not include a 'noun' entry - entity type is its own checkbox group, not an ADVANCED_FIELDS control", () => {
         expect(ADVANCED_FIELDS.some((field) => field.param === "noun")).toBe(false)
     })
 

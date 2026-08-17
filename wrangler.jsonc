@@ -6,14 +6,12 @@
 	],
 	"main": "@astrojs/cloudflare/entrypoints/server",
 	// account_id is intentionally omitted: wrangler reads it from the CLOUDFLARE_ACCOUNT_ID env var at
-	// deploy/dev time instead, so this AGPL-covered file doesn't have to carry it. See DEPLOY.md.
-	// the current website route
+	// deploy/dev time instead
 	"workers_dev": false,
 	"routes": [
 		{ "pattern": "kilmer.nrnnet.xyz", "custom_domain": true }
 	],
-	// preview_urls must stay enabled for the "staging" preview alias to resolve (it otherwise
-	// defaults to follow workers_dev); set explicitly so the staging deploy does not silently break
+	// preview_urls must stay enabled for the "staging" preview alias to resolve
 	"preview_urls": true,
 	// logging config
 	"observability": {
@@ -30,28 +28,11 @@
 		"CACHE_API_TTL": 7200, // 2 hours
 		"CACHE_API_TTL_LONG": 604800, // 168 hours (1 week)
 		"KV_CACHE_TTL": 57600, // 16 hours
-		// CF_ACCESS_POLICY_ID, CF_ACCOUNT_ID, CF_ACCESS_AUD, and TEAM_DOMAIN moved from vars to secrets
-		// (see secrets.required below) so their deployment-specific values aren't committed in this
-		// AGPL-covered file. Set them with `wrangler secret put <NAME>`; see DEPLOY.md.
-		// REPLACE with the "Site tag" of the Cloudflare Web Analytics site created for this domain (Analytics
-		// & Logs > Web Analytics > Add a site > your site > Manage site > the "siteTag", NOT the beacon
-		// token used in the public <script> snippet - see CF_WEB_ANALYTICS_TOKEN in .env.example and DEPLOY.md).
-		// Left blank disables the admin analytics view (it renders a "not configured" message instead).
 		"CF_ANALYTICS_SITE_TAG": "5dc8ad0bb3c74cbb8fe7a434edcbac97",
-		// the reserved domain used to generate placeholder sign-in emails for contributors with no real
-		// sign-in email (see FALLBACK_EMAIL_DOMAIN in src/lib/api/fallback.ts); ".invalid" is reserved by
-		// RFC 2606 for constructing addresses guaranteed never to resolve or be deliverable, so this
-		// doesn't depend on a real domain being owned/controlled by this deployment
 		"FALLBACK_EMAIL_DOMAIN": "fallback.invalid",
-		// this worker's own origin: used as a synthetic host for Cache API keys (see cache_host in
-		// lib/api/caching.ts and blob_host in lib/api/files.ts - Cloudflare recommends a resolvable
-		// domain for cache keys) and as the CORS fallback origin (see cors_fallback_origin in
-		// lib/api/http.ts) when a request has no allowlisted Origin. Should match one of the entries in
-		// ALLOWED_ORIGINS (src/consts.ts) for the current deployment's actual workers.dev/custom domain.
 		"WORKER_ORIGIN": "https://spot-kilmerviolin.nrnnet.workers.dev",
 		"API_USER_SELFENROLL": true, // if true, enables self-enrollment, allowing for account configuration without being first created by a user enroller or admin
 		"REBUILD_COOLDOWN_SEC": 1800, // 30 minutes; minimum seconds after a build before another rebuild may be triggered (enforced server-side in /api/v1/site POST and reflected client-side)
-		// DB write gating is now determined dynamically by the runtime environment (see dbWriteEnabled in src/lib/api/environment.ts)
 		"IDENTITY_CACHE_TTL_MS": 45000, // 45 seconds; per-isolate identity-record cache TTL (see _getIdentityRecord in src/lib/api/authorize.ts)
 		"MAX_UPLOAD_BYTES": 26214400, // 25 MiB; maximum size of a single uploaded file (see maxUploadBytes in src/lib/api/r2.ts)
 		"SEARCH_RESULT_CAP": 50, // maximum search hits returned per table, to bound the response size (see runSearch in src/lib/api/search.ts)
@@ -61,12 +42,6 @@
 	},
 	// secret requirements
 	"secrets": {
-		// CF_ANALYTICS_TOKEN is optional at runtime (see lib/api/analytics.ts's "unconfigured" fallback) but
-		// listed here so a fresh deploy is reminded to set it; a missing value only disables the admin
-		// analytics view, it never fails a request. CF_ACCESS_POLICY_ID/CF_ACCOUNT_ID/CF_ACCESS_AUD/
-		// TEAM_DOMAIN aren't secret in the confidentiality sense, but are deployment-specific values that
-		// used to live in the `vars` block above; they moved here so they aren't committed to this
-		// AGPL-covered file. See DEPLOY.md.
 		"required": [
 			"CF_ACCESS_TOKEN",
 			"CF_DEPLOY_HOOK",
@@ -90,8 +65,6 @@
 			"database_name": "spot-kilmerviolin-db",
 			"database_id": "ea3e0315-08a4-4495-9f8f-6839ef876ddf"
 		},
-		// EmDash CMS content store (separate from DB_MAIN to isolate the beta schema). EmDash creates and
-		// migrates its own tables automatically on first request. Provisioned via `wrangler d1 create emdash-db`.
 		{
 			"binding": "EMDASH_DB",
 			"database_name": "emdash-db",
@@ -109,10 +82,6 @@
 			"binding": "R2_FILES",
 			"bucket_name": "spot-kilmerviolin-files"
 		},
-		// EmDash CMS media library (separate from R2_FILES, the admin composition-image pool). Create with
-		// `wrangler r2 bucket create emdash-media` (owner action). Draws against the same account-wide
-		// storage ceiling as R2_FILES, not a separate one - see MAX_R2_STORAGE_BYTES in src/lib/api/r2.ts
-		// and the capacity guard in src/middleware/emdash_media_capacity.ts.
 		{
 			"binding": "EMDASH_MEDIA",
 			"bucket_name": "emdash-media"

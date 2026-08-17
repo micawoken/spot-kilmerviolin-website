@@ -1,9 +1,7 @@
 /**
  * tests/csv.test.ts
  *
- * Unit tests for the shared CSV toolkit (lib/api/csv.ts) and the DOM-free import core (scripts/import_build.ts):
- * RFC-4180 parsing, header validation, fuzzy name suggestions, and the record-building / name-resolution /
- * phase-mapping / duplicate-flagging logic that backs the admin bulk-import preview.
+ * Unit tests for the shared CSV toolkit and the import core
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -473,7 +471,7 @@ describe("buildComposition: secondary-author (name, role) matching", () => {
     })
 
     it("reports an unresolved (name, role) pairing, naming the assumed/given role", () => {
-        // Amy Beach exists only as "composer" — an unannotated secondary-author entry assumes "arranger",
+        // Amy Beach exists only as "composer" - an unannotated secondary-author entry assumes "arranger",
         // which does not exist for her, so this must be reported rather than silently resolving to id 11
         const { issues } = buildComposition(baseCompositionCells({ author_secondary: "Amy Beach" }), makeCtx())
         expect(issues.some((issue) => /unknown composer "Amy Beach" with role "arranger"/.test(issue.message))).toBe(
@@ -753,7 +751,7 @@ describe("flagNameDuplicates", () => {
         const existing = new Set<string>([`${normalizeName("Amy Beach")} ${normalizeName("composer")}`])
         const sameNameDifferentRole = [{ record: { name: "Amy Beach", role: "arranger" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagNameDuplicates(sameNameDifferentRole, existing, "composer")
-        expect(sameNameDifferentRole[0].issues).toEqual([]) // not a collision — different role
+        expect(sameNameDifferentRole[0].issues).toEqual([]) // not a collision - different role
 
         const sameNameSameRole = [{ record: { name: "amy   beach", role: "Composer" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagNameDuplicates(sameNameSameRole, existing, "composer")

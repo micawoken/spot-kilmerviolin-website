@@ -90,7 +90,7 @@ const COMPOSER_FIELDS: readonly EntityField[] = [
     { slug: "birth_year", label: "Birth Year", type: "number" },
     { slug: "death_year", label: "Death Year", type: "yearOrLiving" },
     { slug: "country", label: "Country", type: "countryCode" },
-    // Derived, not a D1 column — entity-records.ts pre-builds from birth_year/death_year (formatLifespan,
+    // Derived, not a D1 column - entity-records.ts pre-builds from birth_year/death_year (formatLifespan,
     // scripts/format.ts) so a template can bind the range as one field.
     { slug: "life_span", label: "Birth–Death Years", type: "string" },
     { slug: "bio", label: "Bio", type: "text" },
@@ -124,7 +124,7 @@ const COMPOSITION_FIELDS: readonly EntityField[] = [
     { slug: "contrib_primary_1", label: "Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_primary_2", label: "Additional Primary Contributor", type: "reference", refNoun: "contributor" },
     { slug: "contrib_addl", label: "Additional Contributors", type: "referenceList", refNoun: "contributor" },
-    // Combines contrib_primary_1/_2/contrib_addl into one line — that distinction is internal-only
+    // Combines contrib_primary_1/_2/contrib_addl into one line - that distinction is internal-only
     // (owner decision), shouldn't appear on a public page
     { slug: "contributors", label: "Contributors (single line)", type: "referenceList", refNoun: "contributor" },
     { slug: "phases", label: "Phases", type: "list" },

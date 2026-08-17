@@ -1,38 +1,8 @@
 /**
  * tools/gate/run-routing-gate.mjs
  *
- * The compositor template-routing gate (originally the compositor pivot's Phase B and C gate; plan §6,
- * gates 2, 5 and 6), executable and re-runnable:
- *
- *   npm run gate:compositor-routing
- *
- * It builds the site four times against a frozen fixture CMS (tools/gate/fixtures.mjs) and asserts:
- *
- *   1. no unrecorded CMS path was requested        (else the build degraded and nothing below means anything)
- *   2. the templated build is not vacuous          (a CMS-less build emits ZERO html and would pass 3–5 trivially)
- *   3. the entry rendered THROUGH the template     (its fields reached the page via outlets)
- *   4. the templated page and post ship zero JS    (delegated to tools/check-zero-js.mjs)
- *   5. every untemplated page is byte-identical    (D3: attaching a template to one entry moves nothing else)
- *   6. an entry that names NO template renders through its collection's default (D4 rule 2)
- *   7. a broken pairing FAILS the build, naming entry + template + rule
- *   8. a post's image resolves to the PUBLIC media origin, and no page links the Access-gated proxy
- *
- * Assertion 2 is not paranoia: `astro build` with no reachable CMS prerenders no pages at all, so a
- * "no <script> anywhere in dist/" sweep over that output passes while proving nothing. Assertion 7
- * likewise checks the error TEXT, not just a non-zero exit — a build can fail for the wrong reason, and
- * the gate's actual claim is that the failure tells the author which entry, which template, and which rule.
- *
- * Assertion 6 exists because 3–5 all reach the template through rule 1 (the entry's own `design` pointer),
- * which left rule 2 unexercised — and it was in fact DEAD in production: `is_default` arrives from EmDash
- * as the number 1, and the build tested it with `=== true`. Only a fixture serving EmDash's real wire shape
- * can catch that, so this one does.
- *
- * Assertion 8 is Phase C's whole point. `posts.featured_image` is the only image field either routed
- * collection defines, so a post is the first entry that can prove a rendered <img> is reachable by an
- * anonymous visitor. A same-origin `/_emdash/api/media/file/…` URL is not: it 302s to an Access login.
- *
- * This overwrites the working `dist/` (gitignored) as it goes; the last build is the one that FAILS on
- * purpose, so do not expect a usable `dist/` afterwards.
+ * Builds the site multiple times to verify the template routing process works
+ * 
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -76,7 +46,7 @@ import {
     MEDIA_STORAGE_KEY
 } from "./fixtures.mjs"
 
-/** EmDash's same-origin media proxy — Access-gated, so it must NEVER appear in a prerendered page. */
+/** EmDash's same-origin media proxy - Access-gated, so it must NEVER appear in a prerendered page. */
 const INTERNAL_MEDIA_PREFIX = "/_emdash/api/media/file/"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
@@ -86,7 +56,7 @@ const distClient = join(root, "dist", "client")
 const results = []
 const record = (name, passed, detail = "") => results.push({ name, passed, detail })
 
-/** The tail of a build's output. A failing assertion must show its evidence, not just its verdict. */
+/** The tail of a build's output. A failing assertion must show its evidence, not just its verdict */
 const tail = (output, lines = 25) =>
     output
         .split("\n")
@@ -95,14 +65,12 @@ const tail = (output, lines = 25) =>
         .map((line) => `        │ ${line}`)
         .join("\n")
 
-/** Runs `astro build` against a fixture CMS. Never throws on a failed build — the gate inspects it. */
+/** Runs `astro build` against a fixture CMS. Never throws on a failed build - the gate inspects it */
 function build(base) {
     return new Promise((resolve) => {
         const child = spawn(process.execPath, [astroBin, "build"], {
             cwd: root,
-            // A shell CONTENT_API_BASE overrides .env, which is what isolates this from prod. The media
-            // origin is pinned the same way and to a FAKE host, so assertion 8 proves the build actually
-            // read EMDASH_MEDIA_PUBLIC_URL rather than coincidentally matching the real origin.
+            // A shell CONTENT_API_BASE overrides .env, which is what isolates this from prod
             env: { ...process.env, CONTENT_API_BASE: base, EMDASH_MEDIA_PUBLIC_URL: MEDIA_BASE },
             stdio: ["ignore", "pipe", "pipe"]
         })
@@ -216,7 +184,7 @@ if (templatedPage) {
 
 // --- 4. zero JS on both templated entries ------------------------------------------------------------
 // The post carries an <img> outlet the page does not, and an image component is the easiest place to
-// smuggle a hydrated island in — so it is checked in its own right, not by proxy.
+// smuggle a hydrated island in - so it is checked in its own right, not by proxy.
 for (const [label, path] of [
     ["page", templatedPage],
     ["post", templatedPost]
@@ -231,8 +199,7 @@ for (const [label, path] of [
 }
 
 // --- 5. every untemplated page is untouched (D3) -----------------------------------------------------
-// Both templated entries are excluded: each one legitimately changes between the two builds — that is
-// what assertion 3 proves. Everything else must not move.
+// Both templated entries are excluded: each one legitimately changes between the two builds
 const templatedPaths = new Set([templatedPage, templatedPost].filter(Boolean))
 const others = [...baseline.html.keys()].filter((path) => !templatedPaths.has(path))
 const sameSet =
@@ -250,7 +217,7 @@ record(
 )
 
 // --- 6. the collection default renders an entry that names no template (D4 rule 2) --------------------
-// Same template, same entry, reached the other way — so the page must come out BYTE-IDENTICAL to the
+// Same template, same entry, reached the other way - so the page must come out BYTE-IDENTICAL to the
 // templated build's. How a template is resolved cannot change what it renders. (Unlike gate 5, the other
 // pages legitimately move here: with no pointer anywhere, every `pages` entry takes the default too.)
 const defaulted = await buildAgainst("defaulted")
@@ -261,10 +228,10 @@ record(
     defaulted.code !== 0
         ? `THE BUILD FAILED (exit ${defaulted.code})\n${tail(defaulted.output)}`
         : defaultedPage === undefined
-          ? `the default did not render "${TEMPLATED_SLUG}" at all — rule 2 never fired`
+          ? `the default did not render "${TEMPLATED_SLUG}" at all - rule 2 never fired`
           : defaultedPage.equals(templated.html.get(templatedPage))
             ? "identical to the pointed render"
-            : "DIFFERS from the pointed render — the same template rendered the same entry two ways"
+            : "DIFFERS from the pointed render - the same template rendered the same entry two ways"
 )
 
 // --- 7. a broken pairing fails the build, naming entry + template + rule -------------------------------
@@ -284,17 +251,13 @@ record(
     "7. broken pairing fails the build",
     brokenPassed,
     broken.code === 0
-        ? "THE BUILD SUCCEEDED — a dangling outlet field did not fail it"
+        ? "THE BUILD SUCCEEDED - a dangling outlet field did not fail it"
         : missing.length === 0
           ? "failed, naming entry + template + rule"
-          : // It failed for the WRONG reason — show the evidence, or the next reader has to re-derive it.
+          : // It failed for the WRONG reason - show the evidence, or the next reader has to re-derive it.
             `failed, but the error never named: ${missing.join(", ")}\n${tail(broken.output)}`
 )
 
-// --- 8. the post's image is reachable by an anonymous visitor (media through the public origin) --------
-// MEDIA_BASE is a host that does not exist. If the emitted <img> carries it, the build genuinely read
-// EMDASH_MEDIA_PUBLIC_URL out of its environment; if it carried the real origin instead, .env had won and
-// the assertion would be proving nothing about the code under test.
 if (templatedPost) {
     const html = templated.html.get(templatedPost).toString("utf8")
     const expectedSrc = `${MEDIA_BASE}/${MEDIA_STORAGE_KEY}`
@@ -328,7 +291,7 @@ console.log("─".repeat(72))
 
 const failed = results.filter((result) => !result.passed)
 if (failed.length > 0) {
-    console.error(`\nCOMPOSITOR ROUTING GATE FAILED — ${failed.length} of ${results.length} assertion(s)\n`)
+    console.error(`\nCOMPOSITOR ROUTING GATE FAILED - ${failed.length} of ${results.length} assertion(s)\n`)
     process.exit(1)
 }
-console.log("\nCOMPOSITOR ROUTING GATE PASSED (plan §6 gates 2, 5 and 6)\n")
+console.log("\nCOMPOSITOR ROUTING GATE PASSED (gates 2, 5 and 6)\n")

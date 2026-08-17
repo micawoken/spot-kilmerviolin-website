@@ -2,6 +2,9 @@
 /**
  * pages/admin/advanced/command.astro
  *
+ * Provides a terminal to execute SQL commands on the SQLite database
+ *
+ *
  * Copyright (C) 2026 Michael Wong.
  *
  * This file is part of the spot-kilmerviolin-website program, available at
@@ -139,11 +142,7 @@ export const prerender = false
                     return DANGEROUS_SQL.filter((op) => op.pattern.test(sql)).map((op) => op.label)
                 }
 
-                // Splits a textarea value into individual SQL commands on unquoted semicolons, so a multi-line
-                // command (entered with Shift+Enter) stays intact while several semicolon-separated statements are
-                // broken apart for batch submission. Semicolons inside single- or double-quoted string literals are
-                // ignored, and doubled quotes ('' or "") are treated as escaped quotes within a literal. Blank
-                // statements (e.g. a trailing semicolon) are dropped.
+                // Splits a textarea value into individual SQL commands on unquoted semicolons
                 function splitSqlCommands(sql: string): string[] {
                     const statements: string[] = []
                     let current = ""
@@ -387,7 +386,7 @@ export const prerender = false
                     // destructive-operation gate: a flagged command cannot be sent until the acknowledgement is checked
                     if (refreshDangerState() && !danger_ack.checked) {
                         message.textContent =
-                            "Error: this command may be destructive — check the acknowledgement box below the command to proceed."
+                            "Error: this command may be destructive - check the acknowledgement box below the command to proceed."
                         danger_ack.focus()
                         return
                     }
@@ -513,7 +512,7 @@ export const prerender = false
                 .command-raw {
                     overflow-x: auto;
                 }
-                /* The formatted view's subtree is styled in the global block below — it's built in client
+                /* The formatted view's subtree is styled in the global block below - it's built in client
            script, so its elements never receive Astro's scoped-style marker and scoped rules can't
            reach them. */
             </style>

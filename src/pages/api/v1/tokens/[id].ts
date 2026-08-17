@@ -1,7 +1,7 @@
 /**
  * /api/v1/tokens/[id]
  *
- * Revokes a specific user-scoped API token.
+ * Revokes a specific user-scoped API token
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -32,8 +32,7 @@ import { getApiTokenOwner, revokeApiToken } from "../../../../lib/api/tokens"
 
 /**
  * DELETE /api/v1/tokens/[id]
- * Revokes a token. An admin may revoke any token; a non-admin may revoke only their own. Idempotent: an
- * already-revoked token still returns 204.
+ * Revokes a token
  *
  * Permissions required: none (self); *admin* to revoke another contributor's token
  *

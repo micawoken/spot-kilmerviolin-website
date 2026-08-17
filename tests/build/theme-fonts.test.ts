@@ -23,12 +23,7 @@
  */
 
 /**
- * Guards the preload/`font-display: optional` lockstep invariant (`unpreloadedOptionalFaces`).
- *
- * Deliberately does NOT import theme-fonts-manifest.generated.json to check the real artifact: that file
- * is gitignored and only written by the astro:build:start hook, so a fresh clone running `vitest` before
- * any build has none and the import would fail to resolve (see .gitignore's note on it). The real
- * manifest is guarded where it is produced instead — the hook throws on a violation.
+ * Guards the preload/`font-display: optional` lockstep invariant (`unpreloadedOptionalFaces`)
  */
 
 import { describe, it, expect } from "vitest"
@@ -52,7 +47,7 @@ describe("unpreloadedOptionalFaces", () => {
         expect(unpreloadedOptionalFaces(fonts)).toEqual([])
     })
 
-    it("flags an optional face with no preload — the silent cold-load failure", () => {
+    it("flags an optional face with no preload - the silent cold-load failure", () => {
         const fonts = {
             fontFaceCss: block("/fonts/theme/a.woff2", "optional"),
             preloadHrefs: []
@@ -60,7 +55,7 @@ describe("unpreloadedOptionalFaces", () => {
         expect(unpreloadedOptionalFaces(fonts)).toEqual(["/fonts/theme/a.woff2"])
     })
 
-    it("does not flag a swap face without a preload — swap is the correct un-preloaded pairing", () => {
+    it("does not flag a swap face without a preload - swap is the correct un-preloaded pairing", () => {
         const fonts = { fontFaceCss: block("/fonts/theme/b.woff2", "swap"), preloadHrefs: [] }
         expect(unpreloadedOptionalFaces(fonts)).toEqual([])
     })

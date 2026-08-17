@@ -188,7 +188,7 @@ function LinkControl({ editor, editorState, readOnly }: { editor: RichTextEditor
     )
 }
 
-/** `RichtextField.renderMenu` — the form-panel toolbar, with the link control appended to Puck's own. */
+/** `RichtextField.renderMenu` - the form-panel toolbar, with the link control appended to Puck's own. */
 export function renderRichTextMenu({ children, editor, editorState, readOnly }: RichTextMenuRenderProps): ReactNode {
     return (
         <RichTextMenu>
@@ -200,7 +200,7 @@ export function renderRichTextMenu({ children, editor, editorState, readOnly }: 
     )
 }
 
-/** `RichtextField.renderInlineMenu` — the compact canvas bubble menu, same control appended. */
+/** `RichtextField.renderInlineMenu` - the compact canvas bubble menu, same control appended. */
 export function renderRichTextInlineMenu({ children, editor, editorState, readOnly }: RichTextMenuRenderProps): ReactNode {
     return (
         <RichTextMenu>

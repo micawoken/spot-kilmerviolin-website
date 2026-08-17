@@ -68,8 +68,7 @@ import { _resetKeywordSearch } from "./keyword_search"
 // INPUT CONTROL
 
 /**
- * Sets the `disabled` state of every input-like control in a form (inputs, textareas, selects, buttons).
- * Shared by disableInput/enableInput so the form-locking logic lives in one place.
+ * Sets the `disabled` state of every input-like control in a form (inputs, textareas, selects, buttons)
  *
  * @param {HTMLFormElement} form_elem the form whose controls should be toggled
  * @param {boolean} disabled the disabled state to apply
@@ -160,8 +159,7 @@ export function getTransactionElem(): Element {
 
 /**
  * Hides the lookup dialogs (ID entry form and keyword search box) once a record has been loaded for
- * on-page viewing in the READ flow, so the rendered record stands alone. Shared by the per-noun READ
- * branches in processSubmit.
+ * on-page viewing in the READ flow
  */
 function hideLookupForRecordView(): void {
     document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")
@@ -170,13 +168,7 @@ function hideLookupForRecordView(): void {
 
 /**
  * Shows or hides ContributorInfo.astro's authorization-fields section (#contributor-authinfo) to match
- * a freshly loaded contributor record: the API (GET /contributors/[id]) deletes every protected key
- * (CONTRIBUTOR.protected in lib/api/d1.ts) from a record it redacts rather than nulling them out, so a
- * protected key's presence reliably signals the caller is authorized to see it (checking one,
- * identity_email, is enough — they are always redacted together). Mirrors ContributorInfo.astro's own
- * SSR check; called on every contributor READ since a later, unauthorized lookup must re-hide a section
- * a prior, authorized lookup left visible (populateInfo silently skips keys absent from `record`, so it
- * cannot re-hide this on its own).
+ * a freshly loaded contributor record
  */
 function toggleContributorAuthSection(record: object): void {
     document.getElementById("contributor-authinfo")?.classList.toggle("hidden", !("identity_email" in record))
@@ -184,15 +176,7 @@ function toggleContributorAuthSection(record: object): void {
 
 /**
  * sr-only label prefixes for the compact "infoline" fields in the entity Info components' read view
- * (composer role, contributor class year/major, composition type/part), keyed by element id. These
- * fields have no visible label of their own (the infoline is meant to read as a compact byline) but
- * still need one exposed to assistive tech — without it a screen reader user hears an unlabeled value
- * with no indication of what it represents. The SSR render nests a `<span class="sr-only">` label
- * inside the id'd element (see ComposerInfo.astro/ContributorInfo.astro/CompositionInfo.astro), so a
- * live lookup here must rebuild that same structure rather than overwrite it with plain text — doing
- * the latter would either drop the label or make it visible. composer-country is NOT here: its id
- * sits on the value-only span while its sr-only label is static SSR markup outside it (same pattern as
- * birth/death year below), so a live lookup never touches it.
+ * (composer role, contributor class year/major, composition type/part), keyed by element id
  */
 const READ_INFOLINE_LABELS: Partial<Record<string, string>> = {
     "composer-role": "Role: ",
@@ -212,9 +196,7 @@ export async function populateInfo(
         const elem_id =
             force_prefix === undefined ? `${type_name}-${key}` : force_prefix === "" ? key : `${force_prefix}-${key}`
         // citations is a dynamically-keyed object (source name -> https link/DOI/ISBN), not a fixed
-        // sub-field group like rating/publication_info — it must be handled before the generic nested-object
-        // recursion below, or each key would be walked as if it named a fixed DOM sub-element. Mirrors the
-        // set:html render in ComposerInfo.astro/CompositionInfo.astro.
+        // sub-field group like rating/publication_info
         if (key === "citations" && force_prefix === undefined) {
             const elem = document.getElementById(elem_id)
             if (!elem) {
@@ -239,10 +221,7 @@ export async function populateInfo(
             console.warn(`Element with id ${elem_id} not found in DOM for populating info`)
             continue
         }
-        // image fields render into an <img> element, not text: set its src and toggle the sibling
-        // "(no image)" placeholder (id `${elem_id}-missing`). The <img> is always present in the Info
-        // components so this client-side READ path can fill it, mirroring the SSR view; the src is left
-        // unset when there is no image to avoid a broken-image request.
+        // image fields render into an <img> element, not text
         if (elem instanceof HTMLImageElement) {
             const missing = document.getElementById(`${elem_id}-missing`)
             const has_image = !(
@@ -264,10 +243,7 @@ export async function populateInfo(
             continue
         }
         // the publication URI renders according to its declared uri_type (a sibling field on the
-        // publication_info object currently being populated): a clickable link for https/doi/isbn.
-        // renderPublicationUri returns markup-safe HTML (every value is
-        // escapeHtml-encoded), assigned via innerHTML, mirroring the set:html render in CompositionInfo.astro.
-        // A blank/absent URI falls through to the shared "not provided" marker below.
+        // publication_info object currently being populated)
         if (
             elem_id.endsWith("publication_info-uri") &&
             !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""))
@@ -276,9 +252,7 @@ export async function populateInfo(
             continue
         }
         // phases render with a "Phases" label and a "(no phases specified)" marker when empty (mirrors the
-        // ContributorInfo SSR card). This must precede the generic null/array/blank branches below: phases
-        // is a number[], so the Array.isArray branch would otherwise overwrite the label with a bare value,
-        // and an empty/unset phases value would lose the label to the NOT_PROVIDED marker.
+        // ContributorInfo SSR card)
         if (key === "phases" && force_prefix === undefined) {
             const body =
                 value === null || value === undefined
@@ -294,9 +268,7 @@ export async function populateInfo(
             continue
         }
         // static infoline labels (role, class year, major, work type, part) precede the generic assignment
-        // below so their sr-only label survives a live lookup — see READ_INFOLINE_LABELS. Rebuilt as DOM
-        // nodes (not a concatenated textContent string) so the label stays a real sr-only element rather
-        // than becoming visible plain text.
+        // below so their sr-only label survives a live lookup - see READ_INFOLINE_LABELS
         if (force_prefix === undefined && elem_id in READ_INFOLINE_LABELS) {
             const srOnlyLabel = document.createElement("span")
             srOnlyLabel.className = "sr-only"
@@ -305,9 +277,7 @@ export async function populateInfo(
             continue
         }
         // mirror the SSR `disp` helper in the entity Info components: a null/undefined/blank/empty-array
-        // value renders as a clear "not provided" marker, and the per-entity special cases (living-composer
-        // death year, country code ->> name, top-level "ID #" prefix, contributor admin account type, plain
-        // booleans) render as their human-readable forms (see scripts/format.ts).
+        // value renders as a clear "not provided" marker
         elem.textContent = formatInfoValue(type_name, key, value, force_prefix === undefined)
     }
     // unhide table
@@ -352,10 +322,7 @@ export async function retrieveObjectFromIDEntry(
             return (isCompositionWithNames(work) ? work.object : work) as CompositionRecord | null
         }
         case "contributor":
-            // always request elevation for the prefill lookup: the edit form renders every protected
-            // property for admins, so they should always be populated. The server only honors elevation
-            // for admins (GET /contributors/[id]), so non-admins still receive the filtered record. The
-            // elevation checkbox is reserved for the edit (write) operation, not this read.
+            // always request elevation for the prefill lookup
             return await getContributor(id, true)
         default:
             throw new Error(`Unsupported noun ${interface_data[noun].name} for retrieval in retrieveObjectFromIDEntry`)
@@ -363,10 +330,7 @@ export async function retrieveObjectFromIDEntry(
 }
 
 /**
- * Parses a submitted form into the API payload for its operation: the record id for single-item
- * operations (READ/DELETE), the id plus a (partial) object for updates, or a freshly generated object
- * for creates. Contributor updates are additionally checked client-side for ownership and protected-property
- * authorization so the user receives an immediate, clear rejection before any request is sent.
+ * Parses a submitted form into the API payload for its operation
  *
  * @param {FormData} formData the submitted form data
  * @param {APIOpCode} exec_mode the operation being performed
@@ -422,10 +386,7 @@ function buildSubmitPayload(
 }
 
 /**
- * Renders a loaded composition record into the info card. When the record carries resolved names, the
- * record is populated generically and then the composer/secondary-author/contributor references are
- * rendered as info-page links (set via innerHTML), mirroring the SSR CompositionInfo card; the *_name keys
- * are held back from the generic pass because they have no plain-text element and render as markup here.
+ * Renders a loaded composition record into the info card
  *
  * @param {Awaited<ReturnType<typeof getWork>>} rec the loaded composition record (possibly name-enhanced)
  * @param {keyof typeof interface_data} noun the composition interface noun
@@ -435,9 +396,7 @@ async function displayCompositionRecord(
     noun: keyof typeof interface_data
 ): Promise<void> {
     if (isCompositionWithNames(rec)) {
-        // composer_name and author_secondary_names are held back from the generic pass too: like the
-        // contributor refs below, they render as info-page links (set:html) rather than the plain text
-        // populateInfo would set.
+        // composer_name and author_secondary_names are held back from the generic pass too
         const {
             contrib_primary_1_name,
             contrib_primary_2_name,
@@ -481,7 +440,7 @@ async function displayCompositionRecord(
 }
 
 /**
- * The execution context passed to each entity operation handler in ENTITY_OPS.
+ * The execution context passed to each entity operation handler in ENTITY_OPS
  */
 interface OpContext {
     form: HTMLFormElement
@@ -494,10 +453,7 @@ interface OpContext {
 }
 
 /**
- * Dispatch table mapping each API noun and operation to its handler. Each handler issues the connector
- * call, reports the result on the status element, and wires the post-submit next-task links — replacing
- * the per-noun switch that processSubmit previously carried inline. Adding an entity or operation is a
- * matter of adding an entry rather than another switch branch.
+ * Dispatch table mapping each API noun and operation to its handler
  */
 const ENTITY_OPS: Record<string, Partial<Record<APIOpCode, (ctx: OpContext) => Promise<void>>>> = {
     composer: {
@@ -699,14 +655,7 @@ export function genHandler(
 
 /**
  * Submits the self-service profile editor as a partial (PATCH) update to the caller's own contributor
- * record.
- *
- * Unlike the admin edit page, the profile editor renders every editable field at once and has no
- * per-field edit-target checkboxes, so the object is generated in non-patch mode (every rendered field
- * is sent on each save, replacing its stored value). The field set (contributor_profile) excludes the
- * identity email, roles, admin, and active, so no protected property is ever sent and the edit needs no
- * administrator escalation — the server authorizes it purely as a self-edit. The record id is taken from
- * the caller's identity (self_id), not from form input, so the form can only ever update its own record.
+ * record
  *
  * @param {HTMLFormElement} form the profile editor form
  * @param {Element} message the status element on which to report progress and errors
@@ -738,13 +687,7 @@ export async function submitProfileEdit(form: HTMLFormElement, message: Element,
 }
 
 /**
- * Restores the record-lookup view that the edit pages hide once a record is loaded into the edit form.
- *
- * The edit pages (contributors/works/composers) hide the ID entry form, the keyword search box, and — on
- * the contributor page — the standalone elevation box when a record is loaded for editing. After a
- * successful edit, the "Edit another" next task calls this to re-reveal and reset those lookup dialogs so
- * the user can pull up another record. Resetting the ID entry form also clears the elevation checkbox
- * bound to it via its `form` attribute. No-ops on any element that is absent, so it is safe to call generally.
+ * Restores the record-lookup view that the edit pages hide once a record is loaded into the edit form
  */
 function _resetLookup(): void {
     document.getElementById("generic-form-id-entry-container")?.classList.remove("hidden")
@@ -772,8 +715,7 @@ function _nextTaskEventListener(
         enableInput(form)
         if (relookup) {
             // edit pages: the submitted form is the prefilled edit form (not a lookup form), and it carries
-            // the hidden class on the form element itself. Hide it again and restore the ID-entry/keyword-
-            // search/elevation lookup dialogs so the user can pull up another record to edit.
+            // the hidden class on the form element itself
             form.classList.add("hidden")
             _resetLookup()
         } else {
@@ -797,11 +739,7 @@ function _nextTaskEventListener(
 }
 
 /**
- * Maps each interface noun's canonical name to its admin URL path segment.
- *
- * The admin CRUD pages live under /admin/{segment}/...; the segment matches the canonical name for
- * composers and contributors, but compositions are served under "works" (see the ListResults note in
- * admin/works/list.astro), so the mapping is explicit rather than a naive pluralization.
+ * Maps each interface noun's canonical name to its admin URL path segment
  */
 const admin_path_segment: Record<string, string> = {
     composer: "composers",
@@ -822,9 +760,6 @@ const form_input_prefix: Record<keyof typeof interface_data, string> = {
 
 /**
  * Prefills a data-entry form's inputs with the values of an existing record
- *
- * Intended for the edit (UPDATE_PARTIAL) pages after the record is retrieved via the ID entry form
- * (populateInfo cannot be used: it sets textContent, which does not affect input values)
  *
  * @param {keyof typeof interface_data} noun the interface noun whose form should be prefilled
  * @param {Record<string, any>} record the record data to prefill with
@@ -849,8 +784,7 @@ export function prefillForm(noun: keyof typeof interface_data, record: Record<st
         }
         // citations is a dynamically-keyed object (source name -> https link/DOI/ISBN), not a fixed
         // sub-field group; the generic String(value) fallback below would render it as "[object Object]"
-        // (even when empty), so it needs the same textarea serialization the citations input expects on
-        // submit (parseCitationsTextarea in scripts/common.ts).
+        // (even when empty), so it needs the same textarea serialization
         if (key === "citations" && value && typeof value === "object") {
             flat["citations"] = citationsToTextarea(value as Record<string, string>)
             continue
@@ -964,21 +898,6 @@ export async function attachNextTask(
 
 /**
  * Wires the managed-contributor behavior on a composition form
- *
- * contrib_primary_1 and contrib_addl live in a container that is hidden by default: in the managed
- * flow the acting user is recorded automatically (their id is set as the primary contributor on
- * create, and the server records them as an additional contributor on edit). When an administrator is
- * present, a "direct contributor management" toggle reveals these fields for manual editing; toggling
- * it back off restores the managed defaults so nothing the admin typed leaks into a managed submission.
- *
- * The additional-primary slot (contrib_primary_2) is addable by anyone, so it lives in its own
- * container and is shown on create, shown on edit only when the slot is empty (a filled non-self
- * co-primary is protected server-side by canAct), and always shown when an admin edits directly.
- *
- * Reads the acting user's contributor id and admin availability from the form's dataset attributes
- * (data-self-id / data-contrib-direct-available, set by CompositionForm.astro). On the edit page the
- * form may be prefilled client-side after load, so the additional-primary visibility is re-evaluated
- * on the "composition:prefilled" event dispatched by the edit page.
  *
  * @param {HTMLFormElement} form the composition data-entry form
  * @param {boolean} patch whether the form submits a partial (PATCH) edit rather than a create

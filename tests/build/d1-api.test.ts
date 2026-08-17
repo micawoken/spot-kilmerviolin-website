@@ -26,7 +26,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 /**
  * Fetches a fresh module instance. `fetchComposers`/`fetchAllContributors`/`fetchCompositions` each cache
- * their read for the life of one build process (see their doc comments in d1-api.ts) — exactly the thing
+ * their read for the life of one build process (see their doc comments in d1-api.ts) - exactly the thing
  * each of these tests must NOT share, or an earlier test's mocked response (or thrown error) would leak
  * into a later test's assertions. Mirrors emdash-api.test.ts's `freshFetchMenu` helper for the same reason.
  */
@@ -51,7 +51,7 @@ function withConfig() {
     vi.stubEnv("BUILD_API_TOKEN", "skv_build_tok-1")
 }
 
-/** Settles a read under the fake clock — retries back off, so the clock must be run forward. */
+/** Settles a read under the fake clock - retries back off, so the clock must be run forward. */
 async function settle<T>(promise: Promise<T>): Promise<T> {
     const outcome = promise.then(
         (value) => ({ ok: true, value }) as const,
@@ -75,7 +75,7 @@ afterEach(() => {
     vi.unstubAllGlobals()
 })
 
-describe("build API unconfigured — the bootstrap build", () => {
+describe("build API unconfigured - the bootstrap build", () => {
     it("returns null instead of throwing when any of the four env vars is unset", async () => {
         const { fetchComposers } = await freshD1Api()
         const fetchSpy = vi.fn()
@@ -85,7 +85,7 @@ describe("build API unconfigured — the bootstrap build", () => {
         expect(fetchSpy).not.toHaveBeenCalled()
     })
 
-    it("returns null when BUILD_API_TOKEN alone is missing (Access headers are not enough — D3)", async () => {
+    it("returns null when BUILD_API_TOKEN alone is missing (Access headers are not enough - D3)", async () => {
         const { fetchComposers } = await freshD1Api()
         vi.stubEnv("CONTENT_API_BASE", "https://kilmer.example.test")
         vi.stubEnv("CF_ACCESS_CLIENT_ID", "client-1")
@@ -160,7 +160,7 @@ describe("outbound request shape", () => {
     })
 })
 
-describe("fetchContributors — public listing", () => {
+describe("fetchContributors - public listing", () => {
     it("strips protected/identity columns and excludes contributors tagged `hidden`, but keeps inactive ones", async () => {
         const { fetchContributors } = await freshD1Api()
         withConfig()
@@ -184,7 +184,7 @@ describe("fetchContributors — public listing", () => {
                         tags: []
                     },
                     {
-                        // REGRESSION GUARD: inactive, but not hidden — active no longer gates page
+                        // REGRESSION GUARD: inactive, but not hidden - active no longer gates page
                         // existence, so this record must still come through (redacted).
                         id: 2,
                         name: "Retired Ray",
@@ -228,7 +228,7 @@ describe("fetchContributors — public listing", () => {
     })
 })
 
-describe("fetchAllContributors — unredacted, active or not (entity-records.ts's reference-resolution source)", () => {
+describe("fetchAllContributors - unredacted, active or not (entity-records.ts's reference-resolution source)", () => {
     it("includes an inactive contributor and does NOT strip protected columns", async () => {
         const { fetchAllContributors } = await freshD1Api()
         withConfig()
@@ -271,20 +271,20 @@ describe("fetchAllContributors — unredacted, active or not (entity-records.ts'
         )
 
         const result = await fetchAllContributors()
-        // Both rows, including the inactive one — buildReferenceIndex needs to resolve a composition's
+        // Both rows, including the inactive one - buildReferenceIndex needs to resolve a composition's
         // reference to an inactive contributor's NAME even though that contributor gets no public page.
         expect(result).toHaveLength(2)
         expect(result?.map((c) => c.name).sort()).toEqual(["Ada", "Grace"])
         expect(result?.find((c) => c.name === "Grace")?.active).toBe(false)
         // Unredacted: this reader must not strip protected columns (redaction happens at fetchContributors,
-        // the public-listing reader — never here, or the "unredacted" contract callers rely on breaks silently).
+        // the public-listing reader - never here, or the "unredacted" contract callers rely on breaks silently).
         expect(result?.[0]).toHaveProperty("identity_email")
         expect(result?.[0]).toHaveProperty("roles")
     })
 })
 
-describe("fetchCompositions — flat CompositionRecord shape (unified field-outlet rewrite)", () => {
-    it("returns bare CompositionRecords — reference resolution now lives entirely in entity-records.ts", async () => {
+describe("fetchCompositions - flat CompositionRecord shape (unified field-outlet rewrite)", () => {
+    it("returns bare CompositionRecords - reference resolution now lives entirely in entity-records.ts", async () => {
         const { fetchCompositions } = await freshD1Api()
         withConfig()
         const compositionRecord = {
@@ -323,7 +323,7 @@ describe("fetchCompositions — flat CompositionRecord shape (unified field-outl
         })
         vi.stubGlobal("fetch", fetchSpy)
 
-        // Only one request is expected now (works alone) — this function no longer reads
+        // Only one request is expected now (works alone) - this function no longer reads
         // composers/contributors itself, so a call to either route would hit the `throw` above and fail
         // the test, which is itself the regression guard for "reference resolution moved out of here".
         const result = await fetchCompositions()

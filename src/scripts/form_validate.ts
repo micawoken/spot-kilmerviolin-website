@@ -1,11 +1,7 @@
 /**
  * scripts/form_validate.ts
  *
- * Client-side validation wiring for the admin entity forms. Attaches the live feedback that mirrors the
- * shared validators in lib/public/validation.ts: per-field format hints and error/warning slots, the
- * URI-type help text (attachUriTypeHelp), and the country field's code-to-name resolution
- * (attachCountryFeedback). validateFormFields runs the same checks as a submit gate, so a form cannot be
- * sent while a field is in an invalid state.
+ * Client-side validation wiring for the admin entity forms
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -44,10 +40,7 @@ export const uri_type_help: Record<string, string> = {
 }
 
 /**
- * Keeps the composition form's URI help text in sync with the selected URI Type: the help text under the
- * URI input is set from uri_type_help for the current uri_type, updating whenever the selector changes.
- *
- * No-ops if either the URI Type selector or the help element is absent.
+ * Keeps the composition form's URI help text in sync with the selected URI Type
  *
  * @param {HTMLFormElement} form the composition form whose URI help text should track its URI Type selector
  */
@@ -71,9 +64,7 @@ const COUNTRY_ISO_LABEL = "ISO 3166-1 alpha-2"
 
 /**
  * Builds the unrecognised-country error ("Enter a valid <ISO 3166-1 alpha-2 link> code") as a DOM
- * subtree rather than an HTML string. The link is constructed element-by-element so no markup is ever
- * parsed from a string here — keeping this off the innerHTML path so the error slot can never become an
- * injection sink if the surrounding text is later changed to include a dynamic value.
+ * subtree rather than an HTML string
  */
 function buildCountryError(): HTMLElement {
     const error = document.createElement("small")
@@ -91,12 +82,7 @@ function buildCountryError(): HTMLElement {
 }
 
 /**
- * Renders the composer country field's feedback and reports whether the current value is acceptable.
- * Unlike the generic format-hint fields, the country input resolves the entered code to a country name: a
- * recognised code shows its determined country name in the inline help (e.g. "FR" -> "France"), a blank
- * field shows neutral guidance, and an unrecognised entry is flagged with an error carrying the ISO 3166-1
- * reference link. Shared by the live listeners (attachCountryFeedback) and the submit gate
- * (validateCountryFeedback) so both render identically.
+ * Renders the composer country field's feedback and reports whether the current value is acceptable
  *
  * @param {HTMLInputElement} input the country input
  * @param {HTMLElement} help the inline help element to repurpose for the resolved name / guidance
@@ -126,7 +112,7 @@ function renderCountryFeedback(input: HTMLInputElement, help: HTMLElement): bool
     const from_name = countryNameToCode(raw)
     if (from_name) {
         // recognised common English name: accept it and show the country with the code it resolves to, so the
-        // user sees it will be stored as that code (the name is converted to the code on submit, in argParse)
+        // user sees it will be stored as that code
         input.classList.remove("field-invalid")
         help.classList.remove("field-hidden")
         help.textContent = `${countryCodeName(from_name)} (${from_name})`
@@ -141,10 +127,7 @@ function renderCountryFeedback(input: HTMLInputElement, help: HTMLElement): bool
 
 /**
  * Live feedback for the composer country field, resolving the entered code to a country name on every
- * keystroke and on blur (see renderCountryFeedback). This replaces the static code link the field
- * previously displayed, so the country field is handled here rather than through FIELD_VALIDATORS.
- *
- * No-ops if the country input or its help element is absent (so it is safe to call on any form).
+ * keystroke and on blur
  *
  * @param {HTMLFormElement} form the composer form whose country field should show resolved feedback
  */
@@ -163,10 +146,7 @@ export function attachCountryFeedback(form: HTMLFormElement): void {
 }
 
 /**
- * Submit-time gate for the composer country field, complementing its live feedback. Returns true when the
- * field is absent, blank, or holds a recognised code; otherwise it renders the country error (with the ISO
- * link) through the same feedback path used live and returns false. In patch mode an unchecked edit target
- * skips the check, matching which fields generateObjectForm actually submits.
+ * Submit-time gate for the composer country field, complementing its live feedback
  *
  * @param {HTMLFormElement} form the form being submitted
  * @param {boolean} patch whether the form is a partial (PATCH) edit
@@ -188,9 +168,7 @@ function validateCountryFeedback(form: HTMLFormElement, patch: boolean): boolean
 }
 
 /**
- * Surfaces a validation hint inline, to the right of (or under) the offending control. The hint reuses
- * the format-token slot: an existing format hint (.field-inline-help) is hidden while the error shows.
- * A .field-error element is created next to the control if one is not already present.
+ * Surfaces a validation hint inline, to the right of (or under) the offending control
  */
 export function showFieldError(control: FormControl, message: string): void {
     const container = control.closest(".field-row") ?? control.parentElement
@@ -211,9 +189,7 @@ export function showFieldError(control: FormControl, message: string): void {
 
 /**
  * Surfaces a non-blocking caution beside a control, in the same inline slot as showFieldError but styled
- * as a colored warning (.field-warning) rather than a hard error. Unlike an error it does not flag the
- * control invalid or block submission; it draws attention to something the operator should know (e.g. an
- * image that will be upscaled). A prior warning element is reused/updated rather than duplicated.
+ * as a colored warning (.field-warning) rather than a hard error
  */
 export function showFieldWarning(control: FormControl, message: string): void {
     let warning = control.nextElementSibling
@@ -226,7 +202,7 @@ export function showFieldWarning(control: FormControl, message: string): void {
     warning.textContent = message
 }
 
-/** Clears any non-blocking warning previously shown on a control by showFieldWarning. */
+/** Clears any non-blocking warning previously shown on a control by showFieldWarning */
 export function clearFieldWarning(control: FormControl): void {
     const sibling = control.nextElementSibling
     if (sibling instanceof HTMLElement && sibling.classList.contains("field-warning")) {
@@ -234,7 +210,7 @@ export function clearFieldWarning(control: FormControl): void {
     }
 }
 
-/** Clears any validation hint on a control, restoring its hidden format token. */
+/** Clears any validation hint on a control, restoring its hidden format token */
 export function clearFieldError(control: FormControl): void {
     const sibling = control.nextElementSibling
     if (sibling instanceof HTMLElement && sibling.classList.contains("field-error")) {
@@ -250,11 +226,7 @@ export function clearFieldError(control: FormControl): void {
 
 /**
  * Attaches live per-field validation to a form: each validated field is checked when the user leaves it
- * (blur) and re-checked on every keystroke, so the visual state updates immediately in both directions —
- * a field that becomes invalid is flagged at once (not only on blur), and a corrected field clears
- * promptly. The composition URI is additionally re-validated when its URI Type selector changes.
- *
- * No-ops on fields without a validator. Safe to call on any entity form (create, edit, or profile).
+ * (blur) and re-checked on every keystroke, so the visual state updates immediately in both directions
  *
  * @param {HTMLFormElement} form the form whose fields should validate live
  */
@@ -275,11 +247,11 @@ export function attachFormValidation(form: HTMLFormElement): void {
         }
         control.addEventListener("blur", run)
         // re-validate on every keystroke so the invalid state appears immediately, not only once the field
-        // is blurred (a corrected field already cleared live; this makes the invalid direction symmetric)
+        // is blurred (a corrected field already cleared live
         control.addEventListener("input", run)
     })
     // a birth-year change can flip whether the death year is consistent with it; re-check the death year
-    // so the cross-field hint appears/clears immediately rather than only when the death field is touched
+    // so the cross-field hint appears/clears immediately
     const birth_year = form.querySelector('[name="birth_year"]')
     const death_year = form.querySelector('[name="death_year"]')
     if (birth_year instanceof HTMLInputElement && death_year instanceof HTMLInputElement) {
@@ -308,10 +280,7 @@ export function attachFormValidation(form: HTMLFormElement): void {
 }
 
 /**
- * Validates every applicable field of a form, surfacing inline hints, and reports whether all are valid.
- * Used as a submit gate so a malformed entry is rejected with a specific, in-place message before any
- * request is sent. In patch (partial-edit) mode only fields marked for editing are validated, matching
- * which fields generateObjectForm will actually submit.
+ * Validates every applicable field of a form, surfacing inline hints, and reports whether all are valid
  *
  * @param {HTMLFormElement} form the form to validate
  * @param {boolean} patch whether the form is a partial (PATCH) edit

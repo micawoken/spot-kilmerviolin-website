@@ -102,7 +102,7 @@ type EditableCatalog = {
     viewTransitions: boolean
 } & Record<TokenKind, Row[]>
 
-/** The token kinds and their fields (§4.3), in the order they render. Drives load, edit, and save. */
+/** The token kinds and their fields */
 const SECTIONS: Array<{ kind: TokenKind; label: string; fields: FieldSpec[] }> = [
     { kind: "colors", label: "Colors", fields: [{ key: "name", label: "Name" }, { key: "value", label: "Value", color: true, control: "color" }] },
     {
@@ -600,8 +600,7 @@ export default function ThemeEditor() {
     const usageLabels = (kind: TokenKind, name: string): string[] => (name ? (usage?.get(`${kind}:${name}`) ?? []) : [])
 
     const removeRow = (kind: TokenKind, index: number) => {
-        // Naming which designs would lose the style is the point of the scan (§3.1) - a silent removal
-        // is what the static warning could never prevent. Only guard when uses are actually known.
+        // Naming which designs would lose the style is the point of the scan
         const name = editable[kind][index]?.name ?? ""
         const labels = usageLabels(kind, name)
         if (labels.length > 0) {

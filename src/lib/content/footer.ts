@@ -1,13 +1,8 @@
 /**
  * lib/content/footer.ts
  *
- * Build-time accessor for the static footer content. EmDash has no footer concept, so the footer reuses
- * its built-in General Settings (read over the HTTP API, see src/lib/build/emdash-api.ts fetchSettings):
- * the copyright organization is the site `title` and the footer line is the site `tagline`. The public
- * site is prerendered, so publishing a settings change requires a site rebuild. The copyright year is
- * computed at render time in the footer component; only the static parts (organization, tagline) live here.
+ * Build-time accessor for the static footer content
  *
- * Consumed by components/PublicFooter.astro.
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -40,10 +35,7 @@ export interface FooterContent {
 }
 
 /**
- * Returns the footer content derived from EmDash's built-in General Settings: the copyright organization
- * is the site `title` (falling back to the src/consts.ts default so the footer credit matches the header),
- * and the footer line is the site `tagline`. Blank or missing values normalize to null so the component
- * can omit them. Fails soft on read error.
+ * Returns the footer content derived from EmDash's built-in General Settings
  *
  * @returns {Promise<FooterContent>} the resolved organization and tagline
  */
