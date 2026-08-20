@@ -250,12 +250,6 @@ describe("buildContributor", () => {
     })
 })
 
-// a resolution context with several composers and two contributors, no existing works, empty phase map.
-// - Bach also appears as an "arranger" under a second id, so secondary-author role matching has something
-//   real to disambiguate
-// - Clara Schumann exists only as an "editor" - a single non-arranger/non-composer role to fall back to
-// - Fanny Mendelssohn exists as both "editor" and "lyricist" - two non-arranger/non-composer roles, so a
-//   fallback would be ambiguous
 function makeCtx(): WorksContext {
     const composerRecords = [
         { id: 10, name: "Johann Sebastian Bach", role: "composer" },
