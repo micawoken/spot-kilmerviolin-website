@@ -26,6 +26,7 @@
  */
 
 import { CONTRIBUTOR_SCHEMA, isHiddenContributor, redactProtected } from "./d1-schema"
+import { stripSentinelComposerData } from "../api/composer_sentinel"
 
 /** Resolved build-time API configuration; null when any of the four env vars is unset. */
 interface BuildApiConfig {
@@ -177,20 +178,28 @@ async function fetchFullCollection<T>(path: string): Promise<T[] | null> {
 }
 
 /**
- * Fetches every composer record. Composers have no protected columns - the record is returned as-is.
- * Cached for the life of one build process (see {@link composersCache}).
+ * Fetches every composer record (sentinels have data filtered out)
+ * Cached for the life of one build process (see {@link composersCache})
  *
  * @returns every composer, or null when the build API is unconfigured
  * @throws {BuildTokenReadError} when configured but the read fails
  */
 export function fetchComposers(): Promise<ComposerRecord[] | null> {
-    if (!composersCache) composersCache = fetchFullCollection<ComposerRecord>("/api/v1/composers")
+    if (!composersCache) {
+        composersCache = fetchFullCollection<ComposerRecord>("/api/v1/composers").then((composers) =>
+            composers === null
+                ? null
+                : composers.map((record) => stripSentinelComposerData(record) as unknown as ComposerRecord)
+        )
+    }
     return composersCache
 }
 
 /**
- * Build-time cache backing {@link fetchComposers}, same rationale as design-api.ts's `themeCache`/
- * `pageHrefCache`
+ * Build-time cache backing {@link fetchComposers} - holds the already-stripped result, not the raw read,
+ * so repeated calls within one build return the identical array reference (a fresh `.map()` on every call
+ * would otherwise break reference-identity memoization). Same rationale as design-api.ts's `themeCache`/
+ * `pageHrefCache`.
  */
 let composersCache: Promise<ComposerRecord[] | null> | null = null
 

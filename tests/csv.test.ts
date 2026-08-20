@@ -40,10 +40,10 @@ import {
     parsePhases,
     compositionKey,
     normalizeName,
-    sentinelComposerName,
     type WorksContext,
     type BuildIssue
 } from "../src/scripts/import_build.ts"
+import { sentinelComposerName } from "../src/lib/api/composer_sentinel.ts"
 import { composer_csv_columns, composition_csv_columns } from "../src/scripts/types.ts"
 
 /** Plain message text for warnings, for assertions that don't care about column tagging. */
@@ -226,6 +226,17 @@ describe("buildComposer", () => {
         const tags = Array.from({ length: 26 }, (_, i) => `tag${i}`).join(";")
         const { issues } = buildComposer(composerCells({ name: "Amy Beach", role: "composer", tags }))
         expect(issues.some((issue) => /too many tags/.test(issue.message) && issue.column === "tags")).toBe(true)
+    })
+
+    it("canonicalizes a sentinel name and does not require role", () => {
+        const { record, issues } = buildComposer(composerCells({ name: "unk", role: "" }))
+        expect(record.name).toBe("Unknown")
+        expect(messages(issues)).not.toContain("role is required")
+    })
+
+    it("still flags a blank role for a non-sentinel name", () => {
+        const { issues } = buildComposer(composerCells({ name: "Traditionally Yours", role: "" }))
+        expect(messages(issues)).toContain("role is required")
     })
 })
 

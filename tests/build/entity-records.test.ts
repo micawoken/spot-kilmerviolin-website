@@ -167,6 +167,14 @@ describe("entityRecords - composer/contributor (bare records, pass through)", ()
         expect(result.entry.life_span).toBe("1685–Present")
     })
 
+    it("omits life_span for a stripped sentinel composer (birth_year/death_year nulled by fetchComposers)", () => {
+        // stripSentinelComposerData nulls these at the build fetch, ahead of entityRecords - the type
+        // still says `number` (see its as-unknown cast in d1-api.ts), so this mirrors that at runtime
+        const record = { ...formatCompFromD1(composer), name: "Unknown", birth_year: null, death_year: null }
+        const [result] = entityRecords("composer", [record as unknown as ComposerRecord], null, null, emptyRefs)
+        expect(result.entry.life_span).toBeUndefined()
+    })
+
     it("does the same for a contributor record, unchanged (no derived fields)", () => {
         const record = formatContribFromD1(activeContributor)
         expect(entityRecords("contributor", null, [record], null, emptyRefs)).toEqual([{ id: "2", entry: record }])

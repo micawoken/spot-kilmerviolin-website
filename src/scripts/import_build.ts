@@ -28,6 +28,7 @@
 import { nearestName } from "../lib/api/csv"
 import { isValidImageUrl, isValidPosition, normalizeCountryCode } from "../lib/api/validation"
 import { AuthorRole, Key, WorkType } from "../lib/api/common"
+import { isSentinelComposerName, sentinelComposerName } from "../lib/api/composer_sentinel"
 import {
     cleanText,
     normalizeUnicodeForm,
@@ -111,24 +112,6 @@ export function columnSpec(type: ImportType): { columns: string[]; allowExtra: b
 /** Normalizes a name for exact map lookups the same way csv.ts's fuzzy matcher does (trim/lower/collapse). */
 export function normalizeName(name: string): string {
     return name.trim().toLowerCase().replace(/\s+/g, " ")
-}
-
-/**
- * Spellings donated CSV data commonly uses for "the composer is not known"
- */
-const UNKNOWN_COMPOSER_ALIASES = new Set(["unknown", "unknown composer", "unk", "n/a", "na"])
-
-/** Spellings for a work with no individual composer (the folk/anonymous-authorship case) */
-const TRADITIONAL_COMPOSER_ALIASES = new Set(["traditional", "trad"])
-
-/**
- * Collapses a composer-name cell to one of two canonical sentinel names - unknown and traditional
- */
-export function sentinelComposerName(raw: string): string {
-    const key = normalizeName(raw).replace(/\.+$/, "")
-    if (UNKNOWN_COMPOSER_ALIASES.has(key)) return "Unknown"
-    if (TRADITIONAL_COMPOSER_ALIASES.has(key)) return "Traditional"
-    return raw
 }
 
 /**
@@ -287,15 +270,17 @@ function resolveSecondaryAuthor(
 /** Builds a composer record from its CSV cells (blank optional fields -> null; tags split on ";"). */
 export function buildComposer(cells: Record<string, string>): BuildResult {
     const issues: BuildIssue[] = []
-    const name = normalizeUnicodeForm(cleanText(cells.name))
+    const name = sentinelComposerName(normalizeUnicodeForm(cleanText(cells.name)))
     if (name === "") {
         issues.push({ message: "name is required", column: "name" })
     }
+    const isSentinel = isSentinelComposerName(name)
 
     // role is a NOT NULL column, but (unlike name) that was never enforced client-side - blank slipped
-    // through to a generic server dry-run failure instead of a clear preview issue
+    // through to a generic server dry-run failure instead of a clear preview issue. A sentinel identity
+    // ("Unknown"/"Traditional") is exempt: applySentinelComposerDefaults fills it server-side.
     const roleRaw = cleanText(cells.role)
-    if (roleRaw === "") {
+    if (roleRaw === "" && !isSentinel) {
         issues.push({ message: "role is required", column: "role" })
     }
     const role = roleRaw === "" ? "" : (canonicalEnumValue(roleRaw, Object.values(AuthorRole)) ?? roleRaw)

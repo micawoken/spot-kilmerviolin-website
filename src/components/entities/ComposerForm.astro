@@ -31,17 +31,24 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 import { citationsToTextarea } from "../../scripts/citations"
+import { isSentinelComposerName } from "../../lib/api/composer_sentinel"
 
 const required: boolean = Astro.props.required || false
 const hidden: boolean = Astro.props.hidden || false
 const composer: ComposerRecord | null = Astro.props.composer || null
 const patch: boolean = Astro.props.patch || false
+const isSentinel = composer !== null && isSentinelComposerName(composer.name)
 ---
 
 <div class="generic-form">
     <form id="generic-form-composers" class=`generic-form${hidden ? " hidden" : ""}` novalidate>
         {/* tracks the record being edited; ignored by generateObjectForm and used by processSubmit for updates */}
         <input type="hidden" id="form-composers-id" name="id" value={composer?.id ?? ""} />
+
+        <p id="composer-sentinel-warning" class={`general-warning${isSentinel ? "" : " hidden"}`}>
+            This composer name is reserved by the system. You may create it, but any role, birth/death year, or country
+            data will be ignored and hidden from the website output.
+        </p>
 
         <div class="form-section">
             <h3 class="form-section-title">Basic Information</h3>
@@ -349,6 +356,7 @@ const patch: boolean = Astro.props.patch || false
     import { enableEditTargetOnChange } from "../../scripts/common"
     import { attachFilePicker } from "../../scripts/file_picker"
     import { attachFormValidation, attachCountryFeedback } from "../../scripts/form_validate"
+    import { isSentinelComposerName } from "../../lib/api/composer_sentinel"
     const composer_form = document.getElementById("generic-form-composers")
     if (composer_form instanceof HTMLFormElement) {
         enableEditTargetOnChange(composer_form)
@@ -356,6 +364,16 @@ const patch: boolean = Astro.props.patch || false
         attachFormValidation(composer_form)
         // the country field resolves its code to a country name (and carries the ISO link in its error)
         attachCountryFeedback(composer_form)
+    }
+    // toggles the sentinel-identity notice as the name field changes
+    const composer_name_field = document.getElementById("form-composers-name")
+    const composer_sentinel_warning = document.getElementById("composer-sentinel-warning")
+    if (composer_name_field instanceof HTMLInputElement && composer_sentinel_warning !== null) {
+        const syncSentinelWarning = () => {
+            composer_sentinel_warning.classList.toggle("hidden", !isSentinelComposerName(composer_name_field.value))
+        }
+        composer_name_field.addEventListener("input", syncSentinelWarning)
+        syncSentinelWarning()
     }
     // image picker: fill the image URL field from uploaded (R2) or bundled (src/files) images
     attachFilePicker(
