@@ -37,6 +37,7 @@ import {
     normalizeName,
     indexByName,
     indexByNameRole,
+    groupByName,
     buildRecord,
     flagCompositionDuplicates,
     flagNameDuplicates
@@ -360,11 +361,11 @@ export function initImport(type: ImportType): void {
             listWork(true) as Promise<Array<{ composer_id: number; name: string; part: string | null }> | null>
         ])
         const composerIndex = indexByName((composers ?? []).map((record) => ({ id: record.id, name: record.name })))
-        const composerByNameRole = indexByNameRole(
-            (composers ?? [])
-                .filter((record): record is NamedRecordLike & { role: string } => typeof record.role === "string")
-                .map((record) => ({ id: record.id, name: record.name, role: record.role }))
-        )
+        const composerRecordsWithRole = (composers ?? [])
+            .filter((record): record is NamedRecordLike & { role: string } => typeof record.role === "string")
+            .map((record) => ({ id: record.id, name: record.name, role: record.role }))
+        const composerByNameRole = indexByNameRole(composerRecordsWithRole)
+        const composerRecordsByName = groupByName(composerRecordsWithRole)
         const contributorIndex = indexByName(
             (contributors ?? []).map((record) => ({ id: record.id, name: record.name }))
         )
@@ -375,6 +376,7 @@ export function initImport(type: ImportType): void {
         return {
             composerByName: composerIndex.byName,
             composerByNameRole,
+            composerRecordsByName,
             contributorByName: contributorIndex.byName,
             composerNames: composerIndex.names,
             contributorNames: contributorIndex.names,
