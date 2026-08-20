@@ -49,9 +49,9 @@ const docs = (await getCollection("docs")).sort((a, b) => a.data.title.localeCom
     <body>
         <AdminHeader identity={identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
+            <h2>Documentation</h2>
             <div class="flex-container">
                 <div class="column">
-                    <h2>Documentation</h2>
                     {
                         docs.length === 0 ? (
                             <p>No documentation is available yet.</p>
