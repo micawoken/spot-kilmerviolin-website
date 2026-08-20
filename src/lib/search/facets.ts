@@ -53,7 +53,7 @@ export interface FacetEntry {
     publisher?: string
     suzuki?: number
     nyssma?: number
-    /** composer and composition - free-form tags, joined with ", " */
+    /** composer, composition, and contributor - free-form tags, joined with ", " */
     tags?: string
     /** composer only - ISO 3166-1 alpha-2 code (matched against both the code and its resolved name) */
     country?: string
@@ -368,7 +368,7 @@ export const ADVANCED_FIELDS: readonly AdvancedFieldDef[] = [
         control: "text",
         placeholder: "e.g. recital",
         operators: TEXT_OPERATORS,
-        nouns: ["composer", "composition"]
+        nouns: ["composer", "composition", "contributor"]
     },
     {
         param: "country",

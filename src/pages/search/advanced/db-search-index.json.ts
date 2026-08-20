@@ -114,6 +114,7 @@ export const GET: APIRoute = async () => {
                 name: record.name
             }
             if (typeof record.class_year === "number") entry.classYear = record.class_year
+            if (record.tags.length > 0) entry.tags = record.tags.join(", ")
             entries.push(entry)
         }
     }
