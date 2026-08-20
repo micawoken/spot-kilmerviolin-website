@@ -36,6 +36,10 @@ import {
     preferIsbn13,
     extractLeadingInt,
     extractFirstValidToken,
+    extractFirstMatch,
+    collapseDoubleSpaces,
+    toTitleCase,
+    escapeRegExp,
     cleanPitchRangeCell,
     inferUriType
 } from "../lib/api/sanitize"
@@ -174,6 +178,20 @@ function digitsOrRaw(raw: string): string | null {
     const extracted = extractLeadingInt(cleaned)
     return extracted === null ? cleaned : extracted.toString()
 }
+
+/**
+ * Matches any canonical Key enum spelling, word-bounded so a value can't match inside a longer word. Used
+ * to extract a key embedded in free text (see buildComposition), the same first-match approach digitsOrRaw
+ * uses for the number columns.
+ */
+const KEY_MATCH_PATTERN = new RegExp(`\\b(?:${Object.values(Key).map(escapeRegExp).join("|")})\\b`)
+
+/**
+ * Matches a two-note pitch-range chunk (letter, optional accidental incl. double-sharp/flat, 1-2 digit
+ * octave, dash, repeat) embedded in free text. Used to extract a range embedded in free text (see
+ * buildComposition), the same first-match approach digitsOrRaw uses for the number columns.
+ */
+const RANGE_MATCH_PATTERN = /[A-G](?:x|bb|[#b])?\d{1,2}\s*-\s*[A-G](?:x|bb|[#b])?\d{1,2}/i
 
 /** Parses a phase-map input (comma/semicolon separated) into a sorted, de-duplicated list of phase numbers */
 export function parsePhases(raw: string): number[] {
@@ -445,30 +463,36 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
     }
     const type = typeRaw === "" ? null : (canonicalEnumValue(typeRaw, Object.values(WorkType)) ?? typeRaw)
 
-    // key: usually a single value, but a stray list (often semicolon-delimited, matching this CSV's own
-    // in-cell list separator) is a common mis-entry; take the first non-blank segment and warn, then
-    // case-unify the result against the Key enum
+    // key: title-case the cell, then extract the first canonical Key spelling embedded in it, tolerating
+    // stray prose around it - the same first-match approach digitsOrRaw uses for the number columns.
+    // Title-casing first lets the match be a plain lookup against the (already title-cased) enum values.
     const keyRawCell = cleanText(cells.key)
     let key: string | null = null
     if (keyRawCell !== "") {
-        const segments = keyRawCell
-            .split(CSV_LIST_SEPARATOR)
-            .map((segment) => cleanText(segment))
-            .filter((segment) => segment !== "")
-        if (segments.length > 1) {
-            warnings.push({
-                message: `multiple keys given ("${keyRawCell}"); used the first ("${segments[0]}")`,
-                column: "key"
-            })
+        const titleCased = toTitleCase(keyRawCell)
+        const matched = extractFirstMatch(titleCased, KEY_MATCH_PATTERN)
+        key = matched ?? titleCased
+        if (matched !== null && matched !== titleCased) {
+            warnings.push({ message: `key "${keyRawCell}" was interpreted as "${matched}"`, column: "key" })
         }
-        const first = segments[0] ?? ""
-        key = canonicalEnumValue(first, Object.values(Key)) ?? first
     }
 
-    // range: tolerate whitespace around the "-" separator and respell a double-accidental note (e.g. "Fx3")
-    // to the single-accidental/natural spelling isValidPosition's pattern accepts (see cleanPitchRangeCell)
+    // range: extract the first pitch-range-shaped chunk embedded in the cell, tolerating stray prose around
+    // it (same first-match approach as key/the number columns), then respell a double-accidental note (e.g.
+    // "Fx3") to the single-accidental/natural spelling isValidPosition's pattern accepts (cleanPitchRangeCell)
     const rangeRaw = cleanText(cells.range)
-    const range = rangeRaw === "" ? null : cleanPitchRangeCell(rangeRaw)
+    let range: string | null = null
+    if (rangeRaw !== "") {
+        const matched = extractFirstMatch(rangeRaw, RANGE_MATCH_PATTERN)
+        if (matched === null) {
+            range = rangeRaw
+        } else {
+            range = cleanPitchRangeCell(matched)
+            if (matched !== rangeRaw) {
+                warnings.push({ message: `range "${rangeRaw}" was interpreted as "${range}"`, column: "range" })
+            }
+        }
+    }
 
     // position_highest: if the raw value isn't already valid, look for a standalone token that is (e.g.
     // "Position III (approx)" -> "III") and warn that it was interpreted; otherwise leave it as-is so the
@@ -522,7 +546,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
     // type was declared or just inferred above)
     const uri = uriType === "isbn" && uriRaw !== null ? preferIsbn13(uriRaw) : uriRaw
 
-    const tagResult = sanitizeTags(splitList(cells.tags), MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD)
+    const tagResult = sanitizeTags(splitList(collapseDoubleSpaces(cells.tags)), MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD)
     if (tagResult.error !== null) {
         issues.push({ message: tagResult.error, column: "tags" })
     }
@@ -536,18 +560,20 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
             contrib_addl: additional.map((resolved) => resolved.id).filter((id): id is number => id !== null),
             author_secondary: secondary.map((resolved) => resolved.id).filter((id): id is number => id !== null),
             type,
+            // name/part directly identify the work, so unlike the free-text fields below their spacing is
+            // left as entered (see collapseDoubleSpaces call sites)
             part: stringOrNull(cells.part),
             key,
             range,
             position_highest,
-            notes_pedagogical: stringOrNull(cells.notes_pedagogical),
-            notes_historical: stringOrNull(cells.notes_historical),
-            notes_other: stringOrNull(cells.notes_other),
+            notes_pedagogical: stringOrNull(collapseDoubleSpaces(cells.notes_pedagogical)),
+            notes_historical: stringOrNull(collapseDoubleSpaces(cells.notes_historical)),
+            notes_other: stringOrNull(collapseDoubleSpaces(cells.notes_other)),
             image: imageRaw === "" ? null : imageRaw,
             rating: constructRating(suzuki, nyssma),
             publication_info: constructPubInfo(
-                stringOrNull(cells.publish_name),
-                stringOrNull(cells.publish_location),
+                stringOrNull(collapseDoubleSpaces(cells.publish_name)),
+                stringOrNull(collapseDoubleSpaces(cells.publish_location)),
                 digitsOrRaw(cells.publish_year),
                 uriType,
                 uri

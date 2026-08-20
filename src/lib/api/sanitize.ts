@@ -66,6 +66,39 @@ export function cleanText(value: string): string {
 }
 
 /**
+ * Collapses a run of exactly two spaces to one. Runs of three or more are left untouched, since those are
+ * more likely a deliberate spacing choice than a typo (CSV-import-only auto-fix)
+ *
+ * @param value the candidate string
+ * @returns the string with double spaces collapsed
+ */
+export function collapseDoubleSpaces(value: string): string {
+    return value.replace(/ {2,}/g, (run) => (run.length === 2 ? " " : run))
+}
+
+/**
+ * Uppercases the first letter of each word, leaving the rest of each word unchanged (e.g. "eb minor" ->
+ * "Eb Minor", "c# major" -> "C# Major")
+ *
+ * @param value the candidate string
+ * @returns the title-cased string
+ */
+export function toTitleCase(value: string): string {
+    return value.replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+/**
+ * Escapes characters with special meaning in a regular expression, so an arbitrary string can be embedded
+ * literally in one
+ *
+ * @param value the string to escape
+ * @returns the escaped string
+ */
+export function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
  * Normalizes a string to Unicode NFC (canonical composition) so two visually-identical strings entered
  * with different Unicode compositions (e.g. a precomposed accented letter vs. the base letter plus a
  * combining accent) compare and dedupe as the same value
@@ -168,6 +201,21 @@ export function preferIsbn13(value: string): string {
 }
 
 /**
+ * Extracts the first substring in `text` matching `pattern`, or null when none is present. Pulls a
+ * known-shape value out of free text a spreadsheet cell was never meant to carry, tolerating stray prose
+ * around it - CSV-import-only, since a purpose-built form field would just be typed correctly. Used by
+ * {@link extractLeadingInt} for numbers, and (in scripts/import_build.ts) for key/range/position columns.
+ *
+ * @param text the candidate text
+ * @param pattern the shape to search for
+ * @returns the first match, or null if none is present
+ */
+export function extractFirstMatch(text: string, pattern: RegExp): string | null {
+    const match = pattern.exec(text)
+    return match === null ? null : match[0]
+}
+
+/**
  * Extracts the first run of digits in `text` as a number, or null when none is present. Used to pull a
  * number out of free text a spreadsheet cell was never meant to carry (e.g. "c. 1923" -> 1923, "Level 5
  * stars" -> 5) - CSV-import-only, since a purpose-built form field would just be typed correctly
@@ -176,8 +224,8 @@ export function preferIsbn13(value: string): string {
  * @returns the first embedded integer, or null if none is present
  */
 export function extractLeadingInt(text: string): number | null {
-    const match = /\d+/.exec(text)
-    return match === null ? null : parseInt(match[0], 10)
+    const match = extractFirstMatch(text, /\d+/)
+    return match === null ? null : parseInt(match, 10)
 }
 
 /**
