@@ -517,13 +517,30 @@ describe("buildComposition: type/key/image/tags", () => {
         expect(warnings).toEqual([])
     })
 
-    it("takes the first of several semicolon-delimited keys and warns", () => {
+    it("extracts the first known key from a messy value and warns", () => {
+        const { record, warnings } = buildComposition(baseCompositionCells({ key: "G Major; D Major" }), makeCtx())
+        expect(record.key).toBe("G Major")
+        expect(warningMessages(warnings).some((message) => /key .* was interpreted as "G Major"/.test(message))).toBe(
+            true
+        )
+    })
+
+    it("finds a key embedded in surrounding prose, tolerating case", () => {
         const { record, warnings } = buildComposition(
-            baseCompositionCells({ key: "G Major; D Major" }),
+            baseCompositionCells({ key: "in c minor, but transposed" }),
             makeCtx()
         )
-        expect(record.key).toBe("G Major")
-        expect(warningMessages(warnings).some((message) => /multiple keys given/.test(message))).toBe(true)
+        expect(record.key).toBe("C Minor")
+        expect(warningMessages(warnings).some((message) => /key .* was interpreted as "C Minor"/.test(message))).toBe(
+            true
+        )
+    })
+
+    it("leaves an unextractable key as-is, title-cased (no client-side issue)", () => {
+        const { record, issues, warnings } = buildComposition(baseCompositionCells({ key: "unclear" }), makeCtx())
+        expect(record.key).toBe("Unclear")
+        expect(issues).toEqual([])
+        expect(warnings).toEqual([])
     })
 
     it("accepts a valid image URL", () => {
@@ -561,6 +578,48 @@ describe("buildComposition: range cleanup", () => {
     it("respells a double-accidental component to its enharmonic equivalent", () => {
         const { record } = buildComposition(baseCompositionCells({ range: "Fx3-A5" }), makeCtx())
         expect(record.range).toBe("G3-A5")
+    })
+
+    it("finds a range embedded in surrounding prose and warns", () => {
+        const { record, warnings } = buildComposition(
+            baseCompositionCells({ range: "Range: G3 - A5 (approx)" }),
+            makeCtx()
+        )
+        expect(record.range).toBe("G3-A5")
+        expect(warningMessages(warnings).some((message) => /range .* was interpreted as "G3-A5"/.test(message))).toBe(
+            true
+        )
+    })
+
+    it("leaves an unextractable range as-is (no client-side issue; the server dry-run reports it)", () => {
+        const { record, issues, warnings } = buildComposition(baseCompositionCells({ range: "unclear" }), makeCtx())
+        expect(record.range).toBe("unclear")
+        expect(issues).toEqual([])
+        expect(warnings).toEqual([])
+    })
+})
+
+describe("buildComposition: double-space auto-fix", () => {
+    it("collapses a run of exactly two spaces in free-text fields", () => {
+        const { record } = buildComposition(
+            baseCompositionCells({ notes_pedagogical: "Good  for  recital" }),
+            makeCtx()
+        )
+        expect(record.notes_pedagogical).toBe("Good for recital")
+    })
+
+    it("leaves runs of three or more spaces untouched, assuming they're intentional", () => {
+        const { record } = buildComposition(baseCompositionCells({ notes_historical: "Composed   1923" }), makeCtx())
+        expect(record.notes_historical).toBe("Composed   1923")
+    })
+
+    it("does not touch double spaces in the work-identifying name/part fields", () => {
+        const { record } = buildComposition(
+            baseCompositionCells({ name: "Sonata  No. 1", part: "Movement  II" }),
+            makeCtx()
+        )
+        expect(record.name).toBe("Sonata  No. 1")
+        expect(record.part).toBe("Movement  II")
     })
 })
 

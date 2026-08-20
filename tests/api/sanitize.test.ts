@@ -27,12 +27,16 @@ import { describe, it, expect } from "vitest"
 import {
     stripControlCharacters,
     cleanText,
+    collapseDoubleSpaces,
+    toTitleCase,
+    escapeRegExp,
     normalizeUnicodeForm,
     canonicalEnumValue,
     sanitizeTags,
     isbn10To13,
     preferIsbn13,
     extractLeadingInt,
+    extractFirstMatch,
     extractFirstValidToken,
     respellDoubleAccidental,
     cleanPitchRangeCell,
@@ -61,6 +65,36 @@ describe("stripControlCharacters", () => {
 describe("cleanText", () => {
     it("strips control characters and trims whitespace", () => {
         expect(cleanText("  hello world  ")).toBe("hello world")
+    })
+})
+
+describe("collapseDoubleSpaces", () => {
+    it("collapses a run of exactly two spaces to one", () => {
+        expect(collapseDoubleSpaces("hello  world")).toBe("hello world")
+    })
+
+    it("leaves runs of three or more spaces untouched", () => {
+        expect(collapseDoubleSpaces("hello   world")).toBe("hello   world")
+        expect(collapseDoubleSpaces("hello    world")).toBe("hello    world")
+    })
+
+    it("leaves single spaces untouched", () => {
+        expect(collapseDoubleSpaces("hello world")).toBe("hello world")
+    })
+})
+
+describe("toTitleCase", () => {
+    it("uppercases the first letter of each word only", () => {
+        expect(toTitleCase("eb minor")).toBe("Eb Minor")
+        expect(toTitleCase("c# major")).toBe("C# Major")
+    })
+})
+
+describe("escapeRegExp", () => {
+    it("escapes regex metacharacters so the string matches literally", () => {
+        const escaped = escapeRegExp("C# Major (approx)")
+        expect(new RegExp(escaped).test("C# Major (approx)")).toBe(true)
+        expect(escaped).not.toBe("C# Major (approx)")
     })
 })
 
@@ -133,6 +167,16 @@ describe("extractLeadingInt", () => {
 
     it("returns null when no digits are present", () => {
         expect(extractLeadingInt("unknown")).toBeNull()
+    })
+})
+
+describe("extractFirstMatch", () => {
+    it("finds the first substring matching an arbitrary pattern", () => {
+        expect(extractFirstMatch("in c minor, transposed", /c minor|c major/i)).toBe("c minor")
+    })
+
+    it("returns null when nothing matches", () => {
+        expect(extractFirstMatch("unclear", /c minor|c major/i)).toBeNull()
     })
 })
 
