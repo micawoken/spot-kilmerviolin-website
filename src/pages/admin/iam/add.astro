@@ -64,23 +64,37 @@ const prefill_email = emailFromParam(Astro.url)
                         <label for="iam-form-add-autoenrollment"
                             >Automatically create a contributor record for this user</label
                         >
-                        <div id="iam-form-add-autoenrollment-fields" class="hidden">
-                            <label for="iam-form-add-name">Name:</label>
-                            <input type="text" id="iam-form-add-name" name="name" />
-
-                            <label for="iam-form-add-major">Major:</label>
-                            <input type="text" id="iam-form-add-major" name="major" />
-                            <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
-
-                            <label for="iam-form-add-class_year">Class Year:</label>
-                            <input type="number" id="iam-form-add-class_year" name="class_year" />
-                            <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
-
-                            <input type="checkbox" id="iam-form-add-confer" name="confer" />
-                            <label for="iam-form-add-confer">Confer your conferrable roles to the new contributor</label
-                            >
-                        </div>
                     </fieldset>
+                    <div id="iam-form-add-autoenrollment-fields" class="form-section hidden">
+                        <fieldset>
+                            <legend>Name</legend>
+                            <div class="field-row">
+                                <label for="iam-form-add-name" class="sr-only">Name</label>
+                                <input type="text" id="iam-form-add-name" name="name" />
+                            </div>
+                        </fieldset>
+                        <fieldset>
+                            <legend>Major</legend>
+                            <div class="field-row">
+                                <label for="iam-form-add-major" class="sr-only">Major</label>
+                                <input type="text" id="iam-form-add-major" name="major" />
+                            </div>
+                            <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
+                        </fieldset>
+                        <fieldset>
+                            <legend>Class Year</legend>
+                            <div class="field-row">
+                                <label for="iam-form-add-class_year" class="sr-only">Class Year</label>
+                                <input type="number" id="iam-form-add-class_year" name="class_year" />
+                            </div>
+                            <p class="general-infohelp">This field is optional; leave it blank to omit.</p>
+                        </fieldset>
+                        <fieldset>
+                            <legend>Confer Roles</legend>
+                            <input type="checkbox" id="iam-form-add-confer" name="confer" />
+                            <label for="iam-form-add-confer">Confer your conferrable roles to the new contributor</label>
+                        </fieldset>
+                    </div>
                     <button type="submit">Submit</button>
                 </form>
             </div>
