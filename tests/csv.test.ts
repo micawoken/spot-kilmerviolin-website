@@ -37,6 +37,7 @@ import {
     flagNameDuplicates,
     indexByName,
     indexByNameRole,
+    groupByName,
     parsePhases,
     compositionKey,
     normalizeName,
@@ -260,14 +261,20 @@ describe("buildContributor", () => {
     })
 })
 
-// a resolution context with two composers (Bach also appears as an "arranger" under a second id, so
-// secondary-author role matching has something real to disambiguate) and two contributors, no existing
-// works, empty phase map
+// a resolution context with several composers and two contributors, no existing works, empty phase map.
+// - Bach also appears as an "arranger" under a second id, so secondary-author role matching has something
+//   real to disambiguate
+// - Clara Schumann exists only as an "editor" - a single non-arranger/non-composer role to fall back to
+// - Fanny Mendelssohn exists as both "editor" and "lyricist" - two non-arranger/non-composer roles, so a
+//   fallback would be ambiguous
 function makeCtx(): WorksContext {
     const composerRecords = [
         { id: 10, name: "Johann Sebastian Bach", role: "composer" },
         { id: 11, name: "Amy Beach", role: "composer" },
-        { id: 12, name: "Johann Sebastian Bach", role: "arranger" }
+        { id: 12, name: "Johann Sebastian Bach", role: "arranger" },
+        { id: 15, name: "Clara Schumann", role: "editor" },
+        { id: 16, name: "Fanny Mendelssohn", role: "editor" },
+        { id: 17, name: "Fanny Mendelssohn", role: "lyricist" }
     ]
     const composers = indexByName(composerRecords)
     const contributors = indexByName([
@@ -277,6 +284,7 @@ function makeCtx(): WorksContext {
     return {
         composerByName: composers.byName,
         composerByNameRole: indexByNameRole(composerRecords),
+        composerRecordsByName: groupByName(composerRecords),
         contributorByName: contributors.byName,
         composerNames: composers.names,
         contributorNames: contributors.names,
@@ -323,6 +331,7 @@ function makeCtxWithSentinels(): WorksContext {
     return {
         composerByName: composers.byName,
         composerByNameRole: indexByNameRole(composerRecords),
+        composerRecordsByName: groupByName(composerRecords),
         contributorByName: contributors.byName,
         composerNames: composers.names,
         contributorNames: contributors.names,
@@ -481,13 +490,43 @@ describe("buildComposition: secondary-author (name, role) matching", () => {
         expect(record.author_secondary).toEqual([12])
     })
 
-    it("reports an unresolved (name, role) pairing, naming the assumed/given role", () => {
+    it("reports an unresolved (name, role) pairing when the only other role is \"composer\"", () => {
         // Amy Beach exists only as "composer" - an unannotated secondary-author entry assumes "arranger",
-        // which does not exist for her, so this must be reported rather than silently resolving to id 11
+        // which does not exist for her; "composer" doesn't count as a fallback candidate, so this must
+        // still be reported rather than silently resolving to id 11
         const { issues } = buildComposition(baseCompositionCells({ author_secondary: "Amy Beach" }), makeCtx())
         expect(issues.some((issue) => /unknown composer "Amy Beach" with role "arranger"/.test(issue.message))).toBe(
             true
         )
+    })
+
+    it("falls back to a single non-arranger, non-composer role, with a warning", () => {
+        // Clara Schumann exists only as "editor" - the assumed "arranger" role doesn't exist for her, but
+        // exactly one other (non-composer) role does, so it resolves with a warning instead of erroring
+        const { record, issues, warnings } = buildComposition(
+            baseCompositionCells({ author_secondary: "Clara Schumann" }),
+            makeCtx()
+        )
+        expect(issues).toEqual([])
+        expect(record.author_secondary).toEqual([15])
+        expect(
+            warnings.some((warning) => /"Clara Schumann" has no "arranger" entry.*"editor"/.test(warning.message))
+        ).toBe(true)
+    })
+
+    it("does not fall back when two or more non-arranger, non-composer roles match", () => {
+        // Fanny Mendelssohn exists as both "editor" and "lyricist" - two fallback candidates is ambiguous,
+        // so this must be reported rather than guessing either one
+        const { issues } = buildComposition(
+            baseCompositionCells({ author_secondary: "Fanny Mendelssohn" }),
+            makeCtx()
+        )
+        expect(
+            issues.some(
+                (issue) =>
+                    /"Fanny Mendelssohn" has no "arranger" entry and multiple other roles match/.test(issue.message)
+            )
+        ).toBe(true)
     })
 
     it("case-unifies an explicit role against AuthorRole before matching", () => {

@@ -93,6 +93,8 @@ export interface WorksContext {
     composerByName: Map<string, NamedRecord>
     /** (name, role) -> composer record, used only for secondary authors */
     composerByNameRole: Map<string, NamedRecord>
+    /** normalized name -> every composer record sharing it, used for secondary-author role fallback */
+    composerRecordsByName: Map<string, Array<NamedRecord & { role: string }>>
     contributorByName: Map<string, NamedRecord>
     composerNames: string[]
     contributorNames: string[]
@@ -218,6 +220,23 @@ export function indexByNameRole(records: Array<NamedRecord & { role: string }>):
 }
 
 /**
+ * Groups composer records by normalized name, used for composer secondary-author role fallback
+ */
+export function groupByName(records: Array<NamedRecord & { role: string }>): Map<string, Array<NamedRecord & { role: string }>> {
+    const byName = new Map<string, Array<NamedRecord & { role: string }>>()
+    for (const record of records) {
+        const key = normalizeName(record.name)
+        const group = byName.get(key)
+        if (group === undefined) {
+            byName.set(key, [record])
+        } else {
+            group.push(record)
+        }
+    }
+    return byName
+}
+
+/**
  * Resolves a single (required or optional) name reference to an id.
  *
  * @param label the human noun used in the message (e.g. "composer", "contributor")
@@ -268,21 +287,53 @@ function resolveSecondaryAuthor(
     raw: string,
     ctx: WorksContext,
     column: string
-): { id: number | null; issue: BuildIssue | null } {
+): { id: number | null; issue: BuildIssue | null; warning: BuildIssue | null } {
     const parsed = parseSecondaryAuthorEntry(raw)
     if (parsed.name === "") {
-        return { id: null, issue: null }
+        return { id: null, issue: null, warning: null }
     }
     const name = sentinelComposerName(parsed.name)
     const role = parsed.role
     const key = `${normalizeName(name)} ${normalizeName(role)}`
     const match = ctx.composerByNameRole.get(key)
     if (match !== undefined) {
-        return { id: match.id, issue: null }
+        return { id: match.id, issue: null, warning: null }
     }
+
+    // name/role mismatch (e.g. arranger assumed by default, but the composer is on file under a different
+    // role) - fall back to a role other than arranger/composer, but only when exactly one such candidate
+    // exists; two or more is ambiguous and must be reported instead of guessed
+    const otherRoleCandidates = (ctx.composerRecordsByName.get(normalizeName(name)) ?? []).filter((record) => {
+        const recordRole = normalizeName(record.role)
+        return recordRole !== normalizeName(AuthorRole.ARRANGER) && recordRole !== normalizeName(AuthorRole.COMPOSER)
+    })
+    if (otherRoleCandidates.length === 1) {
+        const candidate = otherRoleCandidates[0]
+        return {
+            id: candidate.id,
+            issue: null,
+            warning: {
+                message: `"${name}" has no "${role}" entry - assumed the "${candidate.role}" entry instead`,
+                column
+            }
+        }
+    }
+    if (otherRoleCandidates.length > 1) {
+        const roles = otherRoleCandidates.map((candidate) => candidate.role).join(", ")
+        return {
+            id: null,
+            issue: { message: `"${name}" has no "${role}" entry and multiple other roles match (${roles})`, column },
+            warning: null
+        }
+    }
+
     const suggestion = nearestName(name, ctx.composerNames)
     const hint = suggestion !== null ? ` - did you mean "${suggestion}"?` : ""
-    return { id: null, issue: { message: `unknown composer "${name}" with role "${role}"${hint}`, column } }
+    return {
+        id: null,
+        issue: { message: `unknown composer "${name}" with role "${role}"${hint}`, column },
+        warning: null
+    }
 }
 
 /** Builds a composer record from its CSV cells (blank optional fields -> null; tags split on ";"). */
@@ -423,6 +474,9 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
     for (const resolved of secondary) {
         if (resolved.issue !== null) {
             issues.push(resolved.issue)
+        }
+        if (resolved.warning !== null) {
+            warnings.push(resolved.warning)
         }
     }
 
