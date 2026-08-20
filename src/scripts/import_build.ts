@@ -182,16 +182,12 @@ function digitsOrRaw(raw: string): string | null {
 }
 
 /**
- * Matches any canonical Key enum spelling, word-bounded so a value can't match inside a longer word. Used
- * to extract a key embedded in free text (see buildComposition), the same first-match approach digitsOrRaw
- * uses for the number columns.
+ * Matches any canonical Key enum spelling, used for first-match in the importer
  */
 const KEY_MATCH_PATTERN = new RegExp(`\\b(?:${Object.values(Key).map(escapeRegExp).join("|")})\\b`)
 
 /**
- * Matches a two-note pitch-range chunk (letter, optional accidental incl. double-sharp/flat, 1-2 digit
- * octave, dash, repeat) embedded in free text. Used to extract a range embedded in free text (see
- * buildComposition), the same first-match approach digitsOrRaw uses for the number columns.
+ * Matches a two-note pitch-range chunk, used for first-match importer
  */
 const RANGE_MATCH_PATTERN = /[A-G](?:x|bb|[#b])?\d{1,2}\s*-\s*[A-G](?:x|bb|[#b])?\d{1,2}/i
 
@@ -239,7 +235,9 @@ export function indexByNameRole(records: Array<NamedRecord & { role: string }>):
 /**
  * Groups composer records by normalized name, used for composer secondary-author role fallback
  */
-export function groupByName(records: Array<NamedRecord & { role: string }>): Map<string, Array<NamedRecord & { role: string }>> {
+export function groupByName(
+    records: Array<NamedRecord & { role: string }>
+): Map<string, Array<NamedRecord & { role: string }>> {
     const byName = new Map<string, Array<NamedRecord & { role: string }>>()
     for (const record of records) {
         const key = normalizeName(record.name)
@@ -317,9 +315,7 @@ function resolveSecondaryAuthor(
         return { id: match.id, issue: null, warning: null }
     }
 
-    // name/role mismatch (e.g. arranger assumed by default, but the composer is on file under a different
-    // role) - fall back to a role other than arranger/composer, but only when exactly one such candidate
-    // exists; two or more is ambiguous and must be reported instead of guessed
+    // if name/role mismatch, attempt to resolve to the only non-composer non-arranger; otherwise, error
     const otherRoleCandidates = (ctx.composerRecordsByName.get(normalizeName(name)) ?? []).filter((record) => {
         const recordRole = normalizeName(record.role)
         return recordRole !== normalizeName(AuthorRole.ARRANGER) && recordRole !== normalizeName(AuthorRole.COMPOSER)
@@ -495,7 +491,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
 
-    // free-text contribution period -> phase numbers (blank period-> no phases, no mapping required)
+    // free-text contribution period -> phase numbers (blank period -> no phases, no mapping required)
     const periodRaw = cleanText(cells.contribution_period)
     let phases: number[] = []
     if (periodRaw !== "") {
@@ -509,17 +505,14 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
 
-    // type is a NOT NULL, closed-enum column; case-unify against WorkType and (like composer role) flag a
-    // blank value client-side instead of only surfacing it as a generic server dry-run failure
+    // type is managed by the WorkType enum
     const typeRaw = cleanText(cells.type)
     if (typeRaw === "") {
         issues.push({ message: "type is required", column: "type" })
     }
     const type = typeRaw === "" ? null : (canonicalEnumValue(typeRaw, Object.values(WorkType)) ?? typeRaw)
 
-    // key: title-case the cell, then extract the first canonical Key spelling embedded in it, tolerating
-    // stray prose around it - the same first-match approach digitsOrRaw uses for the number columns.
-    // Title-casing first lets the match be a plain lookup against the (already title-cased) enum values.
+    // key: perform title-case (since that's the form of all items in the Key enum), then search for the first match
     const keyRawCell = cleanText(cells.key)
     let key: string | null = null
     if (keyRawCell !== "") {
@@ -531,9 +524,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
 
-    // range: extract the first pitch-range-shaped chunk embedded in the cell, tolerating stray prose around
-    // it (same first-match approach as key/the number columns), then respell a double-accidental note (e.g.
-    // "Fx3") to the single-accidental/natural spelling isValidPosition's pattern accepts (cleanPitchRangeCell)
+    // range: perform title case (since that would match the note components), then search for the first match
     const rangeRaw = cleanText(cells.range)
     let range: string | null = null
     if (rangeRaw !== "") {
@@ -548,9 +539,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         }
     }
 
-    // position_highest: if the raw value isn't already valid, look for a standalone token that is (e.g.
-    // "Position III (approx)" -> "III") and warn that it was interpreted; otherwise leave it as-is so the
-    // existing server-side rejection is unchanged
+    // position_highest: perform title case, then search for the first match
     const posRaw = cleanText(cells.position_highest)
     let position_highest: string | null = null
     if (posRaw !== "") {
@@ -575,9 +564,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
         issues.push({ message: "image is not a valid URL or internal path", column: "image" })
     }
 
-    // a rating member that is non-blank but out of range is silently nulled by constructRating (indistinguishable
-    // from "not rated"), so check for that separately and block the row instead of dropping the data. Each raw
-    // cell is first reduced to its leading digits, tolerating prose like "Level 5 stars"
+    // extracts the first matching digits to extract the number from a text-number mix
     const suzuki = digitsOrRaw(cells.rating_suzuki)
     const nyssma = digitsOrRaw(cells.rating_nyssma)
     issues.push(...ratingIssues(suzuki, nyssma).map((message) => ({ message })))
@@ -615,7 +602,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
             author_secondary: secondary.map((resolved) => resolved.id).filter((id): id is number => id !== null),
             type,
             // name/part directly identify the work, so unlike the free-text fields below their spacing is
-            // left as entered (see collapseDoubleSpaces call sites)
+            // left as entered
             part: stringOrNull(cells.part),
             key,
             range,
@@ -642,7 +629,7 @@ export function buildComposition(cells: Record<string, string>, ctx: WorksContex
 
 /**
  * Builds one row's record for the given import type. For compositions, `ctx` must be supplied (it carries the
- * name resolution maps and the period->phase mapping).
+ * name resolution maps and the period->phase mapping)
  */
 export function buildRecord(type: ImportType, cells: Record<string, string>, ctx: WorksContext | null): BuildResult {
     switch (type) {

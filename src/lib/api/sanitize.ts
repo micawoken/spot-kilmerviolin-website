@@ -66,8 +66,7 @@ export function cleanText(value: string): string {
 }
 
 /**
- * Collapses a run of exactly two spaces to one. Runs of three or more are left untouched, since those are
- * more likely a deliberate spacing choice than a typo (CSV-import-only auto-fix)
+ * Collapses a run of exactly two spaces to one (three or more is assumed to be deliberate)
  *
  * @param value the candidate string
  * @returns the string with double spaces collapsed
@@ -77,8 +76,7 @@ export function collapseDoubleSpaces(value: string): string {
 }
 
 /**
- * Uppercases the first letter of each word, leaving the rest of each word unchanged (e.g. "eb minor" ->
- * "Eb Minor", "c# major" -> "C# Major")
+ * Converts a string to Title Case
  *
  * @param value the candidate string
  * @returns the title-cased string
@@ -201,10 +199,7 @@ export function preferIsbn13(value: string): string {
 }
 
 /**
- * Extracts the first substring in `text` matching `pattern`, or null when none is present. Pulls a
- * known-shape value out of free text a spreadsheet cell was never meant to carry, tolerating stray prose
- * around it - CSV-import-only, since a purpose-built form field would just be typed correctly. Used by
- * {@link extractLeadingInt} for numbers, and (in scripts/import_build.ts) for key/range/position columns.
+ * Extracts the first substring in `text` matching `pattern`, or null when none is present
  *
  * @param text the candidate text
  * @param pattern the shape to search for
@@ -216,9 +211,7 @@ export function extractFirstMatch(text: string, pattern: RegExp): string | null 
 }
 
 /**
- * Extracts the first run of digits in `text` as a number, or null when none is present. Used to pull a
- * number out of free text a spreadsheet cell was never meant to carry (e.g. "c. 1923" -> 1923, "Level 5
- * stars" -> 5) - CSV-import-only, since a purpose-built form field would just be typed correctly
+ * Extracts the first run of digits in `text` as a number, or null when none is present
  *
  * @param text the candidate text
  * @returns the first embedded integer, or null if none is present
