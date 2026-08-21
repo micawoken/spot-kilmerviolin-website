@@ -74,11 +74,11 @@ function headingStyleVars(typography: string, align: string = "start"): Record<s
     }
 }
 
-/** The Heading markup, shared by `Heading` (inline text) and `ContentText` (entry-fed text) */
+/** Excludes heading tags from indexing */
 export function renderHeadingTag(text: string, level: "h1" | "h2" | "h3" | "h4", typography: string, align: string) {
     const Tag = level
     return (
-        <Tag className="cmp-heading" style={vars(headingStyleVars(typography, align))}>
+        <Tag className="cmp-heading" data-pagefind-ignore="all" style={vars(headingStyleVars(typography, align))}>
             {text}
         </Tag>
     )
@@ -188,7 +188,11 @@ export function renderRelatedEntriesTag(
     return (
         <div className="cmp-related">
             {heading && (
-                <h2 className="cmp-related__heading cmp-heading" style={vars(headingStyleVars(typography))}>
+                <h2
+                    className="cmp-related__heading cmp-heading"
+                    data-pagefind-ignore="all"
+                    style={vars(headingStyleVars(typography))}
+                >
                     {heading}
                 </h2>
             )}
