@@ -75,6 +75,7 @@ if (self_id !== null && self_id !== undefined) {
         contributor_data ? (
             <>
                 <p class="general-infohelp">Edit your personal information below. To change your sign-in email, use <a href="/admin/profile/reset_login">Change sign-in email</a>.</p>
+                <p class="general-warning">Everything below will be published on the public website, except authorization-related data.</p>
                 <ContributorForm profile={true} required={true} contributor={contributor_data} />
                 <p id="transaction-status">Your request status will show here after you press "Submit".</p>
                 <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>

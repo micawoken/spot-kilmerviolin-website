@@ -415,13 +415,16 @@ export function entityRecords(
 ): EntityRecord[] {
     switch (noun) {
         case "composer":
-            // life_span (entity-fields.ts) is derived, not a D1 column: pre-built here, once per record,
-            // from birth_year/death_year so a template can bind the whole range as a single field.
+            // life_span (entity-fields.ts) is derived, not a D1 column; sentinel composers
+            // are auto-nulled
             return (composers ?? []).map((record) => ({
                 id: String(record.id),
                 entry: {
                     ...record,
-                    life_span: formatLifespan(record.birth_year, record.death_year)
+                    life_span:
+                        typeof record.birth_year === "number" && typeof record.death_year === "number"
+                            ? formatLifespan(record.birth_year, record.death_year)
+                            : undefined
                 } as unknown as Record<string, unknown>
             }))
         case "contributor":

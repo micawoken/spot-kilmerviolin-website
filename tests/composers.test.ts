@@ -73,6 +73,32 @@ describe("composer birth/death year consistency", () => {
     })
 })
 
+// "Unknown"/"Traditional" are the name-only sentinel composer identities: the otherwise-required
+// role/birth_year/death_year/country/bio fields are auto-filled rather than rejected
+describe("sentinel composer ('Unknown'/'Traditional') auto-fill", () => {
+    it("accepts a name-only submission and fills the required fields", () => {
+        const result = _stateTypeAssertCompleteComposer({ name: "Unknown" }, false)
+        expect(result).not.toBeTypeOf("string")
+        const record = result as Composer
+        expect(record.role).toBe("composer")
+        expect(record.birth_year).toBe(1)
+        expect(record.death_year).toBe(1)
+        expect(record.country).toBe("ZZ")
+        expect(record.bio).toBe("")
+    })
+
+    it("forces role to composer even when a different role is supplied", () => {
+        const result = _stateTypeAssertCompleteComposer(makeComposer({ name: "Traditional", role: "arranger" }), false)
+        expect(result).not.toBeTypeOf("string")
+        expect((result as Composer).role).toBe("composer")
+    })
+
+    it("does not auto-fill an ordinary composer name", () => {
+        const result = _stateTypeAssertCompleteComposer({ name: "Amy Beach" }, false)
+        expect(result).toBeTypeOf("string")
+    })
+})
+
 // citations is optional: a complete-mode create must still pass with the field entirely absent (this is
 // the case assertRecordBySpec's complete-mode loop does NOT auto-skip an undefined field for - the base
 // check must explicitly tolerate it, see _invalidOptionalObject in d1.ts)

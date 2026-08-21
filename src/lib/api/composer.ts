@@ -28,6 +28,7 @@
 import { AuthorRole } from "./common.ts"
 import { isDeathYearConsistent, isValidCountryCode, isValidYear, validateCitations } from "./validation.ts"
 import { canonicalEnumValue, cleanText, normalizeUnicodeForm, preferIsbn13, sanitizeTags } from "./sanitize.ts"
+import { applySentinelComposerDefaults } from "./composer_sentinel.ts"
 import { MAX_LONG_TEXT_LENGTH, MAX_NAME_LENGTH, MAX_TAG_LENGTH, MAX_TAGS_PER_RECORD } from "../../consts.ts"
 import {
     assertRecordBySpec,
@@ -110,6 +111,9 @@ function composerYearsConsistent(record: { [key: string]: any }): true | string 
 export function _stateTypeAssertCompleteComposer(record: unknown, expect_id: boolean = true): Composer | string {
     if (isPlainObject(record)) {
         sanitizeComposerFields(record)
+        // a sentinel identity ("Unknown"/"Traditional") may be submitted with only a name - fill the
+        // otherwise-required-but-meaningless fields before validation, rather than rejecting it
+        applySentinelComposerDefaults(record)
     }
     const result = assertRecordBySpec(record, COMPOSER_SPEC, false, expect_id)
     if (result !== true) {

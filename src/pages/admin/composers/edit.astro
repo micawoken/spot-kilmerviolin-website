@@ -122,6 +122,10 @@ const prefill_failed = Boolean(id) && !use_id
                         }
                         // populate the fields, and hide the input form
                         prefillForm("composer", record)
+                        // prefillForm sets the name field's value directly; a nudge is needed to persist
+                        document
+                            .getElementById("form-composers-name")
+                            ?.dispatchEvent(new Event("input", { bubbles: true }))
                         document.getElementById("generic-form-composers")?.classList.remove("hidden")
                         // hiding the id-entry container also hides its embedded keyword-search helper
                         document.getElementById("generic-form-id-entry-container")?.classList.add("hidden")

@@ -160,6 +160,53 @@ describe("outbound request shape", () => {
     })
 })
 
+describe("fetchComposers - sentinel ('Unknown'/'Traditional') placeholder stripping", () => {
+    it("nulls birth_year/death_year/country for a sentinel name, and leaves everything else alone", async () => {
+        const { fetchComposers } = await freshD1Api()
+        withConfig()
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(
+                success([
+                    {
+                        id: 1,
+                        name: "Unknown",
+                        role: "composer",
+                        birth_year: 1,
+                        death_year: 1,
+                        country: "ZZ",
+                        bio: "",
+                        image: null,
+                        tags: []
+                    },
+                    {
+                        id: 2,
+                        name: "Bach",
+                        role: "composer",
+                        birth_year: 1685,
+                        death_year: 1750,
+                        country: "DE",
+                        bio: "A composer.",
+                        image: null,
+                        tags: []
+                    }
+                ])
+            )
+        )
+
+        const result = await fetchComposers()
+        const sentinel = result?.find((c) => c.name === "Unknown")
+        const ordinary = result?.find((c) => c.name === "Bach")
+        expect(sentinel?.birth_year).toBeNull()
+        expect(sentinel?.death_year).toBeNull()
+        expect(sentinel?.country).toBeNull()
+        // role/bio are not placeholder-only data - they are left untouched
+        expect(sentinel?.role).toBe("composer")
+        expect(sentinel?.bio).toBe("")
+        expect(ordinary).toEqual(expect.objectContaining({ birth_year: 1685, death_year: 1750, country: "DE" }))
+    })
+})
+
 describe("fetchContributors - public listing", () => {
     it("strips protected/identity columns and excludes contributors tagged `hidden`, but keeps inactive ones", async () => {
         const { fetchContributors } = await freshD1Api()
