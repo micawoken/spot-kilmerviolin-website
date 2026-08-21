@@ -74,6 +74,8 @@ export interface NamedRecord {
 export interface BuildIssue {
     message: string
     column?: string
+    /** set on issues that mean "this exact value already exists in the database", for bulk cleanup */
+    reason?: "exists"
 }
 
 /**
@@ -661,7 +663,8 @@ export function flagCompositionDuplicates(results: BuildResult[], existingKeys: 
         if (key !== null) {
             if (existingKeys.has(key)) {
                 result.issues.push({
-                    message: "a composition with this name and part already exists for this composer"
+                    message: "a composition with this name and part already exists for this composer",
+                    reason: "exists"
                 })
             } else if ((keyCounts.get(key) ?? 0) > 1) {
                 result.issues.push({
@@ -700,7 +703,11 @@ export function flagNameDuplicates(results: BuildResult[], existingKeys: Set<str
         const key = nameDuplicateKey(result.record)
         if (key !== null) {
             if (existingKeys.has(key)) {
-                result.issues.push({ message: `a ${label} with this name already exists`, column: "name" })
+                result.issues.push({
+                    message: `a ${label} with this name already exists`,
+                    column: "name",
+                    reason: "exists"
+                })
             } else if ((counts.get(key) ?? 0) > 1) {
                 result.issues.push({ message: `duplicate ${label} name within this file`, column: "name" })
             }

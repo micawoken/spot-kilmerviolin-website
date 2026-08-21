@@ -778,6 +778,8 @@ describe("flagCompositionDuplicates", () => {
         expect(messages(results[0].issues)).toContain(
             "a composition with this name and part already exists for this composer"
         )
+        // reason: "exists" lets the import UI offer a bulk "delete pre-existing rows" action
+        expect(results[0].issues[0]).toMatchObject({ reason: "exists" })
     })
 
     it("flags two rows with the same composer, name, and part within the file", () => {
@@ -790,6 +792,8 @@ describe("flagCompositionDuplicates", () => {
         expect(messages(results[1].issues)).toContain(
             "duplicate composition (same name, composer, and part) within this file"
         )
+        // a within-file duplicate is not an existing-record collision, so it carries no reason
+        expect(results[1].issues[0].reason).toBeUndefined()
     })
 
     it("does not flag same-name works by different composers", () => {
@@ -828,6 +832,8 @@ describe("flagNameDuplicates", () => {
         const results = [{ record: { name: "amy   beach" }, issues: [] as BuildIssue[], warnings: [] as BuildIssue[] }]
         flagNameDuplicates(results, existing, "composer")
         expect(messages(results[0].issues)).toContain("a composer with this name already exists")
+        // reason: "exists" lets the import UI offer a bulk "delete pre-existing rows" action
+        expect(results[0].issues[0]).toMatchObject({ reason: "exists" })
     })
 
     it("flags repeated names within the file (case-insensitive)", () => {
@@ -838,6 +844,8 @@ describe("flagNameDuplicates", () => {
         flagNameDuplicates(results, new Set<string>(), "contributor")
         expect(messages(results[0].issues)).toContain("duplicate contributor name within this file")
         expect(messages(results[1].issues)).toContain("duplicate contributor name within this file")
+        // a within-file duplicate is not an existing-record collision, so it carries no reason
+        expect(results[1].issues[0].reason).toBeUndefined()
     })
 
     it("does not flag distinct names", () => {

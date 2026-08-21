@@ -63,6 +63,10 @@ interface RowState {
      * Issues from the last server dry-run that named this row, kept until the row itself is edited
      */
     serverIssues: RowIssue[]
+    /** true once a server dry-run reports this row collides with a record already in the database */
+    serverPreexisting: boolean
+    /** whether this row currently collides with an existing DB record, from either client or server-side*/
+    preexisting: boolean
 }
 
 /** Requires an element by id, throwing a clear error if the page markup is missing it */
@@ -88,6 +92,7 @@ export function initImport(type: ImportType): void {
     const summaryBox = requireElement<HTMLParagraphElement>("import-summary")
     const gridBox = requireElement<HTMLDivElement>("import-grid")
     const validateButton = requireElement<HTMLButtonElement>("import-validate")
+    const deletePreexistingButton = requireElement<HTMLButtonElement>("import-delete-preexisting")
     const commitButton = requireElement<HTMLButtonElement>("import-commit")
     const statusBox = requireElement<HTMLParagraphElement>("transaction-status")
 
@@ -212,12 +217,13 @@ export function initImport(type: ImportType): void {
             if (issues.length === 0) {
                 clean++
             }
+            row.preexisting = row.serverPreexisting || result.issues.some((issue) => issue.reason === "exists")
             markRow(row, issues, result.warnings)
         })
         return clean
     }
 
-    /** Recomputes every row's issues, updates the summary, and gates the validate/commit buttons */
+    /** Recomputes every row's issues, updates the summary, and gates the validate/commit/delete-preexisting buttons */
     function recompute(): void {
         const clean = repaintRows()
         const hasIssues = clean !== rows.length
@@ -229,6 +235,21 @@ export function initImport(type: ImportType): void {
         validated = false
         commitButton.disabled = true
         validateButton.disabled = rows.length === 0 || hasIssues
+        deletePreexistingButton.disabled = !rows.some((row) => row.preexisting)
+    }
+
+    /** Removes every row currently flagged as colliding with an existing DB record, in one action. */
+    function deletePreexistingRows(): void {
+        const toRemove = rows.filter((row) => row.preexisting)
+        if (toRemove.length === 0) {
+            return
+        }
+        for (const row of toRemove) {
+            row.tr.remove()
+        }
+        rows = rows.filter((row) => !row.preexisting)
+        recompute()
+        statusBox.textContent = `Removed ${toRemove.length} row(s) that already exist.`
     }
 
     /** The current cured records to submit (rebuilt from live cell state at submit time). */
@@ -329,6 +350,7 @@ export function initImport(type: ImportType): void {
                     // this row's data changed, so its last server verdict no longer applies; other untouched
                     // rows keep theirs (see repaintRows) until they are edited or the file is re-validated
                     row.serverIssues = []
+                    row.serverPreexisting = false
                     // editing a period may introduce/remove a distinct period, so refresh the phase-map UI
                     if (type === "works" && column === "contribution_period") {
                         renderPhaseMap()
@@ -428,7 +450,15 @@ export function initImport(type: ImportType): void {
                     cells[column] = record[column] ?? ""
                 }
                 const issueCell = document.createElement("td")
-                return { cells, tr: document.createElement("tr"), issueCell, inputs: {}, serverIssues: [] }
+                return {
+                    cells,
+                    tr: document.createElement("tr"),
+                    issueCell,
+                    inputs: {},
+                    serverIssues: [],
+                    serverPreexisting: false,
+                    preexisting: false
+                }
             })
             renderPhaseMap()
             renderGrid()
@@ -449,6 +479,7 @@ export function initImport(type: ImportType): void {
             // a fresh dry-run supersedes whatever server issues were previously attached to any row
             for (const row of rows) {
                 row.serverIssues = []
+                row.serverPreexisting = false
             }
             if (report.ok) {
                 validated = true
@@ -466,6 +497,7 @@ export function initImport(type: ImportType): void {
                         continue
                     }
                     row.serverIssues = entry.issues
+                    row.serverPreexisting = entry.preexisting
                 }
                 repaintRows()
                 let firstFailing: RowState | null = null
@@ -486,6 +518,7 @@ export function initImport(type: ImportType): void {
                 error instanceof Error ? `Validation failed: ${error.message}` : "Validation failed."
         } finally {
             validateButton.disabled = rows.length === 0
+            deletePreexistingButton.disabled = !rows.some((row) => row.preexisting)
         }
     }
 
@@ -510,6 +543,7 @@ export function initImport(type: ImportType): void {
             gridBox.replaceChildren()
             summaryBox.textContent = ""
             validateButton.disabled = true
+            deletePreexistingButton.disabled = true
         } catch (error) {
             // the transaction rolled back; let the admin fix and retry (re-validation required)
             statusBox.textContent = error instanceof Error ? `Import failed: ${error.message}` : "Import failed."
@@ -521,8 +555,10 @@ export function initImport(type: ImportType): void {
 
     loadButton.addEventListener("click", () => void loadFile())
     validateButton.addEventListener("click", () => void validate())
+    deletePreexistingButton.addEventListener("click", () => deletePreexistingRows())
     commitButton.addEventListener("click", () => void commit())
     validateButton.disabled = true
+    deletePreexistingButton.disabled = true
     commitButton.disabled = true
 }
 
