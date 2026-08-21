@@ -212,10 +212,7 @@ export function buildRelatedWorksIndex(
     for (const [key, list] of index) {
         const [noun, idStr] = key.split(":")
         if (noun === "composer") {
-            index.set(
-                key,
-                seededShuffle(groupMovements(list, worksById, sentinelComposerIds), Number(idStr)).flat()
-            )
+            index.set(key, seededShuffle(groupMovements(list, worksById, sentinelComposerIds), Number(idStr)).flat())
         } else if (noun === "composition") {
             const record = works.find((w) => w.id === Number(idStr))
             const targetName = record?.name.trim()
@@ -313,7 +310,9 @@ function matchLastMarker(name: string, pattern: RegExp): { base: string; number:
 }
 
 /** Splits a work name at its movement marker, preferring the movement marker over opus */
-function splitMovementMarker(name: string): { base: string; number: number; fuzzy: boolean; opus: number | null } | null {
+function splitMovementMarker(
+    name: string
+): { base: string; number: number; fuzzy: boolean; opus: number | null } | null {
     const primary = matchLastMarker(name, MOVEMENT_MARKER)
     if (primary) return { ...primary, fuzzy: false }
     const secondary = matchLastMarker(name, OPUS_NO_MARKER)
