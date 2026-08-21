@@ -50,12 +50,12 @@ describe("displayValue", () => {
 })
 
 describe("entityHref", () => {
-    it("builds the public /entity/{noun}/{id} route, not the admin info-page route", () => {
-        expect(entityHref("composer", 12)).toBe("/entity/composer/12")
-        expect(entityHref("contributor", 7)).toBe("/entity/contributor/7")
+    it("builds the public /entity/{noun}/{slug} route, not the admin info-page route", () => {
+        expect(entityHref("composer", "bach-12")).toBe("/entity/composer/bach-12")
+        expect(entityHref("contributor", "ada-7")).toBe("/entity/contributor/ada-7")
     })
 
     it("uses the public 'work' slug for the composition noun, not the internal database name", () => {
-        expect(entityHref("composition", 3)).toBe("/entity/work/3")
+        expect(entityHref("composition", "sonata-3")).toBe("/entity/work/sonata-3")
     })
 })

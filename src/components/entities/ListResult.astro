@@ -31,13 +31,15 @@
  * name - optional, indicates the main name
  * name2 - optional, indicates a secondary name
  * is_self - optional, marks the record as the viewing user's own (highlights the card and tags the name)
+ * href - optional, precomputed public detail-page URL (content-derived slug); falls back to the
+ *   id-based /entity/{noun}/{id} path (used in admin)
  */
-const { noun, id, enviro, name, name2, is_self } = Astro.props
+const { noun, id, enviro, name, name2, is_self, href } = Astro.props
 // when a name is present it becomes the primary label and the ID is demoted to a corner badge;
 // with no name the ID is the primary label (original behavior)
 const display_name = name ? (name2 ? `${name} (${name2})` : name) : null
 const pointer_text = display_name ?? `ID #${id}`
-const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : `/entity/${noun}/${id}`
+const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : (href ?? `/entity/${noun}/${id}`)
 ---
 
 <div id={`list-result-${noun}-${id}`} class:list={["list-result-container", { "list-result-self": is_self }]}>

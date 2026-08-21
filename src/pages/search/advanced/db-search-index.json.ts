@@ -32,6 +32,7 @@ import { fetchComposers, fetchCompositions, fetchContributors } from "../../../l
 import { fetchPublishedEntityTemplates } from "../../../lib/build/design-api"
 import { disambiguatedCompositionNames } from "../../../lib/build/entity-records"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
+import { fetchEntitySlugIndex } from "../../../lib/build/entity-slug"
 import { entityHref } from "../../../lib/compositor/composition-fields"
 import type { EntityNoun } from "../../../lib/compositor/entity-fields"
 import type { FacetEntry } from "../../../lib/search/facets"
@@ -39,11 +40,12 @@ import type { FacetEntry } from "../../../lib/search/facets"
 export const prerender = true
 
 export const GET: APIRoute = async () => {
-    const [composers, contributors, compositions, entityTemplates] = await Promise.all([
+    const [composers, contributors, compositions, entityTemplates, slugIndex] = await Promise.all([
         fetchComposers(),
         fetchContributors(),
         fetchCompositions(),
-        fetchPublishedEntityTemplates()
+        fetchPublishedEntityTemplates(),
+        fetchEntitySlugIndex()
     ])
 
     const resolutions = resolveEntityTemplates(entityTemplates)
@@ -63,7 +65,8 @@ export const GET: APIRoute = async () => {
 
     if (availableNouns.has("composer")) {
         for (const record of composers ?? []) {
-            const entry: FacetEntry = { url: entityHref("composer", record.id), noun: "composer", name: record.name }
+            const slug = slugIndex.composer.get(record.id) ?? String(record.id)
+            const entry: FacetEntry = { url: entityHref("composer", slug), noun: "composer", name: record.name }
             if (record.country) entry.country = record.country
             if (record.role) entry.role = record.role
             if (typeof record.birth_year === "number") entry.birthYear = record.birth_year
@@ -80,8 +83,9 @@ export const GET: APIRoute = async () => {
         // composer are shown)
         const compositionNames = disambiguatedCompositionNames(compositions)
         for (const record of compositions ?? []) {
+            const slug = slugIndex.composition.get(record.id) ?? String(record.id)
             const entry: FacetEntry = {
-                url: entityHref("composition", record.id),
+                url: entityHref("composition", slug),
                 noun: "composition",
                 name: compositionNames.get(record.id) ?? record.name
             }
@@ -108,8 +112,9 @@ export const GET: APIRoute = async () => {
 
     if (availableNouns.has("contributor")) {
         for (const record of contributors ?? []) {
+            const slug = slugIndex.contributor.get(record.id) ?? String(record.id)
             const entry: FacetEntry = {
-                url: entityHref("contributor", record.id),
+                url: entityHref("contributor", slug),
                 noun: "contributor",
                 name: record.name
             }
