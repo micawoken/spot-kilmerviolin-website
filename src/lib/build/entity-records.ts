@@ -25,6 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isSentinelComposerName } from "../api/composer_sentinel"
 import { entityHref } from "../compositor/composition-fields"
 import type { EntityNoun } from "../compositor/entity-fields"
 import { formatLifespan } from "../../scripts/format"
@@ -144,6 +145,11 @@ export function buildRelatedWorksIndex(
     const composerNames = new Map<number, string>()
     for (const record of composers ?? []) composerNames.set(record.id, record.name)
 
+    // Unknown/Traditional composer ids are shared by many unrelated real works, so equal composerId
+    // there doesn't imply "same real composer" - movement clustering must not trust it (see groupMovements).
+    const sentinelComposerIds = new Set<number>()
+    for (const record of composers ?? []) if (isSentinelComposerName(record.name)) sentinelComposerIds.add(record.id)
+
     const works = compositions ?? []
     const toRelatedWork = (record: CompositionRecord): RelatedWork => {
         const slug = slugIndex.composition.get(record.id)
@@ -206,7 +212,10 @@ export function buildRelatedWorksIndex(
     for (const [key, list] of index) {
         const [noun, idStr] = key.split(":")
         if (noun === "composer") {
-            index.set(key, seededShuffle(groupMovements(list, worksById), Number(idStr)).flat())
+            index.set(
+                key,
+                seededShuffle(groupMovements(list, worksById, sentinelComposerIds), Number(idStr)).flat()
+            )
         } else if (noun === "composition") {
             const record = works.find((w) => w.id === Number(idStr))
             const targetName = record?.name.trim()
@@ -218,11 +227,11 @@ export function buildRelatedWorksIndex(
             const rest = sameComposer.filter((work) => work.name.trim() !== targetName)
             index.set(key, [
                 ...exact,
-                ...randomShuffle(groupMovements(rest, worksById)).flat(),
-                ...randomShuffle(groupMovements(otherPublication, worksById)).flat()
+                ...randomShuffle(groupMovements(rest, worksById, sentinelComposerIds)).flat(),
+                ...randomShuffle(groupMovements(otherPublication, worksById, sentinelComposerIds)).flat()
             ])
         } else if (noun === "contributor") {
-            index.set(key, randomShuffle(groupMovements(list, worksById)).flat())
+            index.set(key, randomShuffle(groupMovements(list, worksById, sentinelComposerIds)).flat())
         }
     }
 
@@ -285,23 +294,26 @@ function randomShuffle<T>(items: T[]): T[] {
 }
 
 const MOVEMENT_MARKER =
-    /(?:[,;:\-–—]\s*|\b(?:mvt|mov(?:t|ement)?)\.?\s+)(?:(?:mvt|mov(?:t|ement)?)\.?\s*)?([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
+    /(?:[,;:\-–—]\s*|\b(?:mvt|mov(?:t|ement)?)\.?\s+)(?:(?:mvt|mov(?:t|ement)?)\.?\s*)?(?<num>[ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
 
 // Lower-priority fallback: "Op. #, No. #" (the "Op. #," part is optional; "No."/"Nos." is fuzzy-matched)
-const OPUS_NO_MARKER = /(?:[,;:\-–—]\s*)?(?:\bop\.?\s*\d+\s*,?\s*)?\bno(?:s)?\b\.?\s*([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
+const OPUS_NO_MARKER =
+    /(?:[,;:\-–—]\s*)?(?:\bop\.?\s*(?<opus>\d+)\s*,?\s*)?\bno(?:s)?\b\.?\s*(?<num>[ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
 
-function matchLastMarker(name: string, pattern: RegExp): { base: string; number: number } | null {
+function matchLastMarker(name: string, pattern: RegExp): { base: string; number: number; opus: number | null } | null {
     const matches = [...name.matchAll(pattern)]
     if (matches.length === 0) return null
     const match = matches[matches.length - 1]
     const base = name.slice(0, match.index).trim()
     if (!base) return null
-    const number = romanOrArabicToNumber(match[1])
-    return number === null ? null : { base, number }
+    const number = romanOrArabicToNumber(match.groups!.num)
+    if (number === null) return null
+    const opusRaw = match.groups!.opus
+    return { base, number, opus: opusRaw ? Number(opusRaw) : null }
 }
 
 /** Splits a work name at its movement marker, preferring the movement marker over opus */
-function splitMovementMarker(name: string): { base: string; number: number; fuzzy: boolean } | null {
+function splitMovementMarker(name: string): { base: string; number: number; fuzzy: boolean; opus: number | null } | null {
     const primary = matchLastMarker(name, MOVEMENT_MARKER)
     if (primary) return { ...primary, fuzzy: false }
     const secondary = matchLastMarker(name, OPUS_NO_MARKER)
@@ -330,10 +342,16 @@ const PARTIAL_MATCH_PERCENT = 0.5
 const PARTIAL_MATCH_MIN_CHARS = 12
 
 /**
- * Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix,
- * case-insensitive, to count as movements of the same work. `bothFuzzy` (both bases came from the
- * "No. #" fallback) waives the absolute floor: a generic genre base like "Sonata" is exactly the
- * short, exact-match case that fallback exists to catch, unlike a coincidental short prefix. */
+ * Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix OR
+ * suffix, case-insensitive, to count as movements of the same work. Suffix matters because a base
+ * like `"Romanza" from 3 Morceaux` (movement subtitle first, shared collection name last - e.g.
+ * `"Andantino" from 3 Morceaux`) never shares a prefix with its siblings.
+ *
+ * `bothFuzzy` (both bases came from the "No. #" fallback) waives the absolute floor only for a full
+ * string match, e.g. "Sonata" === "Sonata" - the short, exact-match case that fallback exists to
+ * catch. It must NOT waive the floor for a short affix match against a longer, otherwise-unrelated
+ * string (e.g. "Sonata" as a bare suffix of "Theme from Sonata"): that passes the >=50%-of-shorter
+ * check on containment alone, regardless of how unrelated the rest of the longer title is. */
 function baseTitlesMatch(a: string, b: string, bothFuzzy: boolean): boolean {
     const x = a.toLowerCase()
     const y = b.toLowerCase()
@@ -341,21 +359,30 @@ function baseTitlesMatch(a: string, b: string, bothFuzzy: boolean): boolean {
     if (shorterLen === 0) return false
     let prefixLen = 0
     while (prefixLen < shorterLen && x[prefixLen] === y[prefixLen]) prefixLen++
-    if (prefixLen / shorterLen < PARTIAL_MATCH_PERCENT) return false
-    return bothFuzzy || prefixLen >= PARTIAL_MATCH_MIN_CHARS
+    let suffixLen = 0
+    while (suffixLen < shorterLen && x[x.length - 1 - suffixLen] === y[y.length - 1 - suffixLen]) suffixLen++
+    const sharedLen = Math.max(prefixLen, suffixLen)
+    if (sharedLen / shorterLen < PARTIAL_MATCH_PERCENT) return false
+    if (sharedLen >= PARTIAL_MATCH_MIN_CHARS) return true
+    return bothFuzzy && x === y
 }
 
 /**
  * Groups a related-works list into shuffle units
  *
  */
-function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionRecord>): RelatedWork[][] {
+function groupMovements(
+    list: RelatedWork[],
+    worksById: Map<number, CompositionRecord>,
+    sentinelComposerIds: Set<number>
+): RelatedWork[][] {
     interface Candidate {
         work: RelatedWork
         composerId: number
         base: string
         movementNumber: number
         fuzzy: boolean
+        opus: number | null
     }
     const candidates: Candidate[] = []
     const units: RelatedWork[][] = []
@@ -369,18 +396,25 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
                 composerId: record.composer_id,
                 base: split.base,
                 movementNumber: split.number,
-                fuzzy: split.fuzzy
+                fuzzy: split.fuzzy,
+                opus: split.opus
             })
         else units.push([work])
     }
 
     const clusters: Candidate[][] = []
     for (const candidate of candidates) {
-        const cluster = clusters.find(
-            (c) =>
-                c[0].composerId === candidate.composerId &&
-                baseTitlesMatch(c[0].base, candidate.base, c[0].fuzzy && candidate.fuzzy)
-        )
+        const cluster = clusters.find((c) => {
+            if (c[0].composerId !== candidate.composerId) return false
+            const bothFuzzy = c[0].fuzzy && candidate.fuzzy
+            // Two "No. #" works only belong to the same published set when their opus numbers agree
+            // (or neither names one) - otherwise a generic base like "Sonata" merges unrelated opus sets.
+            if (bothFuzzy && c[0].opus !== candidate.opus) return false
+            // A shared Unknown/Traditional id doesn't mean "same real composer" - never waive the
+            // absolute floor there, or unrelated works sharing a generic genre base (e.g. "Sonata") cluster.
+            const waiveFloor = bothFuzzy && !sentinelComposerIds.has(candidate.composerId)
+            return baseTitlesMatch(c[0].base, candidate.base, waiveFloor)
+        })
         if (cluster) cluster.push(candidate)
         else clusters.push([candidate])
     }

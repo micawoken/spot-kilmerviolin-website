@@ -793,4 +793,155 @@ describe("buildRelatedWorksIndex - lower-priority 'Op. #, No. #' movement fallba
         expect(ids.indexOf(71)).toBe(ids.indexOf(70) + 1)
         expect(ids.indexOf(72)).toBe(ids.indexOf(71) + 1)
     })
+
+    it("REGRESSION GUARD: clusters when the shared collection name is a SUFFIX of the base, not a prefix (movement subtitle comes first)", () => {
+        // Real-world shape: `"<Movement>" from <Collection>, Op. X, No. Y` - the quoted movement
+        // subtitle varies at the front, so the bases only share a common suffix ("from 3 Morceaux").
+        const no1: D1Composition = {
+            ...composition,
+            composition_id: 100,
+            name: '"Andantino" from 3 Morceaux, Op. 31, No. 1',
+            composer_id: 1
+        }
+        const no2: D1Composition = {
+            ...composition,
+            composition_id: 101,
+            name: '"Romanza" from 3 Morceaux, Op. 31, No. 2',
+            composer_id: 1
+        }
+        const no3: D1Composition = {
+            ...composition,
+            composition_id: 102,
+            name: '"Bohémienne" from 3 Morceaux, Op. 31, No. 3',
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 103, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, no3, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:103") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids.indexOf(101)).toBe(ids.indexOf(100) + 1)
+        expect(ids.indexOf(102)).toBe(ids.indexOf(101) + 1)
+    })
+
+    it("REGRESSION GUARD: a short generic base (e.g. 'Sonata') does not cluster as a bare suffix/prefix of a longer, unrelated title", () => {
+        // Found live in production data: "Sonata No. 1/2/3" (base "Sonata") must not absorb an
+        // unrelated "Theme from Sonata No. 4" (base "Theme from Sonata") just because "Sonata" is a
+        // literal suffix of the longer base - the floor waiver is for a short EXACT base match, not
+        // for any base containing another as a substring.
+        const no1: D1Composition = { ...composition, composition_id: 110, name: "Sonata No. 1 in Bb Major", composer_id: 1 }
+        const no2: D1Composition = { ...composition, composition_id: 111, name: "Sonata No. 2 in A Major", composer_id: 1 }
+        const no3: D1Composition = { ...composition, composition_id: 112, name: "Sonata No. 3 in G Minor", composer_id: 1 }
+        const unrelatedTheme: D1Composition = {
+            ...composition,
+            composition_id: 113,
+            name: "Theme from Sonata No. 4 for 2 Violins",
+            composer_id: 1
+        }
+        // Padding siblings so a false 4-item cluster's adjacency in the shuffled output is
+        // meaningful (with too few units, the theme would be adjacent to the trio by chance alone)
+        const padding1: D1Composition = { ...composition, composition_id: 115, name: "Etude", composer_id: 1 }
+        const padding2: D1Composition = { ...composition, composition_id: 116, name: "Fantasia", composer_id: 1 }
+        const unrelated: D1Composition = { ...composition, composition_id: 114, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, no3, unrelatedTheme, padding1, padding2, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        let sawSeparation = false
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const related = (
+                buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex).get("composition:114") ?? []
+            ).map((w) => w.id)
+            const sonataGroupIndexes = [related.indexOf(110), related.indexOf(111), related.indexOf(112)]
+            const themeIndex = related.indexOf(113)
+            // The theme must never land contiguous with the sonata trio's block
+            if (Math.min(...sonataGroupIndexes) - themeIndex > 1 || themeIndex - Math.max(...sonataGroupIndexes) > 1) {
+                sawSeparation = true
+                break
+            }
+        }
+        expect(sawSeparation).toBe(true)
+    })
+
+    it("REGRESSION GUARD: the 'No.' fallback's floor waiver does not apply under the Unknown/Traditional sentinel composers, since a shared sentinel id doesn't mean 'same real composer'", () => {
+        const unknownComposer: D1Composer = { ...composer, composer_id: 99, name: "Unknown" }
+        const target: D1Composition = {
+            ...composition,
+            composition_id: 82,
+            name: "Air on the G String",
+            composer_id: 99
+        }
+        // Two unrelated real pieces, both misattributed to "Unknown", that merely share the generic
+        // fuzzy base "Sonata" - must not be treated as movements of the same work.
+        const pieceA: D1Composition = {
+            ...composition,
+            composition_id: 80,
+            name: "Sonata No. 1 in Bb Major",
+            composer_id: 99
+        }
+        const pieceB: D1Composition = {
+            ...composition,
+            composition_id: 81,
+            name: "Sonata No. 4 in D Major",
+            composer_id: 99
+        }
+        // Padding siblings so a 2-item cluster's adjacency in the shuffled output is meaningful
+        // (with only pieceA/pieceB present, any order trivially looks "adjacent")
+        const padding1: D1Composition = { ...composition, composition_id: 83, name: "Etude", composer_id: 99 }
+        const padding2: D1Composition = { ...composition, composition_id: 84, name: "Fantasia", composer_id: 99 }
+        const composers = [formatCompFromD1(unknownComposer)]
+        const works = [target, pieceA, pieceB, padding1, padding2].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        let sawSeparation = false
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const related = (
+                buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex).get("composition:82") ?? []
+            ).map((w) => w.id)
+            if (Math.abs(related.indexOf(80) - related.indexOf(81)) > 1) {
+                sawSeparation = true
+                break
+            }
+        }
+        expect(sawSeparation).toBe(true)
+    })
+
+    it("REGRESSION GUARD: does not cluster across two different opus sets that share a generic collection name, even for a real (non-sentinel) composer", () => {
+        const target: D1Composition = { ...composition, composition_id: 90, name: "Air on the G String", composer_id: 1 }
+        // Two distinct published sets - different opus numbers - that just happen to share a
+        // generic collection name ("Sonata", under the 12-char floor). OPUS_NO_MARKER discards the
+        // opus number from the match entirely, so nothing currently distinguishes these sets.
+        const setA1: D1Composition = {
+            ...composition,
+            composition_id: 91,
+            name: "Sonata, Op. 1, No. 1",
+            composer_id: 1
+        }
+        const setB1: D1Composition = {
+            ...composition,
+            composition_id: 92,
+            name: "Sonata, Op. 5, No. 2",
+            composer_id: 1
+        }
+        const padding1: D1Composition = { ...composition, composition_id: 93, name: "Etude", composer_id: 1 }
+        const padding2: D1Composition = { ...composition, composition_id: 94, name: "Fantasia", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [target, setA1, setB1, padding1, padding2].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        let sawSeparation = false
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const related = (
+                buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex).get("composition:90") ?? []
+            ).map((w) => w.id)
+            if (Math.abs(related.indexOf(91) - related.indexOf(92)) > 1) {
+                sawSeparation = true
+                break
+            }
+        }
+        expect(sawSeparation).toBe(true)
+    })
 })
