@@ -86,6 +86,6 @@ export function displayValue(value: unknown, placeholder: string): string {
 }
 
 /** Public detail-page URL for an entity reference (composer/contributor a composition names) */
-export function entityHref(noun: EntityNoun, id: number): string {
-    return `/entity/${ENTITY_NOUN_SLUGS[noun]}/${id}`
+export function entityHref(noun: EntityNoun, slug: string): string {
+    return `/entity/${ENTITY_NOUN_SLUGS[noun]}/${slug}`
 }

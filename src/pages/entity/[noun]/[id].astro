@@ -45,6 +45,7 @@ import {
 } from "../../../lib/build/entity-records"
 import { entityMetaDescription } from "../../../lib/build/entity-meta"
 import { resolveEntityTemplates } from "../../../lib/build/entity-routes"
+import { fetchEntitySlugIndex } from "../../../lib/build/entity-slug"
 import { loadBundledFileAlt } from "../../../lib/build/bundled-file-alt"
 import {
     ENTITY_NOUN_LABELS,
@@ -60,7 +61,7 @@ import { EMPTY_TOKEN_CATALOG, type TokenCatalog } from "../../../lib/compositor/
 export const prerender = true
 
 export async function getStaticPaths() {
-    const [composers, contributors, allContributors, compositions, entityTemplates, theme, bundledFileAlt] =
+    const [composers, contributors, allContributors, compositions, entityTemplates, theme, bundledFileAlt, slugIndex] =
         await Promise.all([
             fetchComposers(),
             fetchContributors(),
@@ -68,15 +69,16 @@ export async function getStaticPaths() {
             fetchCompositions(),
             fetchPublishedEntityTemplates(),
             fetchPublishedTheme(),
-            loadBundledFileAlt()
+            loadBundledFileAlt(),
+            fetchEntitySlugIndex()
         ])
 
     const resolutions = resolveEntityTemplates(entityTemplates)
     const nounHasPage = Object.fromEntries(
         resolutions.map(({ noun, template }) => [noun, template !== null])
     ) as Record<EntityNoun, boolean>
-    const refs = buildReferenceIndex(composers, allContributors, nounHasPage)
-    const relatedWorksIndex = buildRelatedWorksIndex(composers, compositions, nounHasPage)
+    const refs = buildReferenceIndex(composers, allContributors, nounHasPage, slugIndex)
+    const relatedWorksIndex = buildRelatedWorksIndex(composers, compositions, nounHasPage, slugIndex)
 
     const routes: {
         params: { noun: string; id: string }
@@ -92,7 +94,7 @@ export async function getStaticPaths() {
     for (const { noun, template } of resolutions) {
         if (!template) continue // no is_default authored for this noun yet - no pages this build
 
-        const records = entityRecords(noun, composers, contributors, compositions, refs)
+        const records = entityRecords(noun, composers, contributors, compositions, refs, slugIndex)
         if (records.length === 0) {
             console.warn(`[build] entity noun "${noun}" has a default template but no D1 records - skipping its pages`)
             continue
@@ -123,7 +125,7 @@ export async function getStaticPaths() {
 
         for (const record of records) {
             routes.push({
-                params: { noun: ENTITY_NOUN_SLUGS[noun], id: record.id },
+                params: { noun: ENTITY_NOUN_SLUGS[noun], id: record.slug },
                 props: {
                     template,
                     entry: record.entry,
