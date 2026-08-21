@@ -105,7 +105,7 @@ export function buildReferenceIndex(
     return { composer, contributor }
 }
 
-// Hosts that are encyclopedic/database entries, not a shared publication — never match on these.
+// Hosts that are encyclopedic/database entries, not a shared publication
 const ENCYCLOPEDIC_HOSTS = ["wikipedia.org", "imslp.org"]
 
 function isEncyclopedicHost(url: string): boolean {
@@ -120,7 +120,7 @@ function isEncyclopedicHost(url: string): boolean {
 
 /**
  * A composition's normalized "same publication" identity, or null when it declares no isbn/doi/https
- * source, or an https source on an encyclopedic/database host (Wikipedia, IMSLP)
+ * source, or an https source on an encyclopedic/database host
  */
 function publicationKey(record: CompositionRecord): string | null {
     const { uri_type, uri } = record.publication_info
@@ -287,11 +287,8 @@ function randomShuffle<T>(items: T[]): T[] {
 const MOVEMENT_MARKER =
     /(?:[,;:\-–—]\s*|\b(?:mvt|mov(?:t|ement)?)\.?\s+)(?:(?:mvt|mov(?:t|ement)?)\.?\s*)?([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
 
-// Lower-priority fallback: "Op. #, No. #" (the "Op. #," part is optional; "No."/"Nos." is fuzzy-matched
-// like the mvt/movement keyword above). Doesn't need to be at the end of the name - matchLastMarker takes
-// the last occurrence either way.
-const OPUS_NO_MARKER =
-    /(?:[,;:\-–—]\s*)?(?:\bop\.?\s*\d+\s*,?\s*)?\bno(?:s)?\b\.?\s*([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
+// Lower-priority fallback: "Op. #, No. #" (the "Op. #," part is optional; "No."/"Nos." is fuzzy-matched)
+const OPUS_NO_MARKER = /(?:[,;:\-–—]\s*)?(?:\bop\.?\s*\d+\s*,?\s*)?\bno(?:s)?\b\.?\s*([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
 
 function matchLastMarker(name: string, pattern: RegExp): { base: string; number: number } | null {
     const matches = [...name.matchAll(pattern)]
@@ -303,9 +300,7 @@ function matchLastMarker(name: string, pattern: RegExp): { base: string; number:
     return number === null ? null : { base, number }
 }
 
-/** Splits a work name at its movement marker: {@link MOVEMENT_MARKER} wins when present; otherwise falls
- *  back to the lower-priority {@link OPUS_NO_MARKER} "No. #" pattern (`fuzzy: true`) - see
- *  {@link groupMovements}'s numbers-must-differ guard for that fallback. */
+/** Splits a work name at its movement marker, preferring the movement marker over opus */
 function splitMovementMarker(name: string): { base: string; number: number; fuzzy: boolean } | null {
     const primary = matchLastMarker(name, MOVEMENT_MARKER)
     if (primary) return { ...primary, fuzzy: false }
@@ -386,8 +381,7 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
     }
     for (const cluster of clusters) {
         cluster.sort((a, b) => a.movementNumber - b.movementNumber)
-        // The fuzzy "No. #" fallback only forms a group when the numbers actually vary across the
-        // cluster - identical "No. #" values (or a lone candidate) aren't a real movement/work sequence.
+        // The fuzzy "No. #" fallback only forms a group when the numbers actually vary
         const isStaleFuzzyCluster =
             cluster.every((c) => c.fuzzy) && new Set(cluster.map((c) => c.movementNumber)).size < 2
         if (isStaleFuzzyCluster) for (const c of cluster) units.push([c.work])
