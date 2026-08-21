@@ -86,7 +86,7 @@ const themeCss = [themeHead.columnsBreakpointCss, themeHead.viewTransitionCss].f
     <body data-pagefind-filter={`type:${contentType}`} data-pagefind-ignore={pagefindIgnore}>
         {/* Own element, not comma-joined onto <body>'s type: filter - see pagefindFilter's doc comment above. */}
         {pagefindFilter && <span hidden data-pagefind-filter={pagefindFilter} />}
-        <a class="skip-link" href="#main-content">Skip to content</a>
+        <a class="skip-link" href="#main-content" data-pagefind-ignore="all">Skip to content</a>
         <PublicHeader />
         <main id="main-content">
             <slot />
