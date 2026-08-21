@@ -774,4 +774,23 @@ describe("buildRelatedWorksIndex - lower-priority 'Op. #, No. #' movement fallba
         }
         expect(sawSeparation).toBe(true)
     })
+
+    it("clusters a short, generic genre base (e.g. 'Sonata', under the 12-char absolute floor) when both sides are the 'No.' fallback", () => {
+        // Regression: PARTIAL_MATCH_MIN_CHARS=12 was rejecting exactly the "Concertos or Sonatas"
+        // sequences this fallback's own commit message names as its target, since generic work-type
+        // bases like "Sonata" (6 chars) or "Concerto" (8 chars) never clear that floor.
+        const no1: D1Composition = { ...composition, composition_id: 70, name: "Sonata No. 1 in Bb Major", composer_id: 1 }
+        const no2: D1Composition = { ...composition, composition_id: 71, name: "Sonata No. 2 in A Major", composer_id: 1 }
+        const no3: D1Composition = { ...composition, composition_id: 72, name: "Sonata No. 3 in G Minor", composer_id: 1 }
+        const unrelated: D1Composition = { ...composition, composition_id: 73, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, no3, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:73") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids.indexOf(71)).toBe(ids.indexOf(70) + 1)
+        expect(ids.indexOf(72)).toBe(ids.indexOf(71) + 1)
+    })
 })

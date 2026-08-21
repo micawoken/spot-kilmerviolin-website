@@ -29,6 +29,7 @@
  */
 
 import { env } from "cloudflare:workers"
+import { purgeCacheAll } from "./database"
 
 /**
  * The path to the deploy hook, without the deploy hook ID secret
@@ -87,6 +88,7 @@ export async function rebuildCooldownRemaining(elevated: boolean = false): Promi
 
 /**
  * Trigger an automated rebuild and deploy of the Astro site to Cloudflare Workers
+ * Cache is purged before doing so
  *
  * @param {boolean} elevated - when true, enforces the shorter admin-override cooldown instead of the
  *   standard one; the caller is responsible for verifying admin status before setting this
@@ -100,6 +102,8 @@ export default async function rebuild(elevated: boolean = false) {
     const cooldown_sec = cooldownSeconds(elevated)
     // Record the trigger BEFORE calling the hook
     await env.KV_DB_CACHE.put(REBUILD_TRIGGER_KEY, String(Date.now()), { expirationTtl: cooldown_sec + 60 })
+    // purge the D1 read cache so the build pulls fresh data instead of stale cache-api/KV entries
+    await purgeCacheAll()
     const deploy_hook = deploy_hook_url + env.CF_DEPLOY_HOOK
     const response = await fetch(deploy_hook, {
         method: "POST"

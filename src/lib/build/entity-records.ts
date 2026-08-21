@@ -331,15 +331,18 @@ const PARTIAL_MATCH_MIN_CHARS = 12
 
 /**
  * Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix,
- * case-insensitive, to count as movements of the same work */
-function baseTitlesMatch(a: string, b: string): boolean {
+ * case-insensitive, to count as movements of the same work. `bothFuzzy` (both bases came from the
+ * "No. #" fallback) waives the absolute floor: a generic genre base like "Sonata" is exactly the
+ * short, exact-match case that fallback exists to catch, unlike a coincidental short prefix. */
+function baseTitlesMatch(a: string, b: string, bothFuzzy: boolean): boolean {
     const x = a.toLowerCase()
     const y = b.toLowerCase()
     const shorterLen = Math.min(x.length, y.length)
     if (shorterLen === 0) return false
     let prefixLen = 0
     while (prefixLen < shorterLen && x[prefixLen] === y[prefixLen]) prefixLen++
-    return prefixLen / shorterLen >= PARTIAL_MATCH_PERCENT && prefixLen >= PARTIAL_MATCH_MIN_CHARS
+    if (prefixLen / shorterLen < PARTIAL_MATCH_PERCENT) return false
+    return bothFuzzy || prefixLen >= PARTIAL_MATCH_MIN_CHARS
 }
 
 /**
@@ -374,7 +377,9 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
     const clusters: Candidate[][] = []
     for (const candidate of candidates) {
         const cluster = clusters.find(
-            (c) => c[0].composerId === candidate.composerId && baseTitlesMatch(c[0].base, candidate.base)
+            (c) =>
+                c[0].composerId === candidate.composerId &&
+                baseTitlesMatch(c[0].base, candidate.base, c[0].fuzzy && candidate.fuzzy)
         )
         if (cluster) cluster.push(candidate)
         else clusters.push([candidate])

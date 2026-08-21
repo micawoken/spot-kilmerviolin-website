@@ -63,7 +63,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 
 /**
  * POST /api/v1/site
- * Triggers a rebuild on Worker Builds using the deploy hook
+ * Purges the D1 read cache, then triggers a rebuild on Worker Builds using the deploy hook
  *
  * Permissions required: rebuild
  *
