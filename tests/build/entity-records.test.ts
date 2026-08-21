@@ -3,9 +3,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -31,6 +31,8 @@ import {
     entityRecords,
     type EntityReferenceIndex
 } from "../../src/lib/build/entity-records"
+import { buildEntitySlugIndex, type EntitySlugIndex } from "../../src/lib/build/entity-slug"
+import { entityHref } from "../../src/lib/compositor/composition-fields"
 import type { EntityNoun } from "../../src/lib/compositor/entity-fields"
 
 // Built via the real D1 converters (same fixture shape tests/build/d1-api.test.ts uses), not hand-authored
@@ -115,38 +117,53 @@ const composition: D1Composition = {
 
 const ALL_PAGES: Record<EntityNoun, boolean> = { composer: true, composition: true, contributor: true }
 
+/** Shorthand for entityHref against a slug this index actually resolved - fails loudly (via `!`) if not. */
+function hrefIn(slugIndex: EntitySlugIndex, noun: EntityNoun, id: number): string {
+    return entityHref(noun, slugIndex[noun].get(id)!)
+}
+
 describe("buildReferenceIndex", () => {
-    it("resolves a composer/contributor by id to its name, with hasPage from the noun's page status", () => {
+    it("resolves a composer/contributor by id to its name, with a public href when the noun has a template", () => {
         const composerRecord = formatCompFromD1(composer)
         const contributorRecord = formatContribFromD1(activeContributor)
-        const refs = buildReferenceIndex([composerRecord], [contributorRecord], ALL_PAGES)
+        const slugIndex = buildEntitySlugIndex([composerRecord], [contributorRecord], [])
+        const refs = buildReferenceIndex([composerRecord], [contributorRecord], ALL_PAGES, slugIndex)
 
-        expect(refs.composer.get(1)).toEqual({ name: "Bach", hasPage: true, role: "composer" })
-        expect(refs.contributor.get(2)).toEqual({ name: "Ada", hasPage: true })
+        expect(refs.composer.get(1)).toEqual({
+            name: "Bach",
+            href: hrefIn(slugIndex, "composer", 1),
+            role: "composer"
+        })
+        expect(refs.contributor.get(2)).toEqual({ name: "Ada", href: hrefIn(slugIndex, "contributor", 2) })
     })
 
-    it("hasPage is false for a composer/contributor whose noun has no published default template", () => {
+    it("href is null for a composer/contributor whose noun has no published default template", () => {
         const composerRecord = formatCompFromD1(composer)
-        const refs = buildReferenceIndex([composerRecord], [], { ...ALL_PAGES, composer: false })
-        expect(refs.composer.get(1)?.hasPage).toBe(false)
+        const slugIndex = buildEntitySlugIndex([composerRecord], [], [])
+        const refs = buildReferenceIndex([composerRecord], [], { ...ALL_PAGES, composer: false }, slugIndex)
+        expect(refs.composer.get(1)?.href).toBeNull()
     })
 
-    it("hasPage is true for an INACTIVE contributor when the noun has a template - active no longer gates page existence, only a `hidden` tag does", () => {
+    it("resolves an INACTIVE contributor to a public href when the noun has a template - active no longer gates page existence, only a `hidden` tag does", () => {
         const contributorRecord = formatContribFromD1(inactiveContributor)
-        const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES)
-        expect(refs.contributor.get(3)).toEqual({ name: "Retired Ray", hasPage: true })
+        const slugIndex = buildEntitySlugIndex([], [contributorRecord], [])
+        const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES, slugIndex)
+        expect(refs.contributor.get(3)).toEqual({ name: "Retired Ray", href: hrefIn(slugIndex, "contributor", 3) })
     })
 
-    it("REGRESSION GUARD: hasPage is false for a contributor tagged `hidden` even when the noun has a template", () => {
+    it("REGRESSION GUARD: href is null for a contributor tagged `hidden` even when the noun has a template", () => {
         const contributorRecord = formatContribFromD1(hiddenContributor)
-        const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES)
-        expect(refs.contributor.get(4)).toEqual({ name: "Hidden Hank", hasPage: false })
+        const slugIndex = buildEntitySlugIndex([], [contributorRecord], [])
+        const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES, slugIndex)
+        expect(refs.contributor.get(4)).toEqual({ name: "Hidden Hank", href: null })
     })
 
     it("REGRESSION GUARD: resolves a hidden contributor's NAME at all - must be built from the unredacted all-contributors list, not fetchContributors' filtered public list", () => {
         // The whole point of buildReferenceIndex taking `allContributors`: a filtered-list caller would
         // never see contributor 4 in its input at all, and every reference to it would resolve blank.
-        const refs = buildReferenceIndex([], [formatContribFromD1(hiddenContributor)], ALL_PAGES)
+        const contributorRecord = formatContribFromD1(hiddenContributor)
+        const slugIndex = buildEntitySlugIndex([], [contributorRecord], [])
+        const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES, slugIndex)
         expect(refs.contributor.get(4)?.name).toBe("Hidden Hank")
     })
 })
@@ -154,16 +171,18 @@ describe("buildReferenceIndex", () => {
 describe("entityRecords - composer/contributor (bare records, pass through)", () => {
     const emptyRefs: EntityReferenceIndex = { composer: new Map(), contributor: new Map() }
 
-    it("stringifies id and passes the record through as entry, plus the derived life_span field", () => {
+    it("stringifies id and passes the record through as entry, plus the derived life_span field and a content-derived slug", () => {
         const record = formatCompFromD1(composer)
-        expect(entityRecords("composer", [record], null, null, emptyRefs)).toEqual([
-            { id: "1", entry: { ...record, life_span: "1685–1750" } }
+        const slugIndex = buildEntitySlugIndex([record], [], [])
+        expect(entityRecords("composer", [record], null, null, emptyRefs, slugIndex)).toEqual([
+            { id: "1", slug: slugIndex.composer.get(1), entry: { ...record, life_span: "1685–1750" } }
         ])
     })
 
     it("renders a living composer's life_span with the Present sentinel", () => {
         const record = formatCompFromD1({ ...composer, death_year: -1 })
-        const [result] = entityRecords("composer", [record], null, null, emptyRefs)
+        const slugIndex = buildEntitySlugIndex([record], [], [])
+        const [result] = entityRecords("composer", [record], null, null, emptyRefs, slugIndex)
         expect(result.entry.life_span).toBe("1685–Present")
     })
 
@@ -171,13 +190,24 @@ describe("entityRecords - composer/contributor (bare records, pass through)", ()
         // stripSentinelComposerData nulls these at the build fetch, ahead of entityRecords - the type
         // still says `number` (see its as-unknown cast in d1-api.ts), so this mirrors that at runtime
         const record = { ...formatCompFromD1(composer), name: "Unknown", birth_year: null, death_year: null }
-        const [result] = entityRecords("composer", [record as unknown as ComposerRecord], null, null, emptyRefs)
+        const slugIndex = buildEntitySlugIndex([record as unknown as ComposerRecord], [], [])
+        const [result] = entityRecords(
+            "composer",
+            [record as unknown as ComposerRecord],
+            null,
+            null,
+            emptyRefs,
+            slugIndex
+        )
         expect(result.entry.life_span).toBeUndefined()
     })
 
-    it("does the same for a contributor record, unchanged (no derived fields)", () => {
+    it("does the same for a contributor record, unchanged (no derived fields), plus a resolved slug", () => {
         const record = formatContribFromD1(activeContributor)
-        expect(entityRecords("contributor", null, [record], null, emptyRefs)).toEqual([{ id: "2", entry: record }])
+        const slugIndex = buildEntitySlugIndex([], [record], [])
+        expect(entityRecords("contributor", null, [record], null, emptyRefs, slugIndex)).toEqual([
+            { id: "2", slug: slugIndex.contributor.get(2), entry: record }
+        ])
     })
 })
 
@@ -189,9 +219,10 @@ describe("entityRecords - composition (the reference-fold linchpin)", () => {
         // References the HIDDEN contributor (id 4) - a local override, not the shared `composition`
         // fixture, which buildRelatedWorksIndex's tests below also depend on referencing contributor 3.
         const object = formatWorkFromD1({ ...composition, contrib_primary_2: 4, contrib_addl: "4" })
-        const refs = buildReferenceIndex([composerRecord], [activeRecord, hiddenRecord], ALL_PAGES)
+        const slugIndex = buildEntitySlugIndex([composerRecord], [activeRecord, hiddenRecord], [object])
+        const refs = buildReferenceIndex([composerRecord], [activeRecord, hiddenRecord], ALL_PAGES, slugIndex)
 
-        const [result] = entityRecords("composition", null, null, [object], refs)
+        const [result] = entityRecords("composition", null, null, [object], refs, slugIndex)
 
         expect(result.id).toBe("10")
         expect(result.entry.name).toBe("Concerto")
@@ -202,8 +233,17 @@ describe("entityRecords - composition (the reference-fold linchpin)", () => {
         expect(result.entry.publish_year).toBe(2000)
         expect(result.entry.publication_uri).toEqual({ uriType: "https", uri: "https://example.test/score" })
 
-        expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: "/entity/composer/1", role: "composer" })
-        expect(result.entry.contrib_primary_1).toEqual({ id: 2, name: "Ada", href: "/entity/contributor/2" })
+        expect(result.entry.composer).toEqual({
+            id: 1,
+            name: "Bach",
+            href: hrefIn(slugIndex, "composer", 1),
+            role: "composer"
+        })
+        expect(result.entry.contrib_primary_1).toEqual({
+            id: 2,
+            name: "Ada",
+            href: hrefIn(slugIndex, "contributor", 2)
+        })
         // REGRESSION GUARD: contrib_primary_2 references the HIDDEN contributor
         expect(result.entry.contrib_primary_2).toEqual({ id: 4, name: "Hidden Hank", href: null })
         expect(result.entry.contrib_addl).toEqual([{ id: 4, name: "Hidden Hank", href: null }])
@@ -212,18 +252,20 @@ describe("entityRecords - composition (the reference-fold linchpin)", () => {
 
     it("an unresolvable reference id resolves to an empty name and a null href, not a crash", () => {
         const object = formatWorkFromD1({ ...composition, composer_id: 999 })
-        const refs = buildReferenceIndex([], [], ALL_PAGES)
+        const slugIndex = buildEntitySlugIndex([], [], [object])
+        const refs = buildReferenceIndex([], [], ALL_PAGES, slugIndex)
 
-        const [result] = entityRecords("composition", null, null, [object], refs)
+        const [result] = entityRecords("composition", null, null, [object], refs, slugIndex)
 
         expect(result.entry.composer).toEqual({ id: 999, name: "", href: null })
     })
 
     it("a null optional reference (contrib_primary_2) resolves to null, not a reference object", () => {
         const object = formatWorkFromD1({ ...composition, contrib_primary_2: null })
-        const refs = buildReferenceIndex([], [], ALL_PAGES)
+        const slugIndex = buildEntitySlugIndex([], [], [object])
+        const refs = buildReferenceIndex([], [], ALL_PAGES, slugIndex)
 
-        const [result] = entityRecords("composition", null, null, [object], refs)
+        const [result] = entityRecords("composition", null, null, [object], refs, slugIndex)
 
         expect(result.entry.contrib_primary_2).toBeNull()
     })
@@ -231,9 +273,10 @@ describe("entityRecords - composition (the reference-fold linchpin)", () => {
     it("a reference to a real record resolves to no href when that noun has no published default template", () => {
         const composerRecord = formatCompFromD1(composer)
         const object = formatWorkFromD1(composition)
-        const refs = buildReferenceIndex([composerRecord], [], { ...ALL_PAGES, composer: false })
+        const slugIndex = buildEntitySlugIndex([composerRecord], [], [object])
+        const refs = buildReferenceIndex([composerRecord], [], { ...ALL_PAGES, composer: false }, slugIndex)
 
-        const [result] = entityRecords("composition", null, null, [object], refs)
+        const [result] = entityRecords("composition", null, null, [object], refs, slugIndex)
 
         expect(result.entry.composer).toEqual({ id: 1, name: "Bach", href: null, role: "composer" })
     })
@@ -241,11 +284,12 @@ describe("entityRecords - composition (the reference-fold linchpin)", () => {
 
 describe("entityRecords - the reader-returned-null case (D1 unconfigured, or that table skipped)", () => {
     const emptyRefs: EntityReferenceIndex = { composer: new Map(), contributor: new Map() }
+    const emptySlugIndex = buildEntitySlugIndex(null, null, null)
 
     it("contributes no records for any of the three nouns, matching the dual-source-dependency skip rule", () => {
-        expect(entityRecords("composer", null, null, null, emptyRefs)).toEqual([])
-        expect(entityRecords("contributor", null, null, null, emptyRefs)).toEqual([])
-        expect(entityRecords("composition", null, null, null, emptyRefs)).toEqual([])
+        expect(entityRecords("composer", null, null, null, emptyRefs, emptySlugIndex)).toEqual([])
+        expect(entityRecords("contributor", null, null, null, emptyRefs, emptySlugIndex)).toEqual([])
+        expect(entityRecords("composition", null, null, null, emptyRefs, emptySlugIndex)).toEqual([])
     })
 })
 
@@ -278,37 +322,33 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
 
     const composers = [formatCompFromD1(bach), formatCompFromD1(mozart)]
     const works = [formatWorkFromD1(work1), formatWorkFromD1(work2), formatWorkFromD1(work3)]
-    const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+    const slugIndex = buildEntitySlugIndex(composers, [], works)
+    const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+    const workHref = (id: number) => hrefIn(slugIndex, "composition", id)
 
     it("composer -> works: includes both primary and secondary-author credits (order is seed-shuffled, not credit-type order)", () => {
         expect(index.get("composer:1")).toEqual(
             expect.arrayContaining([
-                { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
-                { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
-                { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+                { id: 10, name: "Work One", href: workHref(10), composer: "Bach" },
+                { id: 11, name: "Work Two", href: workHref(11), composer: "Bach" },
+                { id: 12, name: "Work Three", href: workHref(12), composer: "Mozart" }
             ])
         )
         expect(index.get("composer:1")).toHaveLength(3)
     })
 
     it("composer -> works: order is deterministic (seeded by composer id) across separate calls with the same input", () => {
-        const rebuilt = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const rebuilt = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         expect(rebuilt.get("composer:1")).toEqual(index.get("composer:1"))
     })
 
     it("composer -> works: a composer with only primary credits gets no secondary-pass duplicates", () => {
-        expect(index.get("composer:4")).toEqual([
-            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
-        ])
+        expect(index.get("composer:4")).toEqual([{ id: 12, name: "Work Three", href: workHref(12), composer: "Mozart" }])
     })
 
     it("composition -> related works: other works by the same composer, excluding itself", () => {
-        expect(index.get("composition:10")).toEqual([
-            { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" }
-        ])
-        expect(index.get("composition:11")).toEqual([
-            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" }
-        ])
+        expect(index.get("composition:10")).toEqual([{ id: 11, name: "Work Two", href: workHref(11), composer: "Bach" }])
+        expect(index.get("composition:11")).toEqual([{ id: 10, name: "Work One", href: workHref(10), composer: "Bach" }])
     })
 
     it("composition -> related works: no entry (not even an empty array) when no sibling exists", () => {
@@ -320,29 +360,27 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
         // randomized (a fresh shuffle per build), so this only checks membership, not order.
         expect(index.get("contributor:2")).toEqual(
             expect.arrayContaining([
-                { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" },
-                { id: 11, name: "Work Two", href: "/entity/work/11", composer: "Bach" },
-                { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+                { id: 10, name: "Work One", href: workHref(10), composer: "Bach" },
+                { id: 11, name: "Work Two", href: workHref(11), composer: "Bach" },
+                { id: 12, name: "Work Three", href: workHref(12), composer: "Mozart" }
             ])
         )
         expect(index.get("contributor:2")).toHaveLength(3)
         // contributor 3: contrib_primary_2 AND contrib_addl on work1 alone - deduped to one entry.
-        expect(index.get("contributor:3")).toEqual([
-            { id: 10, name: "Work One", href: "/entity/work/10", composer: "Bach" }
-        ])
+        expect(index.get("contributor:3")).toEqual([{ id: 10, name: "Work One", href: workHref(10), composer: "Bach" }])
         // contributor 5: contrib_primary_1 on work3 only.
         expect(index.get("contributor:5")).toEqual([
-            { id: 12, name: "Work Three", href: "/entity/work/12", composer: "Mozart" }
+            { id: 12, name: "Work Three", href: workHref(12), composer: "Mozart" }
         ])
     })
 
     it("hrefs are null when compositions have no published default template this build", () => {
-        const noCompositionPage = buildRelatedWorksIndex(composers, works, { ...ALL_PAGES, composition: false })
+        const noCompositionPage = buildRelatedWorksIndex(composers, works, { ...ALL_PAGES, composition: false }, slugIndex)
         expect(noCompositionPage.get("composer:1")?.every((work) => work.href === null)).toBe(true)
     })
 
     it("an empty composers/compositions input yields an empty index", () => {
-        expect(buildRelatedWorksIndex(null, null, ALL_PAGES).size).toBe(0)
+        expect(buildRelatedWorksIndex(null, null, ALL_PAGES, buildEntitySlugIndex(null, null, null)).size).toBe(0)
     })
 
     it("composition -> related works: same-name siblings (other parts of the same piece) lead the list, sorted alphabetically by part, ahead of the randomized rest", () => {
@@ -354,23 +392,23 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
         const fugue: D1Composition = { ...composition, composition_id: 22, name: "Fugue" }
         const gavotte: D1Composition = { ...composition, composition_id: 23, name: "Gavotte" }
         const preludeMvt1: D1Composition = { ...composition, composition_id: 24, name: "Prelude", part: "I" }
-        const nameIndex = buildRelatedWorksIndex(
-            [formatCompFromD1(composer)],
-            [prelude, preludeMvt2, fugue, gavotte, preludeMvt1].map(formatWorkFromD1),
-            ALL_PAGES
-        )
+        const nameComposers = [formatCompFromD1(composer)]
+        const nameWorks = [prelude, preludeMvt2, fugue, gavotte, preludeMvt1].map(formatWorkFromD1)
+        const nameSlugIndex = buildEntitySlugIndex(nameComposers, [], nameWorks)
+        const nameIndex = buildRelatedWorksIndex(nameComposers, nameWorks, ALL_PAGES, nameSlugIndex)
+        const nameWorkHref = (id: number) => hrefIn(nameSlugIndex, "composition", id)
 
         const related = nameIndex.get("composition:20")
         // Automatic disambiguation: ids 21/24 share (composer, name) with id 20, so their own `part`
         // surfaces in parentheses - the composer subtitle alone can't tell the "Prelude"s apart.
         expect(related?.slice(0, 2)).toEqual([
-            { id: 24, name: "Prelude (I)", href: "/entity/work/24", composer: "Bach" },
-            { id: 21, name: "Prelude (II)", href: "/entity/work/21", composer: "Bach" }
+            { id: 24, name: "Prelude (I)", href: nameWorkHref(24), composer: "Bach" },
+            { id: 21, name: "Prelude (II)", href: nameWorkHref(21), composer: "Bach" }
         ])
         expect(related?.slice(2)).toEqual(
             expect.arrayContaining([
-                { id: 22, name: "Fugue", href: "/entity/work/22", composer: "Bach" },
-                { id: 23, name: "Gavotte", href: "/entity/work/23", composer: "Bach" }
+                { id: 22, name: "Fugue", href: nameWorkHref(22), composer: "Bach" },
+                { id: 23, name: "Gavotte", href: nameWorkHref(23), composer: "Bach" }
             ])
         )
         expect(related).toHaveLength(4)
@@ -432,17 +470,19 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
             differentIsbn
         ].map(formatWorkFromD1)
 
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const workHref = (id: number) => hrefIn(slugIndex, "composition", id)
         const related = index.get("composition:40") ?? []
 
         expect(related).toHaveLength(3)
         // Same-composer match(es) lead; same-publication cross-composer matches trail. Order within each
         // group is randomized, so only membership+partition is asserted, not exact order.
-        expect(related[0]).toEqual({ id: 41, name: "Caprice", href: "/entity/work/41", composer: "Bach" })
+        expect(related[0]).toEqual({ id: 41, name: "Caprice", href: workHref(41), composer: "Bach" })
         expect(related.slice(1)).toEqual(
             expect.arrayContaining([
-                { id: 42, name: "Nocturne", href: "/entity/work/42", composer: "Mozart" },
-                { id: 43, name: "Fantasia", href: "/entity/work/43", composer: "Haydn" }
+                { id: 42, name: "Nocturne", href: workHref(42), composer: "Mozart" },
+                { id: 43, name: "Fantasia", href: workHref(43), composer: "Haydn" }
             ])
         )
         // id 44 (a different ISBN) never appears - not the same publication.
@@ -468,7 +508,8 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
         }
         const works = [target, otherComposerSameUrl].map(formatWorkFromD1)
 
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         expect(index.get("composition:50")).toBeUndefined()
     })
 })
@@ -507,9 +548,10 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
 
     const composers = [formatCompFromD1(bach)]
     const works = [mvt2, mvt1, mvt3, unrelated, shortDecoyA, shortDecoyB, catalogDecoy].map(formatWorkFromD1)
+    const slugIndex = buildEntitySlugIndex(composers, [], works)
 
     it("collapses same-work movements into one shuffle unit, kept in movement order, alongside untouched siblings", () => {
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         const related = index.get("composition:33") ?? []
 
         const ids = related.map((w) => w.id)
@@ -529,15 +571,15 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
     it("REGRESSION GUARD: an exact but short shared base (under the 12-char absolute floor) does not cluster despite a 100% prefix match", () => {
         // shortDecoyA/B ("Air, II: Reprise" / "Air, III: Encore") share the exact base "Air" - a 100%
         // prefix match - but 3 characters is under PARTIAL_MATCH_MIN_CHARS
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         const related = index.get("composition:33") ?? []
         const ids = related.map((w) => w.id)
         // Structural guard: a real group's members are always contiguous
         let sawSeparation = false
         for (let attempt = 0; attempt < 25; attempt++) {
-            const rebuilt = (buildRelatedWorksIndex(composers, works, ALL_PAGES).get("composition:33") ?? []).map(
-                (w) => w.id
-            )
+            const rebuilt = (
+                buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex).get("composition:33") ?? []
+            ).map((w) => w.id)
             const i34 = rebuilt.indexOf(34)
             const i36 = rebuilt.indexOf(36)
             if (Math.abs(i34 - i36) > 1) {
@@ -551,14 +593,14 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
     })
 
     it("REGRESSION GUARD: 'No. 5' (catalog number) is never misread as a movement marker", () => {
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         const related = index.get("composition:33") ?? []
         expect(related.find((w) => w.id === 35)?.name).toBe("Sonata No. 5 in G Major")
     })
 
     it("REGRESSION GUARD: grouping never sweeps in the routed/currently-viewed record itself", () => {
         // Viewing movement II (id 30): its own related list must never contain id 30.
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         const related = index.get("composition:30") ?? []
         expect(related.some((w) => w.id === 30)).toBe(false)
         expect(related.map((w) => w.id)).toContain(31)
@@ -566,7 +608,7 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
     })
 
     it("composer bucket: the same grouping applies under the composer's seeded shuffle", () => {
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         const related = index.get("composer:1") ?? []
         const ids = related.map((w) => w.id)
         const i1 = ids.indexOf(31)
@@ -578,7 +620,7 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
     })
 
     it("contributor bucket: the same grouping applies under the contributor's random shuffle", () => {
-        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         // contributor 2 is contrib_primary_1 on every fixture work (shared `composition` base object).
         const related = index.get("contributor:2") ?? []
         const ids = related.map((w) => w.id)

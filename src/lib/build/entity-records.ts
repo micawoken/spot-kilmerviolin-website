@@ -29,11 +29,14 @@ import { entityHref } from "../compositor/composition-fields"
 import type { EntityNoun } from "../compositor/entity-fields"
 import { formatLifespan } from "../../scripts/format"
 import { isHiddenContributor } from "./d1-schema"
+import type { EntitySlugIndex } from "./entity-slug"
 
 /** One entity record, normalized to a flat `entry` every noun's render/listing reads uniformly. */
 export interface EntityRecord {
     /** stringified - Astro static route params are always strings */
     id: string
+    /** content-derived, stable public route param used in place of id */
+    slug: string
     entry: Record<string, unknown>
 }
 
@@ -57,15 +60,14 @@ export interface RelatedWork {
     composer: string
 }
 
-/** name + whether the target noun/record actually gets a public page this build. `role` is only set for
- *  composer targets (see {@link ResolvedReference}). */
+/** name + resolved public href; `role` is only set for composer targets (see {@link ResolvedReference}) */
 interface ReferenceTarget {
     name: string
-    hasPage: boolean
+    href: string | null
     role?: string
 }
 
-/** id -> {name, hasPage} for each of the two referenceable nouns (composer, contributor). */
+/** id -> {name, href} for each of the two referenceable nouns (composer, contributor). */
 export interface EntityReferenceIndex {
     composer: Map<number, ReferenceTarget>
     contributor: Map<number, ReferenceTarget>
@@ -77,18 +79,26 @@ export interface EntityReferenceIndex {
 export function buildReferenceIndex(
     composers: ComposerRecord[] | null,
     allContributors: ContributorRecord[] | null,
-    nounHasPage: Record<EntityNoun, boolean>
+    nounHasPage: Record<EntityNoun, boolean>,
+    slugIndex: EntitySlugIndex
 ): EntityReferenceIndex {
     const composer = new Map<number, ReferenceTarget>()
     for (const record of composers ?? []) {
-        composer.set(record.id, { name: record.name, hasPage: nounHasPage.composer, role: record.role })
+        const slug = slugIndex.composer.get(record.id)
+        composer.set(record.id, {
+            name: record.name,
+            href: nounHasPage.composer && slug ? entityHref("composer", slug) : null,
+            role: record.role
+        })
     }
 
     const contributor = new Map<number, ReferenceTarget>()
     for (const record of allContributors ?? []) {
+        const slug = slugIndex.contributor.get(record.id)
+        const hasPage = nounHasPage.contributor && !isHiddenContributor(record)
         contributor.set(record.id, {
             name: record.name,
-            hasPage: nounHasPage.contributor && !isHiddenContributor(record)
+            href: hasPage && slug ? entityHref("contributor", slug) : null
         })
     }
 
@@ -113,18 +123,22 @@ function publicationKey(record: CompositionRecord): string | null {
 export function buildRelatedWorksIndex(
     composers: ComposerRecord[] | null,
     compositions: CompositionRecord[] | null,
-    nounHasPage: Record<EntityNoun, boolean>
+    nounHasPage: Record<EntityNoun, boolean>,
+    slugIndex: EntitySlugIndex
 ): Map<string, RelatedWork[]> {
     const composerNames = new Map<number, string>()
     for (const record of composers ?? []) composerNames.set(record.id, record.name)
 
     const works = compositions ?? []
-    const toRelatedWork = (record: CompositionRecord): RelatedWork => ({
-        id: record.id,
-        name: record.name,
-        href: nounHasPage.composition ? entityHref("composition", record.id) : null,
-        composer: composerNames.get(record.composer_id) ?? ""
-    })
+    const toRelatedWork = (record: CompositionRecord): RelatedWork => {
+        const slug = slugIndex.composition.get(record.id)
+        return {
+            id: record.id,
+            name: record.name,
+            href: nounHasPage.composition && slug ? entityHref("composition", slug) : null,
+            composer: composerNames.get(record.composer_id) ?? ""
+        }
+    }
 
     const worksById = new Map<number, CompositionRecord>()
     for (const record of works) worksById.set(record.id, record)
@@ -343,39 +357,35 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
 /**
  * Resolves a single nullable foreign key to a display reference, or null when the key itself is null
  */
-function resolveRef(
-    index: Map<number, ReferenceTarget>,
-    id: number | null,
-    noun: EntityNoun
-): ResolvedReference | null {
+function resolveRef(index: Map<number, ReferenceTarget>, id: number | null): ResolvedReference | null {
     if (id === null) return null
     const target = index.get(id)
     if (!target) return { id, name: "", href: null } // unresolvable id - mirrors the prior "" fallback
-    return { id, name: target.name, href: target.hasPage ? entityHref(noun, id) : null, role: target.role }
+    return { id, name: target.name, href: target.href, role: target.role }
 }
 
 /**
  * Resolves a list of foreign keys, preserving order and length (an unresolvable id still gets an entry).
  */
-function resolveRefList(index: Map<number, ReferenceTarget>, ids: number[], noun: EntityNoun): ResolvedReference[] {
-    return ids.map((id) => resolveRef(index, id, noun) as ResolvedReference)
+function resolveRefList(index: Map<number, ReferenceTarget>, ids: number[]): ResolvedReference[] {
+    return ids.map((id) => resolveRef(index, id) as ResolvedReference)
 }
 
 /**
  * Flattens one CompositionRecord (nested `rating`/`publication_info`) into a normalized flat entry.
  */
 function flattenComposition(record: CompositionRecord, refs: EntityReferenceIndex): Record<string, unknown> {
-    const contrib_primary_1 = resolveRef(refs.contributor, record.contrib_primary_1, "contributor")
-    const contrib_primary_2 = resolveRef(refs.contributor, record.contrib_primary_2, "contributor")
-    const contrib_addl = resolveRefList(refs.contributor, record.contrib_addl, "contributor")
+    const contrib_primary_1 = resolveRef(refs.contributor, record.contrib_primary_1)
+    const contrib_primary_2 = resolveRef(refs.contributor, record.contrib_primary_2)
+    const contrib_addl = resolveRefList(refs.contributor, record.contrib_addl)
     return {
         id: record.id,
         name: record.name,
         type: record.type,
         part: record.part,
         image: record.image,
-        composer: resolveRef(refs.composer, record.composer_id, "composer"),
-        author_secondary: resolveRefList(refs.composer, record.author_secondary, "composer"),
+        composer: resolveRef(refs.composer, record.composer_id),
+        author_secondary: resolveRefList(refs.composer, record.author_secondary),
         contrib_primary_1,
         contrib_primary_2,
         contrib_addl,
@@ -411,7 +421,8 @@ export function entityRecords(
     composers: ComposerRecord[] | null,
     contributors: ContributorRecord[] | null,
     compositions: CompositionRecord[] | null,
-    refs: EntityReferenceIndex
+    refs: EntityReferenceIndex,
+    slugIndex: EntitySlugIndex
 ): EntityRecord[] {
     switch (noun) {
         case "composer":
@@ -419,6 +430,7 @@ export function entityRecords(
             // are auto-nulled
             return (composers ?? []).map((record) => ({
                 id: String(record.id),
+                slug: slugIndex.composer.get(record.id) ?? String(record.id),
                 entry: {
                     ...record,
                     life_span:
@@ -430,11 +442,13 @@ export function entityRecords(
         case "contributor":
             return (contributors ?? []).map((record) => ({
                 id: String(record.id),
+                slug: slugIndex.contributor.get(record.id) ?? String(record.id),
                 entry: record as unknown as Record<string, unknown>
             }))
         case "composition":
             return (compositions ?? []).map((record) => ({
                 id: String(record.id),
+                slug: slugIndex.composition.get(record.id) ?? String(record.id),
                 entry: flattenComposition(record, refs)
             }))
     }
