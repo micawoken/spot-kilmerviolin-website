@@ -343,15 +343,8 @@ const PARTIAL_MATCH_MIN_CHARS = 12
 
 /**
  * Whether two base titles (see {@link splitMovementMarker}) share enough of a common prefix OR
- * suffix, case-insensitive, to count as movements of the same work. Suffix matters because a base
- * like `"Romanza" from 3 Morceaux` (movement subtitle first, shared collection name last - e.g.
- * `"Andantino" from 3 Morceaux`) never shares a prefix with its siblings.
- *
- * `bothFuzzy` (both bases came from the "No. #" fallback) waives the absolute floor only for a full
- * string match, e.g. "Sonata" === "Sonata" - the short, exact-match case that fallback exists to
- * catch. It must NOT waive the floor for a short affix match against a longer, otherwise-unrelated
- * string (e.g. "Sonata" as a bare suffix of "Theme from Sonata"): that passes the >=50%-of-shorter
- * check on containment alone, regardless of how unrelated the rest of the longer title is. */
+ * suffix, case-insensitive, to count as movements of the same work
+ */
 function baseTitlesMatch(a: string, b: string, bothFuzzy: boolean): boolean {
     const x = a.toLowerCase()
     const y = b.toLowerCase()
@@ -408,10 +401,9 @@ function groupMovements(
             if (c[0].composerId !== candidate.composerId) return false
             const bothFuzzy = c[0].fuzzy && candidate.fuzzy
             // Two "No. #" works only belong to the same published set when their opus numbers agree
-            // (or neither names one) - otherwise a generic base like "Sonata" merges unrelated opus sets.
+            // (or neither names one)
             if (bothFuzzy && c[0].opus !== candidate.opus) return false
-            // A shared Unknown/Traditional id doesn't mean "same real composer" - never waive the
-            // absolute floor there, or unrelated works sharing a generic genre base (e.g. "Sonata") cluster.
+            // A shared Unknown/Traditional id doesn't mean "same real composer"
             const waiveFloor = bothFuzzy && !sentinelComposerIds.has(candidate.composerId)
             return baseTitlesMatch(c[0].base, candidate.base, waiveFloor)
         })
