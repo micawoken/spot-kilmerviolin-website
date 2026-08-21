@@ -186,7 +186,7 @@ export function renderRelatedEntriesTag(
     const tiles = source.slice(0, safeLimit)
 
     return (
-        <div className="cmp-related">
+        <div className="cmp-related" data-pagefind-ignore="all">
             {heading && (
                 <h2
                     className="cmp-related__heading cmp-heading"
