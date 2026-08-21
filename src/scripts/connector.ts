@@ -298,7 +298,8 @@ export interface BulkDryRunReport {
     dry_run: true
     ok: boolean
     count: number
-    rows: Array<{ index: number; ok: boolean; issues: string[] }>
+    /** preexisting: true when this row collides with a record already in the database */
+    rows: Array<{ index: number; ok: boolean; issues: string[]; preexisting: boolean }>
 }
 
 /**

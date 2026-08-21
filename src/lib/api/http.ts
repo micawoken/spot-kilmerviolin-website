@@ -519,22 +519,19 @@ export function constructResponseErrorHook(
 }
 
 /**
- * Per-entity behavior injected into {@link handleBulkCreate}. Keeping the create contract (envelope
- * checks, the bulk signal gate, per-item validation, the dry-run report, and the single-vs-many response
- * shape) in one place means the composers/contributors/works endpoints cannot drift apart; only the parts
- * that genuinely differ (which validator, which authorization rule, which conflict check, how to commit,
- * and the Location path) are supplied per endpoint.
+ * Per-entity behavior injected into {@link handleBulkCreate}
  */
 export interface BulkCreateHandlers<T> {
-    /** Validate/type-assert one raw item; return the typed record, or an error string. */
+    /** Validate/type-assert one raw item; return the typed record, or an error string */
     validate: (item: unknown) => T | string
     /** Optional per-record authorization (e.g. works' canCreate); return an error message (->403) or null. */
     authorize?: (record: T, index: number) => string | null
     /**
-     * Optional conflict detection across the whole valid set (e.g. composition (composer, name) duplicates).
-     * Receives the valid records in payload order and returns issues indexed into that same array.
+     * Optional conflict detection across the whole valid set (e.g. composition (composer, name) duplicates)
      */
-    detectConflicts?: (records: T[]) => Promise<Array<{ index: number; message: string }>>
+    detectConflicts?: (
+        records: T[]
+    ) => Promise<Array<{ index: number; message: string; reason?: "within-request" | "exists" }>>
     /** Commit exactly one record, returning its new id (used for the single-item, backward-compatible path). */
     commitOne: (record: T) => Promise<number>
     /** Commit many records in one atomic transaction, returning their new ids in order. */
@@ -545,17 +542,6 @@ export interface BulkCreateHandlers<T> {
 
 /**
  * Shared implementation of the bulk-capable create endpoints (POST composers/contributors/works).
- *
- * Contract:
- * - The body must be a non-empty array of at most {@link MAX_BULK_ITEMS} items.
- * - A request carrying more than one item must set the `bulk` meta signal (`meta.bulk = true`); a single
- *   item needs no signal and keeps the original response shape (201 + Location header), so existing
- *   single-record callers are unaffected.
- * - The `dry_run` meta flag (`meta.dry_run = true`) validates, authorizes, and conflict-checks every row
- *   and returns a per-row report **without writing anything** - this backs the import preview.
- * - On commit, every item is validated (400 with per-index errors on any failure), authorized (403), and
- *   conflict-checked (409) before a single atomic batch write; a single item returns its Location, many
- *   items return the id array.
  *
  * @param request the inbound request (for response construction)
  * @param api_request the parsed request (payload array + optional meta); parse with `parseAPIRequest(request, [])`
@@ -622,11 +608,11 @@ export async function handleBulkCreate<T>(
     }
 
     // conflict detection across the valid set, remapped back to original payload indices
-    const conflicts: Array<{ index: number; error: string }> = []
+    const conflicts: Array<{ index: number; error: string; reason?: "within-request" | "exists" }> = []
     if (handlers.detectConflicts && valid.length > 0) {
         const raw = await handlers.detectConflicts(valid.map((v) => v.record))
         for (const issue of raw) {
-            conflicts.push({ index: valid[issue.index].index, error: issue.message })
+            conflicts.push({ index: valid[issue.index].index, error: issue.message, reason: issue.reason })
         }
     }
 
@@ -642,7 +628,9 @@ export async function handleBulkCreate<T>(
                     }
                 }
             }
-            rows.push({ index: i, ok: issues.length === 0, issues })
+            // true when this row collides with a record already in the database
+            const preexisting = conflicts.some((entry) => entry.index === i && entry.reason === "exists")
+            rows.push({ index: i, ok: issues.length === 0, issues, preexisting })
         }
         const ok = rows.every((row) => row.ok)
         return constructResponse(request, { dry_run: true, ok, count: payload.length, rows }, 200)
@@ -696,10 +684,7 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Computes the dynamic footer tokens for the error fallback page so its footer mirrors the AdminFooter's
- * live "accessing this service … / The time is …" block. The signed-in email is shown only when the
- * caller could supply one (most error paths fire before an identity exists), matching the AdminFooter
- * wording; the clock uses the visitor's Cloudflare-reported timezone when a request is available, else UTC.
+ * Computes the dynamic footer tokens for the error fallback page
  *
  * @param {Request} [request] - the originating request, read for its cf timezone (absent for page fallbacks)
  * @param {string | null} [identity_email] - the signed-in email when known; null/undefined yields generic wording
@@ -768,10 +753,6 @@ export function middlewareErrorResponder(
     force_comment?: string,
     identity_email?: string | null
 ): Response {
-    // API routes expect the standard JSON envelope every other API response uses. Returning the HTML
-    // error page for a middleware rejection (e.g. the CSRF origin check, a 401/403, or the staging 404)
-    // makes the failure opaque to the connector's JSON parser, which surfaces only a parse error rather
-    // than the actual cause. Page navigations still receive the human-readable HTML fallback below.
     const path_components = new URL(request.url).pathname.split("/").filter((component) => component.length > 0)
     if (path_components[0] === "api") {
         return constructResponse(request, null, code, force_comment)
@@ -823,7 +804,6 @@ export function constructPreflightResponse(request: Request): Response {
 
 /**
  * Constructs the 204 response for a bare OPTIONS request that is not a CORS preflight
- *
  *
  * @param {Request} request - the original OPTIONS request, used to resolve the route
  * @returns {Response} a 204 No Content response advertising the allowed methods

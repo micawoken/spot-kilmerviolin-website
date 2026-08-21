@@ -1204,6 +1204,14 @@ main.admin-main {
 	margin: 12px 0;
 }
 
+.import-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin: 12px 0;
+}
+
 #import-error {
 	color: var(--color-danger);
 	white-space: pre-wrap;
