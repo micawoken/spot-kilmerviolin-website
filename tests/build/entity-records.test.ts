@@ -35,8 +35,7 @@ import { buildEntitySlugIndex, type EntitySlugIndex } from "../../src/lib/build/
 import { entityHref } from "../../src/lib/compositor/composition-fields"
 import type { EntityNoun } from "../../src/lib/compositor/entity-fields"
 
-// Built via the real D1 converters (same fixture shape tests/build/d1-api.test.ts uses), not hand-authored
-// record literals - the point is to exercise entityRecords against the actual shapes the readers produce.
+// Built via the real D1 converters (same fixture shape tests/build/d1-api.test.ts uses)
 const composer: D1Composer = {
     composer_id: 1,
     name: "Bach",
@@ -159,8 +158,6 @@ describe("buildReferenceIndex", () => {
     })
 
     it("REGRESSION GUARD: resolves a hidden contributor's NAME at all - must be built from the unredacted all-contributors list, not fetchContributors' filtered public list", () => {
-        // The whole point of buildReferenceIndex taking `allContributors`: a filtered-list caller would
-        // never see contributor 4 in its input at all, and every reference to it would resolve blank.
         const contributorRecord = formatContribFromD1(hiddenContributor)
         const slugIndex = buildEntitySlugIndex([], [contributorRecord], [])
         const refs = buildReferenceIndex([], [contributorRecord], ALL_PAGES, slugIndex)
@@ -216,8 +213,7 @@ describe("entityRecords - composition (the reference-fold linchpin)", () => {
         const composerRecord = formatCompFromD1(composer)
         const activeRecord = formatContribFromD1(activeContributor)
         const hiddenRecord = formatContribFromD1(hiddenContributor)
-        // References the HIDDEN contributor (id 4) - a local override, not the shared `composition`
-        // fixture, which buildRelatedWorksIndex's tests below also depend on referencing contributor 3.
+        // References the HIDDEN contributor (id 4)
         const object = formatWorkFromD1({ ...composition, contrib_primary_2: 4, contrib_addl: "4" })
         const slugIndex = buildEntitySlugIndex([composerRecord], [activeRecord, hiddenRecord], [object])
         const refs = buildReferenceIndex([composerRecord], [activeRecord, hiddenRecord], ALL_PAGES, slugIndex)
@@ -297,17 +293,15 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
     const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
     const mozart: D1Composer = { ...composer, composer_id: 4, name: "Mozart" }
 
-    // work1/work2: both primary-credited to Bach. work3: primary-credited to Mozart, with Bach as a
-    // secondary author - the case that exercises the composer index's two-pass (primary-before-secondary)
-    // ordering.
-    const work1: D1Composition = { ...composition, composition_id: 10, name: "Work One", composer_id: 1 }
+    const work1: D1Composition = { ...composition, composition_id: 10, name: "Work One", composer_id: 1, uri: "" }
     const work2: D1Composition = {
         ...composition,
         composition_id: 11,
         name: "Work Two",
         composer_id: 1,
         contrib_primary_2: null,
-        contrib_addl: ""
+        contrib_addl: "",
+        uri: ""
     }
     const work3: D1Composition = {
         ...composition,
@@ -317,7 +311,8 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
         contrib_primary_1: 5,
         contrib_primary_2: null,
         contrib_addl: "2",
-        author_secondary: "1"
+        author_secondary: "1",
+        uri: ""
     }
 
     const composers = [formatCompFromD1(bach), formatCompFromD1(mozart)]
@@ -356,8 +351,7 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
     })
 
     it("contributor -> works: matches across contrib_primary_1, contrib_primary_2, and contrib_addl", () => {
-        // contributor 2: contrib_primary_1 on work1 and work2, contrib_addl on work3. Order is truly
-        // randomized (a fresh shuffle per build), so this only checks membership, not order.
+        // contributor 2: contrib_primary_1 on work1 and work2, contrib_addl on work3
         expect(index.get("contributor:2")).toEqual(
             expect.arrayContaining([
                 { id: 10, name: "Work One", href: workHref(10), composer: "Bach" },
@@ -384,9 +378,6 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
     })
 
     it("composition -> related works: same-name siblings (other parts of the same piece) lead the list, sorted alphabetically by part, ahead of the randomized rest", () => {
-        // prelude/preludeMvt2/preludeMvt1 share a name, differing only by part - the same signal the
-        // composer_id+name+part unique index keys on - and must sort before fugue/gavotte, in part order
-        // ("I" before "II") rather than encounter/id order (21 was pushed before 24).
         const prelude: D1Composition = { ...composition, composition_id: 20, name: "Prelude", part: null }
         const preludeMvt2: D1Composition = { ...composition, composition_id: 21, name: "Prelude", part: "II" }
         const fugue: D1Composition = { ...composition, composition_id: 22, name: "Fugue" }
@@ -399,8 +390,8 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
         const nameWorkHref = (id: number) => hrefIn(nameSlugIndex, "composition", id)
 
         const related = nameIndex.get("composition:20")
-        // Automatic disambiguation: ids 21/24 share (composer, name) with id 20, so their own `part`
-        // surfaces in parentheses - the composer subtitle alone can't tell the "Prelude"s apart.
+        // Automatic disambiguation: ids 21/24 share (composer, name) with id 20, so the own `part`
+        // surfaces in parentheses
         expect(related?.slice(0, 2)).toEqual([
             { id: 24, name: "Prelude (I)", href: nameWorkHref(24), composer: "Bach" },
             { id: 21, name: "Prelude (II)", href: nameWorkHref(21), composer: "Bach" }
@@ -476,8 +467,7 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
         const related = index.get("composition:40") ?? []
 
         expect(related).toHaveLength(3)
-        // Same-composer match(es) lead; same-publication cross-composer matches trail. Order within each
-        // group is randomized, so only membership+partition is asserted, not exact order.
+        // Same-composer match(es) lead; same-publication cross-composer matches trail
         expect(related[0]).toEqual({ id: 41, name: "Caprice", href: workHref(41), composer: "Bach" })
         expect(related.slice(1)).toEqual(
             expect.arrayContaining([
@@ -489,7 +479,7 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
         expect(related.some((work) => work.id === 44)).toBe(false)
     })
 
-    it("a bare https source never triggers same-publication matching", () => {
+    it("an https source shared with another composer's work triggers same-publication matching", () => {
         const target: D1Composition = {
             ...composition,
             composition_id: 50,
@@ -510,7 +500,51 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
 
         const slugIndex = buildEntitySlugIndex(composers, [], works)
         const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
-        expect(index.get("composition:50")).toBeUndefined()
+        const workHref = (id: number) => hrefIn(slugIndex, "composition", id)
+        expect(index.get("composition:50")).toEqual([
+            { id: 51, name: "Ballade", href: workHref(51), composer: "Mozart" }
+        ])
+    })
+
+    it("rejects https matching when the shared source is an encyclopedic/database host (Wikipedia, IMSLP)", () => {
+        const wikipediaTarget: D1Composition = {
+            ...composition,
+            composition_id: 52,
+            name: "Prelude",
+            composer_id: 1,
+            uri_type: "https",
+            uri: "https://en.wikipedia.org/wiki/Shared_page"
+        }
+        const wikipediaOtherComposer: D1Composition = {
+            ...composition,
+            composition_id: 53,
+            name: "Fugue",
+            composer_id: 4,
+            uri_type: "https",
+            uri: "https://en.wikipedia.org/wiki/Shared_page"
+        }
+        const imslpTarget: D1Composition = {
+            ...composition,
+            composition_id: 54,
+            name: "Toccata",
+            composer_id: 6,
+            uri_type: "https",
+            uri: "https://imslp.org/wiki/Shared_page"
+        }
+        const imslpOtherComposer: D1Composition = {
+            ...composition,
+            composition_id: 55,
+            name: "Gigue",
+            composer_id: 4,
+            uri_type: "https",
+            uri: "https://imslp.org/wiki/Shared_page"
+        }
+        const works = [wikipediaTarget, wikipediaOtherComposer, imslpTarget, imslpOtherComposer].map(formatWorkFromD1)
+
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        expect(index.get("composition:52")).toBeUndefined()
+        expect(index.get("composition:54")).toBeUndefined()
     })
 })
 
@@ -599,7 +633,7 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
     })
 
     it("REGRESSION GUARD: grouping never sweeps in the routed/currently-viewed record itself", () => {
-        // Viewing movement II (id 30): its own related list must never contain id 30.
+        // Viewing movement II (id 30): its own related list must never contain id 30
         const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
         const related = index.get("composition:30") ?? []
         expect(related.some((w) => w.id === 30)).toBe(false)
@@ -630,5 +664,114 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
         expect(i2).toBe(i1 + 1)
         expect(i3).toBe(i2 + 1)
         expect(related).toHaveLength(7)
+    })
+})
+
+describe("buildRelatedWorksIndex - lower-priority 'Op. #, No. #' movement fallback", () => {
+    const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
+
+    it("groups a sequence sharing a base title, ordered by the 'No.' number, when the primary marker is absent", () => {
+        const no1: D1Composition = {
+            ...composition,
+            composition_id: 40,
+            name: "Six String Quartets, Op. 76, No. 1",
+            composer_id: 1
+        }
+        const no2: D1Composition = {
+            ...composition,
+            composition_id: 41,
+            name: "Six String Quartets, Op. 76, No. 2",
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 42, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:42") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids.indexOf(41)).toBe(ids.indexOf(40) + 1)
+    })
+
+    it("matches with the 'Op. #' part omitted, and with trailing text after the 'No. #' marker", () => {
+        const no1: D1Composition = {
+            ...composition,
+            composition_id: 43,
+            name: "Six Sonatas for Violin, No. 1 in C Major",
+            composer_id: 1
+        }
+        const no2: D1Composition = {
+            ...composition,
+            composition_id: 44,
+            name: "Six Sonatas for Violin, No. 2 in D Minor",
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 45, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:45") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids.indexOf(44)).toBe(ids.indexOf(43) + 1)
+    })
+
+    it("prefers the primary movement pattern over the 'No.' fallback when both are present in the name", () => {
+        // Each name embeds an unrelated "No. 3" ahead of its real, primary comma-colon marker
+        const mvt2: D1Composition = {
+            ...composition,
+            composition_id: 46,
+            name: "Serenade No. 3, II: Gavotte",
+            composer_id: 1
+        }
+        const mvt3: D1Composition = {
+            ...composition,
+            composition_id: 47,
+            name: "Serenade No. 3, III: Gigue",
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 49, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [mvt2, mvt3, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:49") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids).toEqual([46, 47])
+    })
+
+    it("REGRESSION GUARD: does not cluster when the 'No.' number is identical across the would-be group", () => {
+        const dup1: D1Composition = {
+            ...composition,
+            composition_id: 60,
+            name: "Six String Quartets, Op. 76, No. 1",
+            composer_id: 1
+        }
+        const dup2: D1Composition = {
+            ...composition,
+            composition_id: 61,
+            name: "Six String Quartets, Op. 76, No. 1",
+            composer_id: 1
+        }
+        const filler: D1Composition = { ...composition, composition_id: 62, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [dup1, dup2, filler].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        // Structural guard: a real group's members are always contiguous
+        let sawSeparation = false
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const related = (
+                buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex).get("contributor:2") ?? []
+            ).map((w) => w.id)
+            if (Math.abs(related.indexOf(60) - related.indexOf(61)) > 1) {
+                sawSeparation = true
+                break
+            }
+        }
+        expect(sawSeparation).toBe(true)
     })
 })
