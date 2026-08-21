@@ -300,14 +300,17 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
     // work1/work2: both primary-credited to Bach. work3: primary-credited to Mozart, with Bach as a
     // secondary author - the case that exercises the composer index's two-pass (primary-before-secondary)
     // ordering.
-    const work1: D1Composition = { ...composition, composition_id: 10, name: "Work One", composer_id: 1 }
+    // uri cleared on all three - this describe isn't testing same-publication matching, and the shared
+    // default `composition` fixture's uri would otherwise cross-match them under it.
+    const work1: D1Composition = { ...composition, composition_id: 10, name: "Work One", composer_id: 1, uri: "" }
     const work2: D1Composition = {
         ...composition,
         composition_id: 11,
         name: "Work Two",
         composer_id: 1,
         contrib_primary_2: null,
-        contrib_addl: ""
+        contrib_addl: "",
+        uri: ""
     }
     const work3: D1Composition = {
         ...composition,
@@ -317,7 +320,8 @@ describe("buildRelatedWorksIndex - RelatedEntries' data source", () => {
         contrib_primary_1: 5,
         contrib_primary_2: null,
         contrib_addl: "2",
-        author_secondary: "1"
+        author_secondary: "1",
+        uri: ""
     }
 
     const composers = [formatCompFromD1(bach), formatCompFromD1(mozart)]
@@ -489,7 +493,7 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
         expect(related.some((work) => work.id === 44)).toBe(false)
     })
 
-    it("a bare https source never triggers same-publication matching", () => {
+    it("an https source shared with another composer's work triggers same-publication matching", () => {
         const target: D1Composition = {
             ...composition,
             composition_id: 50,
@@ -510,7 +514,53 @@ describe("buildRelatedWorksIndex - same-publication cross-composer matches (isbn
 
         const slugIndex = buildEntitySlugIndex(composers, [], works)
         const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
-        expect(index.get("composition:50")).toBeUndefined()
+        const workHref = (id: number) => hrefIn(slugIndex, "composition", id)
+        expect(index.get("composition:50")).toEqual([
+            { id: 51, name: "Ballade", href: workHref(51), composer: "Mozart" }
+        ])
+    })
+
+    it("rejects https matching when the shared source is an encyclopedic/database host (Wikipedia, IMSLP)", () => {
+        const wikipediaTarget: D1Composition = {
+            ...composition,
+            composition_id: 52,
+            name: "Prelude",
+            composer_id: 1,
+            uri_type: "https",
+            uri: "https://en.wikipedia.org/wiki/Shared_page"
+        }
+        const wikipediaOtherComposer: D1Composition = {
+            ...composition,
+            composition_id: 53,
+            name: "Fugue",
+            composer_id: 4,
+            uri_type: "https",
+            uri: "https://en.wikipedia.org/wiki/Shared_page"
+        }
+        // composer_id 6 (Haydn), not 1 - a same-composer match with wikipediaTarget would otherwise
+        // pollute this test's result via the pre-existing same-composer pass, unrelated to publication.
+        const imslpTarget: D1Composition = {
+            ...composition,
+            composition_id: 54,
+            name: "Toccata",
+            composer_id: 6,
+            uri_type: "https",
+            uri: "https://imslp.org/wiki/Shared_page"
+        }
+        const imslpOtherComposer: D1Composition = {
+            ...composition,
+            composition_id: 55,
+            name: "Gigue",
+            composer_id: 4,
+            uri_type: "https",
+            uri: "https://imslp.org/wiki/Shared_page"
+        }
+        const works = [wikipediaTarget, wikipediaOtherComposer, imslpTarget, imslpOtherComposer].map(formatWorkFromD1)
+
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        expect(index.get("composition:52")).toBeUndefined()
+        expect(index.get("composition:54")).toBeUndefined()
     })
 })
 
@@ -630,5 +680,119 @@ describe("buildRelatedWorksIndex - multi-movement grouping (shuffle units, not j
         expect(i2).toBe(i1 + 1)
         expect(i3).toBe(i2 + 1)
         expect(related).toHaveLength(7)
+    })
+})
+
+describe("buildRelatedWorksIndex - lower-priority 'Op. #, No. #' movement fallback", () => {
+    const bach: D1Composer = { ...composer, composer_id: 1, name: "Bach" }
+
+    it("groups a sequence sharing a base title, ordered by the 'No.' number, when the primary marker is absent", () => {
+        const no1: D1Composition = {
+            ...composition,
+            composition_id: 40,
+            name: "Six String Quartets, Op. 76, No. 1",
+            composer_id: 1
+        }
+        const no2: D1Composition = {
+            ...composition,
+            composition_id: 41,
+            name: "Six String Quartets, Op. 76, No. 2",
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 42, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:42") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids.indexOf(41)).toBe(ids.indexOf(40) + 1)
+    })
+
+    it("matches with the 'Op. #' part omitted, and with trailing text after the 'No. #' marker", () => {
+        const no1: D1Composition = {
+            ...composition,
+            composition_id: 43,
+            name: "Six Sonatas for Violin, No. 1 in C Major",
+            composer_id: 1
+        }
+        const no2: D1Composition = {
+            ...composition,
+            composition_id: 44,
+            name: "Six Sonatas for Violin, No. 2 in D Minor",
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 45, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [no1, no2, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:45") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids.indexOf(44)).toBe(ids.indexOf(43) + 1)
+    })
+
+    it("prefers the primary movement pattern over the 'No.' fallback when both are present in the name", () => {
+        // Each name embeds an unrelated "No. 3" ahead of its real, primary comma-colon marker. If the
+        // fallback pattern were used instead, both would read the SAME movement number (3) off "No. 3" -
+        // making the pair a stale/identical-number fuzzy cluster (see the guard test below) that does NOT
+        // group. Only reading the primary "II:"/"III:" marker (movement numbers 2 and 3) clusters them.
+        const mvt2: D1Composition = {
+            ...composition,
+            composition_id: 46,
+            name: "Serenade No. 3, II: Gavotte",
+            composer_id: 1
+        }
+        const mvt3: D1Composition = {
+            ...composition,
+            composition_id: 47,
+            name: "Serenade No. 3, III: Gigue",
+            composer_id: 1
+        }
+        const unrelated: D1Composition = { ...composition, composition_id: 49, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [mvt2, mvt3, unrelated].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        const index = buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex)
+        const related = index.get("composition:49") ?? []
+        const ids = related.map((w) => w.id)
+        expect(ids).toEqual([46, 47])
+    })
+
+    it("REGRESSION GUARD: does not cluster when the 'No.' number is identical across the would-be group", () => {
+        const dup1: D1Composition = {
+            ...composition,
+            composition_id: 60,
+            name: "Six String Quartets, Op. 76, No. 1",
+            composer_id: 1
+        }
+        const dup2: D1Composition = {
+            ...composition,
+            composition_id: 61,
+            name: "Six String Quartets, Op. 76, No. 1",
+            composer_id: 1
+        }
+        const filler: D1Composition = { ...composition, composition_id: 62, name: "Air on the G String", composer_id: 1 }
+        const composers = [formatCompFromD1(bach)]
+        const works = [dup1, dup2, filler].map(formatWorkFromD1)
+        const slugIndex = buildEntitySlugIndex(composers, [], works)
+
+        // Structural guard: a real group's members are always contiguous. dup1/dup2 share an identical
+        // "No. 1" - not a real sequence - so across contributor:2's random shuffle they must sometimes
+        // land apart, unlike a genuine cluster which is always adjacent.
+        let sawSeparation = false
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const related = (
+                buildRelatedWorksIndex(composers, works, ALL_PAGES, slugIndex).get("contributor:2") ?? []
+            ).map((w) => w.id)
+            if (Math.abs(related.indexOf(60) - related.indexOf(61)) > 1) {
+                sawSeparation = true
+                break
+            }
+        }
+        expect(sawSeparation).toBe(true)
     })
 })

@@ -490,6 +490,14 @@ describe("buildConfig - RelatedEntries reads related works from route context", 
         expect(html).toContain("Sonata No. 2")
     })
 
+    it("hides the whole tile grid from pagefind search indexing", () => {
+        const config = buildConfig(theme, "build", {
+            relatedEntries: [{ id: 1, name: "Sonata No. 1", href: "/entity/work/1", composer: "J.S. Bach" }]
+        })
+        const html = render(config, "RelatedEntries", { heading: "Related Works", limit: 6 })
+        expect(html).toContain('<div class="cmp-related" data-pagefind-ignore="all">')
+    })
+
     it("caps the tiles rendered at the authored limit", () => {
         const config = buildConfig(theme, "build", {
             relatedEntries: [

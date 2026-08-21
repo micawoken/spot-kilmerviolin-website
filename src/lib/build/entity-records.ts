@@ -105,14 +105,29 @@ export function buildReferenceIndex(
     return { composer, contributor }
 }
 
+// Hosts that are encyclopedic/database entries, not a shared publication — never match on these.
+const ENCYCLOPEDIC_HOSTS = ["wikipedia.org", "imslp.org"]
+
+function isEncyclopedicHost(url: string): boolean {
+    let host: string
+    try {
+        host = new URL(url).hostname.toLowerCase()
+    } catch {
+        return false
+    }
+    return ENCYCLOPEDIC_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+}
+
 /**
- * A composition's normalized "same publication" identity, or null when it declares no isbn/doi source
+ * A composition's normalized "same publication" identity, or null when it declares no isbn/doi/https
+ * source, or an https source on an encyclopedic/database host (Wikipedia, IMSLP)
  */
 function publicationKey(record: CompositionRecord): string | null {
     const { uri_type, uri } = record.publication_info
-    if (uri_type !== "isbn" && uri_type !== "doi") return null
+    if (uri_type !== "isbn" && uri_type !== "doi" && uri_type !== "https") return null
     const trimmed = uri?.trim()
     if (!trimmed) return null
+    if (uri_type === "https" && isEncyclopedicHost(trimmed)) return null
     const normalized = uri_type === "isbn" ? trimmed.replace(/[\s-]/g, "") : trimmed
     return `${uri_type}:${normalized.toLowerCase()}`
 }
@@ -168,7 +183,7 @@ export function buildRelatedWorksIndex(
             push(`composition:${record.id}`, toRelatedWork(sibling))
         }
     }
-    // composition -> same-publication works (isbn/doi source only)
+    // composition -> same-publication works (isbn/doi/https source, excluding encyclopedic/database hosts)
     for (const record of works) {
         const key = publicationKey(record)
         if (key === null) continue
@@ -272,14 +287,30 @@ function randomShuffle<T>(items: T[]): T[] {
 const MOVEMENT_MARKER =
     /(?:[,;:\-–—]\s*|\b(?:mvt|mov(?:t|ement)?)\.?\s+)(?:(?:mvt|mov(?:t|ement)?)\.?\s*)?([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
 
-function splitMovementMarker(name: string): { base: string; number: number } | null {
-    const matches = [...name.matchAll(MOVEMENT_MARKER)]
+// Lower-priority fallback: "Op. #, No. #" (the "Op. #," part is optional; "No."/"Nos." is fuzzy-matched
+// like the mvt/movement keyword above). Doesn't need to be at the end of the name - matchLastMarker takes
+// the last occurrence either way.
+const OPUS_NO_MARKER =
+    /(?:[,;:\-–—]\s*)?(?:\bop\.?\s*\d+\s*,?\s*)?\bno(?:s)?\b\.?\s*([ivxlcdm]+|\d+)(?:[.:)]|\s|$)/gi
+
+function matchLastMarker(name: string, pattern: RegExp): { base: string; number: number } | null {
+    const matches = [...name.matchAll(pattern)]
     if (matches.length === 0) return null
     const match = matches[matches.length - 1]
     const base = name.slice(0, match.index).trim()
     if (!base) return null
     const number = romanOrArabicToNumber(match[1])
     return number === null ? null : { base, number }
+}
+
+/** Splits a work name at its movement marker: {@link MOVEMENT_MARKER} wins when present; otherwise falls
+ *  back to the lower-priority {@link OPUS_NO_MARKER} "No. #" pattern (`fuzzy: true`) - see
+ *  {@link groupMovements}'s numbers-must-differ guard for that fallback. */
+function splitMovementMarker(name: string): { base: string; number: number; fuzzy: boolean } | null {
+    const primary = matchLastMarker(name, MOVEMENT_MARKER)
+    if (primary) return { ...primary, fuzzy: false }
+    const secondary = matchLastMarker(name, OPUS_NO_MARKER)
+    return secondary ? { ...secondary, fuzzy: true } : null
 }
 
 const ROMAN_VALUES: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 }
@@ -326,6 +357,7 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
         composerId: number
         base: string
         movementNumber: number
+        fuzzy: boolean
     }
     const candidates: Candidate[] = []
     const units: RelatedWork[][] = []
@@ -334,7 +366,13 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
         const record = worksById.get(work.id)
         const split = record && splitMovementMarker(record.name)
         if (record && split)
-            candidates.push({ work, composerId: record.composer_id, base: split.base, movementNumber: split.number })
+            candidates.push({
+                work,
+                composerId: record.composer_id,
+                base: split.base,
+                movementNumber: split.number,
+                fuzzy: split.fuzzy
+            })
         else units.push([work])
     }
 
@@ -348,7 +386,12 @@ function groupMovements(list: RelatedWork[], worksById: Map<number, CompositionR
     }
     for (const cluster of clusters) {
         cluster.sort((a, b) => a.movementNumber - b.movementNumber)
-        units.push(cluster.map((c) => c.work))
+        // The fuzzy "No. #" fallback only forms a group when the numbers actually vary across the
+        // cluster - identical "No. #" values (or a lone candidate) aren't a real movement/work sequence.
+        const isStaleFuzzyCluster =
+            cluster.every((c) => c.fuzzy) && new Set(cluster.map((c) => c.movementNumber)).size < 2
+        if (isStaleFuzzyCluster) for (const c of cluster) units.push([c.work])
+        else units.push(cluster.map((c) => c.work))
     }
 
     return units
