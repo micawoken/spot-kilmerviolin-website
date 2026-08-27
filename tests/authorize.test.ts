@@ -3,9 +3,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -24,7 +24,6 @@
 
 /// <reference path="../src/lib/api/types.d.ts" />
 
-
 import { describe, it, expect, beforeAll } from "vitest"
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 import { env } from "cloudflare:workers"
@@ -38,7 +37,7 @@ import authorize, {
     canAct,
     canCreate,
     withActingContributor,
-    permissionsFromRoles,
+    permissionsFromRoles
 } from "../src/lib/api/authorize.ts"
 import { exec_string } from "../src/lib/api/d1.ts"
 import { addContributor } from "../src/lib/api/db_contributor.ts"
@@ -76,8 +75,20 @@ function makeIdentity(overrides: Partial<Identity> = {}): Identity {
         roles: [] as string[],
         id: 1,
         admin: false,
-        userinfo: { ok: true, name: "User", tags: [], phases: [], entry_date: null, class_year: null, major: null, bio: null, public_email: null, image: null, change_date: null },
-        ...overrides,
+        userinfo: {
+            ok: true,
+            name: "User",
+            tags: [],
+            phases: [],
+            entry_date: null,
+            class_year: null,
+            major: null,
+            bio: null,
+            public_email: null,
+            image: null,
+            change_date: null
+        },
+        ...overrides
     }
     // derive permissions from the (possibly overridden) roles unless a test pins them explicitly, mirroring
     // how buildIdentity computes them during authorization
@@ -97,7 +108,7 @@ function makeContributor(overrides: Partial<Contributor> & Pick<Contributor, "na
         roles: [],
         tags: [],
         image: null,
-        ...overrides,
+        ...overrides
     }
 }
 
@@ -117,6 +128,7 @@ describe("requires", () => {
         // reviewer carries overrides_lockout; this is the core regression: requires() used to always return false
         expect(requires("overrides_lockout", makeIdentity({ roles: ["reviewer"] }))).toBe(true)
         expect(requires("user_addition", makeIdentity({ roles: ["userenroll"] }))).toBe(true)
+        expect(requires("public_form_responses", makeIdentity({ roles: ["submissions"] }))).toBe(true)
     })
 
     it("denies a permission none of the identity's roles carry", () => {
@@ -157,9 +169,13 @@ describe("requiresAllOf", () => {
         // userenroll carries both user_addition and user_activation
         expect(requiresAllOf(["user_addition", "user_activation"], makeIdentity({ roles: ["userenroll"] }))).toBe(true)
         // No single held role carries both of these
-        expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll", "reviewer"] }))).toBe(true)
+        expect(
+            requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll", "reviewer"] }))
+        ).toBe(true)
         // still false when the permission is genuinely absent from every role held
-        expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll"] }))).toBe(false)
+        expect(requiresAllOf(["user_addition", "overrides_lockout"], makeIdentity({ roles: ["userenroll"] }))).toBe(
+            false
+        )
     })
 
     it("does not throw on unknown role strings", () => {
@@ -313,12 +329,17 @@ describe("authorize", () => {
     }
 
     it("builds an allowed, active identity from an existing record and parses its roles", async () => {
-        await withCtx(ctx => addContributor(ctx, makeContributor({
-            name: "Roled Contributor",
-            identity_email: "roled@example.com",
-            active: true,
-            roles: ["reviewer", "userenroll"],
-        })))
+        await withCtx((ctx) =>
+            addContributor(
+                ctx,
+                makeContributor({
+                    name: "Roled Contributor",
+                    identity_email: "roled@example.com",
+                    active: true,
+                    roles: ["reviewer", "userenroll"]
+                })
+            )
+        )
 
         const identity = await authorize(base("roled@example.com"))
         expect(identity.allowed).toBe(true)
@@ -330,12 +351,17 @@ describe("authorize", () => {
     })
 
     it("yields roles [] (not ['']) for a record with no roles", async () => {
-        await withCtx(ctx => addContributor(ctx, makeContributor({
-            name: "Roleless Contributor",
-            identity_email: "roleless@example.com",
-            active: true,
-            roles: [],
-        })))
+        await withCtx((ctx) =>
+            addContributor(
+                ctx,
+                makeContributor({
+                    name: "Roleless Contributor",
+                    identity_email: "roleless@example.com",
+                    active: true,
+                    roles: []
+                })
+            )
+        )
 
         const identity = await authorize(base("roleless@example.com"))
         expect(identity.roles).toEqual([])

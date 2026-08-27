@@ -30,7 +30,7 @@
 import { env } from "cloudflare:workers"
 import { SQLStatement } from "./sql_statement.ts"
 import { dbWriteEnabled } from "./environment.ts"
-import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE } from "./tables.ts"
+import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE, CONTACT_RESPONSE_TABLE } from "./tables.ts"
 
 /**
  * Schema for contributors table
@@ -46,6 +46,14 @@ export const COMPOSER: D1Schema = { db: env.DB_MAIN, ...COMPOSER_TABLE }
  * Schema for compositions table
  */
 export const COMPOSITION: D1Schema = { db: env.DB_MAIN, ...COMPOSITION_TABLE }
+
+/**
+ * Schema for contact-form responses. Deliberately outside the CONTRIBUTOR/COMPOSER/COMPOSITION switch
+ * statements below and in database.ts/sql_statement.ts: this table has no caching needs (admin-only reads,
+ * not on any public read path) and its own bespoke access pattern (a capped queue), so lib/api/db_contact.ts
+ * queries it directly through exec_stmt/exec_stmt_batch rather than through the generic *Primitive layer.
+ */
+export const CONTACT_RESPONSE: D1Schema = { db: env.DB_MAIN, ...CONTACT_RESPONSE_TABLE }
 
 /**
  * Strips a schema's protected properties (schema.protected) from a record before it leaves the server

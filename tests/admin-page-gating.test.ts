@@ -87,6 +87,7 @@ const EXPECTED_ACCESS: Record<string, string> = {
     // both re-materialise the site: a rebuild queues a billable build, a purge forces every read to D1
     "/admin/site/rebuild": "permission:rebuild",
     "/admin/site/purge_cache": "permission:rebuild",
+    "/admin/site/contact": "permission:public_form_responses",
     // CSV bulk import performs non-self assignment and commits many records at once
     "/admin/composers/import": "admin",
     "/admin/contributors/import": "admin",

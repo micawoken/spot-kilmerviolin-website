@@ -43,7 +43,8 @@ export const roles: Record<string, RoleProfile> = {
         conferrable: true,
         cms_editor: false,
         design_editor: false,
-        rebuild: false
+        rebuild: false,
+        public_form_responses: false
     },
     userenroll: {
         overrides_lockout: false,
@@ -53,7 +54,8 @@ export const roles: Record<string, RoleProfile> = {
         conferrable: false,
         cms_editor: false,
         design_editor: false,
-        rebuild: false
+        rebuild: false,
+        public_form_responses: false
     },
     siteeditor: {
         overrides_lockout: false,
@@ -63,7 +65,8 @@ export const roles: Record<string, RoleProfile> = {
         conferrable: false,
         cms_editor: true,
         design_editor: true,
-        rebuild: true
+        rebuild: true,
+        public_form_responses: false
     },
     designer: {
         overrides_lockout: false,
@@ -73,7 +76,8 @@ export const roles: Record<string, RoleProfile> = {
         conferrable: false,
         cms_editor: false,
         design_editor: true,
-        rebuild: true
+        rebuild: true,
+        public_form_responses: false
     },
     pagewriter: {
         overrides_lockout: false,
@@ -84,7 +88,19 @@ export const roles: Record<string, RoleProfile> = {
         conferrable: true,
         cms_editor: true,
         design_editor: false,
-        rebuild: true
+        rebuild: true,
+        public_form_responses: false
+    },
+    submissions: {
+        overrides_lockout: false,
+        lockout_ignore_admin: false,
+        user_activation: false,
+        user_addition: false,
+        conferrable: false,
+        cms_editor: false,
+        design_editor: false,
+        rebuild: false,
+        public_form_responses: true
     }
 }
 
@@ -99,7 +115,8 @@ const PERMISSION_KEYS = [
     "conferrable",
     "cms_editor",
     "design_editor",
-    "rebuild"
+    "rebuild",
+    "public_form_responses"
 ] as const satisfies readonly (keyof RoleProfile)[]
 
 // compile-time exhaustiveness guard: if a permission is added to RoleProfile without being listed in

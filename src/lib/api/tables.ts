@@ -108,6 +108,49 @@ export const COMPOSER_TABLE: D1SchemaPrimitive = {
 }
 
 /**
+ * Table shape for contact-form responses, without a database binding
+ *
+ * Unlike the three entity tables above, this table is written by the public submit endpoint and read only
+ * by the admin UI - it carries no caching layer (see lib/api/db_contact.ts, which queries D1 directly
+ * rather than going through database.ts's cache-aware primitives).
+ */
+export const CONTACT_RESPONSE_TABLE: D1SchemaPrimitive = {
+    name: "contact_responses",
+    columns: [
+        "response_id",
+        "subject",
+        "name",
+        "email",
+        "phone",
+        "body",
+        "source_path",
+        "spam_score",
+        "spam_flags",
+        "read_at",
+        "entry_date",
+        "change_date"
+    ],
+    index: ["response_id", "read_at", "entry_date"],
+    repr_exclude: ["entry_date", "change_date"],
+    primary_key: "response_id",
+    type_hint: {
+        response_id: "number",
+        subject: "string",
+        name: "string",
+        email: "string",
+        phone: "string",
+        body: "string",
+        source_path: "string",
+        spam_score: "number",
+        spam_flags: "string",
+        read_at: "number",
+        entry_date: "number",
+        change_date: "number"
+    },
+    protected: ["spam_flags"]
+}
+
+/**
  * Table shape for compositions, without a database binding
  */
 export const COMPOSITION_TABLE: D1SchemaPrimitive = {

@@ -340,6 +340,7 @@ interface RoleProfile {
     cms_editor: boolean
     design_editor: boolean
     rebuild: boolean
+    public_form_responses: boolean
 }
 
 /**
@@ -684,5 +685,66 @@ interface D1Composition extends CompositionPrimitive {
     entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
     change_date: number // epoch milliseconds; last-modified date
     full_name?: string // generated and stored in d1, but not used in middleware and business logic
+    [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
+}
+
+/**
+ * The API representation of a public contact-form submission (lib/api/db_contact.ts)
+ *
+ * @namespace ContactResponse
+ * @property {string | null} subject - the submitter's subject line, or null when the form omitted it
+ * @property {string} name - the submitter's name
+ * @property {string | null} email - the submitter's email, required together with phone (at least one)
+ * @property {string | null} phone - the submitter's phone number, required together with email (at least one)
+ * @property {string} body - the message body
+ * @property {string | null} source_path - the public page path the submission was made from, when known
+ *   (set by the SuggestChanges compositor component's ?source= param)
+ * @property {number} spam_score - the server-computed heuristic spam score (lib/public/spam.ts); advisory,
+ *   never used to hard-reject a submission
+ * @property {string[]} spam_flags - the named heuristics that contributed to spam_score
+ * @property {boolean} read - whether an admin has marked this response read
+ */
+interface ContactResponse {
+    subject: string | null
+    name: string
+    email: string | null
+    phone: string | null
+    body: string
+    source_path: string | null
+    spam_score: number
+    spam_flags: string[]
+    read: boolean
+}
+
+/**
+ * The API representation of a contact-response record from D1
+ */
+interface ContactResponseRecord extends ContactResponse {
+    id: number
+    entry_date: number // epoch milliseconds; creation (submission) date, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date (bumped when read state changes)
+}
+
+/**
+ * The database representation of a contact-response record from D1
+ *
+ * @namespace D1ContactResponse
+ * @property {number} response_id - the database primary key
+ * @property {string | null} spam_flags - JSON-encoded string[] of spam_score's contributing heuristics
+ * @property {number | null} read_at - epoch milliseconds the response was marked read, or null if unread
+ */
+interface D1ContactResponse {
+    response_id: number
+    subject: string | null
+    name: string
+    email: string | null
+    phone: string | null
+    body: string
+    source_path: string | null
+    spam_score: number
+    spam_flags: string | null
+    read_at: number | null
+    entry_date: number
+    change_date: number
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }

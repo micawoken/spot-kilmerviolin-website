@@ -51,3 +51,21 @@ export const PRODUCTION_HOSTS: string[] = ["kilmer.nrnnet.xyz"]
 
 // origins permitted to make credentialed cross-origin requests
 export const ALLOWED_ORIGINS: string[] = ["https://kilmer.nrnnet.xyz"]
+
+// Length caps for the public contact form (src/pages/submit/contact.ts, src/scripts/contact_form.ts).
+// Name/subject reuse MAX_NAME_LENGTH above.
+export const MAX_CONTACT_BODY_LENGTH = 2000
+export const MAX_CONTACT_EMAIL_LENGTH = 254 // RFC 5321 mailbox length limit
+export const MAX_CONTACT_PHONE_LENGTH = 32
+export const MAX_CONTACT_SOURCE_PATH_LENGTH = 512 // the SuggestChanges component's ?source= page path
+
+// Raw JSON request-body size cap for POST /submit/contact, in characters. Comfortably covers every field
+// cap above plus a Turnstile response token (~2KB) and JSON overhead, while bounding the work done reading
+// and parsing the body of a request from an IP not yet rate-limited.
+export const MAX_CONTACT_REQUEST_BODY_LENGTH = 8192
+
+// Queue cap enforced atomically by trg_contact_responses_queue_limit in the database schema and migration.
+export const MAX_CONTACT_RESPONSES = 500
+
+export const MAX_CONTACT_BULK_IDS = 100
+export const MAX_CONTACT_ADMIN_REQUEST_BODY_LENGTH = 4096
