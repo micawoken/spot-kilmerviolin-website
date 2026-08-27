@@ -66,6 +66,7 @@ export default defineConfig({
         // EmDash runs alongside the existing flat-file content readers during the staged migration; it does
         // not manage any route we render
         emdash({
+            maxUploadSize: 25 * 1024 * 1024,
             database: d1({ binding: "EMDASH_DB" }),
             // publicUrl makes EmDash resolve media to a public URL instead of the Access-gated
             // /_emdash/api/media/file proxy

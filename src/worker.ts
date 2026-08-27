@@ -1,11 +1,15 @@
 /**
- * Stub Worker entrypoint for vitest-pool-workers
+ * worker.ts
+ *
+ * Worker entrypoint: delegates to the Astro adapter's handler and re-exports the Durable Objects the
+ * wrangler config binds
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -22,12 +26,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// the wrangler config binds R2_QUOTA to this class, so the stub entrypoint must export it too or the
-// test runner cannot start the isolate
-export { R2Quota } from "../src/lib/api/r2-quota"
+import { handle } from "@astrojs/cloudflare/handler"
+
+export { R2Quota } from "./lib/api/r2-quota"
 
 export default {
-    async fetch(): Promise<Response> {
-        return new Response("test worker stub")
+    async fetch(request, env, context) {
+        return await handle(request, env, context)
     }
-}
+} satisfies ExportedHandler<Env>

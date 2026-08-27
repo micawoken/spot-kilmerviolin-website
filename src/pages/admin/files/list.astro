@@ -37,7 +37,7 @@ export const prerender = false
 const files = await listFiles(Astro.locals.cfContext)
 
 // current R2 storage usage, shown at the foot of the listing
-const usage = await getStorageUsage(Astro.locals.cfContext)
+const usage = await getStorageUsage()
 const used_gb = (usage.used / (1024 * 1024 * 1024)).toFixed(2)
 const max_gb = (usage.max / (1024 * 1024 * 1024)).toFixed(2)
 const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0

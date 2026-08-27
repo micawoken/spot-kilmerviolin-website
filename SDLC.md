@@ -93,3 +93,32 @@ Incidents are currently discovered by human interaction, not automatically
 
 - The CI gate (section 7) does not include automated browser testing or the compositor routing gate. An automated Playwright test could close this gap.
 - There is no automated way to review the site post-deploy or detect a bad deployment, let alone implement a fix.
+- Rate-limit denials, authorization denials, and capacity rejections emit no application security event or counter, so there is nothing to alert on beyond generic platform telemetry. A small privacy-safe security event schema would close this.
+- The controls in section 13 live in the Cloudflare dashboard and cannot be verified from the repository or the CI gate.
+
+## 13. Edge and account controls (deployment-only)
+
+Some security controls cannot live in this repository: they are Cloudflare zone, Access, or account settings. The application either depends on them or is materially weakened without them, so they are listed here to be checked deliberately rather than assumed. Nothing in this section is verified by the CI gate.
+
+Confirm each item in the Cloudflare dashboard after any change to zone, Access, or billing configuration, and at each periodic security review (section 11).
+
+**Zone**
+
+- [ ] **HSTS is enabled zone-wide** (SSL/TLS -> Edge Certificates -> HTTP Strict Transport Security). `src/middleware/headers.ts` sets the header on dynamic Worker responses, but `public/_headers` deliberately omits it, so cached static entry points, Access pages, and error responses only carry it if the zone does. Stage `max-age` upward; add `includeSubDomains` only after auditing every subdomain (including `db-img`); treat preload as a separate, irreversible decision.
+- [ ] **A WAF request-size rule fronts `/submit/contact`.** The route enforces its own 8 KiB ceiling with a bounded read (`src/lib/api/body.ts`), but an edge rule rejects an oversized body before a Worker is invoked at all, which is what keeps an attacker from paying us for the invocation.
+
+**Access**
+
+- [ ] Access policies still gate `/admin`, `/api/v1/*`, and `/_emdash`, and no policy admits a wider audience than intended.
+- [ ] Service tokens in use are current, scoped, and rotated on schedule.
+
+**Billing and capacity**
+
+- [ ] **Usage notifications and spend thresholds are configured** for Workers requests, observability events, R2 storage/Class A operations, and Images.
+- [ ] **Trace volume is watched ahead of 2026-10-01,** when Workers tracing becomes billable per span. `wrangler.jsonc` samples at 5%; revisit the rate if traffic or the included allowance changes.
+- [ ] R2 lifecycle rules exist for any bucket prefix that should not retain objects indefinitely. The shared 9 GiB ceiling is enforced in-application by the quota Durable Object (`src/lib/api/r2-quota.ts`); lifecycle rules are the backstop, not the control.
+
+**Alerting**
+
+- [ ] Alert destinations are configured and have been tested end to end (an unrouted alert is not a control).
+- [ ] Sustained rate-limit denials, upload/capacity rejections, and rebuild-hook attempts are visible to a human. These currently return `429`/`507` without emitting an application security event, so platform telemetry and Access logs are the only signal — see section 12.

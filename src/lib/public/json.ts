@@ -1,11 +1,14 @@
 /**
- * Stub Worker entrypoint for vitest-pool-workers
+ * lib/public/json.ts
+ *
+ * Serializes JSON for embedding in HTML contexts that do not re-escape their contents
+ *
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -22,12 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// the wrangler config binds R2_QUOTA to this class, so the stub entrypoint must export it too or the
-// test runner cannot start the isolate
-export { R2Quota } from "../src/lib/api/r2-quota"
-
-export default {
-    async fetch(): Promise<Response> {
-        return new Response("test worker stub")
-    }
+/** Serializes JSON without allowing stored values to close an HTML raw-text script element. */
+export function serializeJsonForHtml(value: unknown): string {
+    return JSON.stringify(value).replaceAll("<", "\\u003c")
 }

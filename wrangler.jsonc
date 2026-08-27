@@ -4,7 +4,21 @@
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
-	"main": "@astrojs/cloudflare/entrypoints/server",
+	"main": "./src/worker.ts",
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "R2_QUOTA",
+				"class_name": "R2Quota"
+			}
+		]
+	},
+	"exports": {
+		"R2Quota": {
+			"type": "durable-object",
+			"storage": "sqlite"
+		}
+	},
 	// account_id is intentionally omitted: wrangler reads it from the CLOUDFLARE_ACCOUNT_ID env var at
 	// deploy/dev time instead
 	"workers_dev": false,
@@ -18,7 +32,7 @@
 		"enabled": true,
 		"traces": {
 			"enabled": true,
-			"head_sampling_rate": 1.0
+			"head_sampling_rate": 0.05
 		}
 	},
 	// for error reporting

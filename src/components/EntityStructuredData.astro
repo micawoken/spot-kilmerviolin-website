@@ -27,6 +27,7 @@
 import { countryCodeName, titleCaseRole } from "../scripts/format"
 import { isRecord } from "../lib/compositor/types"
 import type { EntityNoun } from "../lib/compositor/entity-fields"
+import { serializeJsonForHtml } from "../lib/public/json"
 
 interface Props {
     noun: EntityNoun
@@ -108,4 +109,4 @@ if (noun === "composer") {
 }
 ---
 
-<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} is:inline />
+<script type="application/ld+json" set:html={serializeJsonForHtml(jsonLd)} is:inline />

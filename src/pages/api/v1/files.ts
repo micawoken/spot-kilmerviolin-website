@@ -33,6 +33,7 @@ import { auth_check } from "../../../lib/public/authservice"
 import { parseAPIRequest } from "../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook, INLINE_SAFE_CONTENT_TYPES } from "../../../lib/api/http"
 import { validateAltText } from "../../../lib/api/validation"
+import { MAX_MULTIPART_OVERHEAD_BYTES, readBoundedFormData, RequestBodyTooLargeError } from "../../../lib/api/body"
 
 /**
  * GET /api/v1/files
@@ -105,8 +106,11 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     // parse the multipart upload
     let form: FormData
     try {
-        form = await request.formData()
-    } catch {
+        form = await readBoundedFormData(request, maxUploadBytes() + MAX_MULTIPART_OVERHEAD_BYTES)
+    } catch (error) {
+        if (error instanceof RequestBodyTooLargeError) {
+            return constructResponse(request, null, 413)
+        }
         return constructResponse(
             request,
             null,

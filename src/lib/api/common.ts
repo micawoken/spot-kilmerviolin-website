@@ -26,6 +26,7 @@
  */
 
 import { normalizePitchRange, normalizePosition } from "./validation"
+import { MAX_API_REQUEST_BODY_BYTES, readBoundedText, RequestBodyTooLargeError } from "./body"
 
 // the composition range and highest-position fields are stored in canonical form: a range has its note
 // letters uppercased, and a position is always stored as an (uppercase) Roman numeral (an integer input
@@ -870,7 +871,7 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
     }
     let data: { payload: unknown; meta?: Record<string, string | boolean | number | null> }
     try {
-        const body_text = await request.text()
+        const body_text = await readBoundedText(request, MAX_API_REQUEST_BODY_BYTES)
         if (body_text.trim() === "") {
             // a bodiless request (e.g. a GET that carries only a meta header) is allowed without a
             // Content-Type, since there is nothing to interpret
@@ -888,6 +889,9 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
             }
         }
     } catch (e) {
+        if (e instanceof RequestBodyTooLargeError) {
+            return new Error(`Invalid request body: maximum size is ${MAX_API_REQUEST_BODY_BYTES} bytes`)
+        }
         return new Error(`Failed to parse request body as JSON: ${e}`)
     }
     // validate the shape of the response
