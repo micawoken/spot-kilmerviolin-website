@@ -1,0 +1,247 @@
+---
+/**
+ * pages/admin/site/contact.astro
+ *
+ * Lists public contact-form responses (src/pages/submit/contact.ts writes them). Mark read/unread, delete,
+ * filter by spam score, and CSV export; mutations go through /api/v1/contact.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import BaseHead from "../../../components/BaseHead.astro"
+import AdminHead from "../../../components/AdminHead.astro"
+import AdminHeader from "../../../components/AdminHeader.astro"
+import AdminFooter from "../../../components/AdminFooter.astro"
+import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { listContactResponses } from "../../../lib/api/db_contact"
+import { guardPage } from "../../../lib/api/page_auth"
+import { guardedRead } from "../../../lib/api/http"
+
+export const prerender = false
+
+const denied = guardPage(Astro.request, Astro.locals.identity, {
+    kind: "permission",
+    permissions: ["public_form_responses"]
+})
+if (denied) {
+    return denied
+}
+
+const responses = await guardedRead(() => listContactResponses())
+if (responses instanceof Response) {
+    return responses
+}
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <BaseHead
+            title={`${ADMIN_PAGE_TITLE_PRFX}Contact Responses`}
+            description="View and manage public contact-form responses"
+        />
+        <AdminHead />
+    </head>
+    <body>
+        <AdminHeader identity={Astro.locals.identity} welcome={false} />
+        <main id="admin-main-content" class="admin-main" role="main">
+            <h2>Contact Responses</h2>
+            {
+                responses.length === 0 ? (
+                    <p class="general-infohelp">No contact-form responses yet.</p>
+                ) : (
+                    <>
+                        <div class="contact-bulk-actions">
+                            <button type="button" id="contact-bulk-read">
+                                Mark selected read
+                            </button>
+                            <button type="button" id="contact-bulk-unread">
+                                Mark selected unread
+                            </button>
+                            <button type="button" id="contact-bulk-delete">
+                                Delete selected
+                            </button>
+                            <label>
+                                <input type="checkbox" id="contact-spam-filter" /> Hide likely spam
+                            </label>
+                            <a href="/api/v1/contact?format=csv">Download CSV</a>
+                        </div>
+                        <label class="contact-select-all">
+                            <input type="checkbox" id="contact-select-all" /> Select all responses
+                        </label>
+                        <ul class="contact-response-list">
+                            {responses.map((record) => (
+                                <li
+                                    class:list={["contact-response", { "contact-response--unread": !record.read }]}
+                                    data-id={record.id}
+                                    data-spam-score={record.spam_score}
+                                >
+                                    <div class="contact-response__header">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                class="row-select"
+                                                value={record.id}
+                                                aria-label={`Select response from ${record.name}`}
+                                            />{" "}
+                                            Select
+                                        </label>
+                                        <span class="contact-response__state">{record.read ? "Read" : "Unread"}</span>
+                                        <strong>{record.name}</strong>
+                                        <time datetime={new Date(record.entry_date).toISOString()}>
+                                            {new Date(record.entry_date).toLocaleString()}
+                                        </time>
+                                    </div>
+                                    <details class="contact-response__details" open={!record.read}>
+                                        <summary>{record.subject ?? "No subject"}</summary>
+                                        <dl>
+                                            <div>
+                                                <dt>Contact</dt>
+                                                <dd>
+                                                    {record.email ?? ""}
+                                                    {record.email && record.phone ? " / " : ""}
+                                                    {record.phone ?? ""}
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt>Source</dt>
+                                                <dd>{record.source_path ?? "Not provided"}</dd>
+                                            </div>
+                                            <div>
+                                                <dt>Spam score</dt>
+                                                <dd>
+                                                    {record.spam_score}
+                                                    {record.spam_flags.length > 0
+                                                        ? ` (${record.spam_flags.join(", ")})`
+                                                        : ""}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                        <p class="contact-response__message">{record.body}</p>
+                                    </details>
+                                    <div class="contact-response__actions">
+                                        <button
+                                            type="button"
+                                            class="contact-mark-read"
+                                            data-id={record.id}
+                                            data-read={record.read ? "true" : "false"}
+                                        >
+                                            {record.read ? "Mark unread" : "Mark read"}
+                                        </button>
+                                        <button type="button" class="contact-delete" data-id={record.id}>
+                                            Delete
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                )
+            }
+            <p id="transaction-status">Select responses above to perform a bulk action.</p>
+            <script>
+                import { initContactAdmin } from "../../../scripts/contact_admin"
+                initContactAdmin()
+            </script>
+        </main>
+        <AdminFooter />
+    </body>
+</html>
+
+<style>
+    .contact-bulk-actions,
+    .contact-response__header,
+    .contact-response__actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .contact-select-all {
+        display: block;
+        margin: 1rem 0 0.5rem;
+    }
+
+    .contact-response-list {
+        display: grid;
+        gap: 1rem;
+        padding: 0;
+        list-style: none;
+    }
+
+    .contact-response {
+        border: 1px solid var(--shade-4);
+        border-radius: 0.25rem;
+        padding: 1rem;
+    }
+
+    .contact-response--unread {
+        border-inline-start: 0.35rem solid var(--shade-7);
+    }
+
+    .contact-response__header time {
+        margin-inline-start: auto;
+    }
+
+    .contact-response__state {
+        font-weight: 700;
+    }
+
+    .contact-response__details {
+        margin: 0.75rem 0;
+    }
+
+    .contact-response__details summary {
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .contact-response__details dl {
+        display: grid;
+        gap: 0.5rem;
+    }
+
+    .contact-response__details dt {
+        font-weight: 700;
+    }
+
+    .contact-response__details dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .contact-response__message {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 40rem) {
+        .contact-response__header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .contact-response__header time {
+            margin-inline-start: 0;
+        }
+    }
+</style>
