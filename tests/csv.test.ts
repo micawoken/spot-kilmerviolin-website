@@ -28,7 +28,7 @@
 
 import { describe, it, expect } from "vitest"
 
-import { parseCsv, parseCsvWithHeader, nearestName } from "../src/lib/api/csv.ts"
+import { parseCsv, parseCsvWithHeader, nearestName, toCsv } from "../src/lib/api/csv.ts"
 import {
     buildComposer,
     buildContributor,
@@ -52,6 +52,32 @@ const warningMessages = (warnings: BuildIssue[]): string[] => warnings.map((warn
 
 /** Plain message text for issues, for assertions that don't care about column tagging. */
 const messages = (issues: BuildIssue[]): string[] => issues.map((issue) => issue.message)
+
+describe("toCsv", () => {
+    it("joins a header row and data rows with CRLF, per RFC 4180", () => {
+        const csv = toCsv(["name", "score"], [{ name: "Ada", score: 42 }])
+        expect(csv).toBe("name,score\r\nAda,42\r\n")
+    })
+
+    it("quotes a field containing a comma, quote, or newline, doubling embedded quotes", () => {
+        const csv = toCsv(["body"], [{ body: 'Hello, "world"\nnext line' }])
+        expect(csv).toBe('body\r\n"Hello, ""world""\nnext line"\r\n')
+    })
+
+    it("renders null and undefined cells as an empty field", () => {
+        const csv = toCsv(["a", "b"], [{ a: null, b: undefined }])
+        expect(csv).toBe("a,b\r\n,\r\n")
+    })
+
+    it("leaves a plain unquoted field untouched", () => {
+        const csv = toCsv(["name"], [{ name: "Ada Lovelace" }])
+        expect(csv).toBe("name\r\nAda Lovelace\r\n")
+    })
+
+    it("emits only the header row when there are no data rows", () => {
+        expect(toCsv(["a", "b"], [])).toBe("a,b\r\n")
+    })
+})
 
 describe("parseCsv", () => {
     it("parses a simple grid", () => {

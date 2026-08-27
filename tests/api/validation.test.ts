@@ -26,11 +26,39 @@ import { describe, it, expect } from "vitest"
 
 import {
     classifyCitationValue,
+    isValidPhone,
     isValidPitchRange,
     validateAltText,
     validateCitations
 } from "../../src/lib/api/validation"
 import { MAX_ALT_TEXT_LENGTH } from "../../src/consts"
+
+describe("isValidPhone", () => {
+    it("accepts a plain 10-digit US number", () => {
+        expect(isValidPhone("5550100123")).toBe(true)
+    })
+
+    it("accepts common formatting: parens, dots, spaces, a leading +", () => {
+        expect(isValidPhone("+1 (555) 010-0123")).toBe(true)
+        expect(isValidPhone("555.010.0123")).toBe(true)
+    })
+
+    it("rejects fewer than 7 digits", () => {
+        expect(isValidPhone("12345")).toBe(false)
+    })
+
+    it("rejects more than 15 digits (past E.164's bound)", () => {
+        expect(isValidPhone("1234567890123456")).toBe(false)
+    })
+
+    it("rejects letters or other non-phone characters", () => {
+        expect(isValidPhone("555-CALL-NOW")).toBe(false)
+    })
+
+    it("tolerates surrounding whitespace", () => {
+        expect(isValidPhone("  5550100123  ")).toBe(true)
+    })
+})
 
 describe("validateAltText", () => {
     it("accepts a non-empty value within the length limit", () => {
