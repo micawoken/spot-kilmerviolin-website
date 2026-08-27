@@ -3,9 +3,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -68,8 +68,10 @@ const CATALOG_V1 = [
     "Spacer",
     "Divider",
     "PagefindSearch",
+    "ContactForm",
     "Breadcrumbs",
-    "RelatedEntries"
+    "RelatedEntries",
+    "SuggestChanges"
 ]
 
 /** The content outlets */
@@ -162,7 +164,13 @@ describe("TOKEN_PROPS", () => {
         // matching entry here breaks this test - exactly the gap the lint pass otherwise misses
         // silently (see the "dangling ContentField.typography" test below).
         expect(TOKEN_PROPS).toEqual({
-            Section: { background: "colors", paddingY: "space", radius: "radius", border: "borders", shadow: "shadows" },
+            Section: {
+                background: "colors",
+                paddingY: "space",
+                radius: "radius",
+                border: "borders",
+                shadow: "shadows"
+            },
             Columns: { columnGap: "space", rowGap: "space" },
             Row: { columnGap: "space", rowGap: "space" },
             Heading: { typography: "typography" },
@@ -174,7 +182,8 @@ describe("TOKEN_PROPS", () => {
             Image: { radius: "radius", border: "borders", shadow: "shadows" },
             ContentImage: { radius: "radius", border: "borders", shadow: "shadows" },
             MediaText: { radius: "radius", border: "borders", shadow: "shadows" },
-            RelatedEntries: { typography: "typography" }
+            RelatedEntries: { typography: "typography" },
+            ContactForm: { typography: "typography", variant: "buttonVariants", shadow: "shadows" }
         })
     })
 
@@ -200,9 +209,10 @@ describe("tokenKindUsers", () => {
             "Heading.typography",
             "ContentText.typography",
             "ContentField.typography",
-            "RelatedEntries.typography"
+            "RelatedEntries.typography",
+            "ContactForm.typography"
         ])
-        expect(tokenKindUsers("buttonVariants")).toEqual(["Button.variant"])
+        expect(tokenKindUsers("buttonVariants")).toEqual(["Button.variant", "ContactForm.variant"])
     })
 
     it("returns [] for a kind no component's fields draw from directly", () => {
@@ -353,7 +363,12 @@ describe("buildConfig - Button drives theme-authored variants through --cmp-butt
         })
 
         it('forces a new tab for an internal href when target is "_blank"', () => {
-            const html = render(config, "Button", { label: "Go", href: "/database", target: "_blank", variant: "primary" })
+            const html = render(config, "Button", {
+                label: "Go",
+                href: "/database",
+                target: "_blank",
+                variant: "primary"
+            })
             expect(html).toContain('target="_blank"')
             expect(html).toContain('rel="noopener noreferrer"')
         })
@@ -401,33 +416,33 @@ describe("buildConfig - PagefindSearch renders a plain GET form to /search", () 
         expect(html).toContain('action="/search"')
     })
 
-    it("renders no advanced link when advancedLink is explicitly \"none\"", () => {
+    it('renders no advanced link when advancedLink is explicitly "none"', () => {
         const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "none" })
         expect(html).not.toContain("search-advanced-link")
         expect(html).toContain('action="/search"')
     })
 
-    it("renders a link to /search/advanced when advancedLink is \"advanced\", without changing the form's own target", () => {
+    it('renders a link to /search/advanced when advancedLink is "advanced", without changing the form\'s own target', () => {
         const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "advanced" })
         expect(html).toContain('action="/search"')
         expect(html).toContain('class="search-advanced-link"')
         expect(html).toContain('href="/search/advanced"')
     })
 
-    it("renders a link to /search when advancedLink is \"search\"", () => {
+    it('renders a link to /search when advancedLink is "search"', () => {
         const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "search" })
         expect(html).toContain('class="search-advanced-link"')
         expect(html).toContain('href="/search"')
         expect(html).not.toContain('href="/search/advanced"')
     })
 
-    it("maps a pre-existing showToggle=\"yes\" design onto advancedLink=\"advanced\" (back-compat)", () => {
+    it('maps a pre-existing showToggle="yes" design onto advancedLink="advanced" (back-compat)', () => {
         const html = render(config, "PagefindSearch", { scope: "site", display: "simple", showToggle: "yes" })
         expect(html).toContain('action="/search"')
         expect(html).toContain('href="/search/advanced"')
     })
 
-    it("maps a pre-existing display=\"advanced\" design onto advancedLink=\"advanced\" (back-compat)", () => {
+    it('maps a pre-existing display="advanced" design onto advancedLink="advanced" (back-compat)', () => {
         const html = render(config, "PagefindSearch", { scope: "site", display: "advanced", showToggle: "no" })
         expect(html).toContain('action="/search"')
         expect(html).toContain('href="/search/advanced"')
@@ -453,7 +468,10 @@ describe("buildConfig - Breadcrumbs auto-derives its trail from route context", 
     })
 
     it("renders a null-href ancestor as plain text, not a link", () => {
-        const config = buildConfig(theme, "build", { breadcrumbs: [{ label: "Posts", href: null }], pageTitle: "My post" })
+        const config = buildConfig(theme, "build", {
+            breadcrumbs: [{ label: "Posts", href: null }],
+            pageTitle: "My post"
+        })
         const html = render(config, "Breadcrumbs", {})
         expect(html).toContain("<span>Posts</span>")
         expect(html).not.toContain('href="null"')
@@ -567,7 +585,14 @@ describe("buildConfig - outlet renders resolve through the entry context (D7)", 
         title: "  ",
         headline: "From the entry",
         body: [{ _type: "block", style: "normal", children: [{ _type: "span", text: "hello" }] }],
-        cover: { id: "med_1", alt: "A violin", width: 800, height: 600, provider: "local", meta: { storageKey: "med_1.jpg" } },
+        cover: {
+            id: "med_1",
+            alt: "A violin",
+            width: 800,
+            height: 600,
+            provider: "local",
+            meta: { storageKey: "med_1.jpg" }
+        },
         // An external provider's value: already a public absolute URL, passed through untouched.
         coverWithSrc: { id: "med_2", src: "https://cdn.example/violin.jpg", alt: "" },
         // An id and nothing else - no usable handle at all (the file route is keyed by storage key).
@@ -580,24 +605,31 @@ describe("buildConfig - outlet renders resolve through the entry context (D7)", 
 
     it("renders nothing at build with no entry context (design_page path, D3)", () => {
         const config = buildConfig(theme, "build")
-        expect(render(config, "ContentText", { field: "headline", level: "h2", typography: "display", align: "start" })).toBe("")
+        expect(
+            render(config, "ContentText", { field: "headline", level: "h2", typography: "display", align: "start" })
+        ).toBe("")
         expect(render(config, "ContentRichText", { field: "body" })).toBe("")
         expect(render(config, "ContentImage", { field: "cover", aspect: "original" })).toBe("")
     })
 
     it("renders a placeholder in the editor when no value resolves", () => {
         const config = buildConfig(theme, "editor")
-        expect(render(config, "ContentText", { field: "", level: "h2", typography: "display", align: "start" })).toContain(
-            "cmp-outlet-placeholder"
-        )
-        expect(render(config, "ContentText", { field: "", level: "h2", typography: "display", align: "start" })).toContain(
-            "not bound"
-        )
+        expect(
+            render(config, "ContentText", { field: "", level: "h2", typography: "display", align: "start" })
+        ).toContain("cmp-outlet-placeholder")
+        expect(
+            render(config, "ContentText", { field: "", level: "h2", typography: "display", align: "start" })
+        ).toContain("not bound")
     })
 
     it("ContentText renders the entry value through the shared Heading markup", () => {
         const config = buildConfig(theme, "build", { entry })
-        const html = render(config, "ContentText", { field: "headline", level: "h3", typography: "display", align: "center" })
+        const html = render(config, "ContentText", {
+            field: "headline",
+            level: "h3",
+            typography: "display",
+            align: "center"
+        })
         expect(html).toContain("<h3")
         expect(html).toContain("cmp-heading")
         expect(html).toContain("From the entry")
@@ -605,7 +637,9 @@ describe("buildConfig - outlet renders resolve through the entry context (D7)", 
 
     it("ContentText treats a whitespace-only value as empty", () => {
         const config = buildConfig(theme, "build", { entry })
-        expect(render(config, "ContentText", { field: "title", level: "h2", typography: "display", align: "start" })).toBe("")
+        expect(
+            render(config, "ContentText", { field: "title", level: "h2", typography: "display", align: "start" })
+        ).toBe("")
     })
 
     it("ContentRichText renders the entry's PT array via the parity renderer", () => {
@@ -660,8 +694,18 @@ describe("buildConfig - outlet renders resolve through the entry context (D7)", 
 
     it("Heading and ContentText produce identical markup for the same inputs (twin contract)", () => {
         const config = buildConfig(theme, "build", { entry })
-        const viaHeading = render(config, "Heading", { text: "From the entry", level: "h2", typography: "display", align: "start" })
-        const viaOutlet = render(config, "ContentText", { field: "headline", level: "h2", typography: "display", align: "start" })
+        const viaHeading = render(config, "Heading", {
+            text: "From the entry",
+            level: "h2",
+            typography: "display",
+            align: "start"
+        })
+        const viaOutlet = render(config, "ContentText", {
+            field: "headline",
+            level: "h2",
+            typography: "display",
+            align: "start"
+        })
         expect(viaOutlet).toBe(viaHeading)
     })
 
@@ -882,9 +926,9 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
     })
 
     it("renders a placeholder in the editor, and nothing at build, when no field is bound", () => {
-        expect(render(buildConfig(theme, "editor", { entry, fields }), "ContentField", { ...base, field: "" })).toContain(
-            "cmp-outlet-placeholder"
-        )
+        expect(
+            render(buildConfig(theme, "editor", { entry, fields }), "ContentField", { ...base, field: "" })
+        ).toContain("cmp-outlet-placeholder")
         expect(render(buildConfig(theme, "build", { entry, fields }), "ContentField", { ...base, field: "" })).toBe("")
     })
 
@@ -904,7 +948,11 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
             const placement = field(config, "ContentField", "valuePlacement")
             expect(placement.type).toBe("select")
             expect(placement.label).toBe("Value placement")
-            expect(placement.options.map((option: { value: string }) => option.value)).toEqual(["inline", "auto", "below"])
+            expect(placement.options.map((option: { value: string }) => option.value)).toEqual([
+                "inline",
+                "auto",
+                "below"
+            ])
         })
 
         it("stays inline by default, so designs stored before the prop existed are unaffected", () => {
@@ -938,7 +986,6 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
             expect(html).toContain('class="cmp-field"')
             expect(html).not.toContain("cmp-field--")
         })
-
     })
 
     describe("prefix", () => {
@@ -957,13 +1004,23 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
 
         it("is suppressed when the value is empty (doNothing)", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            const html = render(config, "ContentField", { ...base, field: "bio", prefix: "Bio: ", onEmpty: "doNothing" })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "bio",
+                prefix: "Bio: ",
+                onEmpty: "doNothing"
+            })
             expect(html).not.toContain("Bio:")
         })
 
         it("is suppressed when the value is empty (hideLabel)", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            const html = render(config, "ContentField", { ...base, field: "bio", prefix: "Bio: ", onEmpty: "hideLabel" })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "bio",
+                prefix: "Bio: ",
+                onEmpty: "hideLabel"
+            })
             expect(html).not.toContain("Bio:")
         })
 
@@ -984,7 +1041,12 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
     describe("forced hyperlink", () => {
         it("wraps the value in an anchor to linkHref when forced", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            const html = render(config, "ContentField", { ...base, field: "birth_year", forceLink: "yes", linkHref: "/works" })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "birth_year",
+                forceLink: "yes",
+                linkHref: "/works"
+            })
             expect(html).toContain('<a href="/works">1990</a>')
         })
 
@@ -1013,7 +1075,12 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
 
         it("does not link when forceLink is yes but linkHref is blank", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            const html = render(config, "ContentField", { ...base, field: "birth_year", forceLink: "yes", linkHref: "" })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "birth_year",
+                forceLink: "yes",
+                linkHref: ""
+            })
             expect(html).not.toContain("<a ")
             expect(html).toContain("1990")
         })
@@ -1027,7 +1094,12 @@ describe("buildConfig - ContentField (unified field-outlet rewrite)", () => {
 
         it("opens an internal linkHref in the same tab, automatically", () => {
             const config = buildConfig(theme, "build", { entry, fields })
-            const html = render(config, "ContentField", { ...base, field: "birth_year", forceLink: "yes", linkHref: "/database" })
+            const html = render(config, "ContentField", {
+                ...base,
+                field: "birth_year",
+                forceLink: "yes",
+                linkHref: "/database"
+            })
             expect(html).toContain('href="/database"')
             expect(html).not.toContain("target=")
         })
@@ -1150,5 +1222,189 @@ describe("buildConfig - root wraps every render in .cmp-root (flow invariant's t
             expect(html).toContain('class="cmp-root"')
             expect(html).toContain("hello")
         }
+    })
+})
+
+describe("buildConfig - ContactForm (markup only, behavior arrives via a page-level script)", () => {
+    const buildContactConfig = () =>
+        buildConfig(theme, "build", { turnstileSitekey: "1x00000000000000000000AA", pagePath: "/contact" })
+    const base = {
+        heading: "Contact Us",
+        typography: "",
+        intro: "",
+        showSubject: "yes" as const,
+        showPhone: "yes" as const,
+        submitLabel: "Send Message",
+        successMessage: "Thanks!",
+        variant: "primary",
+        shadow: ""
+    }
+
+    it("renders the heading and intro when set, and omits them when blank", () => {
+        const config = buildContactConfig()
+        const withText = render(config, "ContactForm", { ...base, intro: "We would love to hear from you." })
+        expect(withText).toContain("Contact Us")
+        expect(withText).toContain("We would love to hear from you.")
+        const blank = render(config, "ContactForm", { ...base, heading: "", intro: "" })
+        expect(blank).not.toContain("<h2")
+        expect(blank).not.toContain("cmp-contact-form__intro")
+    })
+
+    it("toggles the subject and phone fields independently", () => {
+        const config = buildContactConfig()
+        const both = render(config, "ContactForm", { ...base, showSubject: "yes", showPhone: "yes" })
+        expect(both).toContain('name="subject"')
+        expect(both).toContain('name="phone"')
+        const neither = render(config, "ContactForm", { ...base, showSubject: "no", showPhone: "no" })
+        expect(neither).not.toContain('name="subject"')
+        expect(neither).not.toContain('name="phone"')
+    })
+
+    it("always renders name, email, and body fields", () => {
+        const config = buildContactConfig()
+        const html = render(config, "ContactForm", base)
+        expect(html).toContain('name="name"')
+        expect(html).toContain('name="email"')
+        expect(html).toContain('name="body"')
+    })
+
+    it("renders a honeypot field hidden from assistive technology and off the tab order", () => {
+        const config = buildContactConfig()
+        const html = render(config, "ContactForm", base)
+        expect(html).toContain('name="hp_website"')
+        expect(html).toContain('class="cmp-contact-form__honeypot"')
+        expect(html).toContain('aria-hidden="true"')
+        expect(html).toContain('tabindex="-1"')
+    })
+
+    it("uses a POST fallback so form values never enter the page URL", () => {
+        const html = render(buildContactConfig(), "ContactForm", base)
+        expect(html).toContain('action="/submit/contact"')
+        expect(html).toContain('method="post"')
+        expect(html).not.toContain("novalidate")
+        expect(html).toContain('name="source_path"')
+    })
+
+    it("carries the success message as a data attribute for the client script to read", () => {
+        const config = buildContactConfig()
+        const html = render(config, "ContactForm", { ...base, successMessage: "All set." })
+        expect(html).toContain('data-success-message="All set."')
+    })
+
+    it("threads the build-time Turnstile sitekey from context into the widget mount point", () => {
+        const config = buildConfig(theme, "build", { turnstileSitekey: "1x00000000000000000000AA" })
+        const html = render(config, "ContactForm", base)
+        expect(html).toContain('data-turnstile-sitekey="1x00000000000000000000AA"')
+    })
+
+    it("fails a published render when TURNSTILE_SITEKEY is missing", () => {
+        const config = buildConfig(theme, "build")
+        expect(() => render(config, "ContactForm", base)).toThrow(/TURNSTILE_SITEKEY/)
+    })
+
+    it("renders the submit control with the same --cmp-button-* vars Button uses (visual parity)", () => {
+        const config = buildContactConfig()
+        const contactHtml = render(config, "ContactForm", { ...base, variant: "primary" })
+        const buttonHtml = render(config, "Button", { label: "Go", href: "/x", variant: "primary" })
+        const varsOf = (html: string) => html.match(/--cmp-button-[a-z-]+:[^;"]+/g) ?? []
+        expect(varsOf(contactHtml)).toEqual(varsOf(buttonHtml))
+        expect(contactHtml).toContain("<button")
+        expect(contactHtml).toContain('class="cmp-button"')
+    })
+
+    it("emits no client JavaScript - behavior is entirely page-level, not component-level", () => {
+        const config = buildContactConfig()
+        const html = render(config, "ContactForm", base)
+        expect(html).not.toMatch(/<script[\s>]/i)
+        expect(html).not.toMatch(/\son\w+=/i)
+    })
+})
+
+describe("buildConfig - SuggestChanges (entity-template link, injects a subject query param)", () => {
+    const fields: CollectionField[] = [
+        { slug: "name", label: "Name", type: "string" },
+        { slug: "role", label: "Role", type: "titleCase" },
+        { slug: "bio", label: "Bio", type: "text" }
+    ]
+    const base = { text: "Suggest changes >", href: "/contact", subjectField: "name", subjectPrefix: "" }
+
+    it("defaults to the standard link text and the name field", () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const config = buildConfig(theme, "build") as any
+        expect(config.components.SuggestChanges.defaultProps.text).toBe("Suggest changes >")
+        expect(config.components.SuggestChanges.defaultProps.subjectField).toBe("name")
+    })
+
+    it("renders a plain link with no query params outside a template (no entry context)", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "SuggestChanges", base)
+        expect(html).toContain('href="/contact"')
+        expect(html).not.toContain("?")
+        expect(html).toContain(">Suggest changes &gt;<")
+    })
+
+    it("builds a ?subject= param from the bound field's value at build", () => {
+        const config = buildConfig(theme, "build", { entry: { name: "J.S. Bach" }, fields })
+        const html = render(config, "SuggestChanges", base)
+        expect(html).toContain("subject=J.S.+Bach")
+    })
+
+    it("prepends the subject prefix verbatim", () => {
+        const config = buildConfig(theme, "build", { entry: { name: "J.S. Bach" }, fields })
+        const html = render(config, "SuggestChanges", { ...base, subjectPrefix: "Composer: " })
+        expect(html).toContain(encodeURIComponent("Composer: J.S. Bach").replace(/%20/g, "+"))
+    })
+
+    it("adds a &source= param from the page path when present", () => {
+        const config = buildConfig(theme, "build", { entry: { name: "Ada" }, fields, pagePath: "/entity/composer/ada" })
+        const html = render(config, "SuggestChanges", base)
+        expect(html).toContain("source=%2Fentity%2Fcomposer%2Fada")
+        expect(html).toContain("&amp;")
+    })
+
+    it("replaces existing subject and source params instead of duplicating them", () => {
+        const config = buildConfig(theme, "build", {
+            entry: { name: "Ada" },
+            fields,
+            pagePath: "/entity/composer/ada"
+        })
+        const html = render(config, "SuggestChanges", {
+            ...base,
+            href: "/contact?subject=old&source=old#form"
+        })
+        expect(html.match(/subject=/g)).toHaveLength(1)
+        expect(html.match(/source=/g)).toHaveLength(1)
+        expect(html).toContain("#form")
+    })
+
+    it("resolves a titleCase-kind subject field through the same formatter ContentField uses", () => {
+        const config = buildConfig(theme, "build", { entry: { role: "arranger" }, fields })
+        const html = render(config, "SuggestChanges", { ...base, subjectField: "role" })
+        expect(html).toContain("subject=Arranger")
+    })
+
+    it("omits the subject param when the bound field resolves empty", () => {
+        const config = buildConfig(theme, "build", { entry: { name: "" }, fields })
+        const html = render(config, "SuggestChanges", base)
+        expect(html).not.toContain("subject=")
+    })
+
+    it("omits the subject param when no field is bound", () => {
+        const config = buildConfig(theme, "build", { entry: { name: "Ada" }, fields })
+        const html = render(config, "SuggestChanges", { ...base, subjectField: "" })
+        expect(html).not.toContain("subject=")
+    })
+
+    it("sanitizes an unsafe target href to #", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "SuggestChanges", { ...base, href: "javascript:alert(1)" })
+        expect(html).toContain('href="#"')
+    })
+
+    it("opens an external href in a new tab, with rel", () => {
+        const config = buildConfig(theme, "build")
+        const html = render(config, "SuggestChanges", { ...base, href: "https://example.test/contact" })
+        expect(html).toContain('target="_blank"')
+        expect(html).toContain('rel="noopener noreferrer"')
     })
 })

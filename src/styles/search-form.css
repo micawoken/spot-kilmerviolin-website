@@ -33,6 +33,9 @@
 .search-form input[type="search"],
 .search-form input[type="text"],
 .search-form input[type="number"],
+.search-form input[type="email"],
+.search-form input[type="tel"],
+.search-form textarea,
 .search-form select {
 	flex: 1;
 	min-width: 8rem;

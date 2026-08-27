@@ -148,14 +148,15 @@ function lintComponent(component: PuckComponent, path: string, state: LintState)
             }
             break
         }
-        case "Button": {
+        case "Button":
+        case "SuggestChanges": {
             const href = props.href
             if (isUnsafeHref(href)) {
                 findings.push({
                     severity: "error",
                     rule: "unsafe-href",
                     path,
-                    message: `Button link uses a disallowed URL scheme: "${href}"`
+                    message: `${type} link uses a disallowed URL scheme: "${href}"`
                 })
             }
             break

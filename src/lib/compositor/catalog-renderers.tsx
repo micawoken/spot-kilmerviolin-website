@@ -121,6 +121,25 @@ export function renderImageTag(
     )
 }
 
+/** The `--cmp-button-*` local vars a `buttonVariants` token drives, shared by every element carrying the
+ * `.cmp-button` class - the real anchor-rendered Button/renderButtonTag below, and ContactForm's
+ * `<button type="submit">` (a submit control can't be an `<a>`, so it can't reuse renderButtonTag itself,
+ * but it reuses this so it stays visually identical). Exported for the same reason renderButtonTag is. */
+export function buttonStyleVars(variant: string, shadow = ""): CSSProperties {
+    return vars({
+        "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
+        "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
+        "--cmp-button-radius": tokenVar("buttonVariants", variant, "radius"),
+        "--cmp-button-pad-x": tokenVar("buttonVariants", variant, "pad-x"),
+        "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
+        "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
+        "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
+        "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color"),
+        "--cmp-button-hover-brightness": tokenVar("buttonVariants", variant, "hover-brightness"),
+        ...(shadow ? { "--cmp-button-shadow": tokenVar("shadows", shadow) } : {})
+    })
+}
+
 /** The Button markup. Exported so the theme editor's live preview (`ThemePreview.tsx`) renders a
  * button variant with the exact same class/var wiring as the real component, never a hand-rolled copy */
 export function renderButtonTag(label: string, href: string, variant: string, shadow = "", target = "") {
@@ -132,18 +151,7 @@ export function renderButtonTag(label: string, href: string, variant: string, sh
             href={safeHref}
             target={newTab ? "_blank" : undefined}
             rel={newTab ? "noopener noreferrer" : undefined}
-            style={vars({
-                "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),
-                "--cmp-button-text": tokenVar("buttonVariants", variant, "text"),
-                "--cmp-button-radius": tokenVar("buttonVariants", variant, "radius"),
-                "--cmp-button-pad-x": tokenVar("buttonVariants", variant, "pad-x"),
-                "--cmp-button-pad-y": tokenVar("buttonVariants", variant, "pad-y"),
-                "--cmp-button-border-width": tokenVar("buttonVariants", variant, "border-width"),
-                "--cmp-button-border-style": tokenVar("buttonVariants", variant, "border-style"),
-                "--cmp-button-border-color": tokenVar("buttonVariants", variant, "border-color"),
-                "--cmp-button-hover-brightness": tokenVar("buttonVariants", variant, "hover-brightness"),
-                ...(shadow ? { "--cmp-button-shadow": tokenVar("shadows", shadow) } : {})
-            })}
+            style={buttonStyleVars(variant, shadow)}
         >
             {label}
         </a>

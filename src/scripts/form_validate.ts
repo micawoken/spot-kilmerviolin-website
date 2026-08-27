@@ -28,6 +28,22 @@ import { FIELD_VALIDATORS, validateUriField, VALIDATION_GROUP_MAP, type FormCont
 import { isValidCountryCode, normalizeCountryCode } from "../lib/api/validation"
 import { countryCodeName, countryNameToCode } from "./format"
 
+let validationErrorSequence = 0
+
+function addDescribedBy(control: FormControl, id: string): void {
+    const ids = new Set((control.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean))
+    ids.add(id)
+    control.setAttribute("aria-describedby", [...ids].join(" "))
+}
+
+function removeDescribedBy(control: FormControl, id: string): void {
+    const ids = (control.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter((candidate) => candidate !== "" && candidate !== id)
+    if (ids.length === 0) control.removeAttribute("aria-describedby")
+    else control.setAttribute("aria-describedby", ids.join(" "))
+}
+
 /**
  * Format guidance shown under the composition URI input, keyed by the selected uri_type. Mirrors the
  * per-type rendering in CompositionInfo (renderPublicationUri) and the server-side validation that
@@ -184,7 +200,12 @@ export function showFieldError(control: FormControl, message: string): void {
         control.insertAdjacentElement("afterend", error)
     }
     error.textContent = message
+    if (error.id === "") {
+        error.id = `field-error-${++validationErrorSequence}`
+    }
     control.classList.add("field-invalid")
+    control.setAttribute("aria-invalid", "true")
+    addDescribedBy(control, error.id)
 }
 
 /**
@@ -214,6 +235,7 @@ export function clearFieldWarning(control: FormControl): void {
 export function clearFieldError(control: FormControl): void {
     const sibling = control.nextElementSibling
     if (sibling instanceof HTMLElement && sibling.classList.contains("field-error")) {
+        if (sibling.id !== "") removeDescribedBy(control, sibling.id)
         sibling.remove()
     }
     const container = control.closest(".field-row") ?? control.parentElement
@@ -222,6 +244,7 @@ export function clearFieldError(control: FormControl): void {
         if (hint instanceof HTMLElement) hint.classList.remove("field-hidden")
     }
     control.classList.remove("field-invalid")
+    control.removeAttribute("aria-invalid")
 }
 
 /**

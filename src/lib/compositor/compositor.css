@@ -360,3 +360,97 @@ a.cmp-related__tile:hover .cmp-related__name {
 .cmp-media-text__content > .cmp-button {
 	align-self: flex-start;
 }
+
+/* ContactForm - markup-only Puck component (catalog.tsx's ContactForm render owns the "why": no
+ * <script>, behavior arrives from scripts/contact_form.ts). Its inputs/button reuse .search-form's
+ * shared styling (styles/search-form.css); this overrides that file's single-row layout with a
+ * vertical field stack, which is all a contact form needs on top of it. */
+.cmp-contact-form__intro {
+	margin: 0;
+}
+.cmp-contact-form__form.search-form {
+	flex-direction: column;
+	align-items: stretch;
+}
+.cmp-contact-form__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.72rem);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+	text-transform: uppercase;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+/* The textarea (Message) reads as body copy, not as a label - undo the label's own type styling */
+.cmp-contact-form__field textarea {
+	font-family: var(--dtk-type-body-family, inherit);
+	font-size: 1rem;
+	letter-spacing: normal;
+	text-transform: none;
+	resize: vertical;
+}
+.cmp-contact-form__hint {
+	margin: -0.25rem 0 0;
+	font-size: 0.8rem;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+}
+.cmp-contact-form__reply-group {
+	border: 0;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+.cmp-contact-form__reply-group legend {
+	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
+	font-size: var(--dtk-type-label-size, 0.72rem);
+	letter-spacing: var(--dtk-type-label-letter-spacing, 0.08em);
+	text-transform: uppercase;
+	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
+	margin-bottom: 0.25rem;
+}
+.cmp-contact-form__honeypot {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+.cmp-contact-form__turnstile {
+	/* Reserves the widget's rendered height so the submit button doesn't jump once the Turnstile
+	 * iframe (loaded async by contact_form.ts) mounts into this div */
+	min-height: 65px;
+}
+/* Inline validation hint, mirroring the grayscale .field-error convention (styles/admin-entities.css)
+ * that scripts/form_validate.ts's showFieldError() already renders into forms */
+.cmp-contact-form .field-error {
+	font-size: 0.85em;
+	font-weight: 700;
+	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
+	margin: 0;
+}
+.cmp-contact-form .field-invalid {
+	outline: 2px solid var(--shade-7);
+	outline-offset: 1px;
+}
+.cmp-contact-form__status {
+	margin: 0;
+	font-size: 0.875rem;
+}
+.cmp-contact-form__status[data-state="error"] {
+	color: var(--color-danger);
+}
+.cmp-contact-form__status[data-state="success"] {
+	color: var(--color-success);
+}
+
+/* SuggestChanges - a themed inline link, tailored for (but not restricted to) entity templates */
+.cmp-suggest-changes {
+	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
+}
+.cmp-suggest-changes:hover {
+	color: var(--dtk-chrome-link-hover, var(--dtk-color-slate, var(--color-link-hover)));
+}

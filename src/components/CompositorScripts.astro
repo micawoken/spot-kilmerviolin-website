@@ -1,0 +1,57 @@
+---
+/**
+ * components/CompositorScripts.astro
+ *
+ * Loads the ContactForm compositor component's client behavior (scripts/contact_form.ts) and the Turnstile
+ * widget script, but only on a page whose design actually contains a ContactForm - every other compositor
+ * page keeps shipping zero client JS (see tests/compositor/render-zero-js.test.ts and that component's own
+ * header in lib/compositor/catalog.tsx for why).
+ *
+ * The two <script> tags below must stay in this order: the module script registers
+ * window.onloadTurnstileCallback before the Turnstile loader (which invokes that callback once its API is
+ * ready) reaches the document - see contact_form.ts's header for why this isn't a polling race.
+ *
+ * Copyright (C) 2026 Michael Wong.
+ *
+ * This file is part of the spot-kilmerviolin-website program, available at
+ * https://github.com/micawoken/spot-kilmerviolin-website.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This license is also subject to additional terms as specified in the README.md.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+import { docUsesComponent, type DesignDoc } from "../lib/compositor/types"
+
+interface Props {
+    doc: DesignDoc
+}
+
+const { doc } = Astro.props
+const usesContactForm = docUsesComponent(doc, "ContactForm")
+---
+
+{
+    usesContactForm && (
+        <>
+            <script>import "../scripts/contact_form"</script>
+            {/* No Subresource Integrity hash: Cloudflare states api.js is not SRI-compatible (it changes
+                   without a version bump), and it's already scoped tightly by CSP script-src to this exact
+                   host. */}
+            <script
+                src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit"
+                defer
+            />
+        </>
+    )
+}
