@@ -65,7 +65,11 @@
 			"CF_ACCESS_POLICY_ID",
 			"CF_ACCOUNT_ID",
 			"CF_ACCESS_AUD",
-			"TEAM_DOMAIN"
+			"TEAM_DOMAIN",
+			// Turnstile siteverify secret, checked server-side in src/pages/submit/contact.ts. The paired
+			// sitekey (public by design) is a BUILD-TIME var, not a runtime one - see .env.example and
+			// ImportMetaEnv in src/env.d.ts - since it must be baked into the prerendered contact-form HTML.
+			"TURNSTILE_SECRET"
 		]
 	},
 	// api bindings
@@ -162,6 +166,14 @@
 			"namespace_id": "1007",
 			"simple": {
 				"limit": 30,
+				"period": 60
+			}
+		},
+		{
+			"name": "RL_CONTACT", // applied to POST /submit/contact by IP; a genuine visitor submits at most a handful of times per minute, so this is far tighter than RL_API_PUBLIC (see lib/public/ratelimit.ts's ENDPOINT_PUBLIC_CONTACT). "simple" bindings only accept period 10 or 60 - a longer window isn't available at this binding type
+			"namespace_id": "1008",
+			"simple": {
+				"limit": 3,
 				"period": 60
 			}
 		}

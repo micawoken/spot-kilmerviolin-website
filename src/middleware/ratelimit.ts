@@ -52,6 +52,12 @@ function scopesForPath(path_components: string[], method: string): RLScope[] {
         }
     } else if (path_components[0] === "admin") {
         scopes.push(RLScope.ENDPOINT_PAGERENDER_ADMIN)
+    } else if (path_components[0] === "submit") {
+        // the public contact-form endpoint: the per-IP frequency limit (RL_FREQ) already applies to every
+        // request via ratelimit()'s auto_global pass, so only the additional scopes are listed here (mirrors
+        // the api/admin branches above, not _emdash's explicit IP_GLOBAL, which exists for a different
+        // reason - see its comment)
+        scopes.push(RLScope.ENDPOINT_API_PUBLIC, RLScope.ENDPOINT_PUBLIC_CONTACT)
     } else if (path_components[0] === "_emdash") {
         // The CMS surface was entirely unmetered: it fell through the api/admin branches to next(), so
         // neither its D1 content reads nor its R2 object reads counted against anything.

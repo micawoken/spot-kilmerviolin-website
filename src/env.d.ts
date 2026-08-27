@@ -48,6 +48,9 @@ interface ImportMetaEnv {
     readonly CF_WEB_ANALYTICS_TOKEN?: string
     readonly SITE_DEFAULT_OG_IMAGE?: string
     readonly SITE_ALLOW_INDEXING?: string
+    // Public Turnstile sitekey for the ContactForm compositor component (baked into the prerendered
+    // contact-form page - see .env.example)
+    readonly TURNSTILE_SITEKEY?: string
 }
 
 declare module "jose" {
