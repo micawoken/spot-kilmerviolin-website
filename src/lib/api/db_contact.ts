@@ -1,12 +1,7 @@
 /**
  * lib/api/db_contact.ts
  *
- * Data-access layer for public contact-form submissions
- *
- * Deliberately bypasses database.ts's cache-aware primitives (see d1.ts's CONTACT_RESPONSE comment): this
- * table is written by the public /submit/contact endpoint and read only by the admin UI, has no caching
- * need, and needs its own capped-queue behavior on insert. Queries go straight through d1.ts's exec_string,
- * mirroring tokens.ts (the other table that bypasses database.ts) rather than db_composer.ts.
+ * Data access for public contact-form submissions
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -43,7 +38,7 @@ function formatContactFromD1(record: D1ContactResponse): ContactResponseRecord {
     }
 }
 
-/** The fields the submit endpoint supplies for a brand-new response; read/id/dates are assigned here. */
+/** New contact response fields */
 export interface NewContactResponse {
     subject: string | null
     name: string
@@ -55,12 +50,11 @@ export interface NewContactResponse {
     spam_flags: string[]
 }
 
-/** Thrown when the database queue-limit trigger refuses to evict an unread response. */
+/** Contact response queue is full */
 export class ContactQueueFullError extends Error {}
 
 /**
- * Inserts a new contact-form response. The database trigger checks and trims the capped queue in the same
- * transaction as this insert, so concurrent submissions cannot exceed the cap or evict the same row.
+ * Inserts a contact-form response
  *
  * @param input the validated and scored submission fields
  * @returns the id of the new row
@@ -102,7 +96,7 @@ export async function addContactResponse(input: NewContactResponse): Promise<num
 }
 
 /**
- * Fetches a single contact response by id
+ * Fetches a contact response by id
  */
 export async function getContactResponse(id: number): Promise<ContactResponseRecord | null> {
     const result = await exec_string(
@@ -116,8 +110,7 @@ export async function getContactResponse(id: number): Promise<ContactResponseRec
 }
 
 /**
- * Lists every contact response, newest first. The table is capped at MAX_CONTACT_RESPONSES rows, so this
- * is never paginated - the admin page filters (unread/spam) client-side over the full list.
+ * Lists contact responses, newest first
  */
 export async function listContactResponses(): Promise<ContactResponseRecord[]> {
     const result = await exec_string(
@@ -129,13 +122,13 @@ export async function listContactResponses(): Promise<ContactResponseRecord[]> {
 /**
  * Deletes a contact response by id
  *
- * @returns true if the statement executed successfully (true even if no row matched the id)
+ * @returns whether the delete succeeded
  */
 export async function deleteContactResponse(id: number): Promise<boolean> {
     return deleteContactResponses([id])
 }
 
-/** Deletes the requested responses in one atomic statement. */
+/** Deletes contact responses */
 export async function deleteContactResponses(ids: number[]): Promise<boolean> {
     if (ids.length === 0) {
         throw new Error("At least one contact response id is required")
@@ -148,13 +141,13 @@ export async function deleteContactResponses(ids: number[]): Promise<boolean> {
 /**
  * Marks a contact response read or unread
  *
- * @returns true if the statement executed successfully (true even if no row matched the id)
+ * @returns whether the update succeeded
  */
 export async function setContactResponseRead(id: number, read: boolean): Promise<boolean> {
     return setContactResponsesRead([id], read)
 }
 
-/** Marks the requested responses read or unread in one atomic statement. */
+/** Marks contact responses read or unread */
 export async function setContactResponsesRead(ids: number[], read: boolean): Promise<boolean> {
     if (ids.length === 0) {
         throw new Error("At least one contact response id is required")
@@ -169,7 +162,7 @@ export async function setContactResponsesRead(ids: number[], read: boolean): Pro
 }
 
 /**
- * Counts unread responses, for the admin dashboard link's "(N)" badge
+ * Counts unread contact responses
  */
 export async function countUnreadContactResponses(): Promise<number> {
     const result = await exec_string("SELECT COUNT(*) AS count FROM contact_responses WHERE read_at IS NULL;")

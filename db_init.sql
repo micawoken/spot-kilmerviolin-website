@@ -131,8 +131,7 @@ revoked_date INTEGER
 
 CREATE INDEX idx_build_tokens_token_hash ON build_tokens (token_hash);
 
--- public contact-form submissions (src/pages/submit/contact.ts). The queue-limit trigger below atomically
--- evicts the oldest read row at capacity, or refuses the insert while every stored row is unread.
+-- Public contact-form submissions
 CREATE TABLE contact_responses (
 response_id INTEGER PRIMARY KEY AUTOINCREMENT,
 subject TEXT,

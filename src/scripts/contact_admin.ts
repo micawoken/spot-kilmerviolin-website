@@ -1,11 +1,7 @@
 /**
  * scripts/contact_admin.ts
  *
- * Client-side wiring for the /admin/site/contact response list: bulk mark-read/unread, bulk delete, and
- * the spam-score filter. The response list is server-rendered (pages/admin/site/contact.astro reads
- * db_contact.ts directly, mirroring the composers/list.astro pattern); this module only drives mutations,
- * which go through /api/v1/contact - see that endpoint's header for why it isn't the entity {payload,
- * meta} envelope scripts/connector.ts's helpers assume.
+ * Client behavior for the contact response list
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -31,7 +27,7 @@
 import { getTransactionElem } from "./interface"
 import { errorMessage } from "./common"
 
-/** A submission is flagged likely-spam in the filter above this score (spam.ts's scoring scale). */
+/** Likely-spam score threshold */
 const SPAM_FILTER_THRESHOLD = 30
 
 async function extractErrorComment(response: Response): Promise<string> {
@@ -41,7 +37,7 @@ async function extractErrorComment(response: Response): Promise<string> {
             return data.comment
         }
     } catch {
-        // response body wasn't JSON (or was empty); fall through to the generic message
+        // Use the default error message
     }
     return `Request failed with status ${response.status}`
 }
@@ -73,8 +69,7 @@ function selectedIds(list: HTMLElement): number[] {
 }
 
 /**
- * Wires the contact response list: the select-all checkbox, per-row and bulk mark-read/unread/delete, and
- * the spam-score filter toggle
+ * Wires contact-response actions
  */
 export function initContactAdmin(): void {
     const list = document.querySelector<HTMLElement>(".contact-response-list")

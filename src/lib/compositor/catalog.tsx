@@ -95,14 +95,9 @@ export interface BuildConfigContext {
     /** This record's related works, computed once per route by `entity-records.ts`'s
      * `buildRelatedWorksIndex`, passed in by `[id].astro` */
     relatedEntries?: RelatedWork[]
-    /** Public Turnstile sitekey (the `TURNSTILE_SITEKEY` build-time env var), required on **build** for
-     * ContactForm to mount a working widget. Threaded through context rather than read directly via
-     * `import.meta.env` inside this module: this module is also bundled into the editor's client build,
-     * where only `PUBLIC_`-prefixed vars are available - the same reason `mediaBaseUrl`/`filesBaseUrl`
-     * are threaded this way instead of resolved locally. */
+    /** Public Turnstile sitekey */
     turnstileSitekey?: string
-    /** The current route's public path (`Astro.url.pathname`), used by `SuggestChanges` to build its
-     * `?source=` param so a submitted message names the page it was sent from. Absent in the editor. */
+    /** Current public path for SuggestChanges */
     pagePath?: string
 }
 
@@ -434,9 +429,7 @@ interface ContactFormProps {
     /** a `shadows` token name, or "" for no shadow (the pre-existing default) - variants don't carry one. */
     shadow: string
 }
-/** Entity-field kinds SuggestChanges may bind its subject to: every kind `formatFieldValue` resolves to a
- *  plain string regardless of the `plain` argument, so the query param is always literal text, never markup
- *  from a kind that would otherwise inject an anchor (reference/referenceList/uri/citations/email). */
+/** Entity-field kinds SuggestChanges may use for its subject */
 const SUGGEST_CHANGES_SUBJECT_KINDS = ["string", "titleCase", "text", "number", "yearOrLiving", "countryCode"]
 interface SuggestChangesProps {
     text: string
@@ -869,11 +862,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 ),
                 subjectPrefix: { type: "text" as const, label: "Subject prefix" }
             },
-            // "name" is the one field every entity noun's catalog carries (entity-fields.ts), so it
-            // resolves for whichever noun the template is for.
+            // Every entity catalog has a name field
             defaultProps: { text: "Suggest changes >", href: "", subjectField: "name", subjectPrefix: "" },
-            // Tailored for entity templates, but never hard-fails outside one (unlike a real outlet): with
-            // no entry or no field bound, it still renders as a plain (unprefilled) link - see header.
+            // Renders an unprefilled link outside entity templates
             render: ({ text, href, subjectField, subjectPrefix }: SuggestChangesProps) => {
                 const safeHref = sanitizeHref(href)
                 const params = new URLSearchParams()
@@ -978,12 +969,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 variant: "primary",
                 shadow: ""
             },
-            // Markup only - no <script>, no on*= attributes (integrations/csp-guard.mjs forbids both on a
-            // prerendered page). Behavior (URL-param prefill, validation, Turnstile, submit) arrives from
-            // src/scripts/contact_form.ts, loaded only on pages that carry this component - see
-            // CompositorScripts.astro. Inputs reuse the site's shared search-form.css classes (extended to
-            // cover email/tel/textarea) rather than inventing new field styling; the submit control reuses
-            // buttonStyleVars so it is visually identical to the Button component.
+            // Behavior loads only when this component is present
             render: ({
                 heading,
                 typography,

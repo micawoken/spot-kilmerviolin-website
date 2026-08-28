@@ -40,8 +40,7 @@ const identity = locals.identity
 const canManageContactResponses =
     identity === undefined || satisfiesAccess({ kind: "permission", permissions: ["public_form_responses"] }, identity)
 
-// unlike list.astro's pattern, a failed count doesn't fail this whole dashboard - it's a badge, not the
-// page's content, so a missing table (e.g. before the migration is applied) just omits the "(N)" suffix
+// A failed badge count does not block the page
 const unreadResult = canManageContactResponses ? await guardedRead(() => countUnreadContactResponses()) : null
 const unreadCount = unreadResult instanceof Response ? null : unreadResult
 ---

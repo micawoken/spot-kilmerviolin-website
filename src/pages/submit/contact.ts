@@ -1,15 +1,7 @@
 /**
  * pages/submit/contact.ts
  *
- * Public POST endpoint for the ContactForm compositor component (lib/compositor/catalog.tsx). Deliberately
- * outside /api/v1: everything under /api is Access-protected at the edge (middleware/identity.ts), and this
- * is the one path on the site a signed-out visitor may write through.
- *
- * Defense order (cheapest rejection first): staging guard, same-origin check, body shape/size, honeypot,
- * Turnstile siteverify, field re-validation, spam scoring (advisory, stored not enforced), then insert into
- * the capped queue. Request-volume defenses
- * (the RL_CONTACT rate-limit binding, and the WAF rule the owner configures at the dashboard) run before
- * this handler is ever reached - see middleware/ratelimit.ts's "submit" branch.
+ * Public contact-form submission endpoint
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -50,7 +42,7 @@ import {
     MAX_CONTACT_REQUEST_BODY_LENGTH
 } from "../../consts"
 
-/** The JSON shape scripts/contact_form.ts POSTs. Every field is always a string - blank when unset. */
+/** Contact form request fields */
 interface ContactSubmitBody {
     name: string
     subject: string
@@ -82,15 +74,12 @@ function isContactSubmitBody(value: unknown): value is ContactSubmitBody {
 }
 
 /**
- * Whether the request's Origin (when present) matches the request's own origin. Deliberately compares
- * against the request URL itself, not a fixed allowlist (ALLOWED_ORIGINS in consts.ts names only the
- * production host), so this passes uniformly for the staging preview and local dev, not just production.
+ * Checks whether a request is same-origin
  */
 function failsOriginCheck(request: Request): boolean {
     const origin = request.headers.get("Origin")
     if (origin === null) {
-        // no Origin on a state-changing request: accept only when Fetch Metadata attests same-origin,
-        // matching the same-origin-check convention in lib/api/http.ts's failsCsrfOriginCheck
+        // Require same-origin Fetch Metadata without Origin
         return request.headers.get("Sec-Fetch-Site") !== "same-origin"
     }
     try {
@@ -105,8 +94,7 @@ interface TurnstileVerifyResult {
 }
 
 /**
- * Verifies a Turnstile response token server-to-server. Unaffected by CSP (server-side fetch, not a
- * browser request), so this needs no CSP allowance - only the client-side widget script does.
+ * Verifies a Turnstile token
  */
 async function verifyTurnstile(token: string, remoteIp: string): Promise<TurnstileVerifyResult> {
     const body = new URLSearchParams()
@@ -171,29 +159,26 @@ function parseFormBody(rawBody: string): ContactSubmitBody {
 }
 
 /**
- * POST /submit/contact
- *
- * Body: required, ContactSubmitBody (see above) - not the {payload, meta} envelope used under /api/v1
+ * Handles contact-form submissions
  *
  * @param context the Astro API context
- * @returns 200 on success (also returned, with nothing stored, when the honeypot trips); 400/403/503 on
- *   rejection; 500 on an unexpected failure
+ * @returns the submission response
  */
 export const POST: APIRoute = async ({ request }): Promise<Response> => {
     const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase() ?? ""
     const json = contentType === "application/json"
 
-    // 1. staging guard - staging shares production's D1 database, so writes are disabled there
+    // Reject staging writes
     if (!dbWriteEnabled(request)) {
         return submitResponse(request, json, 503, "Submissions are not accepted in this environment")
     }
 
-    // 2. same-origin check
+    // Reject cross-origin requests
     if (failsOriginCheck(request)) {
         return submitResponse(request, json, 403, "Cross-origin submission rejected")
     }
 
-    // 3. body parse, shape, and size
+    // Validate request body
     let rawBody: string
     try {
         rawBody = await readBoundedText(request, MAX_CONTACT_REQUEST_BODY_LENGTH)
@@ -219,21 +204,19 @@ export const POST: APIRoute = async ({ request }): Promise<Response> => {
         return submitResponse(request, json, 400, "Invalid request body: missing or non-string fields")
     }
 
-    // 4. honeypot - a real visitor never fills this field in; a bot that fills every field trips it. Report
-    // success without telling the caller anything was rejected.
+    // Silently accept honeypot submissions
     if (parsed.hp_website.trim() !== "") {
         return submitResponse(request, json, 200, "Thank you. Your message has been received.")
     }
 
-    // 5. Turnstile siteverify
+    // Verify Turnstile
     const remoteIp = request.headers.get("CF-Connecting-IP") ?? "unknown_ip"
     const turnstile = await verifyTurnstile(parsed.turnstileToken, remoteIp)
     if (!turnstile.success) {
         return submitResponse(request, json, 403, "Human verification failed")
     }
 
-    // 6. field re-validation and sanitization (the client validates the same rules, but only the server's
-    // check is trusted)
+    // Sanitize and validate fields
     const name = normalizeUnicodeForm(cleanText(parsed.name))
     const subjectRaw = normalizeUnicodeForm(cleanText(parsed.subject))
     const email = cleanText(parsed.email)
@@ -268,10 +251,10 @@ export const POST: APIRoute = async ({ request }): Promise<Response> => {
     const subject = subjectRaw === "" ? null : subjectRaw
     const sourcePath = sourcePathRaw === "" ? null : sourcePathRaw.slice(0, MAX_CONTACT_SOURCE_PATH_LENGTH)
 
-    // 7. spam scoring - advisory only, stored for admin triage, never used to reject
+    // Store advisory spam score
     const { score, flags } = scoreSubmission({ subject: subjectRaw, name, email, phone, body })
 
-    // 8. insert; the database trigger atomically evicts the oldest read response when at capacity
+    // Store response
     try {
         await addContactResponse({
             subject,

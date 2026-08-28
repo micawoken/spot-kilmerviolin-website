@@ -2,14 +2,7 @@
 /**
  * components/CompositorScripts.astro
  *
- * Loads the ContactForm compositor component's client behavior (scripts/contact_form.ts) and the Turnstile
- * widget script, but only on a page whose design actually contains a ContactForm - every other compositor
- * page keeps shipping zero client JS (see tests/compositor/render-zero-js.test.ts and that component's own
- * header in lib/compositor/catalog.tsx for why).
- *
- * The two <script> tags below must stay in this order: the module script registers
- * window.onloadTurnstileCallback before the Turnstile loader (which invokes that callback once its API is
- * ready) reaches the document - see contact_form.ts's header for why this isn't a polling race.
+ * Loads ContactForm behavior and Turnstile only when needed
  *
  * Copyright (C) 2026 Michael Wong.
  *

@@ -82,7 +82,7 @@ async function responseErrorMessage(response: Response): Promise<string> {
         const data = (await response.json()) as Record<string, unknown>
         if (typeof data.comment === "string" && data.comment !== "") return data.comment
     } catch {
-        // Use the visitor-safe fallback below for non-JSON or empty responses
+        // Use the default error message
     }
     return "The message could not be sent. Please try again later."
 }

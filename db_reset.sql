@@ -116,8 +116,7 @@ FOREIGN KEY (contributor_id) REFERENCES contributors(contributor_id) ON UPDATE C
 CREATE INDEX idx_api_tokens_token_hash ON api_tokens (token_hash);
 CREATE INDEX idx_api_tokens_contributor_id ON api_tokens (contributor_id);
 
--- public contact-form submissions (src/pages/submit/contact.ts). The queue-limit trigger below atomically
--- evicts the oldest read row at capacity, or refuses the insert while every stored row is unread.
+-- Public contact-form submissions
 CREATE TABLE contact_responses (
 response_id INTEGER PRIMARY KEY AUTOINCREMENT,
 subject TEXT,

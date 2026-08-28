@@ -1,11 +1,7 @@
 /**
  * lib/public/spam.ts
  *
- * Server-side spam heuristics for the public contact form
- *
- * Advisory only: scoreSubmission never rejects a submission by itself. src/pages/submit/contact.ts stores
- * the score and flags alongside the response so an admin can triage borderline messages in
- * /admin/site/contact rather than have them silently dropped.
+ * Server-side public contact-form spam scoring
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -30,7 +26,7 @@
 
 import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from "obscenity"
 
-/** The fields a spam score is computed from - the sanitized (post-cleanText) submission. */
+/** Sanitized submission fields to score */
 export interface SpamScoreInput {
     subject: string
     name: string
@@ -39,26 +35,25 @@ export interface SpamScoreInput {
     body: string
 }
 
-/** A computed spam score plus the named heuristics that contributed to it, for admin-side triage. */
+/** Spam score and contributing flags */
 export interface SpamScoreResult {
     score: number
     flags: string[]
 }
 
-// Built once per isolate; englishDataset covers common obscenity/slur wordlists, and the recommended
-// transformers normalize leetspeak/spacing/diacritic evasion (a plain substring match would miss both).
+// Reused matcher with normalized wordlist input
 const wordlistMatcher = new RegExpMatcher({
     ...englishDataset.build(),
     ...englishRecommendedTransformers
 })
 
-/** `https?://` links in free text, capturing the host for the bare-IP/punycode checks below. */
+/** Links in free text */
 const LINK_PATTERN = /https?:\/\/([^\s/?#]+)/gi
 
-/** A dotted-quad IPv4 host, e.g. the host captured from "http://203.0.113.5/…" */
+/** Dotted-quad IPv4 host */
 const BARE_IP_HOST = /^\d{1,3}(\.\d{1,3}){3}$/
 
-/** Detects a token that mixes Latin with Greek or Cyrillic letters, a common homoglyph-evasion shape. */
+/** Detects mixed Latin, Greek, or Cyrillic text */
 function hasSuspiciousMixedScript(text: string): boolean {
     let latin = false
     let greekOrCyrillic = false
@@ -81,9 +76,7 @@ function hasSuspiciousMixedScript(text: string): boolean {
 }
 
 /**
- * Whether `text` contains a zero-width space/non-joiner/joiner (U+200B-U+200D), word joiner (U+2060), or
- * the zero-width no-break space / BOM (U+FEFF) - sometimes used to break up text and evade wordlist
- * matching. Checked by numeric code-point comparison.
+ * Detects zero-width characters
  *
  * @param text the candidate text
  * @returns true if any character in text is one of the zero-width/invisible characters above
@@ -98,11 +91,11 @@ function hasZeroWidthChar(text: string): boolean {
     return false
 }
 
-/** A run of 6 or more identical characters ("aaaaaaaa", "!!!!!!!!"). */
+/** Six or more repeated characters */
 const LONG_CHAR_RUN = /(.)\1{5,}/
 
 /**
- * Scores one contact-form submission's spam likelihood
+ * Scores a contact-form submission for spam
  *
  * @param input the sanitized submission fields
  * @returns the additive score and the flags that contributed to it (both empty for a clean submission)
@@ -129,7 +122,7 @@ export function scoreSubmission(input: SpamScoreInput): SpamScoreResult {
     } else if (links.length >= 1) {
         add(5, "has-link")
     }
-    // a short message that is mostly a link is a common spam shape, distinct from "many links"
+    // Short link-heavy messages
     if (links.length >= 1 && body.trim().length < 200) {
         add(10, "link-heavy")
     }

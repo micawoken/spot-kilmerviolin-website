@@ -153,10 +153,7 @@ export function parseCsvWithHeader(
 }
 
 /**
- * Escapes a single CSV field per RFC 4180 (wrapped in double quotes, with embedded quotes doubled,
- * whenever the value contains a comma, quote, or newline), and neutralizes spreadsheet formula
- * injection (OWASP CSV injection: a leading `= + - @` or tab/CR is interpreted as a formula by
- * Excel/LibreOffice/Numbers) by prefixing such values with a quote-forcing apostrophe
+ * Escapes an RFC 4180 CSV field and guards spreadsheet formulas
  *
  * @param value the raw field value
  * @returns the field, quoted/escaped only if necessary
@@ -168,7 +165,7 @@ function escapeCsvField(value: string): string {
 }
 
 /**
- * Serializes rows to RFC 4180 CSV text (CRLF line endings, a header row from `columns`)
+ * Serializes rows to RFC 4180 CSV text
  *
  * @param columns the column names, used verbatim as the header row and as the per-row key order
  * @param rows the data rows; a missing/null/undefined value renders as an empty field

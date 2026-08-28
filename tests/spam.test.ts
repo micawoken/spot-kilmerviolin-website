@@ -93,8 +93,7 @@ describe("scoreSubmission", () => {
     })
 
     it("flags mixed-script (Latin text mixed with Cyrillic/Greek) content", () => {
-        // U+0440 CYRILLIC SMALL LETTER ER, built from its code point so no literal non-ASCII character
-        // appears in this source file (see spam.ts's own header note on why that matters)
+        // Cyrillic small letter er
         const cyrillicR = String.fromCodePoint(0x0440)
         const result = scoreSubmission(makeInput({ body: `Please${cyrillicR}espond soon, thanks.` }))
         expect(result.flags).toContain("mixed-script")
@@ -109,7 +108,7 @@ describe("scoreSubmission", () => {
     })
 
     it("flags zero-width characters used to evade wordlist matching", () => {
-        // U+200B ZERO WIDTH SPACE, built from its code point for the same reason as cyrillicR above
+        // Zero-width space
         const zeroWidthSpace = String.fromCodePoint(0x200b)
         const result = scoreSubmission(makeInput({ body: `Hel${zeroWidthSpace}lo there, just saying hi.` }))
         expect(result.flags).toContain("zero-width-chars")

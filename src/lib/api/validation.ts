@@ -40,9 +40,7 @@ export function isValidEmail(value: string): boolean {
     return EMAIL_PATTERN.test(value.trim())
 }
 
-// Pragmatic phone check: digits, with optional leading "+", spaces, hyphens, dots, and parenthesized area
-// codes - 7 to 15 digits (E.164's own bound). Deliberately lenient, same rationale as EMAIL_PATTERN: it
-// guards the public contact form against junk, not against every national numbering-plan edge case.
+// Lenient phone-number check for public form input
 const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/
 
 /**

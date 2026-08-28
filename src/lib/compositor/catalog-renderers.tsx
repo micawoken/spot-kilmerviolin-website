@@ -121,10 +121,7 @@ export function renderImageTag(
     )
 }
 
-/** The `--cmp-button-*` local vars a `buttonVariants` token drives, shared by every element carrying the
- * `.cmp-button` class - the real anchor-rendered Button/renderButtonTag below, and ContactForm's
- * `<button type="submit">` (a submit control can't be an `<a>`, so it can't reuse renderButtonTag itself,
- * but it reuses this so it stays visually identical). Exported for the same reason renderButtonTag is. */
+/** Button CSS variables shared with ContactForm */
 export function buttonStyleVars(variant: string, shadow = ""): CSSProperties {
     return vars({
         "--cmp-button-bg": tokenVar("buttonVariants", variant, "bg"),

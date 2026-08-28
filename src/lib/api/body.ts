@@ -1,7 +1,7 @@
 /**
  * lib/api/body.ts
  *
- * Reads request bodies under an explicit byte ceiling instead of buffering whatever the platform accepts
+ * Reads request bodies under an explicit byte ceiling
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -26,23 +26,15 @@
  */
 
 /**
- * Maximum JSON request body accepted by the authenticated API.
- *
- * Sized to keep the documented bulk contract (MAX_BULK_ITEMS, see lib/api/http.ts) usable for realistic
- * CSV imports while bounding one request far below the isolate memory limit - a body of this size still
- * costs roughly double once decoded to UTF-16 and parsed. A bulk request of 999 maximum-length records
- * would exceed it and is rejected with a message naming the limit.
+ * Maximum JSON request body accepted by the authenticated API
  */
 export const MAX_API_REQUEST_BODY_BYTES = 8 * 1024 * 1024
 
-/** Multipart framing and small metadata fields allowed in addition to the uploaded file. */
+/** Multipart framing and small metadata fields allowed in addition to the uploaded file */
 export const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 
 /**
- * The parts of a request a bounded read needs.
- *
- * Declared structurally so both the platform `Request` and Astro's `context.request` (which carries its
- * own `cf` type parameters) satisfy it without a cast.
+ * The parts of a request a bounded read needs
  */
 interface BoundedBodyRequest {
     url: string
@@ -60,9 +52,6 @@ export class RequestBodyTooLargeError extends Error {
 
 /**
  * Reads at most `limit` bytes from a request body, cancelling the stream as soon as the limit is passed
- *
- * A valid oversized `Content-Length` short-circuits the read, but the header is not trusted as the only
- * control: a streamed request can omit it entirely, so the stream itself is still counted.
  *
  * @param {BoundedBodyRequest} request - the request whose body is read
  * @param {number} limit - the maximum number of body bytes to accept
@@ -136,7 +125,7 @@ export async function readBoundedText(request: BoundedBodyRequest, limit: number
  * Parses multipart data after bounding the complete request, including framing and non-file fields
  *
  * Bounding the whole request rather than only the selected file keeps a body of many small parts from
- * growing without limit.
+ * growing without limit
  *
  * @param {BoundedBodyRequest} request - the multipart request to parse
  * @param {number} limit - the maximum number of body bytes to accept

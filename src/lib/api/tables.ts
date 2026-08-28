@@ -108,11 +108,7 @@ export const COMPOSER_TABLE: D1SchemaPrimitive = {
 }
 
 /**
- * Table shape for contact-form responses, without a database binding
- *
- * Unlike the three entity tables above, this table is written by the public submit endpoint and read only
- * by the admin UI - it carries no caching layer (see lib/api/db_contact.ts, which queries D1 directly
- * rather than going through database.ts's cache-aware primitives).
+ * Contact-form response table shape
  */
 export const CONTACT_RESPONSE_TABLE: D1SchemaPrimitive = {
     name: "contact_responses",

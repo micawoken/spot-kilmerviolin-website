@@ -48,10 +48,7 @@ export const COMPOSER: D1Schema = { db: env.DB_MAIN, ...COMPOSER_TABLE }
 export const COMPOSITION: D1Schema = { db: env.DB_MAIN, ...COMPOSITION_TABLE }
 
 /**
- * Schema for contact-form responses. Deliberately outside the CONTRIBUTOR/COMPOSER/COMPOSITION switch
- * statements below and in database.ts/sql_statement.ts: this table has no caching needs (admin-only reads,
- * not on any public read path) and its own bespoke access pattern (a capped queue), so lib/api/db_contact.ts
- * queries it directly through exec_stmt/exec_stmt_batch rather than through the generic *Primitive layer.
+ * Schema for contact-form responses
  */
 export const CONTACT_RESPONSE: D1Schema = { db: env.DB_MAIN, ...CONTACT_RESPONSE_TABLE }
 

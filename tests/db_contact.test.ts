@@ -40,7 +40,7 @@ import {
     type NewContactResponse
 } from "../src/lib/api/db_contact.ts"
 
-// mirrors db_init.sql's contact_responses table (the init string there is not exported)
+// Test contact response schema
 const contact_responses_ddl = `
 CREATE TABLE IF NOT EXISTS contact_responses (
 response_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +95,7 @@ beforeAll(async () => {
     await exec_string(queue_trigger_ddl)
 })
 
-// Queue tests require exact row counts, so every test starts with an empty table.
+// Isolate queue tests
 beforeEach(async () => {
     await exec_string("DELETE FROM contact_responses;")
 })
@@ -141,7 +141,7 @@ describe("addContactResponse / getContactResponse", () => {
 describe("listContactResponses", () => {
     it("lists newest first", async () => {
         const firstId = await addContactResponse(makeResponse({ name: "First" }))
-        // entry_date is epoch milliseconds; force a distinct, later timestamp on the second insert
+        // Ensure distinct entry timestamps
         await new Promise((resolve) => setTimeout(resolve, 5))
         const secondId = await addContactResponse(makeResponse({ name: "Second" }))
         const list = await listContactResponses()

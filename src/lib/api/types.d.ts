@@ -689,20 +689,18 @@ interface D1Composition extends CompositionPrimitive {
 }
 
 /**
- * The API representation of a public contact-form submission (lib/api/db_contact.ts)
+ * Public contact-form response
  *
  * @namespace ContactResponse
- * @property {string | null} subject - the submitter's subject line, or null when the form omitted it
- * @property {string} name - the submitter's name
- * @property {string | null} email - the submitter's email, required together with phone (at least one)
- * @property {string | null} phone - the submitter's phone number, required together with email (at least one)
- * @property {string} body - the message body
- * @property {string | null} source_path - the public page path the submission was made from, when known
- *   (set by the SuggestChanges compositor component's ?source= param)
- * @property {number} spam_score - the server-computed heuristic spam score (lib/public/spam.ts); advisory,
- *   never used to hard-reject a submission
- * @property {string[]} spam_flags - the named heuristics that contributed to spam_score
- * @property {boolean} read - whether an admin has marked this response read
+ * @property {string | null} subject - response subject
+ * @property {string} name - sender name
+ * @property {string | null} email - sender email
+ * @property {string | null} phone - sender phone
+ * @property {string} body - response body
+ * @property {string | null} source_path - source page path
+ * @property {number} spam_score - advisory spam score
+ * @property {string[]} spam_flags - spam score flags
+ * @property {boolean} read - read status
  */
 interface ContactResponse {
     subject: string | null
@@ -717,7 +715,7 @@ interface ContactResponse {
 }
 
 /**
- * The API representation of a contact-response record from D1
+ * Stored public contact-form response
  */
 interface ContactResponseRecord extends ContactResponse {
     id: number
@@ -726,12 +724,12 @@ interface ContactResponseRecord extends ContactResponse {
 }
 
 /**
- * The database representation of a contact-response record from D1
+ * D1 contact-form response
  *
  * @namespace D1ContactResponse
- * @property {number} response_id - the database primary key
- * @property {string | null} spam_flags - JSON-encoded string[] of spam_score's contributing heuristics
- * @property {number | null} read_at - epoch milliseconds the response was marked read, or null if unread
+ * @property {number} response_id - response id
+ * @property {string | null} spam_flags - JSON spam flags
+ * @property {number | null} read_at - read timestamp
  */
 interface D1ContactResponse {
     response_id: number

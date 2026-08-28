@@ -62,11 +62,7 @@ export enum RLScope {
      * RL_API_FILES_WRITE binding to keep R2 Class A operation volume within the free plan
      */
     ENDPOINT_API_FILES_WRITE,
-    /**
-     * Applies to the public contact-form submit endpoint (POST /submit/contact), limited by IP against the
-     * dedicated RL_CONTACT binding - a much tighter cap than RL_FREQ, since a genuine visitor submits at
-     * most a handful of times
-     */
+    /** Applies to public contact-form submissions */
     ENDPOINT_PUBLIC_CONTACT
 }
 
@@ -90,7 +86,7 @@ const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit; keyType: RLKe
     // file reads are metered by IP (mirroring the global frequency limit); file writes by user
     [RLScope.ENDPOINT_API_FILES_READ]: { binding: () => env.RL_API_FILES_READ, keyType: "ip" },
     [RLScope.ENDPOINT_API_FILES_WRITE]: { binding: () => env.RL_API_FILES_WRITE, keyType: "user" },
-    // the contact form has no identity to key by; every caller is anonymous
+    // Contact submissions are anonymous
     [RLScope.ENDPOINT_PUBLIC_CONTACT]: { binding: () => env.RL_CONTACT, keyType: "ip" }
 }
 

@@ -361,10 +361,7 @@ a.cmp-related__tile:hover .cmp-related__name {
 	align-self: flex-start;
 }
 
-/* ContactForm - markup-only Puck component (catalog.tsx's ContactForm render owns the "why": no
- * <script>, behavior arrives from scripts/contact_form.ts). Its inputs/button reuse .search-form's
- * shared styling (styles/search-form.css); this overrides that file's single-row layout with a
- * vertical field stack, which is all a contact form needs on top of it. */
+/* Contact form layout */
 .cmp-contact-form__intro {
 	margin: 0;
 }
@@ -382,7 +379,7 @@ a.cmp-related__tile:hover .cmp-related__name {
 	text-transform: uppercase;
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
-/* The textarea (Message) reads as body copy, not as a label - undo the label's own type styling */
+/* Message field */
 .cmp-contact-form__field textarea {
 	font-family: var(--dtk-type-body-family, inherit);
 	font-size: 1rem;
@@ -420,12 +417,10 @@ a.cmp-related__tile:hover .cmp-related__name {
 	white-space: nowrap;
 }
 .cmp-contact-form__turnstile {
-	/* Reserves the widget's rendered height so the submit button doesn't jump once the Turnstile
-	 * iframe (loaded async by contact_form.ts) mounts into this div */
+	/* Reserve Turnstile space */
 	min-height: 65px;
 }
-/* Inline validation hint, mirroring the grayscale .field-error convention (styles/admin-entities.css)
- * that scripts/form_validate.ts's showFieldError() already renders into forms */
+/* Validation hint */
 .cmp-contact-form .field-error {
 	font-size: 0.85em;
 	font-weight: 700;
@@ -447,7 +442,7 @@ a.cmp-related__tile:hover .cmp-related__name {
 	color: var(--color-success);
 }
 
-/* SuggestChanges - a themed inline link, tailored for (but not restricted to) entity templates */
+/* SuggestChanges link */
 .cmp-suggest-changes {
 	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
 }

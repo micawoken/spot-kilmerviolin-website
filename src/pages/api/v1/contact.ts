@@ -1,8 +1,7 @@
 /**
  * pages/api/v1/contact.ts
  *
- * Admin-facing management of contact-form responses (src/pages/submit/contact.ts is the public write
- * path into the same table). Access-protected like the rest of /api/v1 - only /submit/contact is public.
+ * Admin contact-response management
  *
  * Copyright (C) 2026 Michael Wong.
  *
@@ -64,9 +63,9 @@ function toCsvRow(record: ContactResponseRecord): Record<string, string | number
 }
 
 /**
- * Parses a request body as JSON
+ * Parses a JSON request body
  *
- * @returns the parsed value, or an error message when the body is not valid JSON
+ * @returns the parsed body or an error message
  */
 async function parseJsonBody(request: Request): Promise<unknown | string> {
     try {
@@ -81,9 +80,9 @@ async function parseJsonBody(request: Request): Promise<unknown | string> {
 }
 
 /**
- * Validates a parsed body's 'ids' field, shared by the PATCH and DELETE handlers below
+ * Validates request ids
  *
- * @returns the validated id array, or an error message
+ * @returns validated ids or an error message
  */
 function validateIds(parsed: unknown): number[] | string {
     if (typeof parsed !== "object" || parsed === null || !Array.isArray((parsed as { ids?: unknown }).ids)) {
@@ -100,13 +99,7 @@ function validateIds(parsed: unknown): number[] | string {
 }
 
 /**
- * GET /api/v1/contact
- * Lists every contact-form response, newest first. Pass ?format=csv for a CSV download instead of JSON.
- *
- * Permissions required: public_form_responses
- *
- * Meta: none
- * Body: none
+ * Lists contact responses or exports CSV
  *
  * @param context - the Astro API context
  * @returns the response list as JSON, or a CSV attachment when ?format=csv is set
@@ -132,13 +125,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
 }
 
 /**
- * PATCH /api/v1/contact
- * Marks one or more responses read or unread
- *
- * Permissions required: public_form_responses
- *
- * Meta: none
- * Body: required, { ids: number[], read: boolean }
+ * Marks contact responses read or unread
  *
  * @param context - the Astro API context
  * @returns 204 on success
@@ -170,13 +157,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
 }
 
 /**
- * DELETE /api/v1/contact
- * Deletes one or more responses
- *
- * Permissions required: public_form_responses
- *
- * Meta: none
- * Body: required, { ids: number[] }
+ * Deletes contact responses
  *
  * @param context - the Astro API context
  * @returns 204 on success
