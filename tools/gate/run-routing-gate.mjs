@@ -70,8 +70,21 @@ function build(base) {
     return new Promise((resolve) => {
         const child = spawn(process.execPath, [astroBin, "build"], {
             cwd: root,
-            // A shell CONTENT_API_BASE overrides .env, which is what isolates this from prod
-            env: { ...process.env, CONTENT_API_BASE: base, EMDASH_MEDIA_PUBLIC_URL: MEDIA_BASE },
+            env: {
+                ...process.env,
+                // A shell CONTENT_API_BASE overrides .env, which is what isolates this from prod
+                CONTENT_API_BASE: base,
+                EMDASH_MEDIA_PUBLIC_URL: MEDIA_BASE,
+                // The fixture only serves /_emdash/*. Blank the build-token creds (same override path)
+                // so entity-page generation (src/lib/build/d1-api.ts) stays unconfigured instead of
+                // 404ing against /api/v1/* - this gate does not exercise entity pages.
+                CF_ACCESS_CLIENT_ID: "",
+                CF_ACCESS_CLIENT_SECRET: "",
+                BUILD_API_TOKEN: "",
+                // Prod telemetry has no place in an isolated gate build; also keeps the analytics
+                // beacon out of the zero-JS comparison in gate 4.
+                CF_ANALYTICS_TOKEN: ""
+            },
             stdio: ["ignore", "pipe", "pipe"]
         })
         let output = ""
@@ -106,17 +119,12 @@ function findPage(files, slug) {
     return null
 }
 
-function runZeroJsCheck(htmlPath) {
-    return new Promise((resolve) => {
-        const child = spawn(process.execPath, [join(root, "tools", "check-zero-js.mjs"), htmlPath], {
-            cwd: root,
-            stdio: ["ignore", "pipe", "pipe"]
-        })
-        let output = ""
-        child.stdout.on("data", (chunk) => (output += chunk))
-        child.stderr.on("data", (chunk) => (output += chunk))
-        child.on("close", (code) => resolve({ code, output }))
-    })
+/** Counts the client-JS markers in a page: hydration islands and any <script>. */
+function countJs(html) {
+    return {
+        script: (html.match(/<script[\s>]/gi) ?? []).length,
+        island: (html.match(/<astro-island[\s>]/gi) ?? []).length
+    }
 }
 
 /** Builds one fixture and returns its dist HTML plus whatever the build asked for and did not get. */
@@ -182,20 +190,27 @@ if (templatedPage) {
     record("3. entry rendered through the template", false, "no templated page to inspect")
 }
 
-// --- 4. zero JS on both templated entries ------------------------------------------------------------
-// The post carries an <img> outlet the page does not, and an image component is the easiest place to
-// smuggle a hydrated island in - so it is checked in its own right, not by proxy.
+// --- 4. the template adds no client JS beyond the untemplated render ---------------------------------
+// The compositor/design path must not hydrate. Site chrome (PublicHeader's search toggle) legitimately
+// ships one module script and is present in the baseline render too, so the test is "no NEW <script>
+// and no island", not "no <script> at all". The post carries an <img> outlet the page does not, and an
+// image component is the easiest place to smuggle a hydrated island in - so it is checked in its own right.
 for (const [label, path] of [
     ["page", templatedPage],
     ["post", templatedPost]
 ]) {
-    const name = `4. templated ${label} ships zero JS`
+    const name = `4. templated ${label} adds no client JS`
     if (!path) {
         record(name, false, `no templated ${label} to check`)
         continue
     }
-    const zeroJs = await runZeroJsCheck(join(distClient, path))
-    record(name, zeroJs.code === 0, zeroJs.output.trim().split("\n").pop() ?? "")
+    const after = countJs(templated.html.get(path).toString("utf8"))
+    const before = countJs(baseline.html.get(path)?.toString("utf8") ?? "")
+    record(
+        name,
+        after.island === 0 && after.script <= before.script,
+        `<script>: ${before.script} untemplated -> ${after.script} templated; <astro-island>: ${after.island}`
+    )
 }
 
 // --- 5. every untemplated page is untouched (D3) -----------------------------------------------------
