@@ -61,10 +61,6 @@ The staging gate `staging.yaml` runs on every pull request into `main`. It verif
 
 When the staging checks pass, a feature branch can be merged into main. Upon merge, Cloudflare Worker Builds picks up the event and triggers continuous deployment. This is one of the two triggers for CD - the other is the user-triggered deploy hook (stored as a Worker secret), fired when database or CMS content has been updated for publication.
 
-- Merge once the staging preview check is green and review (section 6) is complete.
-- Cloudflare Worker Builds has its own Git integration on `main` and auto-builds/deploys on merge. There is no separate GitHub Actions deploy step for production.
-- `CF_DEPLOY_HOOK` exists as a manual rebuild trigger, rate-limited by `REBUILD_COOLDOWN_SEC` (1800s).
-
 ## 9. Rollback and incident response
 
 If an issue is discovered in a recent deployment:
@@ -76,7 +72,7 @@ Note: changes to the D1 database schema are reverted differently:
 - Use Cloudflare D1 Time Travel to revert the database to the last version pre-migration, or
 - Write and apply a D1 migration (or execute relevant SQL code on remote) to revert the database change.
 
-Incidents are currently discovered by human interaction, not automatically
+Incidents are currently discovered by human interaction, not automatically.
 
 ## 10. Post-deploy
 
@@ -87,38 +83,10 @@ Incidents are currently discovered by human interaction, not automatically
 
 - **Security reviews**: periodically review security-relevant components of the repository for vulnerabilities, and respond to security reports. It is recommended to do this at least every three months.
 - **Dependency updates**: periodically update dependencies to latest. Follow the standard feature branch process (including full testing) to merge the changes in. GitHub Dependabot alerts are active to detect security vulnerabilities with dependencies.
-- **Vulnerability intake**: per SECURITY.md, acknowledge reports to `kilmer_security@mwmsc.net` within 72 hours.
+- **Vulnerabilities**: acknowledge reports to `kilmer_security@mwmsc.net` within 72 hours.
 
 ## 12. Known gaps / open items
 
 - The CI gate (section 7) does not include automated browser testing or the compositor routing gate. An automated Playwright test could close this gap.
 - There is no automated way to review the site post-deploy or detect a bad deployment, let alone implement a fix.
 - Rate-limit denials, authorization denials, and capacity rejections emit no application security event or counter, so there is nothing to alert on beyond generic platform telemetry. A small privacy-safe security event schema would close this.
-- The controls in section 13 live in the Cloudflare dashboard and cannot be verified from the repository or the CI gate.
-
-## 13. Edge and account controls (deployment-only)
-
-Some security controls cannot live in this repository: they are Cloudflare zone, Access, or account settings. The application either depends on them or is materially weakened without them, so they are listed here to be checked deliberately rather than assumed. Nothing in this section is verified by the CI gate.
-
-Confirm each item in the Cloudflare dashboard after any change to zone, Access, or billing configuration, and at each periodic security review (section 11).
-
-**Zone**
-
-- [ ] **HSTS is enabled zone-wide** (SSL/TLS -> Edge Certificates -> HTTP Strict Transport Security). `src/middleware/headers.ts` sets the header on dynamic Worker responses, but `public/_headers` deliberately omits it, so cached static entry points, Access pages, and error responses only carry it if the zone does. Stage `max-age` upward; add `includeSubDomains` only after auditing every subdomain (including `db-img`); treat preload as a separate, irreversible decision.
-- [ ] **A WAF request-size rule fronts `/submit/contact`.** The route enforces its own 8 KiB ceiling with a bounded read (`src/lib/api/body.ts`), but an edge rule rejects an oversized body before a Worker is invoked at all, which is what keeps an attacker from paying us for the invocation.
-
-**Access**
-
-- [ ] Access policies still gate `/admin`, `/api/v1/*`, and `/_emdash`, and no policy admits a wider audience than intended.
-- [ ] Service tokens in use are current, scoped, and rotated on schedule.
-
-**Billing and capacity**
-
-- [ ] **Usage notifications and spend thresholds are configured** for Workers requests, observability events, R2 storage/Class A operations, and Images.
-- [ ] **Trace volume is watched ahead of 2026-10-01,** when Workers tracing becomes billable per span. `wrangler.jsonc` samples at 5%; revisit the rate if traffic or the included allowance changes.
-- [ ] R2 lifecycle rules exist for any bucket prefix that should not retain objects indefinitely. The shared 9 GiB ceiling is enforced in-application by the quota Durable Object (`src/lib/api/r2-quota.ts`); lifecycle rules are the backstop, not the control.
-
-**Alerting**
-
-- [ ] Alert destinations are configured and have been tested end to end (an unrouted alert is not a control).
-- [ ] Sustained rate-limit denials, upload/capacity rejections, and rebuild-hook attempts are visible to a human. These currently return `429`/`507` without emitting an application security event, so platform telemetry and Access logs are the only signal — see section 12.
