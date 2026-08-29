@@ -61,10 +61,6 @@ The staging gate `staging.yaml` runs on every pull request into `main`. It verif
 
 When the staging checks pass, a feature branch can be merged into main. Upon merge, Cloudflare Worker Builds picks up the event and triggers continuous deployment. This is one of the two triggers for CD - the other is the user-triggered deploy hook (stored as a Worker secret), fired when database or CMS content has been updated for publication.
 
-- Merge once the staging preview check is green and review (section 6) is complete.
-- Cloudflare Worker Builds has its own Git integration on `main` and auto-builds/deploys on merge. There is no separate GitHub Actions deploy step for production.
-- `CF_DEPLOY_HOOK` exists as a manual rebuild trigger, rate-limited by `REBUILD_COOLDOWN_SEC` (1800s).
-
 ## 9. Rollback and incident response
 
 If an issue is discovered in a recent deployment:
@@ -76,7 +72,7 @@ Note: changes to the D1 database schema are reverted differently:
 - Use Cloudflare D1 Time Travel to revert the database to the last version pre-migration, or
 - Write and apply a D1 migration (or execute relevant SQL code on remote) to revert the database change.
 
-Incidents are currently discovered by human interaction, not automatically
+Incidents are currently discovered by human interaction, not automatically.
 
 ## 10. Post-deploy
 
@@ -87,9 +83,10 @@ Incidents are currently discovered by human interaction, not automatically
 
 - **Security reviews**: periodically review security-relevant components of the repository for vulnerabilities, and respond to security reports. It is recommended to do this at least every three months.
 - **Dependency updates**: periodically update dependencies to latest. Follow the standard feature branch process (including full testing) to merge the changes in. GitHub Dependabot alerts are active to detect security vulnerabilities with dependencies.
-- **Vulnerability intake**: per SECURITY.md, acknowledge reports to `kilmer_security@mwmsc.net` within 72 hours.
+- **Vulnerabilities**: acknowledge reports to `kilmer_security@mwmsc.net` within 72 hours.
 
 ## 12. Known gaps / open items
 
 - The CI gate (section 7) does not include automated browser testing or the compositor routing gate. An automated Playwright test could close this gap.
 - There is no automated way to review the site post-deploy or detect a bad deployment, let alone implement a fix.
+- Rate-limit denials, authorization denials, and capacity rejections emit no application security event or counter, so there is nothing to alert on beyond generic platform telemetry. A small privacy-safe security event schema would close this.

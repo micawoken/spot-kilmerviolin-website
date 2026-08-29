@@ -38,7 +38,8 @@ const DECLARED_BINDINGS = [
     "RL_API_ADMIN_USER",
     "RL_ADMIN_RENDER",
     "RL_API_FILES_READ",
-    "RL_API_FILES_WRITE"
+    "RL_API_FILES_WRITE",
+    "RL_CONTACT"
 ] as const
 
 describe("rate-limit scopes and bindings", () => {

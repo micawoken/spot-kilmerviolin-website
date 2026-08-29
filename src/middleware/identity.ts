@@ -92,7 +92,8 @@ export const ADMIN_PAGE_STRUCTURE: Record<string, AdminPageNode> = {
         children: {
             // both trigger work that modifies the website's persisted public state
             rebuild: { access: { kind: "permission", permissions: ["rebuild"] } },
-            purge_cache: { access: { kind: "permission", permissions: ["rebuild"] } }
+            purge_cache: { access: { kind: "permission", permissions: ["rebuild"] } },
+            contact: { access: { kind: "permission", permissions: ["public_form_responses"] } }
         }
     },
     // the CSV bulk-import pages perform non-self assignment

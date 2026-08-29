@@ -40,7 +40,7 @@ export const prerender = false
 const isDev = !authEnabled(Astro.request)
 
 // current usage seeds the live storage estimate (the client projects usage after the chosen file)
-const usage = await getStorageUsage(Astro.locals.cfContext)
+const usage = await getStorageUsage()
 const used_gb = (usage.used / (1024 * 1024 * 1024)).toFixed(2)
 const max_gb = (usage.max / (1024 * 1024 * 1024)).toFixed(2)
 const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0

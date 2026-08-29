@@ -29,6 +29,7 @@ import { Render } from "@puckeditor/core/rsc"
 
 import PublicPage from "../layouts/PublicPage.astro"
 import CompositorStyles from "../components/CompositorStyles.astro"
+import CompositorScripts from "../components/CompositorScripts.astro"
 import {
     fetchPublishedDesignPages,
     fetchPublishedTheme,
@@ -70,12 +71,16 @@ const description = notFoundPage?.description || "The page you requested does no
     notFoundPage ? (
         <PublicPage title={title} description={description}>
             <CompositorStyles slot="head" />
+            <CompositorScripts slot="head" doc={notFoundPage.doc} />
             {/* No entry (a design_page, same as [...slug].astro's design_page branch): outlets render
-                nothing. No client directive -> server-rendered, zero JS. */}
+                nothing. No client directive -> server-rendered, zero JS (unless the design carries a
+                ContactForm, in which case CompositorScripts loads exactly that one component's script). */}
             <Render
                 config={buildConfig(theme ?? EMPTY_TOKEN_CATALOG, "build", {
                     entry: null,
-                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL
+                    mediaBaseUrl: import.meta.env.EMDASH_MEDIA_PUBLIC_URL ?? process.env.EMDASH_MEDIA_PUBLIC_URL,
+                    turnstileSitekey: import.meta.env.TURNSTILE_SITEKEY ?? process.env.TURNSTILE_SITEKEY,
+                    pagePath: Astro.url.pathname
                 })}
                 data={notFoundPage.doc.puck}
             />

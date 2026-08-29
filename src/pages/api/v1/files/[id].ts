@@ -47,6 +47,7 @@ import {
 import { validateAltText } from "../../../../lib/api/validation"
 import { authEnabled } from "../../../../lib/api/environment"
 import { env } from "cloudflare:workers"
+import { MAX_MULTIPART_OVERHEAD_BYTES, readBoundedFormData, RequestBodyTooLargeError } from "../../../../lib/api/body"
 
 /**
  * Refuses a destructive operation on a file the caller did not upload
@@ -124,8 +125,11 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     }
     let form: FormData
     try {
-        form = await request.formData()
-    } catch {
+        form = await readBoundedFormData(request, maxUploadBytes() + MAX_MULTIPART_OVERHEAD_BYTES)
+    } catch (error) {
+        if (error instanceof RequestBodyTooLargeError) {
+            return constructResponse(request, null, 413)
+        }
         return constructResponse(
             request,
             null,

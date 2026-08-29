@@ -5,9 +5,9 @@
  *
  * Copyright (C) 2026 Michael Wong.
  *
- * This file is part of the spot-kilmerviolin-website program, available at 
+ * This file is part of the spot-kilmerviolin-website program, available at
  * https://github.com/micawoken/spot-kilmerviolin-website.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at your
@@ -50,6 +50,7 @@ import { mediaPickerRender } from "./catalog-media-picker"
 import { renderRichTextInlineMenu, renderRichTextMenu, richTextLinkSelector } from "./catalog-richtext-link"
 import { COMPOSITOR_LINK } from "./richtext-extensions"
 import {
+    buttonStyleVars,
     DEFAULT_RELATED_LIMIT,
     fieldPlacementClass,
     formatFieldValue,
@@ -63,6 +64,12 @@ import {
     type ImageSizePreset,
     type ValuePlacement
 } from "./catalog-renderers"
+import {
+    MAX_CONTACT_BODY_LENGTH,
+    MAX_CONTACT_EMAIL_LENGTH,
+    MAX_CONTACT_PHONE_LENGTH,
+    MAX_NAME_LENGTH
+} from "../../consts"
 
 /** Which config a `buildConfig` call produces: the editor island's or the static build renderer's. */
 export type CatalogTarget = "editor" | "build"
@@ -88,6 +95,22 @@ export interface BuildConfigContext {
     /** This record's related works, computed once per route by `entity-records.ts`'s
      * `buildRelatedWorksIndex`, passed in by `[id].astro` */
     relatedEntries?: RelatedWork[]
+    /** Public Turnstile sitekey */
+    turnstileSitekey?: string
+    /** Current public path for SuggestChanges */
+    pagePath?: string
+}
+
+function mergeSearchParams(href: string, added: URLSearchParams): string {
+    const hashIndex = href.indexOf("#")
+    const beforeHash = hashIndex === -1 ? href : href.slice(0, hashIndex)
+    const fragment = hashIndex === -1 ? "" : href.slice(hashIndex)
+    const queryIndex = beforeHash.indexOf("?")
+    const path = queryIndex === -1 ? beforeHash : beforeHash.slice(0, queryIndex)
+    const params = new URLSearchParams(queryIndex === -1 ? "" : beforeHash.slice(queryIndex + 1))
+    added.forEach((value, key) => params.set(key, value))
+    const query = params.toString()
+    return `${path}${query ? `?${query}` : ""}${fragment}`
 }
 
 /**
@@ -142,7 +165,8 @@ export const TOKEN_PROPS: TokenPropRegistry = {
     Image: { radius: "radius", border: "borders", shadow: "shadows" },
     ContentImage: { radius: "radius", border: "borders", shadow: "shadows" },
     MediaText: { radius: "radius", border: "borders", shadow: "shadows" },
-    RelatedEntries: { typography: "typography" }
+    RelatedEntries: { typography: "typography" },
+    ContactForm: { typography: "typography", variant: "buttonVariants", shadow: "shadows" }
 }
 
 /**
@@ -391,6 +415,30 @@ interface RelatedEntriesProps {
     /** a `typography` token name, or "" for no styling (the pre-existing, unstyled default). */
     typography: string
 }
+interface ContactFormProps {
+    heading: string
+    /** a `typography` token name, or "" for no styling (the pre-existing, unstyled default). */
+    typography: string
+    intro: string
+    showSubject: "yes" | "no"
+    showPhone: "yes" | "no"
+    submitLabel: string
+    successMessage: string
+    /** a `buttonVariants` token name (theme-authored), not a fixed union - same field as Button.variant. */
+    variant: string
+    /** a `shadows` token name, or "" for no shadow (the pre-existing default) - variants don't carry one. */
+    shadow: string
+}
+/** Entity-field kinds SuggestChanges may use for its subject */
+const SUGGEST_CHANGES_SUBJECT_KINDS = ["string", "titleCase", "text", "number", "yearOrLiving", "countryCode"]
+interface SuggestChangesProps {
+    text: string
+    href: string
+    /** an entity field slug (see SUGGEST_CHANGES_SUBJECT_KINDS), or "" for no subject prefill. */
+    subjectField: string
+    /** prepended to the resolved field value with no separator, mirroring ContentField's prefix. */
+    subjectPrefix: string
+}
 interface MediaTextProps {
     field: string
     aspect: "original" | "landscape" | "portrait"
@@ -474,7 +522,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
     const resolveFileUrl = (key: string) => (isEditor ? proxyFileUrl(key) : publicFileUrl(key, context?.filesBaseUrl))
 
     const mediaUrl = (source: NonNullable<MediaSource>) =>
-        source.kind === "key" ? resolveMediaUrl(source.storageKey) : source.kind === "file" ? resolveFileUrl(source.key) : source.url
+        source.kind === "key"
+            ? resolveMediaUrl(source.storageKey)
+            : source.kind === "file"
+              ? resolveFileUrl(source.key)
+              : source.url
 
     const components = {
         Section: {
@@ -644,7 +696,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 priority: imagePrioritySelect()
             },
             // "full" preserves this component's pre-existing (unstyled, max-width:100%) behavior.
-            defaultProps: { alt: "", aspect: "original", size: "full", radius: "", border: "", shadow: "", priority: "no" },
+            defaultProps: {
+                alt: "",
+                aspect: "original",
+                size: "full",
+                radius: "",
+                border: "",
+                shadow: "",
+                priority: "no"
+            },
             render: ({ media, alt, aspect, size, radius, border, shadow, priority }: ImageProps) => {
                 if (!media?.storageKey || !isSafeStorageKey(media.storageKey)) return null
                 const url = resolveMediaUrl(media.storageKey)
@@ -693,7 +753,12 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             label: "Spacer",
             fields: {
                 size: tokenSelect(theme, "space", "Size"),
-                linkedField: outletFieldSelect(context?.fields, ANY_OUTLET_FIELD_KIND, "Hide when field is empty", "None (always show)")
+                linkedField: outletFieldSelect(
+                    context?.fields,
+                    ANY_OUTLET_FIELD_KIND,
+                    "Hide when field is empty",
+                    "None (always show)"
+                )
             },
             // ""/unlinked preserves this component's pre-existing behavior (always renders).
             defaultProps: { size: "md", linkedField: "" },
@@ -705,7 +770,13 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     const catalogField = context.fields?.find((candidate) => candidate.slug === linkedField)
                     if (isEmptyFieldValue(context.entry[linkedField], catalogField?.type)) return null
                 }
-                return <div className="cmp-spacer" aria-hidden="true" style={vars({ "--cmp-spacer-size": tokenVar("space", size) })} />
+                return (
+                    <div
+                        className="cmp-spacer"
+                        aria-hidden="true"
+                        style={vars({ "--cmp-spacer-size": tokenVar("space", size) })}
+                    />
+                )
             }
         },
         Divider: {
@@ -757,7 +828,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                                 <a href="/">Home</a>
                             </li>
                             {(ancestors ?? []).map((crumb, index) => (
-                                <li key={index}>{crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}</li>
+                                <li key={index}>
+                                    {crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}
+                                </li>
                             ))}
                             {pageTitle && <li aria-current="page">{pageTitle}</li>}
                         </ol>
@@ -775,6 +848,46 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
             defaultProps: { heading: "Related Works", limit: DEFAULT_RELATED_LIMIT, typography: "" },
             render: ({ heading, limit, typography }: RelatedEntriesProps) =>
                 renderRelatedEntriesTag(context?.relatedEntries, heading, limit, isEditor, typography || "")
+        },
+        SuggestChanges: {
+            label: "Suggest changes",
+            fields: {
+                text: { type: "text" as const, label: "Link text" },
+                href: { type: "text" as const, label: "Target URL" },
+                subjectField: outletFieldSelect(
+                    context?.fields,
+                    SUGGEST_CHANGES_SUBJECT_KINDS,
+                    "Subject field",
+                    "None (no prefill)"
+                ),
+                subjectPrefix: { type: "text" as const, label: "Subject prefix" }
+            },
+            // Every entity catalog has a name field
+            defaultProps: { text: "Suggest changes >", href: "", subjectField: "name", subjectPrefix: "" },
+            // Renders an unprefilled link outside entity templates
+            render: ({ text, href, subjectField, subjectPrefix }: SuggestChangesProps) => {
+                const safeHref = sanitizeHref(href)
+                const params = new URLSearchParams()
+                if (context?.entry && subjectField) {
+                    const catalogField = context.fields?.find((candidate) => candidate.slug === subjectField)
+                    const formatted = formatFieldValue(context.entry[subjectField], catalogField?.type, true)
+                    const subjectText = typeof formatted === "string" ? formatted.trim() : ""
+                    if (subjectText) params.set("subject", `${subjectPrefix}${subjectText}`)
+                }
+                if (context?.pagePath) params.set("source", context.pagePath)
+                const finalHref = mergeSearchParams(safeHref, params)
+                const newTab = opensInNewTab(finalHref)
+                return (
+                    <a
+                        className="cmp-suggest-changes"
+                        href={finalHref}
+                        target={newTab ? "_blank" : undefined}
+                        rel={newTab ? "noopener noreferrer" : undefined}
+                    >
+                        {text}
+                    </a>
+                )
+            }
         },
         PagefindSearch: {
             label: "Search box",
@@ -815,6 +928,131 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                             </p>
                         )}
                     </form>
+                )
+            }
+        },
+        ContactForm: {
+            label: "Contact form",
+            fields: {
+                heading: { type: "text" as const, label: "Heading" },
+                typography: tokenSelect(theme, "typography", "Heading typography", true),
+                intro: { type: "text" as const, label: "Intro text (optional)" },
+                showSubject: {
+                    type: "select" as const,
+                    label: "Show subject field",
+                    options: [
+                        { label: "Yes", value: "yes" },
+                        { label: "No", value: "no" }
+                    ]
+                },
+                showPhone: {
+                    type: "select" as const,
+                    label: "Show phone field",
+                    options: [
+                        { label: "Yes", value: "yes" },
+                        { label: "No", value: "no" }
+                    ]
+                },
+                submitLabel: { type: "text" as const, label: "Submit button label" },
+                successMessage: { type: "text" as const, label: "Success message" },
+                variant: tokenSelect(theme, "buttonVariants", "Button variant"),
+                shadow: tokenSelect(theme, "shadows", "Button shadow", true)
+            },
+            defaultProps: {
+                heading: "Contact Us",
+                typography: "",
+                intro: "",
+                showSubject: "yes",
+                showPhone: "yes",
+                submitLabel: "Send Message",
+                successMessage: "Thanks - your message has been sent.",
+                variant: "primary",
+                shadow: ""
+            },
+            // Behavior loads only when this component is present
+            render: ({
+                heading,
+                typography,
+                intro,
+                showSubject,
+                showPhone,
+                submitLabel,
+                successMessage,
+                variant,
+                shadow
+            }: ContactFormProps) => {
+                const sitekey = context?.turnstileSitekey?.trim() ?? ""
+                if (!isEditor && sitekey === "") {
+                    throw new Error("TURNSTILE_SITEKEY is required when a published design contains ContactForm")
+                }
+                return (
+                    <div className="cmp-contact-form">
+                        {heading.trim() !== "" && renderHeadingTag(heading, "h2", typography, "start")}
+                        {intro.trim() !== "" && <p className="cmp-contact-form__intro">{intro}</p>}
+                        <form
+                            className="cmp-contact-form__form search-form"
+                            action="/submit/contact"
+                            method="post"
+                            data-success-message={successMessage}
+                        >
+                            <label className="cmp-contact-form__field">
+                                Name
+                                <input
+                                    type="text"
+                                    name="name"
+                                    required
+                                    maxLength={MAX_NAME_LENGTH}
+                                    autoComplete="name"
+                                />
+                            </label>
+                            {showSubject === "yes" && (
+                                <label className="cmp-contact-form__field">
+                                    Subject
+                                    <input type="text" name="subject" maxLength={MAX_NAME_LENGTH} autoComplete="off" />
+                                </label>
+                            )}
+                            <fieldset className="cmp-contact-form__reply-group">
+                                <legend>Reply method</legend>
+                                <label className="cmp-contact-form__field">
+                                    Email
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        maxLength={MAX_CONTACT_EMAIL_LENGTH}
+                                        autoComplete="email"
+                                    />
+                                </label>
+                                {showPhone === "yes" && (
+                                    <label className="cmp-contact-form__field">
+                                        Phone
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            maxLength={MAX_CONTACT_PHONE_LENGTH}
+                                            autoComplete="tel"
+                                        />
+                                    </label>
+                                )}
+                                <p className="cmp-contact-form__hint">
+                                    Provide an email or phone number so we can respond.
+                                </p>
+                            </fieldset>
+                            <label className="cmp-contact-form__field">
+                                Message
+                                <textarea name="body" required maxLength={MAX_CONTACT_BODY_LENGTH} rows={6} />
+                            </label>
+                            <label className="cmp-contact-form__honeypot" aria-hidden="true">
+                                Leave this field blank
+                                <input type="text" name="hp_website" tabIndex={-1} autoComplete="off" />
+                            </label>
+                            <input type="hidden" name="source_path" value={context?.pagePath ?? ""} />
+                            <div className="cmp-contact-form__turnstile" data-turnstile-sitekey={sitekey} />
+                            <button type="submit" className="cmp-button" style={buttonStyleVars(variant, shadow)}>
+                                {submitLabel}
+                            </button>
+                            <p className="cmp-contact-form__status" role="status" aria-live="polite" />
+                        </form>
+                    </div>
                 )
             }
         },
@@ -891,7 +1129,15 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 priority: imagePrioritySelect()
             },
             // "full" preserves this outlet's pre-existing (unstyled, max-width:100%) behavior.
-            defaultProps: { field: "", aspect: "original", size: "full", radius: "", border: "", shadow: "", priority: "no" },
+            defaultProps: {
+                field: "",
+                aspect: "original",
+                size: "full",
+                radius: "",
+                border: "",
+                shadow: "",
+                priority: "no"
+            },
             render: ({ field, aspect, size, radius, border, shadow, priority }: ContentImageProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
 
@@ -904,7 +1150,18 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         ""
                     const width = isRecord(image) && typeof image.width === "number" ? image.width : undefined
                     const height = isRecord(image) && typeof image.height === "number" ? image.height : undefined
-                    return renderImageTag(url, alt, width, height, aspect, size, radius, border, shadow, priority === "yes")
+                    return renderImageTag(
+                        url,
+                        alt,
+                        width,
+                        height,
+                        aspect,
+                        size,
+                        radius,
+                        border,
+                        shadow,
+                        priority === "yes"
+                    )
                 }
                 return isEditor ? <OutletPlaceholder field={field} /> : null
             }
@@ -994,7 +1251,9 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                     linkHref.trim() !== "" &&
                     !rendersOwnAnchors(value, catalogField?.type)
                 const formatted =
-                    empty && onEmpty === "placeholder" ? emptyValue : formatFieldValue(value, catalogField?.type, linked)
+                    empty && onEmpty === "placeholder"
+                        ? emptyValue
+                        : formatFieldValue(value, catalogField?.type, linked)
                 const labelSuppressed = displayLabel === "" || (empty && onEmpty === "hideLabel")
                 const hideLabel = showLabel === "no" || labelSuppressed
                 // An author-chosen showLabel:"no" hides the label visually but the field still has
@@ -1036,7 +1295,11 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         )}
                         <span className="cmp-field__value">
                             {safeHref !== null ? (
-                                <a href={safeHref} target={newTab ? "_blank" : undefined} rel={newTab ? "noopener noreferrer" : undefined}>
+                                <a
+                                    href={safeHref}
+                                    target={newTab ? "_blank" : undefined}
+                                    rel={newTab ? "noopener noreferrer" : undefined}
+                                >
                                     {content}
                                 </a>
                             ) : (
@@ -1088,7 +1351,17 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                 content: []
             },
             // Concern #3 (missing images)
-            render: ({ field, aspect, imagePosition, size, radius, border, shadow, priority, content: Content }: MediaTextProps) => {
+            render: ({
+                field,
+                aspect,
+                imagePosition,
+                size,
+                radius,
+                border,
+                shadow,
+                priority,
+                content: Content
+            }: MediaTextProps) => {
                 const image = context?.entry && field ? context.entry[field] : undefined
                 const source = mediaSource(image)
                 return (

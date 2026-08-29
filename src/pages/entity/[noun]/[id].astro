@@ -31,6 +31,7 @@ import PublicPage from "../../../layouts/PublicPage.astro"
 import EntityOgMeta from "../../../components/EntityOgMeta.astro"
 import EntityStructuredData from "../../../components/EntityStructuredData.astro"
 import CompositorStyles from "../../../components/CompositorStyles.astro"
+import CompositorScripts from "../../../components/CompositorScripts.astro"
 import { fetchAllContributors, fetchComposers, fetchCompositions, fetchContributors } from "../../../lib/build/d1-api"
 import {
     fetchPublishedEntityTemplates,
@@ -156,6 +157,7 @@ const image = resolvePublicImageUrl(entry.image, mediaBaseUrl, filesBaseUrl)
     contentType={ENTITY_NOUN_SLUGS[template.collection]}
 >
     <CompositorStyles slot="head" />
+    <CompositorScripts slot="head" doc={template.doc} />
     <EntityOgMeta slot="head" entryDate={entry.entry_date} changeDate={entry.change_date} />
     <EntityStructuredData
         slot="head"
@@ -180,7 +182,9 @@ const image = resolvePublicImageUrl(entry.image, mediaBaseUrl, filesBaseUrl)
             ],
             pageTitle: title,
             bundledFileAlt,
-            relatedEntries
+            relatedEntries,
+            turnstileSitekey: import.meta.env.TURNSTILE_SITEKEY ?? process.env.TURNSTILE_SITEKEY,
+            pagePath: Astro.url.pathname
         })}
         data={template.doc.puck}
     />

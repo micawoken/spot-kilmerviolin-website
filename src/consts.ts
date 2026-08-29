@@ -51,3 +51,18 @@ export const PRODUCTION_HOSTS: string[] = ["kilmer.nrnnet.xyz"]
 
 // origins permitted to make credentialed cross-origin requests
 export const ALLOWED_ORIGINS: string[] = ["https://kilmer.nrnnet.xyz"]
+
+// Public contact form limits
+export const MAX_CONTACT_BODY_LENGTH = 2000
+export const MAX_CONTACT_EMAIL_LENGTH = 254 // RFC 5321 mailbox length limit
+export const MAX_CONTACT_PHONE_LENGTH = 32
+export const MAX_CONTACT_SOURCE_PATH_LENGTH = 512 // the SuggestChanges component's ?source= page path
+
+// Public contact form request body limit
+export const MAX_CONTACT_REQUEST_BODY_LENGTH = 8192
+
+// Contact response queue limit
+export const MAX_CONTACT_RESPONSES = 500
+
+export const MAX_CONTACT_BULK_IDS = 100
+export const MAX_CONTACT_ADMIN_REQUEST_BODY_LENGTH = 4096

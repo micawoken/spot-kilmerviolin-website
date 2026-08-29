@@ -66,6 +66,36 @@ export function isPuckComponent(value: unknown): value is PuckComponent {
     return isRecord(value) && typeof value.type === "string" && isRecord(value.props)
 }
 
+/**
+ * Whether a stored design tree contains at least one component of the given type, anywhere in its slots.
+ * Used by CompositorScripts.astro to decide whether a page needs the ContactForm client bundle - most
+ * pages don't carry the form, and they must keep shipping zero client JS (see that component's header).
+ *
+ * @param doc the design document to search
+ * @param type the Puck component type to look for (e.g. "ContactForm")
+ * @returns true if any component in the tree has that type
+ */
+export function docUsesComponent(doc: DesignDoc, type: string): boolean {
+    const walk = (components: unknown[]): boolean =>
+        components.some((component) => {
+            if (!isPuckComponent(component)) return false
+            if (component.type === type) return true
+            return Object.values(component.props).some((value) => Array.isArray(value) && walk(value))
+        })
+    const puck = doc.puck as { root?: unknown; content?: unknown; zones?: unknown }
+    const content = puck.content
+    if (Array.isArray(content) && walk(content)) return true
+    // The root can carry slot fields inside its props (mirrors mapRichText in convert.ts)
+    if (isRecord(puck.root) && isRecord(puck.root.props)) {
+        if (Object.values(puck.root.props).some((value) => Array.isArray(value) && walk(value))) return true
+    }
+    // Legacy DropZone data: a map of zone name -> component array. Slots supersede it, but tolerate it.
+    if (isRecord(puck.zones)) {
+        if (Object.values(puck.zones).some((zone) => Array.isArray(zone) && walk(zone))) return true
+    }
+    return false
+}
+
 /** Reads an EmDash boolean field. Use for every one - strict `=== true` silently reads every set
  * flag as false. EmDash serializes true/false to a SQLite INTEGER 1/0 on write, never converts back
  * on read - the API returns the number 1 or 0, not a boolean. No compiler or test net catches this. */

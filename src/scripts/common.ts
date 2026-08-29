@@ -32,6 +32,7 @@ import {
     isPositiveIntegerString,
     isValidEmail,
     isValidImageUrl,
+    isValidPhone,
     isValidPitchRange,
     isValidPosition,
     SUPPORTED_URI_TYPES,
@@ -350,6 +351,9 @@ export const validateIdField: FieldValidator = (raw) =>
 export const validateEmailField: FieldValidator = (raw) =>
     raw.trim() === "" || isValidEmail(raw) ? null : "enter a valid email address"
 
+export const validatePhoneField: FieldValidator = (raw) =>
+    raw.trim() === "" || isValidPhone(raw) ? null : "enter a valid phone number"
+
 export const validateImageField: FieldValidator = (raw) =>
     raw.trim() === "" || isValidImageUrl(raw) ? null : "enter a valid URL or pick an uploaded image"
 
@@ -398,6 +402,8 @@ export const FIELD_VALIDATORS: Record<string, FieldValidator> = {
     email: validateEmailField,
     current_email: validateEmailField,
     new_email: validateEmailField,
+    // public contact form (ContactForm compositor component + scripts/contact_form.ts)
+    phone: validatePhoneField,
     roles_add: validateList(false),
     roles_remove: validateList(false),
     image: validateImageField,

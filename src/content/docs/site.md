@@ -14,6 +14,7 @@ The Site Management section covers operational tasks for the public-facing site.
 - **Access EmDash CMS** - open the EmDash CMS editor in a new tab
 - **Rebuild site** - trigger a rebuild of the public site
 - **Purge cache** - invalidate cached database responses
+- **Contact responses** - view and manage messages submitted through the public contact form
 
 ## Database Search
 You can use database search to search by keyword across the database.
@@ -43,6 +44,13 @@ You can only initiate a rebuild *at least 30 minutes after the last rebuild.* (A
 When you edit the database, we don't immediately update other references to the database in the website's memory. This may cause search results and views of database records to be outdated.
 
 To fix this, you can **purge the cache**: this deletes our temporary copies in our memory of the database, making your results correct immediately. However, **you do not need to do this**: your work was saved, and any visual problems you see are temporary and will go away over time.
+
+## Contact Responses
+If a page carries a contact form, visitor submissions appear here. Each response shows the sender's name, subject, email/phone, message, an automated spam score, and when it was received.
+
+You can mark responses read or unread, delete them individually or in bulk, and hide likely-spam responses with the filter checkbox. **Download CSV** exports the full list for use outside the site.
+
+Responses are kept in a capped queue: once the queue fills, submitting a new one automatically removes the oldest response you've already read to make room. If every stored response is still unread, new submissions are temporarily rejected until you clear some out - review and delete (or leave marked read) older responses periodically so the form stays available.
 
 ## Questions
 Any questions? Contact [contact@michaelwongmusic.com](mailto:contact@michaelwongmusic.com).

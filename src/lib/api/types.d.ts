@@ -340,6 +340,7 @@ interface RoleProfile {
     cms_editor: boolean
     design_editor: boolean
     rebuild: boolean
+    public_form_responses: boolean
 }
 
 /**
@@ -684,5 +685,64 @@ interface D1Composition extends CompositionPrimitive {
     entry_date: number // epoch milliseconds; creation date, immutable after insert (see db_init.sql trigger)
     change_date: number // epoch milliseconds; last-modified date
     full_name?: string // generated and stored in d1, but not used in middleware and business logic
+    [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
+}
+
+/**
+ * Public contact-form response
+ *
+ * @namespace ContactResponse
+ * @property {string | null} subject - response subject
+ * @property {string} name - sender name
+ * @property {string | null} email - sender email
+ * @property {string | null} phone - sender phone
+ * @property {string} body - response body
+ * @property {string | null} source_path - source page path
+ * @property {number} spam_score - advisory spam score
+ * @property {string[]} spam_flags - spam score flags
+ * @property {boolean} read - read status
+ */
+interface ContactResponse {
+    subject: string | null
+    name: string
+    email: string | null
+    phone: string | null
+    body: string
+    source_path: string | null
+    spam_score: number
+    spam_flags: string[]
+    read: boolean
+}
+
+/**
+ * Stored public contact-form response
+ */
+interface ContactResponseRecord extends ContactResponse {
+    id: number
+    entry_date: number // epoch milliseconds; creation (submission) date, immutable after insert
+    change_date: number // epoch milliseconds; last-modified date (bumped when read state changes)
+}
+
+/**
+ * D1 contact-form response
+ *
+ * @namespace D1ContactResponse
+ * @property {number} response_id - response id
+ * @property {string | null} spam_flags - JSON spam flags
+ * @property {number | null} read_at - read timestamp
+ */
+interface D1ContactResponse {
+    response_id: number
+    subject: string | null
+    name: string
+    email: string | null
+    phone: string | null
+    body: string
+    source_path: string | null
+    spam_score: number
+    spam_flags: string | null
+    read_at: number | null
+    entry_date: number
+    change_date: number
     [key: string]: string | number | null // no additional fields expected; trying to clear compiler issue
 }

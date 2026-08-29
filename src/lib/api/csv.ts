@@ -153,6 +153,39 @@ export function parseCsvWithHeader(
 }
 
 /**
+ * Escapes an RFC 4180 CSV field and guards spreadsheet formulas
+ *
+ * @param value the raw field value
+ * @returns the field, quoted/escaped only if necessary
+ */
+function escapeCsvField(value: string): string {
+    const needsFormulaGuard = /^[=+\-@\t\r]/.test(value)
+    const guarded = needsFormulaGuard ? `'${value}` : value
+    return /[",\n\r]/.test(guarded) || needsFormulaGuard ? `"${guarded.replace(/"/g, '""')}"` : guarded
+}
+
+/**
+ * Serializes rows to RFC 4180 CSV text
+ *
+ * @param columns the column names, used verbatim as the header row and as the per-row key order
+ * @param rows the data rows; a missing/null/undefined value renders as an empty field
+ * @returns the CSV text
+ */
+export function toCsv(columns: string[], rows: Record<string, string | number | null | undefined>[]): string {
+    const lines = [columns.map(escapeCsvField).join(",")]
+    for (const row of rows) {
+        lines.push(
+            columns
+                .map((column) =>
+                    escapeCsvField(row[column] === null || row[column] === undefined ? "" : String(row[column]))
+                )
+                .join(",")
+        )
+    }
+    return lines.join("\r\n") + "\r\n"
+}
+
+/**
  * Normalizes a name for fuzzy comparison: trimmed, lowercased, and internal whitespace collapsed to a
  * single space
  */

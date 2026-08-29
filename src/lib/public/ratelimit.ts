@@ -61,7 +61,9 @@ export enum RLScope {
      * Applies to file lists/uploads/replacements/deletions, limited by user against the dedicated
      * RL_API_FILES_WRITE binding to keep R2 Class A operation volume within the free plan
      */
-    ENDPOINT_API_FILES_WRITE
+    ENDPOINT_API_FILES_WRITE,
+    /** Applies to public contact-form submissions */
+    ENDPOINT_PUBLIC_CONTACT
 }
 
 /** How a scope's bucket is keyed: per client IP, per authenticated user, or one bucket for everyone. */
@@ -83,7 +85,9 @@ const RL_SCOPE_CONFIG: Record<RLScope, { binding: () => RateLimit; keyType: RLKe
     [RLScope.ENDPOINT_API_PUBLIC]: { binding: () => env.RL_API_PUBLIC, keyType: "global" },
     // file reads are metered by IP (mirroring the global frequency limit); file writes by user
     [RLScope.ENDPOINT_API_FILES_READ]: { binding: () => env.RL_API_FILES_READ, keyType: "ip" },
-    [RLScope.ENDPOINT_API_FILES_WRITE]: { binding: () => env.RL_API_FILES_WRITE, keyType: "user" }
+    [RLScope.ENDPOINT_API_FILES_WRITE]: { binding: () => env.RL_API_FILES_WRITE, keyType: "user" },
+    // Contact submissions are anonymous
+    [RLScope.ENDPOINT_PUBLIC_CONTACT]: { binding: () => env.RL_CONTACT, keyType: "ip" }
 }
 
 /**

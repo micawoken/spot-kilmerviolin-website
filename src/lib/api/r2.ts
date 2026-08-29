@@ -26,17 +26,16 @@
  */
 
 import { env } from "cloudflare:workers"
+import { adjustR2Usage, claimR2Capacity, MAX_R2_STORAGE_BYTES, R2CapacityError } from "./r2-quota"
+
+// the storage ceiling and its error live with the quota Durable Object that now owns them; re-exported
+// here so existing callers keep importing storage concerns from this module
+export { MAX_R2_STORAGE_BYTES, R2CapacityError } from "./r2-quota"
 
 /**
  * R2 free plan limits are maintained using rate limiters and caching to prevent overages; logic should
  * be written to prevent overages (do not scan the entire bucket, unless it is build time)
  */
-
-/**
- * The maximum total number of bytes this app is allowed to store in R2, combined across every bucket it
- * owns (R2_FILES and EMDASH_MEDIA)
- */
-export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
 
 /**
  * The maximum size, in bytes, of a single uploaded file, sourced from the `MAX_UPLOAD_BYTES` wrangler var.
@@ -48,16 +47,6 @@ export const MAX_R2_STORAGE_BYTES = 9 * 1024 * 1024 * 1024 // 9 GiB
  */
 export function maxUploadBytes(): number {
     return Number(env.MAX_UPLOAD_BYTES)
-}
-
-/**
- * Thrown by putObject when a write would exceed MAX_R2_STORAGE_BYTES; endpoints map this to 507
- */
-export class R2CapacityError extends Error {
-    constructor(message: string) {
-        super(message)
-        this.name = "R2CapacityError"
-    }
 }
 
 /**
@@ -74,26 +63,6 @@ export async function listObjects(
     include: ("httpMetadata" | "customMetadata")[] = ["httpMetadata", "customMetadata"]
 ): Promise<R2Objects> {
     return await env.R2_FILES.list({ prefix, cursor, include })
-}
-
-/**
- * Sums the total bytes currently stored in EMDASH_MEDIA (the EmDash CMS media library bucket), scanning
- * its full listing
- *
- *
- * @returns {Promise<number>} the total bytes currently stored in EMDASH_MEDIA
- */
-export async function emdashMediaUsageBytes(): Promise<number> {
-    let total = 0
-    let cursor: string | undefined = undefined
-    do {
-        const listing: R2Objects = await env.EMDASH_MEDIA.list({ cursor })
-        for (const object of listing.objects) {
-            total += object.size
-        }
-        cursor = listing.truncated ? listing.cursor : undefined
-    } while (cursor !== undefined)
-    return total
 }
 
 /**
@@ -124,7 +93,7 @@ export async function headObject(key: string): Promise<R2Object | null> {
  * @param {ArrayBuffer | Uint8Array} body - the object bytes (size must be known for the capacity check)
  * @param {string} content_type - the MIME type to store as httpMetadata.contentType
  * @param {Record<string, string> | undefined} custom_metadata - opaque metadata to store on the object
- * @param {number} usage_budget - bytes already used to count this write against
+ * @param {number} [replaced_bytes] - bytes occupied by the object this atomic write replaces
  * @returns {Promise<R2Object>} the written object's metadata
  * @throws {R2CapacityError} if the write would push total usage past MAX_R2_STORAGE_BYTES
  */
@@ -133,27 +102,41 @@ export async function putObject(
     body: ArrayBuffer | Uint8Array,
     content_type: string,
     custom_metadata: Record<string, string> | undefined,
-    usage_budget: number
+    replaced_bytes = 0
 ): Promise<R2Object> {
     const incoming = body.byteLength
-    const used = usage_budget
-    if (used + incoming > MAX_R2_STORAGE_BYTES) {
-        throw new R2CapacityError(
-            `Storage capacity exceeded: ${used + incoming} bytes would exceed the ${MAX_R2_STORAGE_BYTES} byte ceiling`
-        )
+    const growth = incoming - replaced_bytes
+    if (growth > 0) {
+        await claimR2Capacity(growth)
     }
-    return await env.R2_FILES.put(key, body, {
-        httpMetadata: { contentType: content_type },
-        customMetadata: custom_metadata
-    })
+    try {
+        const stored = await env.R2_FILES.put(key, body, {
+            httpMetadata: { contentType: content_type },
+            customMetadata: custom_metadata
+        })
+        if (growth < 0) {
+            await adjustR2Usage(growth)
+        }
+        return stored
+    } catch (error) {
+        if (growth > 0) {
+            await adjustR2Usage(-growth)
+        }
+        throw error
+    }
 }
 
 /**
- * Deletes an object from the bucket
+ * Deletes an object from the bucket and releases its bytes back to the shared storage quota
  *
  * @param {string} key - the object key to delete
  * @returns {Promise<void>}
  */
 export async function deleteObject(key: string): Promise<void> {
-    return await env.R2_FILES.delete(key)
+    // head first so the freed bytes are known; the quota is only released once the delete succeeds
+    const existing = await env.R2_FILES.head(key)
+    await env.R2_FILES.delete(key)
+    if (existing !== null) {
+        await adjustR2Usage(-existing.size)
+    }
 }

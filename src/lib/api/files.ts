@@ -26,7 +26,8 @@
  */
 
 import { env } from "cloudflare:workers"
-import { deleteObject, emdashMediaUsageBytes, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
+import { deleteObject, getObject, listObjects, putObject, MAX_R2_STORAGE_BYTES } from "./r2.ts"
+import { getR2Usage } from "./r2-quota.ts"
 import { isOptimizableImage, optimizeImage, type CropInstruction } from "./images.ts"
 import { getCache, putCache, deleteCacheKey } from "./caching.ts"
 import { getKey, setKey, deleteKey } from "./kv.ts"
@@ -315,7 +316,7 @@ function _buildCustomMetadata(
  * @param {string} content_type - the original MIME type
  * @param {string | null} uploader - the contributor id performing the upload, or null
  * @param {string} alt - the file's required alt text
- * @param {number} usage_budget - bytes already used to count this write against (excludes the key when replacing)
+ * @param {number} replaced_bytes - bytes occupied by the key being atomically replaced
  * @param {CropInstruction} [crop] - how to crop an image into a canonical shape; absent = centered portrait
  * @returns {Promise<FileMeta>} the stored file's metadata
  * @throws {R2CapacityError} if the write would exceed the storage ceiling
@@ -327,7 +328,7 @@ async function _writeFile(
     content_type: string,
     uploader: string | null,
     alt: string,
-    usage_budget: number,
+    replaced_bytes: number,
     crop?: CropInstruction
 ): Promise<FileMeta> {
     const optimized = await optimizeImage(bytes, content_type, crop)
@@ -339,7 +340,7 @@ async function _writeFile(
         optimized.optimized,
         alt
     )
-    const stored = await putObject(key, optimized.bytes, optimized.content_type, custom, usage_budget)
+    const stored = await putObject(key, optimized.bytes, optimized.content_type, custom, replaced_bytes)
     _invalidate(ctx, key)
     return _toMeta(stored)
 }
@@ -371,10 +372,7 @@ export async function addFile(
     if (files.some((file) => file.key === key)) {
         throw new Error(`A file already exists at key "${key}"`)
     }
-    // the capacity ceiling is shared with EMDASH_MEDIA (see r2.ts's MAX_R2_STORAGE_BYTES), so the budget
-    // must include that bucket's current usage too, not just this one's
-    const used = files.reduce((total, file) => total + file.size, 0) + (await emdashMediaUsageBytes())
-    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
+    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, 0, crop)
 }
 
 /**
@@ -405,10 +403,7 @@ export async function replaceFile(
     if (existing === undefined) {
         throw new Error(`No file exists at key "${key}"`)
     }
-    // count this write against current usage minus the object being overwritten; the budget also includes
-    // EMDASH_MEDIA's usage since the capacity ceiling is shared across both buckets (see r2.ts)
-    const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())
-    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, used, crop)
+    return await _writeFile(ctx, key, bytes, content_type, uploader, alt, existing.size, crop)
 }
 
 /**
@@ -439,10 +434,7 @@ export async function updateFileAlt(ctx: ExecutionContext, key: string, alt: str
         existing.optimized,
         alt
     )
-    // re-writing the same bytes does not change total usage, so the budget excludes this object's own
-    // size; EMDASH_MEDIA's usage is still included since the capacity ceiling is shared (see r2.ts)
-    const used = files.reduce((total, file) => total + file.size, 0) - existing.size + (await emdashMediaUsageBytes())
-    const stored = await putObject(key, data.bytes, data.content_type, custom, used)
+    const stored = await putObject(key, data.bytes, data.content_type, custom, existing.size)
     _invalidate(ctx, key)
     return _toMeta(stored)
 }
@@ -462,15 +454,14 @@ export async function deleteFile(ctx: ExecutionContext, key: string): Promise<vo
 /**
  * Reports current and maximum storage usage against the shared ceiling
  *
- * `used` is combined across both buckets this app owns (R2_FILES + EMDASH_MEDIA) since they draw against
- * the same account-wide capacity ceiling - see r2.ts's MAX_R2_STORAGE_BYTES.
+ * `used` is the quota Durable Object's counter, which is combined across both buckets this app owns
+ * (R2_FILES + EMDASH_MEDIA) since they draw against the same capacity ceiling - see r2-quota.ts. Reading
+ * the counter replaces the former per-call scan of both buckets.
  *
- * @param {ExecutionContext} ctx - the Cloudflare Worker ExecutionContext
  * @returns {Promise<{ used: number, max: number }>} combined bytes used and the configured ceiling
  */
-export async function getStorageUsage(ctx: ExecutionContext): Promise<{ used: number; max: number }> {
-    const files = await listFiles(ctx)
-    const used = files.reduce((total, file) => total + file.size, 0) + (await emdashMediaUsageBytes())
+export async function getStorageUsage(): Promise<{ used: number; max: number }> {
+    const used = await getR2Usage()
     return { used, max: MAX_R2_STORAGE_BYTES }
 }
 

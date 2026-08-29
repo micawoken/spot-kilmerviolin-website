@@ -22,6 +22,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+// the wrangler config binds R2_QUOTA to this class, so the stub entrypoint must export it too or the
+// test runner cannot start the isolate
+export { R2Quota } from "../src/lib/api/r2-quota"
+
 export default {
     async fetch(): Promise<Response> {
         return new Response("test worker stub")

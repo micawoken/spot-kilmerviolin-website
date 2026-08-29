@@ -30,7 +30,7 @@
 import { env } from "cloudflare:workers"
 import { SQLStatement } from "./sql_statement.ts"
 import { dbWriteEnabled } from "./environment.ts"
-import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE } from "./tables.ts"
+import { CONTRIBUTOR_TABLE, COMPOSER_TABLE, COMPOSITION_TABLE, CONTACT_RESPONSE_TABLE } from "./tables.ts"
 
 /**
  * Schema for contributors table
@@ -46,6 +46,11 @@ export const COMPOSER: D1Schema = { db: env.DB_MAIN, ...COMPOSER_TABLE }
  * Schema for compositions table
  */
 export const COMPOSITION: D1Schema = { db: env.DB_MAIN, ...COMPOSITION_TABLE }
+
+/**
+ * Schema for contact-form responses
+ */
+export const CONTACT_RESPONSE: D1Schema = { db: env.DB_MAIN, ...CONTACT_RESPONSE_TABLE }
 
 /**
  * Strips a schema's protected properties (schema.protected) from a record before it leaves the server

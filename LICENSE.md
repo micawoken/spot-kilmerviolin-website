@@ -654,7 +654,7 @@ This program is primarily distributed using the GNU Affero General Public Licens
 ## Third-Party Licenses
 This source code repository depends on the following third-party software packages.
 
-_Generated 2026-08-10 from `package.json`._
+_Generated 2026-08-26 from `package.json`._
 
 | Package                           | Kind          | License           | Declared range                     | Installed version | Author                  | Homepage                                                                                |
 | :-------------------------------- | :------------ | :---------------- | :--------------------------------- | :---------------- | :---------------------- | :-------------------------------------------------------------------------------------- |
@@ -699,6 +699,7 @@ _Generated 2026-08-10 from `package.json`._
 | jose                              | dependency    | MIT               | ^6.2.8                             | 6.2.8             | Filip Skokan            | https://github.com/panva/jose                                                           |
 | kysely                            | dependency    | MIT               | ^0.29.4                            | 0.29.4            | Sami Koskimäki          | https://kysely.dev                                                                      |
 | minisearch                        | dependency    | MIT               | ^7.2.0                             | 7.2.0             | Luca Ongaro             | https://lucaong.github.io/minisearch/                                                   |
+| obscenity                         | dependency    | MIT               | ^0.4.3                             | 0.4.6             | Joseph Liu              | https://github.com/jo3-l/obscenity#readme                                                |
 | pagefind                          | devDependency | MIT               | ^1.5.2                             | 1.5.2             | Pagefind                | https://github.com/Pagefind/pagefind#readme                                             |
 | prettier                          | devDependency | MIT               | ^3.9.6                             | 3.9.6             | James Long              | https://prettier.io                                                                     |
 | prettier-plugin-astro             | devDependency | MIT               | ^0.14.1                            | 0.14.1            |                         | https://github.com/withastro/prettier-plugin-astro/                                     |

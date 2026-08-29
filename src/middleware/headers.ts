@@ -54,8 +54,10 @@ export const PUBLIC_CSP = [
     "form-action 'self'",
     "img-src 'self' https: data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com/beacon.min.js",
-    "connect-src 'self' https://cloudflareinsights.com"
+    "script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com/beacon.min.js https://challenges.cloudflare.com",
+    "connect-src 'self' https://cloudflareinsights.com https://challenges.cloudflare.com",
+    // Turnstile frame source
+    "frame-src 'self' https://challenges.cloudflare.com"
 ].join("; ")
 
 export const securityHeaders: MiddlewareHandler = async (context, next) => {
