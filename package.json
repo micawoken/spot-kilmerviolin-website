@@ -27,7 +27,7 @@
     "@lucide/astro": "^1.31.0",
     "@portabletext/react": "~7.0.1",
     "@puckeditor/core": "~0.23.0",
-    "@tiptap/core": "^3.29.2",
+    "@tiptap/core": "^3.30.4",
     "@tiptap/extension-blockquote": "^3.29.2",
     "@tiptap/extension-bold": "^3.29.2",
     "@tiptap/extension-code": "^3.29.2",
