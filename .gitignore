@@ -226,3 +226,7 @@ src/lib/build/theme-fonts-manifest.generated.json
 
 # editor workspace
 *.code-workspace
+
+# pnpm
+.pnpm-store/*
+.pnpm-store
