@@ -27,13 +27,15 @@
  */
 ---
 
-{import.meta.env.DEV && <script
-    type="module"
-    is:inline
-    set:html={`
+{import.meta.env.DEV && (
+    <script
+        type="module"
+        is:inline
+        set:html={`
 import { injectIntoGlobalHook } from "/@react-refresh";
 injectIntoGlobalHook(window);
 window.$RefreshReg$ = () => {};
 window.$RefreshSig$ = () => (type) => type;
 `}
-></script>}
+    ></script>
+)}

@@ -99,9 +99,11 @@ const imageOrigins = [
 <meta property="twitter:description" content={description} />
 {resolvedImage && <meta property="twitter:image" content={new URL(resolvedImage, Astro.url)} />}
 
-{webAnalyticsToken && <script
-    is:inline
-    defer
-    src="https://static.cloudflareinsights.com/beacon.min.js"
-    data-cf-beacon={JSON.stringify({ token: webAnalyticsToken })}
-></script>}
+{webAnalyticsToken && (
+    <script
+        is:inline
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={JSON.stringify({ token: webAnalyticsToken })}
+    ></script>
+)}
