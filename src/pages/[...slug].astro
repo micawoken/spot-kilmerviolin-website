@@ -138,35 +138,33 @@ const filesBaseUrl = import.meta.env.FILES_PUBLIC_URL ?? process.env.FILES_PUBLI
 const image = resolvePublicImageUrl(props.image, mediaBaseUrl, filesBaseUrl)
 ---
 
-{
-    props.kind === "portable" ? (
-        <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
-            <article>
-                <h1>{props.title}</h1>
-                {props.published_at && (
-                    <p class="last-updated">
-                        Last updated: <FormattedDate date={new Date(props.published_at)} />
-                    </p>
-                )}
-                <PortableText value={props.content} />
-            </article>
-        </PublicPage>
-    ) : (
-        <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
-            <CompositorStyles slot="head" />
-            <CompositorScripts slot="head" doc={props.doc} />
-            <Render
-                config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
-                    entry: props.entry,
-                    mediaBaseUrl,
-                    filesBaseUrl,
-                    breadcrumbs: props.breadcrumbs,
-                    pageTitle: props.title,
-                    turnstileSitekey: import.meta.env.TURNSTILE_SITEKEY ?? process.env.TURNSTILE_SITEKEY,
-                    pagePath: Astro.url.pathname
-                })}
-                data={props.doc.puck}
-            />
-        </PublicPage>
-    )
-}
+{props.kind === "portable" ? (
+    <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
+        <article>
+            <h1>{props.title}</h1>
+            {props.published_at && (
+                <p class="last-updated">
+                    Last updated: <FormattedDate date={new Date(props.published_at)} />
+                </p>
+            )}
+            <PortableText value={props.content} />
+        </article>
+    </PublicPage>
+) : (
+    <PublicPage title={props.title} description={props.description} image={image} contentType={contentType}>
+        <CompositorStyles slot="head" />
+        <CompositorScripts slot="head" doc={props.doc} />
+        <Render
+            config={buildConfig(props.theme ?? EMPTY_TOKEN_CATALOG, "build", {
+                entry: props.entry,
+                mediaBaseUrl,
+                filesBaseUrl,
+                breadcrumbs: props.breadcrumbs,
+                pageTitle: props.title,
+                turnstileSitekey: import.meta.env.TURNSTILE_SITEKEY ?? process.env.TURNSTILE_SITEKEY,
+                pagePath: Astro.url.pathname
+            })}
+            data={props.doc.puck}
+        />
+    </PublicPage>
+)}

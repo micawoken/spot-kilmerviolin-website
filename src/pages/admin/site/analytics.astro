@@ -66,44 +66,41 @@ const summary = await getWebAnalyticsSummary(range)
                 Pageview and visit counts reported by the public site's Cloudflare Web Analytics beacon. This data is
                 cookieless and requires no visitor consent banner.
             </p>
-            {
-                summary.ok ? (
-                    <>
-                        <nav aria-label="Time range">
-                            <ul class="analytics-range-nav">
-                                {ranges.map((r) => (
-                                    <li>
-                                        {r === range ? (
-                                            <strong>{RANGE_LABELS[r]}</strong>
-                                        ) : (
-                                            <a href={`/admin/site/analytics?range=${r}`}>{RANGE_LABELS[r]}</a>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </nav>
-                        <div class="entity-result-container site-info-card">
-                            <h3 class="entity-result-name">{RANGE_LABELS[range]}</h3>
-                            <div class="site-info-details entity-result-details">
-                                <div class="site-info-group">
-                                    <strong>Pageviews:</strong>
-                                    <span>{summary.pageviews.toLocaleString("en-US")}</span>
-                                    <strong>Visits:</strong>
-                                    <span>{summary.visits.toLocaleString("en-US")}</span>
-                                </div>
+            {summary.ok ? (
+                <>
+                    <nav aria-label="Time range">
+                        <ul class="analytics-range-nav">
+                            {ranges.map((r) => (
+                                <li>
+                                    {r === range ? (
+                                        <strong>{RANGE_LABELS[r]}</strong>
+                                    ) : (
+                                        <a href={`/admin/site/analytics?range=${r}`}>{RANGE_LABELS[r]}</a>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                    <div class="entity-result-container site-info-card">
+                        <h3 class="entity-result-name">{RANGE_LABELS[range]}</h3>
+                        <div class="site-info-details entity-result-details">
+                            <div class="site-info-group">
+                                <strong>Pageviews:</strong>
+                                <span>{summary.pageviews.toLocaleString("en-US")}</span>
+                                <strong>Visits:</strong>
+                                <span>{summary.visits.toLocaleString("en-US")}</span>
                             </div>
                         </div>
-                    </>
-                ) : summary.reason === "unconfigured" ? (
-                    <p>
-                        Site analytics is not configured yet. Create a Web Analytics site for this domain in the
-                        Cloudflare dashboard, then set CF_ANALYTICS_SITE_TAG and CF_ANALYTICS_TOKEN (see DEPLOY.md) and
-                        redeploy.
-                    </p>
-                ) : (
-                    <p>Could not read analytics data: {summary.message}</p>
-                )
-            }
+                    </div>
+                </>
+            ) : summary.reason === "unconfigured" ? (
+                <p>
+                    Site analytics is not configured yet. Create a Web Analytics site for this domain in the Cloudflare
+                    dashboard, then set CF_ANALYTICS_SITE_TAG and CF_ANALYTICS_TOKEN (see DEPLOY.md) and redeploy.
+                </p>
+            ) : (
+                <p>Could not read analytics data: {summary.message}</p>
+            )}
         </main>
         <AdminFooter />
     </body>

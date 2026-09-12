@@ -80,18 +80,18 @@ const availableNouns = resolutions
                 <button type="submit">Search</button>
             </div>
         </form>
-        <p class="search-advanced-link"><a href="/search/advanced">Advanced search -></a></p>
+        <p class="search-advanced-link">
+            <a href="/search/advanced">Advanced search -></a>
+        </p>
 
-        {
-            availableNouns.length > 0 && (
-                <NavTiles
-                    ariaLabel="Database sections"
-                    links={availableNouns.map((noun) => ({
-                        href: `/database/${ENTITY_NOUN_SLUGS[noun]}/`,
-                        label: ENTITY_NOUN_LABELS[noun]
-                    }))}
-                />
-            )
-        }
+        {availableNouns.length > 0 && (
+            <NavTiles
+                ariaLabel="Database sections"
+                links={availableNouns.map((noun) => ({
+                    href: `/database/${ENTITY_NOUN_SLUGS[noun]}/`,
+                    label: ENTITY_NOUN_LABELS[noun]
+                }))}
+            />
+        )}
     </div>
 </PublicPage>

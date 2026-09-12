@@ -34,20 +34,20 @@ const links = await getNav()
 
 <header>
     <nav>
-        <a href="/" class="site-title">{title}</a>
+        <a href="/" class="site-title">
+            {title}
+        </a>
         <div class="nav-area">
             <form id="header-search-form" class="search-form search-form--compact" action="/search" method="get">
                 <input type="search" name="q" placeholder="Search…" aria-label="Search query" autocomplete="off" />
                 <button type="submit">Search</button>
             </form>
             <ul class="nav-links">
-                {
-                    links.map((link) => (
-                        <li>
-                            <a href={link.href}>{link.label}</a>
-                        </li>
-                    ))
-                }
+                {links.map((link) => (
+                    <li>
+                        <a href={link.href}>{link.label}</a>
+                    </li>
+                ))}
             </ul>
         </div>
         <button

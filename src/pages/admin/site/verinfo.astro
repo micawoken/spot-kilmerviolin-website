@@ -125,21 +125,17 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                     <strong>{info.environment.name}</strong>
                     <span>Build {info.build_id}</span>
                     <span>
-                        {
-                            buildDate && !isNaN(buildDate.getTime()) ? (
-                                <time datetime={buildDate.toISOString()}>{buildTimestampDisplay}</time>
-                            ) : (
-                                buildTimestampDisplay
-                            )
-                        }
+                        {buildDate && !isNaN(buildDate.getTime()) ? (
+                            <time datetime={buildDate.toISOString()}>{buildTimestampDisplay}</time>
+                        ) : (
+                            buildTimestampDisplay
+                        )}
                     </span>
                     {info.tag && <span>Tag {info.tag}</span>}
                 </div>
                 <div class="site-info-details entity-result-details">
-                    {
-                        /* details are grouped by data type rather than subsystem: booleans, then durations,
-                        then other numeric quantities, then strings */
-                    }
+                    {/* details are grouped by data type rather than subsystem: booleans, then durations,
+                        then other numeric quantities, then strings */}
                     <div class="site-info-group">
                         <strong>Self-enrollment enabled:</strong>
                         <span>{yesno(info.settings.selfenroll)}</span>
@@ -178,18 +174,16 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                         <strong>Target image format:</strong>
                         <span>{info.environment.images.format}</span>
                     </div>
-                    {
-                        tokenHealth && (
-                            <div class="site-info-group">
-                                <strong>Cloudflare API token:</strong>
-                                <span>
-                                    {tokenHealth.cloudflare
-                                        ? "OK"
-                                        : "Failed - verify the token is valid and authorized for this account"}
-                                </span>
-                            </div>
-                        )
-                    }
+                    {tokenHealth && (
+                        <div class="site-info-group">
+                            <strong>Cloudflare API token:</strong>
+                            <span>
+                                {tokenHealth.cloudflare
+                                    ? "OK"
+                                    : "Failed - verify the token is valid and authorized for this account"}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
         </main>

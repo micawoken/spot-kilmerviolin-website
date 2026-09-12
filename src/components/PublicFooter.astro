@@ -33,18 +33,18 @@ const links = await getFooterNav()
 ---
 
 <footer>
-    {
-        links.length > 0 && (
-            <nav aria-label="Footer">
-                <ul class="footer-links">
-                    {links.map((link) => (
-                        <li>
-                            <a href={link.href}>{link.label}</a>
-                        </li>
-                    ))}
-                </ul>
-            </nav>
-        )
-    }
-    <p>&copy; {today.getFullYear()} {organization ?? "TBD"}. All rights reserved.</p>
+    {links.length > 0 && (
+        <nav aria-label="Footer">
+            <ul class="footer-links">
+                {links.map((link) => (
+                    <li>
+                        <a href={link.href}>{link.label}</a>
+                    </li>
+                ))}
+            </ul>
+        </nav>
+    )}
+    <p>
+        &copy; {today.getFullYear()} {organization ?? "TBD"}. All rights reserved.
+    </p>
 </footer>

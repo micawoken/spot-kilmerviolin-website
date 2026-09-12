@@ -56,9 +56,9 @@ if (denied) {
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Templates</h2>
             <p class="general-infohelp">
-                Design templates are used to render CMS content and database content. Change these{" "}
-                to modify how data is organized. To change appearance (color, typography, spacing, etc.),{" "}
-                use the <a href="/admin/advanced/designs/theme">Theme page</a>.
+                Design templates are used to render CMS content and database content. Change these to modify how data is
+                organized. To change appearance (color, typography, spacing, etc.), use the{" "}
+                <a href="/admin/advanced/designs/theme">Theme page</a>.
             </p>
             <section class="design-create" aria-labelledby="template-create-heading">
                 <h3 id="template-create-heading">Create a template</h3>
@@ -71,14 +71,18 @@ if (denied) {
                         Renders entries of
                         <select id="template-collection" name="collection"></select>
                     </label>
-                    <button type="submit" id="template-create-button">Create and open editor</button>
+                    <button type="submit" id="template-create-button">
+                        Create and open editor
+                    </button>
                 </form>
                 <p id="template-create-status" role="status" aria-live="polite"></p>
             </section>
 
             <section aria-labelledby="template-list-heading">
                 <h3 id="template-list-heading">Existing templates</h3>
-                <p id="template-list-status" role="status" aria-live="polite">Loading templates…</p>
+                <p id="template-list-status" role="status" aria-live="polite">
+                    Loading templates…
+                </p>
                 <div id="template-list"></div>
             </section>
 
