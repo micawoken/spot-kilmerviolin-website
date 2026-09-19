@@ -35,9 +35,13 @@ export const prerender = true
     <div class="search-page">
         <StaticBreadcrumbs current="Search" />
         <h1>Search</h1>
-        <p id="search-scope-note" class="search-scope-note" hidden>Searching database entries only.</p>
+        <p id="search-scope-note" class="search-scope-note" hidden>
+            Searching database entries only.
+        </p>
         <form id="search-form" role="search" class="search-form">
-            <label for="search-input" class="visually-hidden">Search by keyword</label>
+            <label for="search-input" class="visually-hidden">
+                Search by keyword
+            </label>
             <input
                 type="search"
                 id="search-input"
@@ -49,15 +53,15 @@ export const prerender = true
             />
             <button type="submit">Search</button>
         </form>
-        {
-            /* Fixed above the content-type filter: leaving the page and jumping down it are both new actions,
+        {/* Fixed above the content-type filter: leaving the page and jumping down it are both new actions,
             while content type only filters the results already on screen - see the fieldset below. The
             jump summary sits opposite the link (search-form.css's .search-actions) so a completed search
-            reports itself without the visitor scrolling past the filters to find out. */
-        }
+            reports itself without the visitor scrolling past the filters to find out. */}
         <div class="search-actions">
             <p class="search-advanced-link">
-                <a href="/search/advanced" id="search-advanced-link">Advanced search →</a>
+                <a href="/search/advanced" id="search-advanced-link">
+                    Advanced search →
+                </a>
             </p>
             <p id="search-jump" class="search-jump" hidden></p>
         </div>

@@ -328,9 +328,16 @@ describe("link target round-trip (Opens in)", () => {
         }
         const body = topLevelBody(editorFormToDesign(docWithBody(pmDoc), REGISTRY)) as Array<Record<string, unknown>>
         const markDefs = body[0].markDefs as Array<Record<string, unknown>>
-        // EmDash dedupes markDefs by href, so both spans already reference the same one def.
-        expect(markDefs).toHaveLength(1)
-        expect(markDefs[0].target).toBe("_blank")
+        const linkDefs = new Map(markDefs.map((def) => [def._key, def]))
+        const linkedSpans = (body[0].children as Array<Record<string, unknown>>).filter(
+            (span) => span.text === "First" || span.text === "second"
+        )
+        expect(linkedSpans).toHaveLength(2)
+        for (const span of linkedSpans) {
+            const linkKey = (span.marks as string[]).find((mark) => linkDefs.has(mark))
+            expect(linkKey).toBeDefined()
+            expect(linkDefs.get(linkKey)?.target).toBe("_blank")
+        }
     })
 
     it("does not persist a spurious New-tab target across a legacy load/save cycle with no author edits", () => {

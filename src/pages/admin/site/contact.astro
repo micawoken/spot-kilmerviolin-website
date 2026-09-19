@@ -63,98 +63,96 @@ if (responses instanceof Response) {
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Contact Responses</h2>
-            {
-                responses.length === 0 ? (
-                    <p class="general-infohelp">No contact-form responses yet.</p>
-                ) : (
-                    <>
-                        <div class="contact-bulk-actions">
-                            <button type="button" id="contact-bulk-read">
-                                Mark selected read
-                            </button>
-                            <button type="button" id="contact-bulk-unread">
-                                Mark selected unread
-                            </button>
-                            <button type="button" id="contact-bulk-delete">
-                                Delete selected
-                            </button>
-                            <label>
-                                <input type="checkbox" id="contact-spam-filter" /> Hide likely spam
-                            </label>
-                            <a href="/api/v1/contact?format=csv">Download CSV</a>
-                        </div>
-                        <label class="contact-select-all">
-                            <input type="checkbox" id="contact-select-all" /> Select all responses
+            {responses.length === 0 ? (
+                <p class="general-infohelp">No contact-form responses yet.</p>
+            ) : (
+                <>
+                    <div class="contact-bulk-actions">
+                        <button type="button" id="contact-bulk-read">
+                            Mark selected read
+                        </button>
+                        <button type="button" id="contact-bulk-unread">
+                            Mark selected unread
+                        </button>
+                        <button type="button" id="contact-bulk-delete">
+                            Delete selected
+                        </button>
+                        <label>
+                            <input type="checkbox" id="contact-spam-filter" /> Hide likely spam
                         </label>
-                        <ul class="contact-response-list">
-                            {responses.map((record) => (
-                                <li
-                                    class:list={["contact-response", { "contact-response--unread": !record.read }]}
-                                    data-id={record.id}
-                                    data-spam-score={record.spam_score}
-                                >
-                                    <div class="contact-response__header">
-                                        <label>
-                                            <input
-                                                type="checkbox"
-                                                class="row-select"
-                                                value={record.id}
-                                                aria-label={`Select response from ${record.name}`}
-                                            />{" "}
-                                            Select
-                                        </label>
-                                        <span class="contact-response__state">{record.read ? "Read" : "Unread"}</span>
-                                        <strong>{record.name}</strong>
-                                        <time datetime={new Date(record.entry_date).toISOString()}>
-                                            {new Date(record.entry_date).toLocaleString()}
-                                        </time>
-                                    </div>
-                                    <details class="contact-response__details" open={!record.read}>
-                                        <summary>{record.subject ?? "No subject"}</summary>
-                                        <dl>
-                                            <div>
-                                                <dt>Contact</dt>
-                                                <dd>
-                                                    {record.email ?? ""}
-                                                    {record.email && record.phone ? " / " : ""}
-                                                    {record.phone ?? ""}
-                                                </dd>
-                                            </div>
-                                            <div>
-                                                <dt>Source</dt>
-                                                <dd>{record.source_path ?? "Not provided"}</dd>
-                                            </div>
-                                            <div>
-                                                <dt>Spam score</dt>
-                                                <dd>
-                                                    {record.spam_score}
-                                                    {record.spam_flags.length > 0
-                                                        ? ` (${record.spam_flags.join(", ")})`
-                                                        : ""}
-                                                </dd>
-                                            </div>
-                                        </dl>
-                                        <p class="contact-response__message">{record.body}</p>
-                                    </details>
-                                    <div class="contact-response__actions">
-                                        <button
-                                            type="button"
-                                            class="contact-mark-read"
-                                            data-id={record.id}
-                                            data-read={record.read ? "true" : "false"}
-                                        >
-                                            {record.read ? "Mark unread" : "Mark read"}
-                                        </button>
-                                        <button type="button" class="contact-delete" data-id={record.id}>
-                                            Delete
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </>
-                )
-            }
+                        <a href="/api/v1/contact?format=csv">Download CSV</a>
+                    </div>
+                    <label class="contact-select-all">
+                        <input type="checkbox" id="contact-select-all" /> Select all responses
+                    </label>
+                    <ul class="contact-response-list">
+                        {responses.map((record) => (
+                            <li
+                                class:list={["contact-response", { "contact-response--unread": !record.read }]}
+                                data-id={record.id}
+                                data-spam-score={record.spam_score}
+                            >
+                                <div class="contact-response__header">
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            class="row-select"
+                                            value={record.id}
+                                            aria-label={`Select response from ${record.name}`}
+                                        />{" "}
+                                        Select
+                                    </label>
+                                    <span class="contact-response__state">{record.read ? "Read" : "Unread"}</span>
+                                    <strong>{record.name}</strong>
+                                    <time datetime={new Date(record.entry_date).toISOString()}>
+                                        {new Date(record.entry_date).toLocaleString()}
+                                    </time>
+                                </div>
+                                <details class="contact-response__details" open={!record.read}>
+                                    <summary>{record.subject ?? "No subject"}</summary>
+                                    <dl>
+                                        <div>
+                                            <dt>Contact</dt>
+                                            <dd>
+                                                {record.email ?? ""}
+                                                {record.email && record.phone ? " / " : ""}
+                                                {record.phone ?? ""}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt>Source</dt>
+                                            <dd>{record.source_path ?? "Not provided"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Spam score</dt>
+                                            <dd>
+                                                {record.spam_score}
+                                                {record.spam_flags.length > 0
+                                                    ? ` (${record.spam_flags.join(", ")})`
+                                                    : ""}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                    <p class="contact-response__message">{record.body}</p>
+                                </details>
+                                <div class="contact-response__actions">
+                                    <button
+                                        type="button"
+                                        class="contact-mark-read"
+                                        data-id={record.id}
+                                        data-read={record.read ? "true" : "false"}
+                                    >
+                                        {record.read ? "Mark unread" : "Mark read"}
+                                    </button>
+                                    <button type="button" class="contact-delete" data-id={record.id}>
+                                        Delete
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
             <p id="transaction-status">Select responses above to perform a bulk action.</p>
             <script>
                 import { initContactAdmin } from "../../../scripts/contact_admin"

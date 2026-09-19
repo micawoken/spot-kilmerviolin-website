@@ -68,24 +68,24 @@ const is_admin = Astro.locals.identity?.admin === true
                 Rebuilds are used to publish changes you make to the database to the website. Any changes you make will
                 not be made public until you rebuild.
             </p>
-            <button type="button" id="site-rebuild-button">Rebuild site</button>
-            {
-                is_admin ? (
-                    <div class="form-section">
-                        <h3 class="form-section-title">Administrative Options</h3>
-                        <fieldset>
-                            <legend>Admin Cooldown Override</legend>
-                            <input type="checkbox" id="site-rebuild-admin-override" name="elevate" />
-                            <label for="site-rebuild-admin-override">Use administrator cooldown override</label>
-                            <p class="general-warning">
-                                When checked, a rebuild may be triggered as often as once every{" "}
-                                {ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC} seconds instead of the standard cooldown. Use
-                                sparingly, as rebuilds consume Worker Builds compute minutes.
-                            </p>
-                        </fieldset>
-                    </div>
-                ) : null
-            }
+            <button type="button" id="site-rebuild-button">
+                Rebuild site
+            </button>
+            {is_admin ? (
+                <div class="form-section">
+                    <h3 class="form-section-title">Administrative Options</h3>
+                    <fieldset>
+                        <legend>Admin Cooldown Override</legend>
+                        <input type="checkbox" id="site-rebuild-admin-override" name="elevate" />
+                        <label for="site-rebuild-admin-override">Use administrator cooldown override</label>
+                        <p class="general-warning">
+                            When checked, a rebuild may be triggered as often as once every{" "}
+                            {ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC} seconds instead of the standard cooldown. Use
+                            sparingly, as rebuilds consume Worker Builds compute minutes.
+                        </p>
+                    </fieldset>
+                </div>
+            ) : null}
             <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
             <script>
                 import { rebuildSite, getSite } from "../../../scripts/connector"

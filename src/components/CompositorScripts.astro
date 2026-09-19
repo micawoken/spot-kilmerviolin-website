@@ -34,17 +34,17 @@ const { doc } = Astro.props
 const usesContactForm = docUsesComponent(doc, "ContactForm")
 ---
 
-{
-    usesContactForm && (
-        <>
-            <script>import "../scripts/contact_form"</script>
-            {/* No Subresource Integrity hash: Cloudflare states api.js is not SRI-compatible (it changes
+{usesContactForm && (
+    <>
+        <script>
+            import "../scripts/contact_form"
+        </script>
+        {/* No Subresource Integrity hash: Cloudflare states api.js is not SRI-compatible (it changes
                    without a version bump), and it's already scoped tightly by CSP script-src to this exact
                    host. */}
-            <script
-                src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit"
-                defer
-            />
-        </>
-    )
-}
+        <script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit"
+            defer
+        ></script>
+    </>
+)}

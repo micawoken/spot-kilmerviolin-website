@@ -80,14 +80,12 @@ const prefill_failed = Boolean(id) && !use_id
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Edit a Composer</h2>
-            {
-                prefill_failed ? (
-                    <p class="general-warning">
-                        No composer was found for ID #{id}, so the edit form could not be prefilled. Enter an ID below
-                        to try again.
-                    </p>
-                ) : null
-            }
+            {prefill_failed ? (
+                <p class="general-warning">
+                    No composer was found for ID #{id}, so the edit form could not be prefilled. Enter an ID below to
+                    try again.
+                </p>
+            ) : null}
             <IDEntryForm output_div={"generic-form-composers"} hidden={hidden_form} search={true} />
             <ComposerForm required={true} hidden={!hidden_form} composer={use_id ? composer_data : null} patch={true} />
             <p id="transaction-status">Your request status will show here after you press "Submit".</p>

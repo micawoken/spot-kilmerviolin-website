@@ -61,7 +61,12 @@ const prefill_email = emailFromParam(Astro.url)
             <div class="generic-form">
                 <form id="iam-form-email" class="generic-form" novalidate>
                     <fieldset>
-                        <legend>Current Login Email<span class="field-required" aria-hidden="true">*</span></legend>
+                        <legend>
+                            Current Login Email
+                            <span class="field-required" aria-hidden="true">
+                                *
+                            </span>
+                        </legend>
                         <div class="field-row">
                             <input
                                 type="email"
@@ -73,13 +78,21 @@ const prefill_email = emailFromParam(Astro.url)
                         </div>
                     </fieldset>
                     <fieldset>
-                        <legend>New Login Email<span class="field-required" aria-hidden="true">*</span></legend>
+                        <legend>
+                            New Login Email
+                            <span class="field-required" aria-hidden="true">
+                                *
+                            </span>
+                        </legend>
                         <div class="field-row">
                             <input type="email" id="iam-form-email-new" name="new_email" required />
                         </div>
                     </fieldset>
                     <p class="field-required-note">
-                        <span class="field-required" aria-hidden="true">*</span> indicates a required field
+                        <span class="field-required" aria-hidden="true">
+                            *
+                        </span>{" "}
+                        indicates a required field
                     </p>
                     <button type="submit">Submit</button>
                 </form>

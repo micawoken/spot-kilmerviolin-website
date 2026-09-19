@@ -92,32 +92,27 @@ const prefill_failed = Boolean(id) && may_prefill && !use_id
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Edit a Contributor</h2>
             <p class="general-infohelp">
-                To edit your own contributor record, you should use <a href="/admin/profile/edit"
-                    >My Profile &gt; Edit</a
-                >. You may also do so here. This operation requires administrator permissions if you are editing other
-                records or protected properties.
+                To edit your own contributor record, you should use{" "}
+                <a href="/admin/profile/edit">My Profile &gt; Edit</a>. You may also do so here. This operation requires
+                administrator permissions if you are editing other records or protected properties.
             </p>
             <p id="contributor-self-edit-warning" class={`general-warning${is_self ? "" : " hidden"}`}>
                 You are editing your own record. Everything below will be published on the public website, except
                 authorization-related data.
             </p>
-            {
-                unauthorized_prefill ? (
-                    <p class="general-warning">
-                        You are not authorized to edit contributor #{id}. You may only edit your own contributor record
-                        from a direct link; administrators may edit any record. To edit your own profile, use{" "}
-                        <a href="/admin/profile/edit">My Profile &gt; Edit</a>.
-                    </p>
-                ) : null
-            }
-            {
-                prefill_failed ? (
-                    <p class="general-warning">
-                        No contributor record exists for ID #{id}, so the edit form could not be prefilled. Enter an ID
-                        below to try again.
-                    </p>
-                ) : null
-            }
+            {unauthorized_prefill ? (
+                <p class="general-warning">
+                    You are not authorized to edit contributor #{id}. You may only edit your own contributor record from
+                    a direct link; administrators may edit any record. To edit your own profile, use{" "}
+                    <a href="/admin/profile/edit">My Profile &gt; Edit</a>.
+                </p>
+            ) : null}
+            {prefill_failed ? (
+                <p class="general-warning">
+                    No contributor record exists for ID #{id}, so the edit form could not be prefilled. Enter an ID
+                    below to try again.
+                </p>
+            ) : null}
             <IDEntryForm output_div={"generic-form-contributors"} hidden={hidden_form} search={true} />
             <ContributorForm
                 required={false}

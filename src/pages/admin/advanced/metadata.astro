@@ -136,33 +136,29 @@ if (type_param !== null || id_param !== null) {
             </p>
             <KeywordSearchBox id_prefix="metadata-search" label="Search by keyword" database_select={true} />
             <div id="metadata-output" class={`metadata-output${metadata ? "" : " hidden"}`}>
-                {
-                    metadata ? (
-                        <Fragment>
-                            <h3 class="metadata-heading">
-                                {metadata.type_label} ID #{metadata.id}
-                            </h3>
-                            <p class="metadata-field">
-                                <strong>Name</strong>: {metadata.name}
-                            </p>
-                            <p class="metadata-field">
-                                <strong>Created</strong>: {metadata.entry}
-                            </p>
-                            <p class="metadata-field">
-                                <strong>Modified</strong>: {metadata.change}
-                            </p>
-                        </Fragment>
-                    ) : null
-                }
+                {metadata ? (
+                    <Fragment>
+                        <h3 class="metadata-heading">
+                            {metadata.type_label} ID #{metadata.id}
+                        </h3>
+                        <p class="metadata-field">
+                            <strong>Name</strong>: {metadata.name}
+                        </p>
+                        <p class="metadata-field">
+                            <strong>Created</strong>: {metadata.entry}
+                        </p>
+                        <p class="metadata-field">
+                            <strong>Modified</strong>: {metadata.change}
+                        </p>
+                    </Fragment>
+                ) : null}
             </div>
             <p id="transaction-status">
-                {
-                    metadata
-                        ? "Metadata loaded from URL."
-                        : load_error
-                          ? load_error
-                          : "Select a search result to view its metadata."
-                }
+                {metadata
+                    ? "Metadata loaded from URL."
+                    : load_error
+                      ? load_error
+                      : "Select a search result to view its metadata."}
             </p>
             <script>
                 import { attachKeywordSearchInline } from "../../../scripts/keyword_search"

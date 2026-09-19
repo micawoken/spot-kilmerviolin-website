@@ -87,11 +87,9 @@ const imageAlt = await resolveEntityImageAlt(
                 imageAlt={use_id ? imageAlt : undefined}
             />
             <p id="transaction-status">
-                {
-                    use_id
-                        ? "Composer data loaded from URL."
-                        : 'Your request status will show here after you press "Submit".'
-                }
+                {use_id
+                    ? "Composer data loaded from URL."
+                    : 'Your request status will show here after you press "Submit".'}
             </p>
             {
                 // when loaded server-side via ?id=, mirror the client READ flow's follow-up links: edit this

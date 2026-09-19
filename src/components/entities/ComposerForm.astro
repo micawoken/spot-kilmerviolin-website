@@ -53,17 +53,18 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
         <div class="form-section">
             <h3 class="form-section-title">Basic Information</h3>
             <fieldset>
-                <legend
-                    >Name{
-                        required ? (
-                            <span class="field-required" aria-hidden="true">
-                                *
-                            </span>
-                        ) : null
-                    }</legend
-                >
+                <legend>
+                    Name
+                    {required ? (
+                        <span class="field-required" aria-hidden="true">
+                            *
+                        </span>
+                    ) : null}
+                </legend>
                 <div class="field-row">
-                    <label for="form-composers-name" class="sr-only">Name</label>
+                    <label for="form-composers-name" class="sr-only">
+                        Name
+                    </label>
                     <input
                         type="text"
                         id="form-composers-name"
@@ -71,67 +72,67 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         required={required}
                         value={composer?.name ?? ""}
                     />
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
-                                <label for="form-composers-name-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
+                            <label for="form-composers-name-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend
-                    >Role{
-                        required ? (
-                            <span class="field-required" aria-hidden="true">
-                                *
-                            </span>
-                        ) : null
-                    }</legend
-                >
+                <legend>
+                    Role
+                    {required ? (
+                        <span class="field-required" aria-hidden="true">
+                            *
+                        </span>
+                    ) : null}
+                </legend>
                 <div class="field-row">
-                    <label for="form-composers-role" class="sr-only">Role</label>
+                    <label for="form-composers-role" class="sr-only">
+                        Role
+                    </label>
                     <select id="form-composers-role" name="role" required={required}>
-                        <option value="composer" selected={composer !== null ? composer.role === "composer" : true}
-                            >Composer</option
-                        >
-                        <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}
-                            >Arranger</option
-                        >
+                        <option value="composer" selected={composer !== null ? composer.role === "composer" : true}>
+                            Composer
+                        </option>
+                        <option value="arranger" selected={composer !== null ? composer.role === "arranger" : false}>
+                            Arranger
+                        </option>
                         <option
                             value="transcriber"
-                            selected={composer !== null ? composer.role === "transcriber" : false}>Transcriber</option
+                            selected={composer !== null ? composer.role === "transcriber" : false}
                         >
-                        <option value="editor" selected={composer !== null ? composer.role === "editor" : false}
-                            >Editor</option
-                        >
+                            Transcriber
+                        </option>
+                        <option value="editor" selected={composer !== null ? composer.role === "editor" : false}>
+                            Editor
+                        </option>
                     </select>
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
-                                <label for="form-composers-role-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
+                            <label for="form-composers-role-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend
-                    >Country{
-                        required ? (
-                            <span class="field-required" aria-hidden="true">
-                                *
-                            </span>
-                        ) : null
-                    }</legend
-                >
+                <legend>
+                    Country
+                    {required ? (
+                        <span class="field-required" aria-hidden="true">
+                            *
+                        </span>
+                    ) : null}
+                </legend>
                 <div class="field-row">
-                    <label for="form-composers-country" class="sr-only">Country</label>
+                    <label for="form-composers-country" class="sr-only">
+                        Country
+                    </label>
                     <input
                         type="text"
                         id="form-composers-country"
@@ -139,40 +140,33 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         required={required}
                         value={composer?.country ?? ""}
                     />
-                    {
-                        /* filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
-                        guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised */
-                    }
-                    <small id="form-composers-country-help" class="general-infohelp field-inline-help"
-                        >ISO 3166-1 alpha-2 code or country name</small
-                    >
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input
-                                    type="checkbox"
-                                    id="form-composers-country-edittarget"
-                                    name="country-edittarget"
-                                />
-                                <label for="form-composers-country-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    {/* filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
+                        guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised */}
+                    <small id="form-composers-country-help" class="general-infohelp field-inline-help">
+                        ISO 3166-1 alpha-2 code or country name
+                    </small>
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input type="checkbox" id="form-composers-country-edittarget" name="country-edittarget" />
+                            <label for="form-composers-country-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend
-                    >Birth Year{
-                        required ? (
-                            <span class="field-required" aria-hidden="true">
-                                *
-                            </span>
-                        ) : null
-                    }</legend
-                >
+                <legend>
+                    Birth Year
+                    {required ? (
+                        <span class="field-required" aria-hidden="true">
+                            *
+                        </span>
+                    ) : null}
+                </legend>
                 <div class="field-row">
-                    <label for="form-composers-birth_year" class="sr-only">Birth Year</label>
+                    <label for="form-composers-birth_year" class="sr-only">
+                        Birth Year
+                    </label>
                     <input
                         type="number"
                         id="form-composers-birth_year"
@@ -180,33 +174,32 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         required={required}
                         value={composer?.birth_year ?? ""}
                     />
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input
-                                    type="checkbox"
-                                    id="form-composers-birth_year-edittarget"
-                                    name="birth_year-edittarget"
-                                />
-                                <label for="form-composers-birth_year-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input
+                                type="checkbox"
+                                id="form-composers-birth_year-edittarget"
+                                name="birth_year-edittarget"
+                            />
+                            <label for="form-composers-birth_year-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend
-                    >Death Year{
-                        required ? (
-                            <span class="field-required" aria-hidden="true">
-                                *
-                            </span>
-                        ) : null
-                    }</legend
-                >
+                <legend>
+                    Death Year
+                    {required ? (
+                        <span class="field-required" aria-hidden="true">
+                            *
+                        </span>
+                    ) : null}
+                </legend>
                 <div class="field-row">
-                    <label for="form-composers-death_year" class="sr-only">Death Year</label>
+                    <label for="form-composers-death_year" class="sr-only">
+                        Death Year
+                    </label>
                     <input
                         type="number"
                         id="form-composers-death_year"
@@ -214,19 +207,19 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         required={required}
                         value={composer?.death_year ?? ""}
                     />
-                    <small class="general-infohelp field-inline-help">enter <code>-1</code> if living</small>
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input
-                                    type="checkbox"
-                                    id="form-composers-death_year-edittarget"
-                                    name="death_year-edittarget"
-                                />
-                                <label for="form-composers-death_year-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    <small class="general-infohelp field-inline-help">
+                        enter <code>-1</code> if living
+                    </small>
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input
+                                type="checkbox"
+                                id="form-composers-death_year-edittarget"
+                                name="death_year-edittarget"
+                            />
+                            <label for="form-composers-death_year-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
         </div>
@@ -235,42 +228,45 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
             <h3 class="form-section-title">Biography</h3>
             <fieldset>
                 <legend>Biography</legend>
-                <label for="form-composers-bio" class="sr-only">Biography</label>
+                <label for="form-composers-bio" class="sr-only">
+                    Biography
+                </label>
                 <textarea id="form-composers-bio" name="bio">{composer?.bio ?? ""}</textarea>
-                {
-                    patch ? (
-                        <div class="field-row field-row-textarea">
-                            <span class="field-edittarget">
-                                <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
-                                <label for="form-composers-bio-edittarget">Edit this field</label>
-                            </span>
-                        </div>
-                    ) : null
-                }
+                {patch ? (
+                    <div class="field-row field-row-textarea">
+                        <span class="field-edittarget">
+                            <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
+                            <label for="form-composers-bio-edittarget">Edit this field</label>
+                        </span>
+                    </div>
+                ) : null}
             </fieldset>
 
             <fieldset>
                 <legend>Image URL</legend>
                 <div class="field-row">
-                    <label for="form-composers-image" class="sr-only">Image URL</label>
+                    <label for="form-composers-image" class="sr-only">
+                        Image URL
+                    </label>
                     <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
-                    <small class="general-infohelp field-inline-help"
-                        >Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a
-                        >.</small
-                    >
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
-                                <label for="form-composers-image-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    <small class="general-infohelp field-inline-help">
+                        Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.
+                    </small>
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
+                            <label for="form-composers-image-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
                 <div class="searchhelper" id="form-composers-imagepicker">
-                    <label for="form-composers-imagepicker-input"><strong>Search for image</strong></label>
+                    <label for="form-composers-imagepicker-input">
+                        <strong>Search for image</strong>
+                    </label>
                     <input type="text" id="form-composers-imagepicker-input" />
-                    <button type="button" id="form-composers-imagepicker-button">Search</button>
+                    <button type="button" id="form-composers-imagepicker-button">
+                        Search
+                    </button>
                     <div id="form-composers-imagepicker-results">
                         <p>Results will display here when searched.</p>
                     </div>
@@ -283,7 +279,9 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
             <fieldset>
                 <legend>Tags</legend>
                 <div class="field-row">
-                    <label for="form-composers-tags" class="sr-only">Tags</label>
+                    <label for="form-composers-tags" class="sr-only">
+                        Tags
+                    </label>
                     <input
                         type="text"
                         id="form-composers-tags"
@@ -292,14 +290,12 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         value={composer?.tags ?? ""}
                     />
                     <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
-                                <label for="form-composers-tags-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
+                            <label for="form-composers-tags-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
         </div>
@@ -309,43 +305,40 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
             <fieldset>
                 <legend>Citations</legend>
                 <div class="field-row field-row-textarea">
-                    <label for="form-composers-citations" class="sr-only">Citations</label>
+                    <label for="form-composers-citations" class="sr-only">
+                        Citations
+                    </label>
                     <textarea
                         id="form-composers-citations"
                         name="citations"
                         placeholder={"IMSLP: https://imslp.org/wiki/...\nGrove Music Online: 10.1000/example"}
-                        >{citationsToTextarea(composer?.citations)}</textarea
-                    >
-                    <small class="general-infohelp field-inline-help"
-                        >one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
-                        ISBN</small
-                    >
-                    {
-                        patch ? (
-                            <span class="field-edittarget">
-                                <input
-                                    type="checkbox"
-                                    id="form-composers-citations-edittarget"
-                                    name="citations-edittarget"
-                                />
-                                <label for="form-composers-citations-edittarget">Edit this field</label>
-                            </span>
-                        ) : null
-                    }
+                    >{citationsToTextarea(composer?.citations)}</textarea>
+                    <small class="general-infohelp field-inline-help">
+                        one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
+                        ISBN
+                    </small>
+                    {patch ? (
+                        <span class="field-edittarget">
+                            <input
+                                type="checkbox"
+                                id="form-composers-citations-edittarget"
+                                name="citations-edittarget"
+                            />
+                            <label for="form-composers-citations-edittarget">Edit this field</label>
+                        </span>
+                    ) : null}
                 </div>
             </fieldset>
         </div>
 
-        {
-            required ? (
-                <p class="field-required-note">
-                    <span class="field-required" aria-hidden="true">
-                        *
-                    </span>{" "}
-                    indicates a required field
-                </p>
-            ) : null
-        }
+        {required ? (
+            <p class="field-required-note">
+                <span class="field-required" aria-hidden="true">
+                    *
+                </span>{" "}
+                indicates a required field
+            </p>
+        ) : null}
 
         <button type="submit">Submit</button>
     </form>

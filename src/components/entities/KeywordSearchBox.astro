@@ -40,30 +40,32 @@ const database_select: boolean = Astro.props.database_select ?? false
 const hidden: boolean = Astro.props.hidden ?? false
 ---
 
-<div class=`generic-form keyword-search${hidden ? ' hidden' : ''}` id={`${id_prefix}-container`}>
+<div class=`generic-form keyword-search${hidden ? " hidden" : ""}` id={`${id_prefix}-container`}>
     <form id={`${id_prefix}-form`} class="generic-form">
-        {
-            database_select ? (
-                <fieldset>
-                    <legend>Database</legend>
-                    <label for={`${id_prefix}-database`} class="sr-only">
-                        Database
-                    </label>
-                    <select id={`${id_prefix}-database`}>
-                        <option value="">All databases</option>
-                        <option value="compositions">Compositions</option>
-                        <option value="composers">Composers</option>
-                        <option value="contributors">Contributors</option>
-                    </select>
-                </fieldset>
-            ) : null
-        }
+        {database_select ? (
+            <fieldset>
+                <legend>Database</legend>
+                <label for={`${id_prefix}-database`} class="sr-only">
+                    Database
+                </label>
+                <select id={`${id_prefix}-database`}>
+                    <option value="">All databases</option>
+                    <option value="compositions">Compositions</option>
+                    <option value="composers">Composers</option>
+                    <option value="contributors">Contributors</option>
+                </select>
+            </fieldset>
+        ) : null}
         <fieldset>
             <legend>{label}</legend>
-            <label for={`${id_prefix}-input`} class="sr-only">{label}</label>
+            <label for={`${id_prefix}-input`} class="sr-only">
+                {label}
+            </label>
             <input type="text" id={`${id_prefix}-input`} name="keyword" />
         </fieldset>
-        <button type="submit" id={`${id_prefix}-button`}>Search</button>
+        <button type="submit" id={`${id_prefix}-button`}>
+            Search
+        </button>
     </form>
     <div id={`${id_prefix}-results`}>
         <p>Results will display here when searched.</p>
