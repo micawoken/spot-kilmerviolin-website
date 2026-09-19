@@ -86,14 +86,12 @@ const prefill_failed = Boolean(id) && !use_id
                 Only the primary contributors of a composition (or users with the reviewer role) may edit it.
                 Administrators may use elevation to bypass this lockout.
             </p>
-            {
-                prefill_failed ? (
-                    <p class="general-warning">
-                        No composition was found for ID #{id}, so the edit form could not be prefilled. Enter an ID
-                        below to try again.
-                    </p>
-                ) : null
-            }
+            {prefill_failed ? (
+                <p class="general-warning">
+                    No composition was found for ID #{id}, so the edit form could not be prefilled. Enter an ID below to
+                    try again.
+                </p>
+            ) : null}
             <IDEntryForm output_div={"generic-form-composition"} hidden={hidden_form} search={true} />
             <CompositionForm
                 required={false}

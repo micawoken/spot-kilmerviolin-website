@@ -58,36 +58,34 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
 ---
 
 <div id="generic-result-composition" class={`entity-result-container${hidden ? " hidden" : ""}`}>
-    {
-        /* head: the name/ID header sits top-left, the detail groups (composer, work properties,
+    {/* head: the name/ID header sits top-left, the detail groups (composer, work properties,
         characteristics, ratings, publisher, contribution, tags) flow into columns beneath it, and the
         image occupies the top-right; the bulkier notes span the full card width below. Source order is
-        header -> image -> groups so the image stacks directly below the title on narrow viewports. */
-    }
+        header -> image -> groups so the image stacks directly below the title on narrow viewports. */}
     <div class="entity-result-head">
         <div class="entity-result-header">
-            <h2 id="composition-name" class="entity-result-name">{composition?.name}</h2>
-            {
-                /* infobar: the ID leads a middot-separated line that also carries the work type and part (the
+            <h2 id="composition-name" class="entity-result-name">
+                {composition?.name}
+            </h2>
+            {/* infobar: the ID leads a middot-separated line that also carries the work type and part (the
                 standalone type/part group is folded in here). Each datum keeps its own composition-{key} id
-                so populateInfo can still fill it. */
-            }
+                so populateInfo can still fill it. */}
             <div id="composition-details-infoline">
                 <p id="composition-id">ID #{composition?.id}</p>
                 <p id="composition-type">
-                    <span class="sr-only">Work Type: </span>{disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}
+                    <span class="sr-only">Work Type: </span>
+                    {disp(composition?.type, COMPOSITION_PLACEHOLDERS.type)}
                 </p>
                 <p id="composition-part">
-                    <span class="sr-only">Part: </span>{disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}
+                    <span class="sr-only">Part: </span>
+                    {disp(composition?.part, COMPOSITION_PLACEHOLDERS.part)}
                 </p>
             </div>
         </div>
         <div id="composition-image-container" class="entity-result-image-container">
-            {
-                /* the <img> is always present (hidden when there is no image) so the client-side READ flow
+            {/* the <img> is always present (hidden when there is no image) so the client-side READ flow
                 (populateInfo) can fill its src; the grayed-out "(no image)" placeholder mirrors it inversely.
-                src is omitted when absent to avoid a broken-image request. */
-            }
+                src is omitted when absent to avoid a broken-image request. */}
             <img
                 id="composition-image"
                 class={`entity-result-image${composition?.image ? "" : " hidden"}`}
@@ -104,10 +102,8 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
         </div>
         <div class="entity-result-groups">
             <div id="composition-details-composer" class="entity-result-group entity-result-details">
-                {
-                    /* the composer name and secondary-author names link to their composer info pages; the link
-                    target is the corresponding composer id. Mirrored client-side in interface.ts. */
-                }
+                {/* the composer name and secondary-author names link to their composer info pages; the link
+                    target is the corresponding composer id. Mirrored client-side in interface.ts. */}
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.composer}:</strong>
                     <span
@@ -136,18 +132,16 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                 </div>
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.secondaryAuthorIds}:</strong>
-                    <span id="composition-author_secondary"
-                        >{disp(composition?.author_secondary, COMPOSITION_PLACEHOLDERS.secondaryAuthorIds)}</span
-                    >
+                    <span id="composition-author_secondary">
+                        {disp(composition?.author_secondary, COMPOSITION_PLACEHOLDERS.secondaryAuthorIds)}
+                    </span>
                 </div>
             </div>
             <div id="composition-details-contribution" class="entity-result-group entity-result-details">
-                {
-                    /* contribution sits beside the composer group (same row when there is room); contributor
+                {/* contribution sits beside the composer group (same row when there is room); contributor
                     references render inline as "id (name)" links to each contributor's info page; the names
                     come from the resolved CompositionNames (see attachCompositionNames) and are mirrored
-                    client-side in interface.ts */
-                }
+                    client-side in interface.ts */}
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.primaryContributor}:</strong>
                     <span
@@ -197,9 +191,9 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                 </div>
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.highestPosition}:</strong>
-                    <span id="composition-position_highest"
-                        >{disp(composition?.position_highest, COMPOSITION_PLACEHOLDERS.highestPosition)}</span
-                    >
+                    <span id="composition-position_highest">
+                        {disp(composition?.position_highest, COMPOSITION_PLACEHOLDERS.highestPosition)}
+                    </span>
                 </div>
             </div>
             <div id="composition-details-ratings" class="entity-result-group entity-result-details">
@@ -215,32 +209,28 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
             <div id="composition-details-publisher" class="entity-result-group entity-result-details">
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.publisherName}:</strong>
-                    <span id="composition-publication_info-name"
-                        >{disp(composition?.publication_info?.name, COMPOSITION_PLACEHOLDERS.publisherName)}</span
-                    >
+                    <span id="composition-publication_info-name">
+                        {disp(composition?.publication_info?.name, COMPOSITION_PLACEHOLDERS.publisherName)}
+                    </span>
                 </div>
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.publicationLocation}:</strong>
-                    <span id="composition-publication_info-location"
-                        >{
-                            disp(composition?.publication_info?.location, COMPOSITION_PLACEHOLDERS.publicationLocation)
-                        }</span
-                    >
+                    <span id="composition-publication_info-location">
+                        {disp(composition?.publication_info?.location, COMPOSITION_PLACEHOLDERS.publicationLocation)}
+                    </span>
                 </div>
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.publicationYear}:</strong>
-                    <span id="composition-publication_info-year"
-                        >{disp(composition?.publication_info?.year, COMPOSITION_PLACEHOLDERS.publicationYear)}</span
-                    >
+                    <span id="composition-publication_info-year">
+                        {disp(composition?.publication_info?.year, COMPOSITION_PLACEHOLDERS.publicationYear)}
+                    </span>
                 </div>
-                {
-                    /* the publication URI is rendered according to its declared uri_type (the type is authoritative):
+                {/* the publication URI is rendered according to its declared uri_type (the type is authoritative):
                     a clickable link for https, the bare ISBN linked to its WorldCat lookup for isbn, and the bare
                     DOI linked to its doi.org resolver for doi. renderPublicationUri returns markup-safe HTML (every
                     value is escapeHtml-encoded), so it is emitted via set:html rather than the auto-escaped `{}`.
                     The separate URI-type field is intentionally omitted here since the type is conveyed by the
-                    render itself. Mirrored client-side in populateInfo. */
-                }
+                    render itself. Mirrored client-side in populateInfo. */}
                 <div class="entity-field">
                     <strong>{COMPOSITION_LABELS.publicationUri}:</strong>
                     <span
@@ -255,11 +245,9 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
             </div>
         </div>
     </div>
-    {
-        /* notes span the full card width below the head and lay their three sub-notes side by side when there
+    {/* notes span the full card width below the head and lay their three sub-notes side by side when there
         is room (stacking when narrow). The tags follow the notes as a fourth grid cell so they land in the
-        first column, directly beneath the historical notes. */
-    }
+        first column, directly beneath the historical notes. */}
     <div id="composition-details-notes" class="entity-result-notes-group">
         <div id="composition-details-notes-historical">
             <p id="composition-notes_historical" class="entity-result-notes">
@@ -281,11 +269,9 @@ const disp = (value: unknown, placeholder?: string): string => displayValue(valu
                 <strong>{COMPOSITION_LABELS.tags}:</strong>
                 <span id="composition-tags">{disp(composition?.tags)}</span>
             </div>
-            {
-                /* citations render as a comma-separated list of hyperlinks (key as display text);
+            {/* citations render as a comma-separated list of hyperlinks (key as display text);
                 renderCitationsList returns markup-safe HTML, so it is emitted via set:html. Mirrored client-side
-                in populateInfo. */
-            }
+                in populateInfo. */}
             <div class="entity-field">
                 <strong>{COMPOSITION_LABELS.citations}:</strong>
                 <span id="composition-citations" set:html={renderCitationsList(composition?.citations, NOT_PROVIDED)} />

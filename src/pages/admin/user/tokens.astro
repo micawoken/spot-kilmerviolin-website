@@ -103,13 +103,11 @@ try {
                     <legend>Expires in</legend>
                     <div class="field-row">
                         <select id="token-expiry" name="expiry_days">
-                            {
-                                EXPIRY_WINDOWS_DAYS.map((days) => (
-                                    <option value={days} selected={days === 30}>
-                                        {days} days
-                                    </option>
-                                ))
-                            }
+                            {EXPIRY_WINDOWS_DAYS.map((days) => (
+                                <option value={days} selected={days === 30}>
+                                    {days} days
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </fieldset>
@@ -119,53 +117,51 @@ try {
             <div id="token-issued-panel" hidden>
                 <p class="general-warning">Copy this token now - it will not be shown again.</p>
                 <input type="text" id="token-issued-secret" readonly />
-                <button type="button" id="token-issued-copy">Copy</button>
+                <button type="button" id="token-issued-copy">
+                    Copy
+                </button>
             </div>
 
-            <p id="transaction-status">
-                {error ? `Error: ${error}` : `${tokens.length} token(s) listed.`}
-            </p>
+            <p id="transaction-status">{error ? `Error: ${error}` : `${tokens.length} token(s) listed.`}</p>
 
             <h3>Your tokens</h3>
             <div id="token-list-results">
-                {
-                    error ? null : tokens.length === 0 ? (
-                        <p>No tokens issued.</p>
-                    ) : (
-                        <table class="iam-table" id="token-table">
-                            <thead>
-                                <tr>
-                                    <th>Label</th>
-                                    <th>Prefix</th>
-                                    <th>Issued</th>
-                                    <th>Expires</th>
-                                    <th>Status</th>
-                                    <th />
+                {error ? null : tokens.length === 0 ? (
+                    <p>No tokens issued.</p>
+                ) : (
+                    <table class="iam-table" id="token-table">
+                        <thead>
+                            <tr>
+                                <th>Label</th>
+                                <th>Prefix</th>
+                                <th>Issued</th>
+                                <th>Expires</th>
+                                <th>Status</th>
+                                <th />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tokens.map((token) => (
+                                <tr data-token-id={token.id}>
+                                    <td>{token.label}</td>
+                                    <td>
+                                        <code>{token.token_prefix}…</code>
+                                    </td>
+                                    <td>{new Date(token.entry_date).toLocaleString("en-US")}</td>
+                                    <td>{new Date(token.expires_date).toLocaleString("en-US")}</td>
+                                    <td>{token.status_label}</td>
+                                    <td>
+                                        {!token.revoked_date && (
+                                            <button type="button" class="token-revoke-btn" data-token-id={token.id}>
+                                                Revoke
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {tokens.map((token) => (
-                                    <tr data-token-id={token.id}>
-                                        <td>{token.label}</td>
-                                        <td>
-                                            <code>{token.token_prefix}…</code>
-                                        </td>
-                                        <td>{new Date(token.entry_date).toLocaleString("en-US")}</td>
-                                        <td>{new Date(token.expires_date).toLocaleString("en-US")}</td>
-                                        <td>{token.status_label}</td>
-                                        <td>
-                                            {!token.revoked_date && (
-                                                <button type="button" class="token-revoke-btn" data-token-id={token.id}>
-                                                    Revoke
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )
-                }
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </main>
         <AdminFooter />

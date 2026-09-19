@@ -53,9 +53,11 @@ export const prerender = false
                 dangerous command could corrupt or destroy data. This operation requires administrator permissions.
             </p>
             <p class="general-infohelp">
-                Please refer to the <a href="https://sqlite.org/lang.html" target="_blank" rel="noopener noreferrer"
-                    >SQLite language documentation</a
-                > to learn its SQL implementation.
+                Please refer to the{" "}
+                <a href="https://sqlite.org/lang.html" target="_blank" rel="noopener noreferrer">
+                    SQLite language documentation
+                </a>{" "}
+                to learn its SQL implementation.
             </p>
             <div class="generic-form">
                 <form id="advanced-form-command" class="generic-form">
@@ -63,8 +65,8 @@ export const prerender = false
                         <legend>SQL Command</legend>
                         <textarea id="advanced-form-command-sql" name="sql" rows="6" cols="80" required></textarea>
                         <p class="general-infohelp">
-                            Press <kbd>Enter</kbd> to execute; use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line. Separate
-                            multiple commands with semicolons (<kbd>;</kbd>).
+                            Press <kbd>Enter</kbd> to execute; use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.
+                            Separate multiple commands with semicolons (<kbd>;</kbd>).
                         </p>
                     </fieldset>
                     <fieldset>
@@ -79,14 +81,12 @@ export const prerender = false
                         </p>
                     </fieldset>
                     <div id="advanced-command-danger" class="command-danger hidden">
-                        {
-                            /* shown only when the command looks destructive (see detectDangerousSql); the user must
-                            acknowledge before the command can be sent */
-                        }
+                        {/* shown only when the command looks destructive (see detectDangerousSql); the user must
+                            acknowledge before the command can be sent */}
                         <p class="general-warning" id="advanced-command-danger-text"></p>
                         <label class="command-danger-ack">
-                            <input type="checkbox" id="advanced-command-danger-ack" name="danger_ack" />
-                            I understand this command may irreversibly modify or destroy data, and I want to run it anyway.
+                            <input type="checkbox" id="advanced-command-danger-ack" name="danger_ack" />I understand
+                            this command may irreversibly modify or destroy data, and I want to run it anyway.
                         </label>
                     </div>
                     <button type="submit">Execute</button>
@@ -95,12 +95,12 @@ export const prerender = false
             <p id="transaction-status">Your request status will show here after you press "Execute".</p>
             <div id="advanced-command-output" class="command-output hidden">
                 <div class="command-view-toggle" role="group" aria-label="Response view">
-                    <button type="button" id="command-view-formatted" class="command-view-button" aria-pressed="true"
-                        >Formatted</button
-                    >
-                    <button type="button" id="command-view-raw" class="command-view-button" aria-pressed="false"
-                        >Raw JSON</button
-                    >
+                    <button type="button" id="command-view-formatted" class="command-view-button" aria-pressed="true">
+                        Formatted
+                    </button>
+                    <button type="button" id="command-view-raw" class="command-view-button" aria-pressed="false">
+                        Raw JSON
+                    </button>
                 </div>
                 <p id="command-format-note" class="general-warning hidden"></p>
                 <div id="advanced-command-formatted" class="command-formatted"></div>
@@ -459,7 +459,7 @@ export const prerender = false
             </script>
             <style>
                 /* destructive-operation acknowledgement: a bordered callout between the command box and the Execute
-           button, revealed only when a destructive keyword is detected */
+                button, revealed only when a destructive keyword is detected */
                 .command-danger {
                     border: 1px solid var(--shade-5);
                     border-left: 4px solid var(--shade-7);
@@ -513,12 +513,12 @@ export const prerender = false
                     overflow-x: auto;
                 }
                 /* The formatted view's subtree is styled in the global block below - it's built in client
-           script, so its elements never receive Astro's scoped-style marker and scoped rules can't
-           reach them. */
+                script, so its elements never receive Astro's scoped-style marker and scoped rules can't
+                reach them. */
             </style>
             <style is:global>
                 /* These rules are global but rooted at #advanced-command-formatted so they only affect the
-           dynamically generated formatted-response subtree, not the rest of the page. */
+                dynamically generated formatted-response subtree, not the rest of the page. */
 
                 /* request-info block: success + meta fields as horizontal wrapping "key: value" spans */
                 #advanced-command-formatted .command-info-block {

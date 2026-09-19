@@ -61,15 +61,21 @@ const key = Astro.url.searchParams.get("id") ?? ""
                             required
                         />
                         <div class="searchhelper" id="file-search">
-                            <label for="file-search-input"><strong>Search for file:</strong></label>
+                            <label for="file-search-input">
+                                <strong>Search for file:</strong>
+                            </label>
                             <input type="text" id="file-search-input" />
-                            <button type="button" id="file-search-button">Search</button>
+                            <button type="button" id="file-search-button">
+                                Search
+                            </button>
                             <div id="file-search-results">
                                 <p>Results will display here when searched.</p>
                             </div>
                         </div>
                     </fieldset>
-                    <button type="submit" id="file-delete-button">Delete</button>
+                    <button type="submit" id="file-delete-button">
+                        Delete
+                    </button>
                 </form>
             </div>
             <p id="transaction-status">Your request status will show here after you press "Delete".</p>

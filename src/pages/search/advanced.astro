@@ -50,7 +50,9 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         <h1>Advanced Search</h1>
 
         <form id="advanced-search-form" class="search-advanced" role="search">
-            <label for="search-input" class="visually-hidden">Free-text keyword search</label>
+            <label for="search-input" class="visually-hidden">
+                Free-text keyword search
+            </label>
             <div class="search-form">
                 <input
                     type="search"
@@ -65,7 +67,11 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             </div>
 
             <div class="search-actions">
-                <p class="search-advanced-link"><a href="/search" id="search-back-link">← Back to search</a></p>
+                <p class="search-advanced-link">
+                    <a href="/search" id="search-back-link">
+                        ← Back to search
+                    </a>
+                </p>
                 <p id="search-jump" class="search-jump" hidden></p>
             </div>
 
@@ -74,102 +80,91 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
 
                 <fieldset class="search-advanced__field search-advanced__nouns" aria-label="Entity type">
                     <div class="search-advanced__nouns-options">
-                        {
-                            nounOptions().map((option) => (
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        name="noun"
-                                        value={option.value}
-                                        checked={isNounChecked(option.value)}
-                                    />
-                                    {option.label}
-                                </label>
-                            ))
-                        }
+                        {nounOptions().map((option) => (
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="noun"
+                                    value={option.value}
+                                    checked={isNounChecked(option.value)}
+                                />
+                                {option.label}
+                            </label>
+                        ))}
                     </div>
                 </fieldset>
-                {
-                    ADVANCED_FIELDS.map((field) => {
-                        const hasBetween = field.operators?.some((op) => op.value === "between")
-                        const currentOp = valueFor(`${field.param}_op`) || field.operators?.[0].value
-                        const isBetween = currentOp === "between"
-                        const isAlive = currentOp === "alive"
-                        return (
-                            <div
-                                class="search-advanced__field"
-                                data-nouns={field.nouns.map((noun) => ENTITY_NOUN_SLUGS[noun]).join(" ")}
-                            >
-                                <label for={`adv-${field.param}`}>{field.label}</label>
-                                {field.control === "select" ? (
-                                    <select
+                {ADVANCED_FIELDS.map((field) => {
+                    const hasBetween = field.operators?.some((op) => op.value === "between")
+                    const currentOp = valueFor(`${field.param}_op`) || field.operators?.[0].value
+                    const isBetween = currentOp === "between"
+                    const isAlive = currentOp === "alive"
+                    return (
+                        <div
+                            class="search-advanced__field"
+                            data-nouns={field.nouns.map((noun) => ENTITY_NOUN_SLUGS[noun]).join(" ")}
+                        >
+                            <label for={`adv-${field.param}`}>{field.label}</label>
+                            {field.control === "select" ? (
+                                <select id={`adv-${field.param}`} name={field.param} class="search-advanced__select">
+                                    {(field.options ?? []).map((option) => (
+                                        <option value={option.value} selected={valueFor(field.param) === option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div class="search-advanced__control">
+                                    {field.operators && (
+                                        <select
+                                            class="search-advanced__op"
+                                            id={`adv-${field.param}-op`}
+                                            name={`${field.param}_op`}
+                                            aria-label={`${field.label} comparison`}
+                                        >
+                                            {field.operators.map((op) => (
+                                                <option value={op.value} selected={currentOp === op.value}>
+                                                    {op.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <input
                                         id={`adv-${field.param}`}
+                                        class:list={[
+                                            "search-advanced__value",
+                                            {
+                                                "is-inactive": isAlive,
+                                                "search-advanced__value--full": !isBetween && !isAlive
+                                            }
+                                        ]}
+                                        type={field.control === "number" ? "number" : "text"}
                                         name={field.param}
-                                        class="search-advanced__select"
-                                    >
-                                        {(field.options ?? []).map((option) => (
-                                            <option
-                                                value={option.value}
-                                                selected={valueFor(field.param) === option.value}
-                                            >
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <div class="search-advanced__control">
-                                        {field.operators && (
-                                            <select
-                                                class="search-advanced__op"
-                                                id={`adv-${field.param}-op`}
-                                                name={`${field.param}_op`}
-                                                aria-label={`${field.label} comparison`}
-                                            >
-                                                {field.operators.map((op) => (
-                                                    <option value={op.value} selected={currentOp === op.value}>
-                                                        {op.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
+                                        placeholder={isBetween ? "from" : field.placeholder}
+                                        data-default-placeholder={field.placeholder ?? ""}
+                                        value={valueFor(field.param)}
+                                        min={field.min}
+                                        max={field.max}
+                                        disabled={isAlive}
+                                    />
+                                    {hasBetween && (
                                         <input
-                                            id={`adv-${field.param}`}
-                                            class:list={[
-                                                "search-advanced__value",
-                                                {
-                                                    "is-inactive": isAlive,
-                                                    "search-advanced__value--full": !isBetween && !isAlive
-                                                }
-                                            ]}
-                                            type={field.control === "number" ? "number" : "text"}
-                                            name={field.param}
-                                            placeholder={isBetween ? "from" : field.placeholder}
-                                            data-default-placeholder={field.placeholder ?? ""}
-                                            value={valueFor(field.param)}
+                                            type="number"
+                                            class:list={["search-advanced__to", { "is-inactive": !isBetween }]}
+                                            id={`adv-${field.param}-to`}
+                                            name={`${field.param}To`}
+                                            placeholder="to"
+                                            aria-label={`${field.label} upper bound`}
+                                            value={valueFor(`${field.param}To`)}
                                             min={field.min}
                                             max={field.max}
-                                            disabled={isAlive}
+                                            disabled={!isBetween}
                                         />
-                                        {hasBetween && (
-                                            <input
-                                                type="number"
-                                                class:list={["search-advanced__to", { "is-inactive": !isBetween }]}
-                                                id={`adv-${field.param}-to`}
-                                                name={`${field.param}To`}
-                                                placeholder="to"
-                                                aria-label={`${field.label} upper bound`}
-                                                value={valueFor(`${field.param}To`)}
-                                                min={field.min}
-                                                max={field.max}
-                                                disabled={!isBetween}
-                                            />
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )
-                    })
-                }
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
                 <p id="search-advanced-no-fields" class="search-advanced__no-fields" hidden>
                     No additional filters are available for the selected entity type.
                 </p>

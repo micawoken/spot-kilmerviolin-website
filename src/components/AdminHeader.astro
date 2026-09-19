@@ -31,39 +31,47 @@ const display_name = identity?.userinfo?.ok ? identity.userinfo.name : identity?
 const name_defined = identity?.userinfo?.ok || identity?.email
 ---
 
-<a class="skip-link" href="#admin-main-content">Skip to content</a>
+<a class="skip-link" href="#admin-main-content">
+    Skip to content
+</a>
 <header role="banner">
-    <h1><a href="/admin">Administrative Services</a></h1>
+    <h1>
+        <a href="/admin">Administrative Services</a>
+    </h1>
     <nav class="admin-header-actions" aria-label="Account">
         <span class="admin-header-name">{name_defined ? display_name : "Unknown user"}</span>
-        <span class="admin-header-sep" aria-hidden="true">&middot;</span>
-        <a href="/admin/profile" class="col-item-link">My Profile</a>
-        <span class="admin-header-sep" aria-hidden="true">&middot;</span>
-        <a href="/admin/logout" class="col-item-link">Logout</a>
+        <span class="admin-header-sep" aria-hidden="true">
+            &middot;
+        </span>
+        <a href="/admin/profile" class="col-item-link">
+            My Profile
+        </a>
+        <span class="admin-header-sep" aria-hidden="true">
+            &middot;
+        </span>
+        <a href="/admin/logout" class="col-item-link">
+            Logout
+        </a>
     </nav>
 </header>
-{
-    identity !== null && identity.enrollable ? (
-        <div id="enroll-container" class="callout-invert">
-            <p class="general-warning">
-                Your profile is not associated with a contributor record. You cannot perform any operation until you
-                complete self-enrollment.
-            </p>
-            <p>
-                To complete self-enrollment, navigate to the{" "}
-                <a href="/admin/advanced/selfenroll" class="col-item-link">
-                    self-enrollment flow
-                </a>
-                .
-            </p>
-        </div>
-    ) : null
-}
-{
-    identity !== null && !identity.active ? (
-        <div id="inactive-container" class="callout-emphasis">
-            <p class="general-warning">Your profile is marked as inactive. Your user permissions are limited.</p>
-            <p class="general-warning">To make contributions, an administrator must activate your profile.</p>
-        </div>
-    ) : null
-}
+{identity !== null && identity.enrollable ? (
+    <div id="enroll-container" class="callout-invert">
+        <p class="general-warning">
+            Your profile is not associated with a contributor record. You cannot perform any operation until you
+            complete self-enrollment.
+        </p>
+        <p>
+            To complete self-enrollment, navigate to the{" "}
+            <a href="/admin/advanced/selfenroll" class="col-item-link">
+                self-enrollment flow
+            </a>
+            .
+        </p>
+    </div>
+) : null}
+{identity !== null && !identity.active ? (
+    <div id="inactive-container" class="callout-emphasis">
+        <p class="general-warning">Your profile is marked as inactive. Your user permissions are limited.</p>
+        <p class="general-warning">To make contributions, an administrator must activate your profile.</p>
+    </div>
+) : null}

@@ -64,33 +64,52 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
             <div class="flex-container">
                 <div class="column">
                     <ul>
-                        <li><a href="/admin/search" class="col-item-link">Search database</a></li>
-                        <li><a href="/admin/site/verinfo" class="col-item-link">View site info</a></li>
-                        <li><a href="/admin/site/analytics" class="col-item-link">View site analytics</a></li>
                         <li>
-                            <a href="/_emdash/admin" class="col-item-link" target="_blank" rel="noopener noreferrer"
-                                >Access EmDash CMS</a
-                            >
+                            <a href="/admin/search" class="col-item-link">
+                                Search database
+                            </a>
                         </li>
-                        <li><a href="/admin/site/rebuild" class="col-item-link">Rebuild site</a></li>
-                        <li><a href="/admin/site/purge_cache" class="col-item-link">Purge cache</a></li>
-                        {
-                            canManageContactResponses && (
-                                <li>
-                                    <a href="/admin/site/contact" class="col-item-link">
-                                        Contact responses{unreadCount ? ` (${unreadCount})` : ""}
-                                    </a>
-                                </li>
-                            )
-                        }
+                        <li>
+                            <a href="/admin/site/verinfo" class="col-item-link">
+                                View site info
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/site/analytics" class="col-item-link">
+                                View site analytics
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/_emdash/admin" class="col-item-link" target="_blank" rel="noopener noreferrer">
+                                Access EmDash CMS
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/site/rebuild" class="col-item-link">
+                                Rebuild site
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/site/purge_cache" class="col-item-link">
+                                Purge cache
+                            </a>
+                        </li>
+                        {canManageContactResponses && (
+                            <li>
+                                <a href="/admin/site/contact" class="col-item-link">
+                                    Contact responses{unreadCount ? ` (${unreadCount})` : ""}
+                                </a>
+                            </li>
+                        )}
                     </ul>
                 </div>
             </div>
             <p class="general-helppointer">
-                For help with these options, please review the <a
-                    href="/admin/docs/site"
-                    class="general-helppointer-link">Site Management</a
-                > documentation.
+                For help with these options, please review the{" "}
+                <a href="/admin/docs/site" class="general-helppointer-link">
+                    Site Management
+                </a>{" "}
+                documentation.
             </p>
         </main>
         <AdminFooter />
