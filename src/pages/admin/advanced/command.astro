@@ -459,7 +459,7 @@ export const prerender = false
             </script>
             <style>
                 /* destructive-operation acknowledgement: a bordered callout between the command box and the Execute
-           button, revealed only when a destructive keyword is detected */
+                button, revealed only when a destructive keyword is detected */
                 .command-danger {
                     border: 1px solid var(--shade-5);
                     border-left: 4px solid var(--shade-7);
@@ -513,12 +513,12 @@ export const prerender = false
                     overflow-x: auto;
                 }
                 /* The formatted view's subtree is styled in the global block below - it's built in client
-           script, so its elements never receive Astro's scoped-style marker and scoped rules can't
-           reach them. */
+                script, so its elements never receive Astro's scoped-style marker and scoped rules can't
+                reach them. */
             </style>
             <style is:global>
                 /* These rules are global but rooted at #advanced-command-formatted so they only affect the
-           dynamically generated formatted-response subtree, not the rest of the page. */
+                dynamically generated formatted-response subtree, not the rest of the page. */
 
                 /* request-info block: success + meta fields as horizontal wrapping "key: value" spans */
                 #advanced-command-formatted .command-info-block {
