@@ -28,12 +28,22 @@ import AdminHead from "../components/AdminHead.astro"
 import AdminHeader from "../components/AdminHeader.astro"
 import AdminFooter from "../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../consts"
+import { countUnreadContactResponses } from "../lib/api/db_contact"
+import { guardedRead } from "../lib/api/http"
+import { satisfiesAccess } from "../lib/api/page_auth"
 
 export const prerender = false
 
 const locals = Astro.locals
 
 const identity = locals.identity !== undefined ? locals.identity : null
+const canManageContactResponses =
+    locals.identity === undefined ||
+    satisfiesAccess({ kind: "permission", permissions: ["public_form_responses"] }, locals.identity)
+
+// A failed badge count does not block the page
+const unreadResult = canManageContactResponses ? await guardedRead(() => countUnreadContactResponses()) : null
+const unreadCount = unreadResult instanceof Response ? null : unreadResult
 ---
 
 <!doctype html>
@@ -280,6 +290,13 @@ const identity = locals.identity !== undefined ? locals.identity : null
                                 Purge cache
                             </a>
                         </li>
+                        {canManageContactResponses && (
+                            <li>
+                                <a href="/admin/site/contact" class="col-item-link">
+                                    Contact responses{unreadCount ? ` (${unreadCount})` : ""}
+                                </a>
+                            </li>
+                        )}
                     </ul>
                 </section>
                 <section class="admin-section">
