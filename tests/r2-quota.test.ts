@@ -31,7 +31,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest"
-import { env } from "cloudflare:test"
+import { env } from "cloudflare:workers"
 import { adjustR2Usage, claimR2Capacity, getR2Usage, MAX_R2_STORAGE_BYTES, R2CapacityError } from "../src/lib/api/r2-quota"
 
 /** Resets the singleton quota object so each test starts from a reconciled, empty count. */

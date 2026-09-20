@@ -26,7 +26,7 @@
  */
 
 import { env } from "cloudflare:workers"
-import { adjustR2Usage, claimR2Capacity, MAX_R2_STORAGE_BYTES, R2CapacityError } from "./r2-quota"
+import { adjustR2Usage, claimR2Capacity } from "./r2-quota"
 
 // the storage ceiling and its error live with the quota Durable Object that now owns them; re-exported
 // here so existing callers keep importing storage concerns from this module
@@ -88,14 +88,13 @@ export async function headObject(key: string): Promise<R2Object | null> {
 /**
  * Writes an object to the bucket, enforcing the storage-capacity ceiling
  *
- *
- * @param {string} key - the object key to write
- * @param {ArrayBuffer | Uint8Array} body - the object bytes (size must be known for the capacity check)
- * @param {string} content_type - the MIME type to store as httpMetadata.contentType
- * @param {Record<string, string> | undefined} custom_metadata - opaque metadata to store on the object
- * @param {number} [replaced_bytes] - bytes occupied by the object this atomic write replaces
- * @returns {Promise<R2Object>} the written object's metadata
- * @throws {R2CapacityError} if the write would push total usage past MAX_R2_STORAGE_BYTES
+ * @param key - the object key to write
+ * @param body - the object bytes (size must be known for the capacity check)
+ * @param content_type - the MIME type to store as httpMetadata.contentType
+ * @param custom_metadata - opaque metadata to store on the object
+ * @param replaced_bytes - bytes occupied by the object this atomic write replaces
+ * @returns the written object's metadata
+ * @throws R2CapacityError if the write would push total usage past MAX_R2_STORAGE_BYTES
  */
 export async function putObject(
     key: string,
