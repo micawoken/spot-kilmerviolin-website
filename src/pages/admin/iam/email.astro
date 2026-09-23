@@ -63,11 +63,11 @@ const prefill_email = emailFromParam(Astro.url)
                     <fieldset>
                         <legend>
                             Current Login Email
-                            <span class="field-required" aria-hidden="true">
+                            <span class="field__required" aria-hidden="true">
                                 *
                             </span>
                         </legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input
                                 type="email"
                                 id="iam-form-email-current"
@@ -80,16 +80,16 @@ const prefill_email = emailFromParam(Astro.url)
                     <fieldset>
                         <legend>
                             New Login Email
-                            <span class="field-required" aria-hidden="true">
+                            <span class="field__required" aria-hidden="true">
                                 *
                             </span>
                         </legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input type="email" id="iam-form-email-new" name="new_email" required />
                         </div>
                     </fieldset>
-                    <p class="field-required-note">
-                        <span class="field-required" aria-hidden="true">
+                    <p class="field__required-note">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>{" "}
                         indicates a required field

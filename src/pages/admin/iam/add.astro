@@ -54,7 +54,7 @@ const prefill_email = emailFromParam(Astro.url)
                 <form id="iam-form-add" class="generic-form" novalidate>
                     <fieldset>
                         <legend>User Email</legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input type="email" id="iam-form-add-email" name="email" value={prefill_email} required />
                         </div>
                     </fieldset>
@@ -68,7 +68,7 @@ const prefill_email = emailFromParam(Astro.url)
                     <div id="iam-form-add-autoenrollment-fields" class="form-section hidden">
                         <fieldset>
                             <legend>Name</legend>
-                            <div class="field-row">
+                            <div class="field__row">
                                 <label for="iam-form-add-name" class="sr-only">
                                     Name
                                 </label>
@@ -77,7 +77,7 @@ const prefill_email = emailFromParam(Astro.url)
                         </fieldset>
                         <fieldset>
                             <legend>Major</legend>
-                            <div class="field-row">
+                            <div class="field__row">
                                 <label for="iam-form-add-major" class="sr-only">
                                     Major
                                 </label>
@@ -87,7 +87,7 @@ const prefill_email = emailFromParam(Astro.url)
                         </fieldset>
                         <fieldset>
                             <legend>Class Year</legend>
-                            <div class="field-row">
+                            <div class="field__row">
                                 <label for="iam-form-add-class_year" class="sr-only">
                                     Class Year
                                 </label>

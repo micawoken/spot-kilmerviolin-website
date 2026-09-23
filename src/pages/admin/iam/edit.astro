@@ -55,35 +55,35 @@ const prefill_email = emailFromParam(Astro.url)
                     <fieldset>
                         <legend>
                             User Identity Email
-                            <span class="field-required" aria-hidden="true">
+                            <span class="field__required" aria-hidden="true">
                                 *
                             </span>
                         </legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input type="email" id="iam-form-edit-email" name="email" value={prefill_email} required />
                         </div>
                     </fieldset>
                     <fieldset>
                         <legend>Roles to Add</legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input
                                 type="text"
                                 id="iam-form-edit-roles_add"
                                 name="roles_add"
                                 placeholder="reviewer,userenroll"
                             />
-                            <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                            <small class="general-infohelp field__inline-help">comma-separated, no spaces</small>
                         </div>
                     </fieldset>
                     <fieldset>
                         <legend>Roles to Remove</legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input type="text" id="iam-form-edit-roles_remove" name="roles_remove" />
-                            <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                            <small class="general-infohelp field__inline-help">comma-separated, no spaces</small>
                         </div>
                     </fieldset>
-                    <p class="field-required-note">
-                        <span class="field-required" aria-hidden="true">
+                    <p class="field__required-note">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>{" "}
                         indicates a required field

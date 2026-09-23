@@ -163,23 +163,23 @@ export function initImport(type: ImportType): void {
      */
     function markRow(row: RowState, issues: RowIssue[], warnings: BuildIssue[]): void {
         for (const input of Object.values(row.inputs)) {
-            input.classList.remove("import-input-error")
+            input.classList.remove("import-grid-table__input--error")
         }
         if (issues.length === 0) {
             if (warnings.length === 0) {
                 row.issueCell.textContent = "ok"
-                row.issueCell.className = "import-issue import-issue-ok"
+                row.issueCell.className = "import-issue import-issue--ok"
             } else {
                 row.issueCell.textContent = warnings.map(issueMessage).join("; ")
-                row.issueCell.className = "import-issue import-issue-warning"
+                row.issueCell.className = "import-issue import-issue--warning"
             }
-            row.tr.classList.remove("import-row-error")
+            row.tr.classList.remove("import-grid-table__row--error")
             return
         }
         const parts = [...issues.map(issueMessage), ...warnings.map((warning) => `note: ${issueMessage(warning)}`)]
         row.issueCell.textContent = parts.join("; ")
-        row.issueCell.className = "import-issue import-issue-error"
-        row.tr.classList.add("import-row-error")
+        row.issueCell.className = "import-issue import-issue--error"
+        row.tr.classList.add("import-grid-table__row--error")
         const columnsToFlag = new Set<string>()
         for (const issue of issues) {
             for (const column of columnsForIssue(issue)) {
@@ -187,7 +187,7 @@ export function initImport(type: ImportType): void {
             }
         }
         for (const column of columnsToFlag) {
-            row.inputs[column]?.classList.add("import-input-error")
+            row.inputs[column]?.classList.add("import-grid-table__input--error")
         }
     }
 

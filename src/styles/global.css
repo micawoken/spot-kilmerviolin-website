@@ -45,7 +45,7 @@
 	--color-warning: light-dark(#b45309, #fbbf24);
 	--color-warning-bg: light-dark(#fff3cd, #3a2f14);
 	/* Danger/success accents: used where an error or ok state needs to read at a glance (e.g. the CSV
-	 * import preview grid), as opposed to the grayscale .field-error convention used in forms. */
+	 * import preview grid), as opposed to the grayscale .field__error convention used in forms. */
 	--color-danger: light-dark(#b30000, #ff8080);
 	--color-danger-bg: light-dark(#fbeaea, #3a1f1f);
 	--color-success: light-dark(#006600, #6bcf6b);
@@ -110,7 +110,7 @@ h2 {
 	min-width: 16rem;
 }
 /* Zero the link list's block margins so the gap between a section's <h2> and its bullets matches the
- * admin home page (which applies the same reset via .admin-section ul); without this the section
+ * admin home page (which applies the same reset via .admin-sections__section ul); without this the section
  * landing pages inherit the user-agent <ul> top margin and sit looser than the home page. */
 .column ul {
 	margin-block: 0;

@@ -40,7 +40,7 @@ const database_select: boolean = Astro.props.database_select ?? false
 const hidden: boolean = Astro.props.hidden ?? false
 ---
 
-<div class=`generic-form keyword-search${hidden ? " hidden" : ""}` id={`${id_prefix}-container`}>
+<div class=`generic-form generic-form--keyword-search${hidden ? " hidden" : ""}` id={`${id_prefix}-container`}>
     <form id={`${id_prefix}-form`} class="generic-form">
         {database_select ? (
             <fieldset>

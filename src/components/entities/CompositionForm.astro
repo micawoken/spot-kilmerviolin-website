@@ -62,17 +62,17 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         <input type="hidden" id="form-composition-id" name="id" value={composition?.id ?? ""} />
 
         <div class="form-section">
-            <h3 class="form-section-title">Basic Information</h3>
+            <h3 class="form-section__title">Basic Information</h3>
             <fieldset>
                 <legend>
                     Name
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-name" class="sr-only">
                         Name
                     </label>
@@ -84,7 +84,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         value={composition?.name ?? ""}
                     />
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-name-edittarget" name="name-edittarget" />
                             <label for="form-composition-name-edittarget">Edit this field</label>
                         </span>
@@ -94,17 +94,17 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Authorship</h3>
+            <h3 class="form-section__title">Authorship</h3>
             <fieldset>
                 <legend>
                     Composer
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-composer_id" class="sr-only">
                         Composer
                     </label>
@@ -118,9 +118,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         required={required}
                         value={composition?.composer_id ?? ""}
                     />
-                    <small class="general-infohelp field-inline-help">numeric ID</small>
+                    <small class="general-infohelp field__inline-help">numeric ID</small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-composer_id-edittarget"
@@ -146,7 +146,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Secondary Authors</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-author_secondary" class="sr-only">
                         Secondary Authors
                     </label>
@@ -156,9 +156,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         name="author_secondary"
                         value={joined(composition?.author_secondary)}
                     />
-                    <small class="general-infohelp field-inline-help">comma-separated IDs</small>
+                    <small class="general-infohelp field__inline-help">comma-separated IDs</small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-author_secondary-edittarget"
@@ -172,7 +172,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Notes</h3>
+            <h3 class="form-section__title">Notes</h3>
             <fieldset>
                 <legend>Historical Notes</legend>
                 <label for="form-composition-notes_historical" class="sr-only">
@@ -183,8 +183,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     name="notes_historical"
                 >{composition?.notes_historical ?? ""}</textarea>
                 {patch ? (
-                    <div class="field-row field-row-textarea">
-                        <span class="field-edittarget">
+                    <div class="field__row field__row--textarea">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-notes_historical-edittarget"
@@ -206,8 +206,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     name="notes_pedagogical"
                 >{composition?.notes_pedagogical ?? ""}</textarea>
                 {patch ? (
-                    <div class="field-row field-row-textarea">
-                        <span class="field-edittarget">
+                    <div class="field__row field__row--textarea">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-notes_pedagogical-edittarget"
@@ -229,8 +229,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     name="notes_other"
                 >{composition?.notes_other ?? ""}</textarea>
                 {patch ? (
-                    <div class="field-row field-row-textarea">
-                        <span class="field-edittarget">
+                    <div class="field__row field__row--textarea">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-notes_other-edittarget"
@@ -244,17 +244,17 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Work Properties</h3>
+            <h3 class="form-section__title">Work Properties</h3>
             <fieldset>
                 <legend>
                     Composition Type
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-type" class="sr-only">
                         Composition Type
                     </label>
@@ -266,7 +266,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         ))}
                     </select>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-type-edittarget" name="type-edittarget" />
                             <label for="form-composition-type-edittarget">Edit this field</label>
                         </span>
@@ -276,13 +276,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Part</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-part" class="sr-only">
                         Part
                     </label>
                     <input type="text" id="form-composition-part" name="part" value={composition?.part ?? ""} />
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-part-edittarget" name="part-edittarget" />
                             <label for="form-composition-part-edittarget">Edit this field</label>
                         </span>
@@ -292,10 +292,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Characteristics</h3>
+            <h3 class="form-section__title">Characteristics</h3>
             <fieldset>
                 <legend>Key</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-key" class="sr-only">
                         Key
                     </label>
@@ -310,7 +310,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         ))}
                     </select>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-key-edittarget" name="key-edittarget" />
                             <label for="form-composition-key-edittarget">Edit this field</label>
                         </span>
@@ -320,13 +320,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Range</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-range" class="sr-only">
                         Range
                     </label>
                     <input type="text" id="form-composition-range" name="range" value={composition?.range ?? ""} />
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-range-edittarget" name="range-edittarget" />
                             <label for="form-composition-range-edittarget">Edit this field</label>
                         </span>
@@ -336,7 +336,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Highest Position</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-position_highest" class="sr-only">
                         Highest Position
                     </label>
@@ -347,7 +347,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         value={composition?.position_highest ?? ""}
                     />
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-position_highest-edittarget"
@@ -361,11 +361,11 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Rating</h3>
+            <h3 class="form-section__title">Rating</h3>
             <fieldset>
                 <legend>Rating</legend>
-                {/* two level fields aligned on the shared label/control grid (see .field-grid in admin-entities.css) */}
-                <div class="field-grid">
+                {/* two level fields aligned on the shared label/control grid (see .field__grid in admin-entities.css) */}
+                <div class="field__grid">
                     <label for="form-composition-rating_suzuki">Suzuki Level</label>
                     <input
                         type="number"
@@ -387,8 +387,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     />
                 </div>
                 {patch ? (
-                    <div class="field-row field-row-textarea">
-                        <span class="field-edittarget">
+                    <div class="field__row field__row--textarea">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-rating-edittarget" name="rating-edittarget" />
                             <label for="form-composition-rating-edittarget">Edit the rating</label>
                         </span>
@@ -398,10 +398,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Publication</h3>
+            <h3 class="form-section__title">Publication</h3>
             <fieldset>
                 <legend>Publication Information</legend>
-                <div class="field-grid">
+                <div class="field__grid">
                     <label for="form-composition-publish_name">Publisher Name</label>
                     <input
                         type="text"
@@ -450,7 +450,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     <label for="form-composition-uri">URI</label>
                     {/* the URI control cell groups the input with its format help into one grid cell so the help
                         sits under the input while the input still fills (and aligns to) the control column */}
-                    <span class="field-control">
+                    <span class="field__control">
                         <input
                             type="text"
                             id="form-composition-uri"
@@ -464,8 +464,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     </span>
                 </div>
                 {patch ? (
-                    <div class="field-row field-row-textarea">
-                        <span class="field-edittarget">
+                    <div class="field__row field__row--textarea">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-publication_info-edittarget"
@@ -481,13 +481,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Contributors</h3>
+            <h3 class="form-section__title">Contributors</h3>
             {/* contrib_primary_1 / contrib_addl are managed by attachContributorManagement: hidden by default and
                 revealed only for direct (admin) editing */}
             <div id="form-composition-contributor-fields" class="hidden">
                 <fieldset>
                     <legend>Primary Contributor</legend>
-                    <div class="field-row">
+                    <div class="field__row">
                         <label for="form-composition-contrib_primary_1" class="sr-only">
                             Primary Contributor
                         </label>
@@ -499,9 +499,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                             name="contrib_primary_1"
                             value={!patch && self_id !== null ? self_id : (composition?.contrib_primary_1 ?? "")}
                         />
-                        <small class="general-infohelp field-inline-help">numeric ID</small>
+                        <small class="general-infohelp field__inline-help">numeric ID</small>
                         {patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input
                                     type="checkbox"
                                     id="form-composition-contrib_primary_1-edittarget"
@@ -527,7 +527,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
                 <fieldset>
                     <legend>Additional Contributors</legend>
-                    <div class="field-row">
+                    <div class="field__row">
                         <label for="form-composition-contrib_addl" class="sr-only">
                             Additional Contributors
                         </label>
@@ -537,9 +537,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                             name="contrib_addl"
                             value={joined(composition?.contrib_addl)}
                         />
-                        <small class="general-infohelp field-inline-help">comma-separated IDs</small>
+                        <small class="general-infohelp field__inline-help">comma-separated IDs</small>
                         {patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input
                                     type="checkbox"
                                     id="form-composition-contrib_addl-edittarget"
@@ -557,7 +557,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             <div id="form-composition-primary-2-field">
                 <fieldset>
                     <legend>Additional Primary Contributor</legend>
-                    <div class="field-row">
+                    <div class="field__row">
                         <label for="form-composition-contrib_primary_2" class="sr-only">
                             Additional Primary Contributor
                         </label>
@@ -569,9 +569,9 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                             name="contrib_primary_2"
                             value={composition?.contrib_primary_2 ?? ""}
                         />
-                        <small class="general-infohelp field-inline-help">numeric ID</small>
+                        <small class="general-infohelp field__inline-help">numeric ID</small>
                         {patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input
                                     type="checkbox"
                                     id="form-composition-contrib_primary_2-edittarget"
@@ -598,14 +598,14 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Phases</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-phases" class="sr-only">
                         Phases
                     </label>
                     <input type="text" id="form-composition-phases" name="phases" value={joined(composition?.phases)} />
-                    <small class="general-infohelp field-inline-help">comma-separated numbers</small>
+                    <small class="general-infohelp field__inline-help">comma-separated numbers</small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-phases-edittarget" name="phases-edittarget" />
                             <label for="form-composition-phases-edittarget">Edit this field</label>
                         </span>
@@ -615,19 +615,19 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Media</h3>
+            <h3 class="form-section__title">Media</h3>
             <fieldset>
                 <legend>Image URL</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-image" class="sr-only">
                         Image URL
                     </label>
                     <input type="url" id="form-composition-image" name="image" value={composition?.image ?? ""} />
-                    <small class="general-infohelp field-inline-help">
+                    <small class="general-infohelp field__inline-help">
                         Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.
                     </small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-image-edittarget" name="image-edittarget" />
                             <label for="form-composition-image-edittarget">Edit this field</label>
                         </span>
@@ -649,17 +649,17 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Tags</h3>
+            <h3 class="form-section__title">Tags</h3>
             <fieldset>
                 <legend>Tags</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composition-tags" class="sr-only">
                         Tags
                     </label>
                     <input type="text" id="form-composition-tags" name="tags" value={joined(composition?.tags)} />
-                    <small class="general-infohelp field-inline-help">comma-separated</small>
+                    <small class="general-infohelp field__inline-help">comma-separated</small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composition-tags-edittarget" name="tags-edittarget" />
                             <label for="form-composition-tags-edittarget">Edit this field</label>
                         </span>
@@ -669,10 +669,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Citations</h3>
+            <h3 class="form-section__title">Citations</h3>
             <fieldset>
                 <legend>Citations</legend>
-                <div class="field-row field-row-textarea">
+                <div class="field__row field__row--textarea">
                     <label for="form-composition-citations" class="sr-only">
                         Citations
                     </label>
@@ -681,12 +681,12 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                         name="citations"
                         placeholder={"IMSLP: https://imslp.org/wiki/...\nGrove Music Online: 10.1000/example"}
                     >{citationsToTextarea(composition?.citations)}</textarea>
-                    <small class="general-infohelp field-inline-help">
+                    <small class="general-infohelp field__inline-help">
                         one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
                         ISBN
                     </small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composition-citations-edittarget"
@@ -701,7 +701,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
         {show_direct || show_elevate ? (
             <div class="form-section">
-                <h3 class="form-section-title">Administrative Options</h3>
+                <h3 class="form-section__title">Administrative Options</h3>
                 {show_direct ? (
                     <fieldset>
                         <legend>Direct Contributor Management</legend>
@@ -731,8 +731,8 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         ) : null}
 
         {required ? (
-            <p class="field-required-note">
-                <span class="field-required" aria-hidden="true">
+            <p class="field__required-note">
+                <span class="field__required" aria-hidden="true">
                     *
                 </span>{" "}
                 indicates a required field

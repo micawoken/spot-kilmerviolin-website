@@ -81,10 +81,10 @@ const summary = await getWebAnalyticsSummary(range)
                             ))}
                         </ul>
                     </nav>
-                    <div class="entity-result-container site-info-card">
-                        <h3 class="entity-result-name">{RANGE_LABELS[range]}</h3>
-                        <div class="site-info-details entity-result-details">
-                            <div class="site-info-group">
+                    <div class="entity-result site-info-card">
+                        <h3 class="entity-result__name">{RANGE_LABELS[range]}</h3>
+                        <div class="site-info-card__details entity-result__details">
+                            <div class="site-info-card__group">
                                 <strong>Pageviews:</strong>
                                 <span>{summary.pageviews.toLocaleString("en-US")}</span>
                                 <strong>Visits:</strong>

@@ -79,24 +79,24 @@ function formatBytes(bytes: number): string {
     {
         use_key && file ? (
             <>
-            <div class="entity-result-container">
-                <div class="entity-result-head">
-                    <div class="entity-result-header">
-                        <h2 class="entity-result-name">{file.key}</h2>
+            <div class="entity-result">
+                <div class="entity-result__head">
+                    <div class="entity-result__header">
+                        <h2 class="entity-result__name">{file.key}</h2>
                         <div id="file-details-infoline">
                             <p>{file.content_type}</p>
                             <p>{formatBytes(file.size)}</p>
                             <p><code>/api/v1/files/{file.key}</code></p>
                         </div>
                     </div>
-                    <div class="entity-result-image-container">
-                        <img class="entity-result-image" src={`/api/v1/files/${file.key}`} alt={file.alt || `Preview of ${file.key}`} title={file.alt || `Preview of ${file.key}`} />
+                    <div class="entity-result__image-container">
+                        <img class="entity-result__image" src={`/api/v1/files/${file.key}`} alt={file.alt || `Preview of ${file.key}`} title={file.alt || `Preview of ${file.key}`} />
                     </div>
-                    <div class="entity-result-groups">
-                        <div id="file-details-image" class="entity-result-group entity-result-details">
-                            <div class="entity-field"><strong>Dimensions:</strong> <span>{file.width && file.height ? `${file.width}×${file.height}` : "(not an image)"}</span></div>
-                            <div class="entity-field"><strong>Optimized:</strong> <span>{file.optimized ? "Yes" : "No"}</span></div>
-                            <div class="entity-field">
+                    <div class="entity-result__groups">
+                        <div id="file-details-image" class="entity-result__group entity-result__details">
+                            <div class="entity-result__field"><strong>Dimensions:</strong> <span>{file.width && file.height ? `${file.width}×${file.height}` : "(not an image)"}</span></div>
+                            <div class="entity-result__field"><strong>Optimized:</strong> <span>{file.optimized ? "Yes" : "No"}</span></div>
+                            <div class="entity-result__field">
                                 <strong>Alt text:</strong>
                                 <form id="file-alt-form" class="generic-form" data-key={file.key}>
                                     <textarea id="file-alt-input" name="alt" maxlength={MAX_ALT_TEXT_LENGTH} required>{file.alt}</textarea>
@@ -105,10 +105,10 @@ function formatBytes(bytes: number): string {
                                 </form>
                             </div>
                         </div>
-                        <div id="file-details-provenance" class="entity-result-group entity-result-details">
-                            <div class="entity-field"><strong>Uploaded by:</strong> <span>{file.uploader ? <a href={`/admin/contributors/info?id=${file.uploader}`}>{uploader_label}</a> : uploader_label}</span></div>
-                            <div class="entity-field"><strong>Uploaded:</strong> <span>{file.uploaded}</span></div>
-                            <div class="entity-field"><strong>ETag:</strong> <span>{file.etag}</span></div>
+                        <div id="file-details-provenance" class="entity-result__group entity-result__details">
+                            <div class="entity-result__field"><strong>Uploaded by:</strong> <span>{file.uploader ? <a href={`/admin/contributors/info?id=${file.uploader}`}>{uploader_label}</a> : uploader_label}</span></div>
+                            <div class="entity-result__field"><strong>Uploaded:</strong> <span>{file.uploaded}</span></div>
+                            <div class="entity-result__field"><strong>ETag:</strong> <span>{file.etag}</span></div>
                         </div>
                     </div>
                 </div>

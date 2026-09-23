@@ -84,7 +84,7 @@ const COUNTRY_ISO_LABEL = "ISO 3166-1 alpha-2"
  */
 function buildCountryError(): HTMLElement {
     const error = document.createElement("small")
-    error.className = "field-error"
+    error.className = "field__error"
     error.setAttribute("role", "alert")
     error.appendChild(document.createTextNode("Enter a valid "))
     const link = document.createElement("a")
@@ -107,21 +107,21 @@ function buildCountryError(): HTMLElement {
 function renderCountryFeedback(input: HTMLInputElement, help: HTMLElement): boolean {
     // drop any error left from a previous (invalid) state before re-deciding
     const prior = input.nextElementSibling
-    if (prior instanceof HTMLElement && prior.classList.contains("field-error")) {
+    if (prior instanceof HTMLElement && prior.classList.contains("field__error")) {
         prior.remove()
     }
     const raw = input.value.trim()
     if (raw === "") {
         // neutral guidance: no resolved name yet, and the reference link now lives in the error state
-        input.classList.remove("field-invalid")
-        help.classList.remove("field-hidden")
+        input.classList.remove("field__invalid")
+        help.classList.remove("field__hidden")
         help.textContent = "ISO 3166-1 alpha-2 code or country name"
         return true
     }
     if (isValidCountryCode(normalizeCountryCode(raw))) {
         // recognised code: show the determined country name in place of the reference link
-        input.classList.remove("field-invalid")
-        help.classList.remove("field-hidden")
+        input.classList.remove("field__invalid")
+        help.classList.remove("field__hidden")
         help.textContent = countryCodeName(raw)
         return true
     }
@@ -129,14 +129,14 @@ function renderCountryFeedback(input: HTMLInputElement, help: HTMLElement): bool
     if (from_name) {
         // recognised common English name: accept it and show the country with the code it resolves to, so the
         // user sees it will be stored as that code
-        input.classList.remove("field-invalid")
-        help.classList.remove("field-hidden")
+        input.classList.remove("field__invalid")
+        help.classList.remove("field__hidden")
         help.textContent = `${countryCodeName(from_name)} (${from_name})`
         return true
     }
     // unrecognised: hide the help token and flag the field, carrying the ISO link in the error text
-    help.classList.add("field-hidden")
-    input.classList.add("field-invalid")
+    help.classList.add("field__hidden")
+    input.classList.add("field__invalid")
     input.insertAdjacentElement("afterend", buildCountryError())
     return false
 }
@@ -187,15 +187,15 @@ function validateCountryFeedback(form: HTMLFormElement, patch: boolean): boolean
  * Surfaces a validation hint inline, to the right of (or under) the offending control
  */
 export function showFieldError(control: FormControl, message: string): void {
-    const container = control.closest(".field-row") ?? control.parentElement
+    const container = control.closest(".field__row") ?? control.parentElement
     if (container) {
-        const hint = container.querySelector(":scope > .field-inline-help")
-        if (hint instanceof HTMLElement) hint.classList.add("field-hidden")
+        const hint = container.querySelector(":scope > .field__inline-help")
+        if (hint instanceof HTMLElement) hint.classList.add("field__hidden")
     }
     let error = control.nextElementSibling
-    if (!(error instanceof HTMLElement && error.classList.contains("field-error"))) {
+    if (!(error instanceof HTMLElement && error.classList.contains("field__error"))) {
         error = document.createElement("small")
-        error.className = "field-error"
+        error.className = "field__error"
         error.setAttribute("role", "alert")
         control.insertAdjacentElement("afterend", error)
     }
@@ -203,20 +203,20 @@ export function showFieldError(control: FormControl, message: string): void {
     if (error.id === "") {
         error.id = `field-error-${++validationErrorSequence}`
     }
-    control.classList.add("field-invalid")
+    control.classList.add("field__invalid")
     control.setAttribute("aria-invalid", "true")
     addDescribedBy(control, error.id)
 }
 
 /**
  * Surfaces a non-blocking caution beside a control, in the same inline slot as showFieldError but styled
- * as a colored warning (.field-warning) rather than a hard error
+ * as a colored warning (.field__warning) rather than a hard error
  */
 export function showFieldWarning(control: FormControl, message: string): void {
     let warning = control.nextElementSibling
-    if (!(warning instanceof HTMLElement && warning.classList.contains("field-warning"))) {
+    if (!(warning instanceof HTMLElement && warning.classList.contains("field__warning"))) {
         warning = document.createElement("small")
-        warning.className = "field-warning"
+        warning.className = "field__warning"
         warning.setAttribute("role", "status")
         control.insertAdjacentElement("afterend", warning)
     }
@@ -226,7 +226,7 @@ export function showFieldWarning(control: FormControl, message: string): void {
 /** Clears any non-blocking warning previously shown on a control by showFieldWarning */
 export function clearFieldWarning(control: FormControl): void {
     const sibling = control.nextElementSibling
-    if (sibling instanceof HTMLElement && sibling.classList.contains("field-warning")) {
+    if (sibling instanceof HTMLElement && sibling.classList.contains("field__warning")) {
         sibling.remove()
     }
 }
@@ -234,16 +234,16 @@ export function clearFieldWarning(control: FormControl): void {
 /** Clears any validation hint on a control, restoring its hidden format token */
 export function clearFieldError(control: FormControl): void {
     const sibling = control.nextElementSibling
-    if (sibling instanceof HTMLElement && sibling.classList.contains("field-error")) {
+    if (sibling instanceof HTMLElement && sibling.classList.contains("field__error")) {
         if (sibling.id !== "") removeDescribedBy(control, sibling.id)
         sibling.remove()
     }
-    const container = control.closest(".field-row") ?? control.parentElement
+    const container = control.closest(".field__row") ?? control.parentElement
     if (container) {
-        const hint = container.querySelector(":scope > .field-inline-help")
-        if (hint instanceof HTMLElement) hint.classList.remove("field-hidden")
+        const hint = container.querySelector(":scope > .field__inline-help")
+        if (hint instanceof HTMLElement) hint.classList.remove("field__hidden")
     }
-    control.classList.remove("field-invalid")
+    control.classList.remove("field__invalid")
     control.removeAttribute("aria-invalid")
 }
 

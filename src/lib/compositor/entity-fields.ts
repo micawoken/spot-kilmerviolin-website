@@ -157,7 +157,7 @@ export function entityFields(noun: EntityNoun): readonly EntityField[] {
     return ENTITY_FIELDS[noun]
 }
 
-/** Whether a resolved entity-field value counts as "empty" for a field kind */
+/** Whether a resolved entity-result__field value counts as "empty" for a field kind */
 export function isEmptyFieldValue(value: unknown, kind: string | undefined): boolean {
     if (value === null || value === undefined) return true
     switch (kind) {

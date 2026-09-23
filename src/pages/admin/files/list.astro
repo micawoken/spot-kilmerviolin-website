@@ -65,30 +65,30 @@ function formatBytes(bytes: number): string {
                 <strong>database</strong> files (R2). Only database files can be replaced or deleted; bundled local
                 assets are part of the site build.
             </p>
-            <div id="list-results-file" class="list-results-container">
+            <div id="list-results-file" class="list-results">
                 {files.length > 0 ? (
                     files.map((file) => (
-                        <div id={`list-result-file-${file.key}`} class="list-result-container">
+                        <div id={`list-result-file-${file.key}`} class="list-result">
                             <img
-                                class="list-result-thumb"
+                                class="list-result__thumb"
                                 src={`/api/v1/files/${file.key}`}
                                 alt={file.alt || `Preview of ${file.key}`}
                                 loading="lazy"
                                 width="48"
                                 height="48"
                             />
-                            <a href={`/admin/files/info?id=${file.key}`} class="list-result-link">
+                            <a href={`/admin/files/info?id=${file.key}`} class="list-result__link">
                                 {file.key}
                             </a>
-                            <span class="list-result-meta">
+                            <span class="list-result__meta">
                                 Database (R2) · {file.content_type} · {formatBytes(file.size)}
                                 {file.width && file.height ? ` · ${file.width}×${file.height}` : ""}
                             </span>
-                            <div class="list-result-actions">
-                                <a href={`/admin/files/edit?id=${file.key}`} class="list-result-edit-link">
+                            <div class="list-result__actions">
+                                <a href={`/admin/files/edit?id=${file.key}`} class="list-result__edit-link">
                                     Replace &gt;
                                 </a>
-                                <a href={`/admin/files/delete?id=${file.key}`} class="list-result-edit-link">
+                                <a href={`/admin/files/delete?id=${file.key}`} class="list-result__edit-link">
                                     Delete &gt;
                                 </a>
                             </div>

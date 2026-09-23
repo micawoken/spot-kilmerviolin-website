@@ -921,7 +921,7 @@ export function buildConfig(theme: TokenCatalog, target: CatalogTarget, context?
                         <input type="search" name="q" placeholder="Search…" aria-label="Search" autoComplete="off" />
                         <button type="submit">Search</button>
                         {resolvedAdvancedLink !== "none" && (
-                            <p className="search-advanced-link">
+                            <p className="search-advanced__link">
                                 <a href={resolvedAdvancedLink === "advanced" ? "/search/advanced" : "/search"}>
                                     Advanced search →
                                 </a>

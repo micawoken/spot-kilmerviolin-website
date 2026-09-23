@@ -76,11 +76,11 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                     <fieldset>
                         <legend>
                             File key
-                            <span class="field-required" aria-hidden="true">
+                            <span class="field__required" aria-hidden="true">
                                 *
                             </span>
                         </legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input
                                 type="text"
                                 id="file-replace-key"
@@ -106,11 +106,11 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                     <fieldset>
                         <legend>
                             Replacement file
-                            <span class="field-required" aria-hidden="true">
+                            <span class="field__required" aria-hidden="true">
                                 *
                             </span>
                         </legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <input type="file" id="file-replace-input" name="file" accept="image/*" required />
                         </div>
                         {/* crop interface: appears once an image is chosen; lets the operator pick orientation and frame */}
@@ -119,11 +119,11 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                     <fieldset>
                         <legend>
                             Alt text
-                            <span class="field-required" aria-hidden="true">
+                            <span class="field__required" aria-hidden="true">
                                 *
                             </span>
                         </legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <textarea
                                 id="file-replace-alt"
                                 name="alt"
@@ -139,8 +139,8 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                     <p id="file-storage-usage" class="general-infohelp" data-used={usage.used} data-max={usage.max}>
                         Storage used: {used_gb} GB of {max_gb} GB ({percent}%).
                     </p>
-                    <p class="field-required-note">
-                        <span class="field-required" aria-hidden="true">
+                    <p class="field__required-note">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>{" "}
                         indicates a required field

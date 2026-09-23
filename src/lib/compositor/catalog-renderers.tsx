@@ -326,7 +326,7 @@ export function rendersOwnAnchors(value: unknown, kind: string | undefined): boo
     return kind === undefined && isRecord(value) && ("uriType" in value || "uri" in value)
 }
 
-/** Formats a resolved entity-field value for display, kind-aware when `kind` (`EntityField.type`) is
+/** Formats a resolved entity-result__field value for display, kind-aware when `kind` (`EntityField.type`) is
  * known, falling back to shape-based inference otherwise */
 export function formatFieldValue(value: unknown, kind: string | undefined, plain = false): ReactNode {
     if (value === null || value === undefined) return ""

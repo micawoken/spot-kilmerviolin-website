@@ -39,7 +39,7 @@ const { links, ariaLabel } = Astro.props
     <ul>
         {links.map(({ href, label }) => (
             <li>
-                <a href={href} class="nav-tile">
+                <a href={href} class="nav-tiles__tile">
                     {label}
                 </a>
             </li>
@@ -67,7 +67,7 @@ const { links, ariaLabel } = Astro.props
             grid-template-columns: 1fr;
         }
     }
-    .nav-tile {
+    .nav-tiles__tile {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -85,7 +85,7 @@ const { links, ariaLabel } = Astro.props
         font-size: 1.1rem;
         text-decoration: none;
     }
-    .nav-tile:hover {
+    .nav-tiles__tile:hover {
         border-color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--shade-7)));
         color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
     }

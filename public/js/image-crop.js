@@ -52,13 +52,13 @@ const MIN_W = 0.1
 function initImageCrop(root) {
     const input_id = root.dataset.inputId
     const file_input = input_id ? document.getElementById(input_id) : null
-    const img = root.querySelector(".image-crop-img")
-    const box = root.querySelector(".image-crop-box")
-    const handle = root.querySelector(".image-crop-handle")
-    const btn_portrait = root.querySelector('.image-crop-aspect[data-aspect="portrait"]')
-    const btn_landscape = root.querySelector('.image-crop-aspect[data-aspect="landscape"]')
-    const warning = root.querySelector(".image-crop-warning")
-    const warning_text = root.querySelector(".image-crop-warning-text")
+    const img = root.querySelector(".image-crop__img")
+    const box = root.querySelector(".image-crop__box")
+    const handle = root.querySelector(".image-crop__handle")
+    const btn_portrait = root.querySelector('.image-crop__aspect[data-aspect="portrait"]')
+    const btn_landscape = root.querySelector('.image-crop__aspect[data-aspect="landscape"]')
+    const warning = root.querySelector(".image-crop__warning")
+    const warning_text = root.querySelector(".image-crop__warning-text")
     if (
         !(file_input instanceof HTMLInputElement) ||
         !(img instanceof HTMLImageElement) ||

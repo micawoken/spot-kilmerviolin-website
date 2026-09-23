@@ -42,24 +42,24 @@ const pointer_text = display_name ?? `ID #${id}`
 const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : (href ?? `/entity/${noun}/${id}`)
 ---
 
-<div id={`list-result-${noun}-${id}`} class:list={["list-result-container", { "list-result-self": is_self }]}>
+<div id={`list-result-${noun}-${id}`} class:list={["list-result", { "list-result--self": is_self }]}>
     {display_name && (
         // Not useful to a public visitor and shouldn't surface in search (a query like "38" would
         // otherwise match every record's id badge) - kept visible for admin, where the id is load-bearing.
         // admin-entities.css absolutely-positions this badge into the card corner (no inline gap needed
         // there); the public index page loads no such stylesheet, so the badge renders inline and needs
         // an explicit trailing space or it runs straight into the name that follows.
-        <span class="list-result-id" data-pagefind-ignore={enviro === "admin" ? undefined : "all"}>
+        <span class="list-result__id" data-pagefind-ignore={enviro === "admin" ? undefined : "all"}>
             ID #{id}
         </span>
     )}{" "}
-    <a href={pointer_address} class="list-result-link">{pointer_text}</a>
+    <a href={pointer_address} class="list-result__link">{pointer_text}</a>
     {
         enviro === "admin" ? (
             <>
                 <a
                     href={`/admin/${noun}s/edit?id=${id}`}
-                    class="list-result-edit-link"
+                    class="list-result__edit-link"
                     id={`list-result-${noun}-${id}-link`}
                 >
                     Edit &gt;
@@ -69,5 +69,5 @@ const pointer_address = enviro === "admin" ? `/admin/${noun}s/info?id=${id}` : (
             <></>
         )
     }
-    {is_self && <span class="list-result-self-tag">(you)</span>}
+    {is_self && <span class="list-result__self-tag">(you)</span>}
 </div>

@@ -49,28 +49,28 @@ const identity = Astro.locals.identity ?? null
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>My User Authorization Info</h2>
             {identity ? (
-                <div class="entity-result-container auth-info-card">
-                    <p id="identity-id" class="list-result-id">
+                <div class="entity-result auth-info-card">
+                    <p id="identity-id" class="list-result__id">
                         {identity.id !== null && identity.id !== -1 ? `Contributor ID #${identity.id}` : ""}
                     </p>
-                    <h3 id="identity-name" class="entity-result-name">
+                    <h3 id="identity-name" class="entity-result__name">
                         {identity.userinfo?.name ?? "(not available)"}
                     </h3>
-                    <div id="identity-infoline" class="auth-info-infoline">
+                    <div id="identity-infoline" class="auth-info-card__infoline">
                         <span id="identity-email">{identity.email}</span>
                         <span id="identity-admin">{identity.admin ? "Administrator" : "Standard"}</span>
                     </div>
-                    <p class="auth-info-roles">
+                    <p class="auth-info-card__roles">
                         <strong>Roles:</strong>{" "}
                         <span id="identity-roles">{identity.roles?.length ? identity.roles.join(", ") : "(none)"}</span>
                     </p>
-                    <div id="identity-status" class="auth-flag-row">
+                    <div id="identity-status" class="auth-info-card__flag-row">
                         <div
                             class="auth-flag"
                             title="If yes, your user account is connected to a contributor record and can be used to use this system. If not, you cannot use this system until, if enabled, you self-enroll."
                         >
-                            <span class="auth-flag-label">Allowed</span>
-                            <span id="identity-allowed" class="auth-flag-value">
+                            <span class="auth-flag__label">Allowed</span>
+                            <span id="identity-allowed" class="auth-flag__value">
                                 {identity.allowed ? "Yes" : "No"}
                             </span>
                         </div>
@@ -78,8 +78,8 @@ const identity = Astro.locals.identity ?? null
                             class="auth-flag"
                             title="If yes, your user account is connected to a contributor record and is authorized to contribute to the project. (If you are an administrator, this does not apply.) If not, you may only manage your profile and cannot contribute."
                         >
-                            <span class="auth-flag-label">Active</span>
-                            <span id="identity-active" class="auth-flag-value">
+                            <span class="auth-flag__label">Active</span>
+                            <span id="identity-active" class="auth-flag__value">
                                 {identity.active ? "Yes" : "No"}
                             </span>
                         </div>
@@ -87,8 +87,8 @@ const identity = Astro.locals.identity ?? null
                             class="auth-flag"
                             title="If yes, your user account is not connected to a contributor but is eligible to connect or create one. If not, you cannot self-enroll."
                         >
-                            <span class="auth-flag-label">Enrollable</span>
-                            <span id="identity-enrollable" class="auth-flag-value">
+                            <span class="auth-flag__label">Enrollable</span>
+                            <span id="identity-enrollable" class="auth-flag__value">
                                 {identity.enrollable ? "Yes" : "No"}
                             </span>
                         </div>

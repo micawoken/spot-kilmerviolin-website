@@ -412,26 +412,26 @@ describe("buildConfig - PagefindSearch renders a plain GET form to /search", () 
     it("defaults to no advanced link and /search when advancedLink/display/showToggle are absent (pre-existing stored designs)", () => {
         // Simulates a design saved before `advancedLink` (or its `display`/`showToggle` predecessors) existed.
         const html = render(config, "PagefindSearch", { scope: "site" })
-        expect(html).not.toContain("search-advanced-link")
+        expect(html).not.toContain("search-advanced__link")
         expect(html).toContain('action="/search"')
     })
 
     it('renders no advanced link when advancedLink is explicitly "none"', () => {
         const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "none" })
-        expect(html).not.toContain("search-advanced-link")
+        expect(html).not.toContain("search-advanced__link")
         expect(html).toContain('action="/search"')
     })
 
     it('renders a link to /search/advanced when advancedLink is "advanced", without changing the form\'s own target', () => {
         const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "advanced" })
         expect(html).toContain('action="/search"')
-        expect(html).toContain('class="search-advanced-link"')
+        expect(html).toContain('class="search-advanced__link"')
         expect(html).toContain('href="/search/advanced"')
     })
 
     it('renders a link to /search when advancedLink is "search"', () => {
         const html = render(config, "PagefindSearch", { scope: "site", advancedLink: "search" })
-        expect(html).toContain('class="search-advanced-link"')
+        expect(html).toContain('class="search-advanced__link"')
         expect(html).toContain('href="/search"')
         expect(html).not.toContain('href="/search/advanced"')
     })

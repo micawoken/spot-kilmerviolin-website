@@ -73,7 +73,7 @@ const is_admin = Astro.locals.identity?.admin === true
             </button>
             {is_admin ? (
                 <div class="form-section">
-                    <h3 class="form-section-title">Administrative Options</h3>
+                    <h3 class="form-section__title">Administrative Options</h3>
                     <fieldset>
                         <legend>Admin Cooldown Override</legend>
                         <input type="checkbox" id="site-rebuild-admin-override" name="elevate" />

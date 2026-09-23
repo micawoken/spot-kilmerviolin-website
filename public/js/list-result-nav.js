@@ -28,7 +28,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-document.querySelectorAll(".list-result-edit-link").forEach((link) => {
+document.querySelectorAll(".list-result__edit-link").forEach((link) => {
     link.addEventListener("click", (event) => {
         event.preventDefault()
         const url = link.getAttribute("href")

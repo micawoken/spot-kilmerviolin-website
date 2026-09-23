@@ -51,17 +51,17 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
         </p>
 
         <div class="form-section">
-            <h3 class="form-section-title">Basic Information</h3>
+            <h3 class="form-section__title">Basic Information</h3>
             <fieldset>
                 <legend>
                     Name
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-name" class="sr-only">
                         Name
                     </label>
@@ -73,7 +73,7 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         value={composer?.name ?? ""}
                     />
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composers-name-edittarget" name="name-edittarget" />
                             <label for="form-composers-name-edittarget">Edit this field</label>
                         </span>
@@ -85,12 +85,12 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                 <legend>
                     Role
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-role" class="sr-only">
                         Role
                     </label>
@@ -112,7 +112,7 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         </option>
                     </select>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composers-role-edittarget" name="role-edittarget" />
                             <label for="form-composers-role-edittarget">Edit this field</label>
                         </span>
@@ -124,12 +124,12 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                 <legend>
                     Country
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-country" class="sr-only">
                         Country
                     </label>
@@ -142,11 +142,11 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                     />
                     {/* filled live by attachCountryFeedback: the resolved country name for a valid code, neutral
                         guidance when blank, or (in the error slot) an ISO 3166-1 reference link when unrecognised */}
-                    <small id="form-composers-country-help" class="general-infohelp field-inline-help">
+                    <small id="form-composers-country-help" class="general-infohelp field__inline-help">
                         ISO 3166-1 alpha-2 code or country name
                     </small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composers-country-edittarget" name="country-edittarget" />
                             <label for="form-composers-country-edittarget">Edit this field</label>
                         </span>
@@ -158,12 +158,12 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                 <legend>
                     Birth Year
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-birth_year" class="sr-only">
                         Birth Year
                     </label>
@@ -175,7 +175,7 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         value={composer?.birth_year ?? ""}
                     />
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composers-birth_year-edittarget"
@@ -191,12 +191,12 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                 <legend>
                     Death Year
                     {required ? (
-                        <span class="field-required" aria-hidden="true">
+                        <span class="field__required" aria-hidden="true">
                             *
                         </span>
                     ) : null}
                 </legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-death_year" class="sr-only">
                         Death Year
                     </label>
@@ -207,11 +207,11 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         required={required}
                         value={composer?.death_year ?? ""}
                     />
-                    <small class="general-infohelp field-inline-help">
+                    <small class="general-infohelp field__inline-help">
                         enter <code>-1</code> if living
                     </small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composers-death_year-edittarget"
@@ -225,7 +225,7 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Biography</h3>
+            <h3 class="form-section__title">Biography</h3>
             <fieldset>
                 <legend>Biography</legend>
                 <label for="form-composers-bio" class="sr-only">
@@ -233,8 +233,8 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                 </label>
                 <textarea id="form-composers-bio" name="bio">{composer?.bio ?? ""}</textarea>
                 {patch ? (
-                    <div class="field-row field-row-textarea">
-                        <span class="field-edittarget">
+                    <div class="field__row field__row--textarea">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composers-bio-edittarget" name="bio-edittarget" />
                             <label for="form-composers-bio-edittarget">Edit this field</label>
                         </span>
@@ -244,16 +244,16 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
 
             <fieldset>
                 <legend>Image URL</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-image" class="sr-only">
                         Image URL
                     </label>
                     <input type="url" id="form-composers-image" name="image" value={composer?.image ?? ""} />
-                    <small class="general-infohelp field-inline-help">
+                    <small class="general-infohelp field__inline-help">
                         Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.
                     </small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composers-image-edittarget" name="image-edittarget" />
                             <label for="form-composers-image-edittarget">Edit this field</label>
                         </span>
@@ -275,10 +275,10 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Tags</h3>
+            <h3 class="form-section__title">Tags</h3>
             <fieldset>
                 <legend>Tags</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-composers-tags" class="sr-only">
                         Tags
                     </label>
@@ -289,9 +289,9 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         placeholder="baroque,etude"
                         value={composer?.tags ?? ""}
                     />
-                    <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                    <small class="general-infohelp field__inline-help">comma-separated, no spaces</small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input type="checkbox" id="form-composers-tags-edittarget" name="tags-edittarget" />
                             <label for="form-composers-tags-edittarget">Edit this field</label>
                         </span>
@@ -301,10 +301,10 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Citations</h3>
+            <h3 class="form-section__title">Citations</h3>
             <fieldset>
                 <legend>Citations</legend>
-                <div class="field-row field-row-textarea">
+                <div class="field__row field__row--textarea">
                     <label for="form-composers-citations" class="sr-only">
                         Citations
                     </label>
@@ -313,12 +313,12 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
                         name="citations"
                         placeholder={"IMSLP: https://imslp.org/wiki/...\nGrove Music Online: 10.1000/example"}
                     >{citationsToTextarea(composer?.citations)}</textarea>
-                    <small class="general-infohelp field-inline-help">
+                    <small class="general-infohelp field__inline-help">
                         one per line, as <code>Source Name: value</code>, where value is an https link, a DOI, or an
                         ISBN
                     </small>
                     {patch ? (
-                        <span class="field-edittarget">
+                        <span class="field__edittarget">
                             <input
                                 type="checkbox"
                                 id="form-composers-citations-edittarget"
@@ -332,8 +332,8 @@ const isSentinel = composer !== null && isSentinelComposerName(composer.name)
         </div>
 
         {required ? (
-            <p class="field-required-note">
-                <span class="field-required" aria-hidden="true">
+            <p class="field__required-note">
+                <span class="field__required" aria-hidden="true">
                     *
                 </span>{" "}
                 indicates a required field

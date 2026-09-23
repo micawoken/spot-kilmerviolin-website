@@ -88,7 +88,7 @@ try {
             <form id="token-issue-form" class="generic-form">
                 <fieldset>
                     <legend>Label</legend>
-                    <div class="field-row">
+                    <div class="field__row">
                         <input
                             type="text"
                             id="token-label"
@@ -101,7 +101,7 @@ try {
                 </fieldset>
                 <fieldset>
                     <legend>Expires in</legend>
-                    <div class="field-row">
+                    <div class="field__row">
                         <select id="token-expiry" name="expiry_days">
                             {EXPIRY_WINDOWS_DAYS.map((days) => (
                                 <option value={days} selected={days === 30}>

@@ -72,15 +72,15 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         <input type="hidden" id="form-contributors-id" name="id" value={contributor?.id ?? ""} />
 
         <div class="form-section">
-            <h3 class="form-section-title">Basic Information</h3>
+            <h3 class="form-section__title">Basic Information</h3>
             <fieldset>
-                <legend>Name{required ? <span class="field-required" aria-hidden="true">*</span> : null}</legend>
-                <div class="field-row">
+                <legend>Name{required ? <span class="field__required" aria-hidden="true">*</span> : null}</legend>
+                <div class="field__row">
                     <label for="form-contributors-name" class="sr-only">Name</label>
                     <input type="text" id="form-contributors-name" name="name" required={required} value={contributor?.name ?? ""} />
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-name-edittarget" name="name-edittarget" />
                                 <label for="form-contributors-name-edittarget">Edit this field</label>
                             </span>
@@ -91,14 +91,14 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Class Year</legend>
-                <div class="field-row">
+                <div class="field__row">
                     {/* class_year is a nullable column: a blank input is submitted as null. Optionality is
                         conveyed by the absence of a required (*) marker, not a placeholder. */}
                     <label for="form-contributors-class_year" class="sr-only">Class Year</label>
                     <input type="number" id="form-contributors-class_year" name="class_year" value={contributor?.class_year ?? ""} />
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-class_year-edittarget" name="class_year-edittarget" />
                                 <label for="form-contributors-class_year-edittarget">Edit this field</label>
                             </span>
@@ -109,13 +109,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Major</legend>
-                <div class="field-row">
+                <div class="field__row">
                     {/* major is a nullable column: a blank input is submitted as null */}
                     <label for="form-contributors-major" class="sr-only">Major</label>
                     <input type="text" id="form-contributors-major" name="major" value={contributor?.major ?? ""} />
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-major-edittarget" name="major-edittarget" />
                                 <label for="form-contributors-major-edittarget">Edit this field</label>
                             </span>
@@ -126,12 +126,12 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Public Email</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-contributors-public_email" class="sr-only">Public Email</label>
                     <input type="email" id="form-contributors-public_email" name="public_email" value={contributor?.public_email ?? ""} />
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-public_email-edittarget" name="public_email-edittarget" />
                                 <label for="form-contributors-public_email-edittarget">Edit this field</label>
                             </span>
@@ -142,14 +142,14 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Phases</legend>
-                <div class="field-row">
+                <div class="field__row">
                     {/* phases is a nullable column: a blank input is submitted as null */}
                     <label for="form-contributors-phases" class="sr-only">Phases</label>
                     <input type="text" id="form-contributors-phases" name="phases" value={joined(contributor?.phases)} />
-                    <small class="general-infohelp field-inline-help">comma-separated numbers</small>
+                    <small class="general-infohelp field__inline-help">comma-separated numbers</small>
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-phases-edittarget" name="phases-edittarget" />
                                 <label for="form-contributors-phases-edittarget">Edit this field</label>
                             </span>
@@ -160,15 +160,15 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         </div>
 
         <div class="form-section">
-            <h3 class="form-section-title">Biography</h3>
+            <h3 class="form-section__title">Biography</h3>
             <fieldset>
                 <legend>Biography</legend>
                 <label for="form-contributors-bio" class="sr-only">Biography</label>
                 <textarea id="form-contributors-bio" name="bio">{contributor?.bio ?? ""}</textarea>
                 {
                     patch ? (
-                        <div class="field-row field-row-textarea">
-                            <span class="field-edittarget">
+                        <div class="field__row field__row--textarea">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-bio-edittarget" name="bio-edittarget" />
                                 <label for="form-contributors-bio-edittarget">Edit this field</label>
                             </span>
@@ -179,13 +179,13 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Image URL</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-contributors-image" class="sr-only">Image URL</label>
                     <input type="url" id="form-contributors-image" name="image" value={contributor?.image ?? ""} />
-                    <small class="general-infohelp field-inline-help">Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.</small>
+                    <small class="general-infohelp field__inline-help">Enter an <code>https</code> image address, or use an <a href="/admin/files">uploaded file</a>.</small>
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-image-edittarget" name="image-edittarget" />
                                 <label for="form-contributors-image-edittarget">Edit this field</label>
                             </span>
@@ -206,17 +206,17 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         {
         profile ? null : (
         <div class="form-section">
-            <h3 class="form-section-title">Authorization</h3>
+            <h3 class="form-section__title">Authorization</h3>
             {
                 show_auth ? (
                     <fieldset>
                         <legend>Identity Email</legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <label for="form-contributors-identity_email" class="sr-only">Identity Email</label>
                             <input type="email" id="form-contributors-identity_email" name="identity_email" value={contributor?.identity_email ?? ""} />
                             {
                                 patch ? (
-                                    <span class="field-edittarget">
+                                    <span class="field__edittarget">
                                         <input type="checkbox" id="form-contributors-identity_email-edittarget" name="identity_email-edittarget" />
                                         <label for="form-contributors-identity_email-edittarget">Edit this field</label>
                                     </span>
@@ -235,10 +235,10 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 show_auth && !patch ? (
                     <fieldset>
                         <legend>Roles</legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <label for="form-contributors-roles" class="sr-only">Roles</label>
                             <input type="text" id="form-contributors-roles" name="roles" placeholder="role1,role2,role3" value={joined(contributor?.roles)} />
-                            <small class="general-infohelp field-inline-help">comma-separated, no spaces</small>
+                            <small class="general-infohelp field__inline-help">comma-separated, no spaces</small>
                         </div>
                         <p class="general-infohelp">Roles can also be modified in <a href="/admin/iam/edit">Identity & Access Management &gt; Add or remove roles</a>.</p>
                     </fieldset>
@@ -247,7 +247,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
 
             <fieldset>
                 <legend>Active Status</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-contributors-active" class="sr-only">Active Status</label>
                     <select id="form-contributors-active" name="active">
                         <option value="true" selected={contributor?.active === true}>Active</option>
@@ -255,7 +255,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                     </select>
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-active-edittarget" name="active-edittarget" />
                                 <label for="form-contributors-active-edittarget">Edit this field</label>
                             </span>
@@ -270,7 +270,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
                 show_auth && !patch ? (
                     <fieldset>
                         <legend>Account Type</legend>
-                        <div class="field-row">
+                        <div class="field__row">
                             <label for="form-contributors-admin" class="sr-only">Account Type</label>
                             {/* the option values stay the literal admin booleans ("true"/"false") so this still
                                 maps to the `admin` field sent to the API; only the labels are humanized */}
@@ -290,16 +290,16 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         }
 
         <div class="form-section">
-            <h3 class="form-section-title">Tags</h3>
+            <h3 class="form-section__title">Tags</h3>
             <fieldset>
                 <legend>Tags</legend>
-                <div class="field-row">
+                <div class="field__row">
                     <label for="form-contributors-tags" class="sr-only">Tags</label>
                     <input type="text" id="form-contributors-tags" name="tags" value={joined(contributor?.tags)} />
-                    <small class="general-infohelp field-inline-help">comma-separated</small>
+                    <small class="general-infohelp field__inline-help">comma-separated</small>
                     {
                         patch ? (
-                            <span class="field-edittarget">
+                            <span class="field__edittarget">
                                 <input type="checkbox" id="form-contributors-tags-edittarget" name="tags-edittarget" />
                                 <label for="form-contributors-tags-edittarget">Edit this field</label>
                             </span>
@@ -312,7 +312,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
         {
             show_elevate ? (
                 <div class="form-section">
-                    <h3 class="form-section-title">Administrative Options</h3>
+                    <h3 class="form-section__title">Administrative Options</h3>
                     <fieldset>
                         <legend>Administrator Escalation</legend>
                         <input type="checkbox" id="form-contributors-elevate" name="elevate" />
@@ -323,7 +323,7 @@ const joined = (arr: any[] | null | undefined) => (arr ?? []).join(",")
             ) : null
         }
 
-        {required ? <p class="field-required-note"><span class="field-required" aria-hidden="true">*</span> indicates a required field</p> : null}
+        {required ? <p class="field__required-note"><span class="field__required" aria-hidden="true">*</span> indicates a required field</p> : null}
 
         <button type="submit">Submit</button>
     </form>

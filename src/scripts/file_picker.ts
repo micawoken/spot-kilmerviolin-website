@@ -80,20 +80,20 @@ export async function appendBundledFiles(container_id: string): Promise<void> {
     const bundled = await _loadBundledFiles()
     for (const entry of bundled) {
         const row = document.createElement("div")
-        row.className = "list-result-container"
+        row.className = "list-result"
         const img = document.createElement("img")
-        img.className = "list-result-thumb"
+        img.className = "list-result__thumb"
         img.src = entry.url
         img.alt = entry.alt || `Preview of ${entry.name}`
         img.loading = "lazy"
         img.width = 48
         img.height = 48
         const link = document.createElement("a")
-        link.className = "list-result-link"
+        link.className = "list-result__link"
         link.href = entry.url
         link.textContent = entry.name
         const meta = document.createElement("span")
-        meta.className = "list-result-meta"
+        meta.className = "list-result__meta"
         meta.textContent = `Local (src/files)${entry.width && entry.height ? ` · ${entry.width}×${entry.height}` : ""}`
         row.appendChild(img)
         row.appendChild(link)

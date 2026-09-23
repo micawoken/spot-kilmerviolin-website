@@ -67,7 +67,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             </div>
 
             <div class="search-actions">
-                <p class="search-advanced-link">
+                <p class="search-advanced__link">
                     <a href="/search" id="search-back-link">
                         ← Back to search
                     </a>
@@ -76,7 +76,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
             </div>
 
             <fieldset class="search-advanced__grid">
-                <legend class="search-section-label">Filters</legend>
+                <legend class="search-advanced__section-label">Filters</legend>
 
                 <fieldset class="search-advanced__field search-advanced__nouns" aria-label="Entity type">
                     <div class="search-advanced__nouns-options">
@@ -191,7 +191,7 @@ const isNounChecked = (value: string): boolean => selectedNouns.has(value)
         white-space: nowrap;
         border: 0;
     }
-    .search-section-label {
+    .search-advanced__section-label {
         display: block;
         font-family: var(--dtk-type-label-family, ui-monospace, monospace);
         font-size: var(--dtk-type-label-size, 0.72rem);

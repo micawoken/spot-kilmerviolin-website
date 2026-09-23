@@ -55,10 +55,10 @@ const dispDeath = (value: number | null | undefined): string =>
     value === -1 ? "Present" : disp(value, "(death year not provided)")
 ---
 
-<div id="generic-result-composer" class={`entity-result-container${hidden ? " hidden" : ""}`}>
-    <div class="entity-result-head">
-        <div class="entity-result-header">
-            <h2 id="composer-name" class="entity-result-name">
+<div id="generic-result-composer" class={`entity-result${hidden ? " hidden" : ""}`}>
+    <div class="entity-result__head">
+        <div class="entity-result__header">
+            <h2 id="composer-name" class="entity-result__name">
                 {composer?.name}
             </h2>
             <div id="composer-details-infoline">
@@ -89,31 +89,31 @@ const dispDeath = (value: number | null | undefined): string =>
                 </p>
             </div>
         </div>
-        <div id="composer-image-container" class="entity-result-image-container">
+        <div id="composer-image-container" class="entity-result__image-container">
             <img
                 id="composer-image"
-                class={`entity-result-image${composer?.image ? "" : " hidden"}`}
+                class={`entity-result__image${composer?.image ? "" : " hidden"}`}
                 src={composer?.image ?? undefined}
                 alt={imageAlt ?? `Image of composer ${composer?.name ?? ""}`}
                 title={imageAlt ?? `Image of composer ${composer?.name ?? ""}`}
             />
-            <p id="composer-image-missing" class={`entity-result-image-missing${composer?.image ? " hidden" : ""}`}>
+            <p id="composer-image-missing" class={`entity-result__image-missing${composer?.image ? " hidden" : ""}`}>
                 No image available.
             </p>
         </div>
-        <div class="entity-result-groups">
+        <div class="entity-result__groups">
             {/* the bio occupies the group flow (where the tags previously sat) */}
-            <div id="composer-details-bio" class="entity-result-group entity-result-bio">
+            <div id="composer-details-bio" class="entity-result__group entity-result__bio">
                 <p id="composer-bio">{disp(composer?.bio, "(biography not provided)")}</p>
             </div>
         </div>
     </div>
     {/* tags follow the bio text, pulled below the head to span the full card width */}
-    <div id="composer-details-tags" class="entity-result-fullwidth entity-result-details">
-        <div class="entity-field">
+    <div id="composer-details-tags" class="entity-result__details--fullwidth entity-result__details">
+        <div class="entity-result__field">
             <strong>Tags:</strong> <span id="composer-tags">{disp(composer?.tags)}</span>
         </div>
-        <div class="entity-field">
+        <div class="entity-result__field">
             <strong>Citations:</strong>
             <span id="composer-citations" set:html={renderCitationsList(composer?.citations, NOT_PROVIDED)} />
         </div>

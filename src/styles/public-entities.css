@@ -24,7 +24,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-.list-results-container {
+.list-results {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: var(--dtk-chrome-vertical-space-item-gap, var(--dtk-space-sm, 1rem))
@@ -33,25 +33,25 @@
 }
 
 @media (max-width: 900px) {
-	.list-results-container {
+	.list-results {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 
 @media (max-width: 560px) {
-	.list-results-container {
+	.list-results {
 		grid-template-columns: 1fr;
 	}
 }
 
 /* an empty result set renders a single message paragraph, spanning every column */
-.list-results-container > p {
+.list-results > p {
 	grid-column: 1 / -1;
 	margin: 0;
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
 
-.list-result-container {
+.list-result {
 	position: relative;
 	min-width: 0;
 	border: var(--dtk-chrome-hairline-width, var(--dtk-border-hairline-width, 1px))
@@ -63,12 +63,12 @@
 	background: var(--dtk-chrome-footer-bg, var(--dtk-color-surface, var(--shade-1)));
 }
 
-.list-result-container:hover {
+.list-result:hover {
 	border-color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--shade-7)));
 }
 
 /* corner badge: shown only when a name is the primary label (see ListResult.astro) */
-.list-result-id {
+.list-result__id {
 	position: absolute;
 	top: 0.6rem;
 	right: 0.85rem;
@@ -76,7 +76,7 @@
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
 
-.list-result-link {
+.list-result__link {
 	font-weight: 600;
 	text-decoration: none;
 	display: inline-block;
@@ -86,18 +86,18 @@
 }
 
 /* "Stretched link" pattern */
-.list-result-link::after {
+.list-result__link::after {
 	content: "";
 	position: absolute;
 	inset: 0;
 }
 
 /* leave room for the corner ID badge when a name is present */
-.list-result-id + .list-result-link {
+.list-result__id + .list-result__link {
 	padding-right: 3.5rem;
 }
 
-.list-result-link:hover {
+.list-result__link:hover {
 	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
 	text-decoration: underline;
 }
@@ -105,10 +105,10 @@
 @media (max-width: 400px) {
 	/* the corner ID badge's reserved padding crowds the name at very narrow widths; drop it into
 	   normal flow (it precedes the link in the DOM, so it lands just above) and reclaim the space */
-	.list-result-id + .list-result-link {
+	.list-result__id + .list-result__link {
 		padding-right: 0;
 	}
-	.list-result-id {
+	.list-result__id {
 		position: static;
 		display: block;
 		margin-bottom: var(--dtk-chrome-vertical-space-control, var(--dtk-space-xs, 0.5rem));
