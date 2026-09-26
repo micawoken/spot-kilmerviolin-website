@@ -42,7 +42,9 @@ import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Add a New Composer</h2>
             <ComposerForm required={true} />
-            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Submit".
+            </p>
             <script>
                 import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
                 import { APIOpCode } from "../../../scripts/connector"

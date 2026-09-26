@@ -126,7 +126,9 @@ const percent = usage.max > 0 ? Math.round((usage.used / usage.max) * 100) : 0
                     </button>
                 </form>
             </div>
-            <p id="transaction-status">Your request status will show here after you press "Upload".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Upload".
+            </p>
             <script>
                 import { uploadFile } from "../../../scripts/connector"
                 import { attachStorageEstimate } from "../../../scripts/file_picker"

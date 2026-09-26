@@ -30,6 +30,7 @@ import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
+import { formatTimestamp } from "../../../scripts/format"
 import { listContactResponses } from "../../../lib/api/db_contact"
 import { guardPage } from "../../../lib/api/page_auth"
 import { guardedRead } from "../../../lib/api/http"
@@ -105,7 +106,7 @@ if (responses instanceof Response) {
                                     <span class="contact-response__state">{record.read ? "Read" : "Unread"}</span>
                                     <strong>{record.name}</strong>
                                     <time datetime={new Date(record.entry_date).toISOString()}>
-                                        {new Date(record.entry_date).toLocaleString()}
+                                        {formatTimestamp(record.entry_date, "UTC")}
                                     </time>
                                 </div>
                                 <details class="contact-response__details" open={!record.read}>
@@ -153,7 +154,9 @@ if (responses instanceof Response) {
                     </ul>
                 </>
             )}
-            <p id="transaction-status">Select responses above to perform a bulk action.</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Select responses above to perform a bulk action.
+            </p>
             <script>
                 import { initContactAdmin } from "../../../scripts/contact_admin"
                 initContactAdmin()

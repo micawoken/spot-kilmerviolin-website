@@ -77,7 +77,9 @@ export const prerender = false
             <div id="import-phasemap"></div>
             <p id="import-summary"></p>
             <div id="import-grid"></div>
-            <p id="transaction-status">Load a file to begin.</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Load a file to begin.
+            </p>
             <script>
                 import { initImport } from "../../../scripts/import"
                 initImport("works")

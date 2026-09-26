@@ -212,8 +212,6 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         </li>
                     </ul>
                 </section>
-            </div>
-            <div class="admin-sections">
                 <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/iam" class="col-header-link">
@@ -384,10 +382,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
         grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
         gap: 1rem 2rem;
         align-items: start;
-        margin-block: 1.5rem;
-    }
-    .admin-sections:first-of-type {
-        margin-block-start: 0;
+        margin-block: 0 1.5rem;
     }
     .admin-sections__section {
         min-width: 0;

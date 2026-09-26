@@ -68,7 +68,7 @@ const enrollable = identity?.enrollable === true
                         <button type="submit">Submit</button>
                     </form>
                 </div>
-                <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+                <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">Your request status will show here after you press "Submit".</p>
                 <script>
                     import { enrollSelf } from "../../../scripts/connector"
                     import { disableInput, enableInput, getTransactionElem } from "../../../scripts/interface"

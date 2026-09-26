@@ -78,7 +78,9 @@ const key = Astro.url.searchParams.get("id") ?? ""
                     </button>
                 </form>
             </div>
-            <p id="transaction-status">Your request status will show here after you press "Delete".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Delete".
+            </p>
             <script>
                 import { deleteFile } from "../../../scripts/connector"
                 import { attachFileSearchInline } from "../../../scripts/file_picker"

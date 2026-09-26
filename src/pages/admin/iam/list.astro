@@ -178,22 +178,28 @@ try {
     <body>
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
-            <h2>List Users</h2>
+            <h2 id="iam-list-heading">List Users</h2>
             <p class="general-infohelp">To modify user properties, click the current value for that property.</p>
-            <div id="iam-list-results">
+            <div
+                id="iam-list-results"
+                class="admin-table-scroll"
+                role="region"
+                aria-labelledby="iam-list-heading"
+                tabindex="0"
+            >
                 {error ? (
                     <p class="general-warning">Error: {error}</p>
                 ) : rows.length === 0 ? (
                     <p>No users found.</p>
                 ) : (
-                    <table class="iam-table">
+                    <table class="admin-table">
                         <thead>
                             <tr>
-                                <th>Email</th>
-                                <th>Status</th>
-                                <th>Contributor</th>
-                                <th>Type</th>
-                                <th>Roles</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Contributor</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Roles</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -233,27 +239,35 @@ try {
                     </table>
                 )}
             </div>
-            <p id="transaction-status">{error ? "Failed to load the user list." : `${rows.length} user(s) listed.`}</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                {error ? "Failed to load the user list." : `${rows.length} user(s) listed.`}
+            </p>
             {!error && (
                 <>
-                    <h2>Unlinked Contributors</h2>
+                    <h2 id="iam-unlinked-heading">Unlinked Contributors</h2>
                     <p class="general-infohelp">
                         Contributor records whose identity email is not in the Cloudflare Access policy. These users are
                         unable to log-on.
                     </p>
-                    <div id="iam-unlinked-results">
+                    <div
+                        id="iam-unlinked-results"
+                        class="admin-table-scroll"
+                        role="region"
+                        aria-labelledby="iam-unlinked-heading"
+                        tabindex="0"
+                    >
                         {unlinked.length === 0 ? (
                             <p>No unlinked contributors found.</p>
                         ) : (
-                            <table class="iam-table">
+                            <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th>Name</th>
-                                        <th>Identity Email</th>
-                                        <th>Status</th>
-                                        <th>Contributor</th>
-                                        <th>Type</th>
-                                        <th>Roles</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Identity Email</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Contributor</th>
+                                        <th scope="col">Type</th>
+                                        <th scope="col">Roles</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -293,22 +307,6 @@ try {
         </main>
         <AdminFooter />
         <style>
-            /* invisible table: no borders or background, just aligned columns */
-            .iam-table {
-                border-collapse: collapse;
-                border: none;
-                background: transparent;
-            }
-            .iam-table th,
-            .iam-table td {
-                border: none;
-                text-align: left;
-                padding: 0.25rem 1.5rem 0.25rem 0;
-            }
-            /* links read as ordinary text (inherit color) but stay clickable */
-            .iam-table a {
-                color: inherit;
-            }
             /* de-emphasized marker identifying the caller's own row */
             .iam-table__self {
                 opacity: 0.6;

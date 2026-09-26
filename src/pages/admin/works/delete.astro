@@ -53,7 +53,9 @@ const is_admin = Astro.locals.identity?.admin === true
                 may delete it.
             </p>
             <IDEntryForm output_div={undefined} hidden={false} show_elevate={is_admin} search={true} />
-            <p id="transaction-status">Your request status will show here after you press "Submit".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Submit".
+            </p>
             <script>
                 import { getForm, genHandler, getTransactionElem } from "../../../scripts/interface"
                 import { attachKeywordSearchInline } from "../../../scripts/keyword_search"

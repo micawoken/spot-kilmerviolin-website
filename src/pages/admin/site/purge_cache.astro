@@ -65,7 +65,9 @@ if (denied) {
             <button type="button" id="site-purge-button">
                 Purge cache
             </button>
-            <p id="transaction-status">Your request status will show here after you press "Purge cache".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Purge cache".
+            </p>
             <script>
                 import { purgeSite } from "../../../scripts/connector"
                 import { getTransactionElem } from "../../../scripts/interface"

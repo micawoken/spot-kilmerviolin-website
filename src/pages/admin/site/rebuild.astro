@@ -86,7 +86,9 @@ const is_admin = Astro.locals.identity?.admin === true
                     </fieldset>
                 </div>
             ) : null}
-            <p id="transaction-status">Your request status will show here after you press "Rebuild site".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Rebuild site".
+            </p>
             <script>
                 import { rebuildSite, getSite } from "../../../scripts/connector"
                 import { getTransactionElem } from "../../../scripts/interface"
