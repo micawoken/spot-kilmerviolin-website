@@ -1,0 +1,125 @@
+---
+/**
+ * Copyright (C) 2026 Michael Wong.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+import { EXPIRY_WINDOWS_DAYS } from "../lib/api/tokens"
+import type { BuildTokenSummary } from "../scripts/connector"
+import { formatTimestamp } from "../scripts/format"
+
+interface Props {
+    tokens: (BuildTokenSummary & { status_label: string })[]
+    error: string | null
+    build?: boolean
+}
+
+const { tokens, error, build = false } = Astro.props
+---
+
+<div id="token-manager" data-build={String(build)} data-list-incomplete={String(error !== null)}>
+    <section class="admin-section" aria-labelledby="token-issue-heading">
+        <h3 id="token-issue-heading">Issue a new token</h3>
+        <form id="token-issue-form" class="generic-form admin-inline-form">
+            <label>
+                Label
+                <input
+                    type="text"
+                    id="token-label"
+                    name="label"
+                    required
+                    maxlength="100"
+                    placeholder={build ? "e.g. production build" : "e.g. build script"}
+                />
+            </label>
+            <label>
+                Expires in
+                <select id="token-expiry" name="expiry_days">
+                    {EXPIRY_WINDOWS_DAYS.map((days) => (
+                        <option value={days} selected={days === 30}>
+                            {days} days
+                        </option>
+                    ))}
+                    {build && <option value="never">Never</option>}
+                </select>
+            </label>
+            <button type="submit">Issue token</button>
+        </form>
+        <p id="transaction-status" class="admin-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div id="token-issued-panel" class="callout-emphasis" hidden>
+            <p class="general-warning">Copy this token now - it will not be shown again.</p>
+            {build && <p>It grants read access to the complete dataset to whoever holds it.</p>}
+            <label for="token-issued-secret">Issued token</label>
+            <div class="token-issued-value">
+                <input type="text" id="token-issued-secret" readonly />
+                <button type="button" id="token-issued-copy">
+                    Copy
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-section" aria-labelledby="token-list-heading">
+        <h3 id="token-list-heading">{build ? "All build tokens" : "Your tokens"}</h3>
+        {error && <p class="general-warning">Could not load existing tokens: {error}. Reload to try again.</p>}
+        <p id="token-list-status" class="admin-status" role="status" aria-live="polite" aria-atomic="true">
+            {error
+                ? "Only tokens issued on this page will appear below."
+                : tokens.length === 0
+                  ? "No tokens issued."
+                  : `${tokens.length} token(s) listed.`}
+        </p>
+        <div
+            id="token-list-results"
+            class="admin-table-scroll"
+            role="region"
+            aria-labelledby="token-list-heading"
+            tabindex="0"
+            hidden={tokens.length === 0}
+        >
+            <table class="admin-table" id="token-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Label</th>
+                        <th scope="col">Prefix</th>
+                        <th scope="col">Issued</th>
+                        <th scope="col">Expires</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {tokens.map((token) => (
+                        <tr data-token-id={token.id}>
+                            <td>{token.label}</td>
+                            <td>
+                                <code>{token.token_prefix}…</code>
+                            </td>
+                            <td>{formatTimestamp(token.entry_date, "UTC")}</td>
+                            <td>
+                                {token.expires_date === null ? "Never" : formatTimestamp(token.expires_date, "UTC")}
+                            </td>
+                            <td data-token-status>{token.status_label}</td>
+                            <td>
+                                {token.revoked_date === null && (
+                                    <button
+                                        type="button"
+                                        class="token-revoke-btn"
+                                        data-token-id={token.id}
+                                        aria-label={`Revoke token ${token.label}`}
+                                    >
+                                        Revoke
+                                    </button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<script>
+    import { initTokenAdmin } from "../scripts/token_admin"
+    initTokenAdmin()
+</script>

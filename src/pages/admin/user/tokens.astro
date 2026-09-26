@@ -25,13 +25,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import TokenManager from "../../../components/TokenManager.astro"
 import BaseHead from "../../../components/BaseHead.astro"
 import AdminHead from "../../../components/AdminHead.astro"
 import AdminHeader from "../../../components/AdminHeader.astro"
 import AdminFooter from "../../../components/AdminFooter.astro"
 import { ADMIN_PAGE_TITLE_PRFX } from "../../../consts"
 import { guardPage } from "../../../lib/api/page_auth"
-import { EXPIRY_WINDOWS_DAYS, listApiTokensForContributor, type ApiTokenRow } from "../../../lib/api/tokens"
+import { listApiTokensForContributor, type ApiTokenRow } from "../../../lib/api/tokens"
 
 export const prerender = false
 
@@ -84,145 +85,8 @@ try {
                 Issue and revoke API tokens scoped to your user account permissions. Usage requires presentation of both
                 an API token and a Cloudflare Access Service Token.
             </p>
-            <h3>Issue a new token</h3>
-            <form id="token-issue-form" class="generic-form">
-                <fieldset>
-                    <legend>Label</legend>
-                    <div class="field__row">
-                        <input
-                            type="text"
-                            id="token-label"
-                            name="label"
-                            required
-                            maxlength="100"
-                            placeholder="e.g. build script"
-                        />
-                    </div>
-                </fieldset>
-                <fieldset>
-                    <legend>Expires in</legend>
-                    <div class="field__row">
-                        <select id="token-expiry" name="expiry_days">
-                            {EXPIRY_WINDOWS_DAYS.map((days) => (
-                                <option value={days} selected={days === 30}>
-                                    {days} days
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </fieldset>
-                <button type="submit">Issue token</button>
-            </form>
-
-            <div id="token-issued-panel" hidden>
-                <p class="general-warning">Copy this token now - it will not be shown again.</p>
-                <input type="text" id="token-issued-secret" readonly />
-                <button type="button" id="token-issued-copy">
-                    Copy
-                </button>
-            </div>
-
-            <p id="transaction-status">{error ? `Error: ${error}` : `${tokens.length} token(s) listed.`}</p>
-
-            <h3>Your tokens</h3>
-            <div id="token-list-results">
-                {error ? null : tokens.length === 0 ? (
-                    <p>No tokens issued.</p>
-                ) : (
-                    <table class="iam-table" id="token-table">
-                        <thead>
-                            <tr>
-                                <th>Label</th>
-                                <th>Prefix</th>
-                                <th>Issued</th>
-                                <th>Expires</th>
-                                <th>Status</th>
-                                <th />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {tokens.map((token) => (
-                                <tr data-token-id={token.id}>
-                                    <td>{token.label}</td>
-                                    <td>
-                                        <code>{token.token_prefix}…</code>
-                                    </td>
-                                    <td>{new Date(token.entry_date).toLocaleString("en-US")}</td>
-                                    <td>{new Date(token.expires_date).toLocaleString("en-US")}</td>
-                                    <td>{token.status_label}</td>
-                                    <td>
-                                        {!token.revoked_date && (
-                                            <button type="button" class="token-revoke-btn" data-token-id={token.id}>
-                                                Revoke
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+            <TokenManager tokens={tokens} error={error} />
         </main>
         <AdminFooter />
-        <script>
-            import { issueToken, revokeToken } from "../../../scripts/connector"
-            import { emitError, getTransactionElem } from "../../../scripts/interface"
-
-            const status_elem = getTransactionElem()
-            const issue_form = document.getElementById("token-issue-form")
-            const issued_panel = document.getElementById("token-issued-panel")
-            const issued_secret_input = document.getElementById("token-issued-secret")
-            const copy_button = document.getElementById("token-issued-copy")
-
-            if (issue_form instanceof HTMLFormElement) {
-                issue_form.addEventListener("submit", async (evt: Event) => {
-                    evt.preventDefault()
-                    const label_input = document.getElementById("token-label")
-                    const expiry_select = document.getElementById("token-expiry")
-                    if (!(label_input instanceof HTMLInputElement) || !(expiry_select instanceof HTMLSelectElement)) {
-                        return
-                    }
-                    const label = label_input.value.trim()
-                    const expiry_days = Number(expiry_select.value) as 7 | 30 | 180 | 365
-                    try {
-                        const issued = await issueToken(label, expiry_days)
-                        if (issued_panel && issued_secret_input instanceof HTMLInputElement) {
-                            issued_secret_input.value = issued.secret
-                            issued_panel.hidden = false
-                        }
-                        status_elem.textContent = `Token "${label}" issued. Reload the page to see it in the list below.`
-                        issue_form.reset()
-                    } catch (error) {
-                        if (error instanceof Error) emitError(error, "transaction-status")
-                    }
-                })
-            }
-
-            if (copy_button && issued_secret_input instanceof HTMLInputElement) {
-                copy_button.addEventListener("click", async () => {
-                    await navigator.clipboard.writeText(issued_secret_input.value)
-                    status_elem.textContent = "Token copied to clipboard."
-                })
-            }
-
-            document.querySelectorAll(".token-revoke-btn").forEach((button) => {
-                button.addEventListener("click", async () => {
-                    const id_attr = button.getAttribute("data-token-id")
-                    const id = id_attr ? Number(id_attr) : NaN
-                    if (isNaN(id) || !confirm("Revoke this token? Any script using it will lose access immediately.")) {
-                        return
-                    }
-                    try {
-                        await revokeToken(id)
-                        const row = document.querySelector(`tr[data-token-id="${id}"]`)
-                        row?.remove()
-                        status_elem.textContent = "Token revoked."
-                    } catch (error) {
-                        if (error instanceof Error) emitError(error, "transaction-status")
-                    }
-                })
-            })
-        </script>
     </body>
 </html>
