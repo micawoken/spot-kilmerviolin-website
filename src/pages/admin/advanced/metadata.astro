@@ -135,19 +135,19 @@ if (type_param !== null || id_param !== null) {
                 last-changed timestamps.
             </p>
             <KeywordSearchBox id_prefix="metadata-search" label="Search by keyword" database_select={true} />
-            <div id="metadata-output" class={`metadata-output${metadata ? "" : " hidden"}`}>
+            <div id="metadata-output" class={`metadata${metadata ? "" : " hidden"}`}>
                 {metadata ? (
                     <Fragment>
-                        <h3 class="metadata-heading">
+                        <h3 class="metadata__heading">
                             {metadata.type_label} ID #{metadata.id}
                         </h3>
-                        <p class="metadata-field">
+                        <p class="metadata__field">
                             <strong>Name</strong>: {metadata.name}
                         </p>
-                        <p class="metadata-field">
+                        <p class="metadata__field">
                             <strong>Created</strong>: {metadata.entry}
                         </p>
-                        <p class="metadata-field">
+                        <p class="metadata__field">
                             <strong>Modified</strong>: {metadata.change}
                         </p>
                     </Fragment>
@@ -200,7 +200,7 @@ if (type_param !== null || id_param !== null) {
                 // record's name is never interpreted as HTML
                 function field(label: string, value: string): HTMLElement {
                     const line = document.createElement("p")
-                    line.className = "metadata-field"
+                    line.className = "metadata__field"
                     const strong = document.createElement("strong")
                     strong.textContent = label
                     line.appendChild(strong)
@@ -213,7 +213,7 @@ if (type_param !== null || id_param !== null) {
                 // (the client-side equivalent of the visitor zone the SSR path sources from Cloudflare)
                 function renderMetadata(database: SearchDatabase, id: number, record: DatedRecord): void {
                     const heading = document.createElement("h3")
-                    heading.className = "metadata-heading"
+                    heading.className = "metadata__heading"
                     heading.textContent = `${TYPE_LABELS[database]} ID #${id}`
                     output.replaceChildren(
                         heading,
@@ -262,14 +262,14 @@ if (type_param !== null || id_param !== null) {
                 )
             </script>
             <style>
-                .metadata-output {
+                .metadata {
                     margin-block: 1rem;
                 }
-                .metadata-heading {
+                .metadata__heading {
                     margin-block: 0 0.5rem;
                     font-size: 1rem;
                 }
-                .metadata-field {
+                .metadata__field {
                     margin-block: 0.25rem;
                 }
             </style>

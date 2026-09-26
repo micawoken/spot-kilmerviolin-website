@@ -38,15 +38,15 @@ const name_defined = identity?.userinfo?.ok || identity?.email
     <h1>
         <a href="/admin">Administrative Services</a>
     </h1>
-    <nav class="admin-header-actions" aria-label="Account">
-        <span class="admin-header-name">{name_defined ? display_name : "Unknown user"}</span>
-        <span class="admin-header-sep" aria-hidden="true">
+    <nav class="admin-header__actions" aria-label="Account">
+        <span class="admin-header__name">{name_defined ? display_name : "Unknown user"}</span>
+        <span class="admin-header__sep" aria-hidden="true">
             &middot;
         </span>
         <a href="/admin/profile" class="col-item-link">
             My Profile
         </a>
-        <span class="admin-header-sep" aria-hidden="true">
+        <span class="admin-header__sep" aria-hidden="true">
             &middot;
         </span>
         <a href="/admin/logout" class="col-item-link">

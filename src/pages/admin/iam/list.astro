@@ -201,7 +201,7 @@ try {
                                 <tr>
                                     <td>
                                         {row.email_href ? <a href={row.email_href}>{row.email}</a> : row.email}
-                                        {row.is_self && <span class="iam-self"> (you)</span>}
+                                        {row.is_self && <span class="iam-table__self"> (you)</span>}
                                     </td>
                                     <td>
                                         {row.status_href ? (
@@ -310,7 +310,7 @@ try {
                 color: inherit;
             }
             /* de-emphasized marker identifying the caller's own row */
-            .iam-self {
+            .iam-table__self {
                 opacity: 0.6;
             }
         </style>

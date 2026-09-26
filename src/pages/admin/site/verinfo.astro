@@ -119,9 +119,9 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
         <AdminHeader identity={Astro.locals.identity} welcome={false} />
         <main id="admin-main-content" class="admin-main" role="main">
             <h2>Site Information</h2>
-            <div class="entity-result-container site-info-card">
-                <h3 class="entity-result-name">Site Information</h3>
-                <div id="site-info-infoline" class="site-info-infoline">
+            <div class="entity-result site-info-card">
+                <h3 class="entity-result__name">Site Information</h3>
+                <div id="site-info-infoline" class="site-info-card__infoline">
                     <strong>{info.environment.name}</strong>
                     <span>Build {info.build_id}</span>
                     <span>
@@ -133,10 +133,10 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                     </span>
                     {info.tag && <span>Tag {info.tag}</span>}
                 </div>
-                <div class="site-info-details entity-result-details">
+                <div class="site-info-card__details entity-result__details">
                     {/* details are grouped by data type rather than subsystem: booleans, then durations,
                         then other numeric quantities, then strings */}
-                    <div class="site-info-group">
+                    <div class="site-info-card__group">
                         <strong>Self-enrollment enabled:</strong>
                         <span>{yesno(info.settings.selfenroll)}</span>
                         <strong>Rich error descriptions:</strong>
@@ -146,7 +146,7 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                         <strong>Database writable:</strong>
                         <span>{yesno(info.environment.db_writable)}</span>
                     </div>
-                    <div class="site-info-group">
+                    <div class="site-info-card__group">
                         <strong>Cache API TTL (default):</strong>
                         <span>{ttlWithRaw(info.environment.ttls.cacheApi.default)}</span>
                         <strong>Cache API TTL (long):</strong>
@@ -160,7 +160,7 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                         <strong>Rebuild cooldown (admin override):</strong>
                         <span>{ttlWithRaw(info.settings.admin_rebuild_cooldown_sec)}</span>
                     </div>
-                    <div class="site-info-group">
+                    <div class="site-info-card__group">
                         <strong>Max upload size:</strong>
                         <span>{formatBytes(info.environment.limits.max_upload_bytes)}</span>
                         <strong>Search result cap:</strong>
@@ -170,12 +170,12 @@ const identityTtlSec = Math.round(info.environment.ttls.identity_ms / 1000)
                         <strong>Image quality:</strong>
                         <span>{info.environment.images.quality}</span>
                     </div>
-                    <div class="site-info-group">
+                    <div class="site-info-card__group">
                         <strong>Target image format:</strong>
                         <span>{info.environment.images.format}</span>
                     </div>
                     {tokenHealth && (
-                        <div class="site-info-group">
+                        <div class="site-info-card__group">
                             <strong>Cloudflare API token:</strong>
                             <span>
                                 {tokenHealth.cloudflare

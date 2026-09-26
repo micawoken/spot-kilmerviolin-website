@@ -78,14 +78,14 @@ const protected_label = protected_fields
 const authorized = contributor !== null && "identity_email" in contributor
 ---
 
-<div id="generic-result-contributor" class={`entity-result-container${hidden ? " hidden" : ""}`}>
+<div id="generic-result-contributor" class={`entity-result${hidden ? " hidden" : ""}`}>
     {/* head: the identifying header (name, contacts, class line, bio) sits top-left, the auth and tags
         groups flow in columns beneath it, and the image occupies the top-right. Source order is header ->
         image -> groups so that on narrow viewports the image stacks directly below the title (see
         admin-entities.css). */}
-    <div class="entity-result-head">
-        <div class="entity-result-header">
-            <h2 id="contributor-name" class="entity-result-name">
+    <div class="entity-result__head">
+        <div class="entity-result__header">
+            <h2 id="contributor-name" class="entity-result__name">
                 {contributor?.name}
             </h2>
             <p id="contributor-id">ID #{contributor?.id}</p>
@@ -106,30 +106,30 @@ const authorized = contributor !== null && "identity_email" in contributor
                 <p id="contributor-phases">Phases {disp(contributor?.phases, "(no phases specified)")}</p>
             </div>
             {/* the bio sits directly below the class line within the header */}
-            <div id="contributor-bio-container" class="entity-result-bio">
+            <div id="contributor-bio-container" class="entity-result__bio">
                 <p id="contributor-bio">{disp(contributor?.bio, "(no bio available)")}</p>
             </div>
         </div>
-        <div id="contributor-image-container" class="entity-result-image-container">
+        <div id="contributor-image-container" class="entity-result__image-container">
             {/* the <img> is always present (hidden when there is no image) so the client-side READ flow
                 (populateInfo) can fill its src; the "(no image)" placeholder mirrors it inversely. src is
                 omitted when absent to avoid a broken-image request. */}
             <img
                 id="contributor-image"
-                class={`entity-result-image${contributor?.image ? "" : " hidden"}`}
+                class={`entity-result__image${contributor?.image ? "" : " hidden"}`}
                 src={contributor?.image ?? undefined}
                 alt={imageAlt ?? `Image of contributor ${contributor?.name ?? ""}`}
                 title={imageAlt ?? `Image of contributor ${contributor?.name ?? ""}`}
             />
             <p
                 id="contributor-image-missing"
-                class={`entity-result-image-missing${contributor?.image ? " hidden" : ""}`}
+                class={`entity-result__image-missing${contributor?.image ? " hidden" : ""}`}
             >
                 No image available.
             </p>
         </div>
-        <div class="entity-result-groups">
-            <div id="contributor-authinfo" class={`entity-result-group${authorized ? "" : " hidden"}`}>
+        <div class="entity-result__groups">
+            <div id="contributor-authinfo" class={`entity-result__group${authorized ? "" : " hidden"}`}>
                 <p class="general-infohelp">
                     Authorization-related fields ({protected_label}) are only visible for your user account unless you
                     are an administrator.

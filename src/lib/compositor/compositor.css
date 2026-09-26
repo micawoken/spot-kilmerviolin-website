@@ -421,13 +421,13 @@ a.cmp-related__tile:hover .cmp-related__name {
 	min-height: 65px;
 }
 /* Validation hint */
-.cmp-contact-form .field-error {
+.cmp-contact-form .field__error {
 	font-size: 0.85em;
 	font-weight: 700;
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 	margin: 0;
 }
-.cmp-contact-form .field-invalid {
+.cmp-contact-form .field__invalid {
 	outline: 2px solid var(--shade-7);
 	outline-offset: 1px;
 }

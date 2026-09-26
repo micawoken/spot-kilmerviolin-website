@@ -69,7 +69,7 @@ header {
 		var(--dtk-chrome-hairline-style, var(--dtk-border-hairline-style, solid))
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
-/* Grid rather than flex so title/nav-area/toggle can be reassigned to two different area maps by the
+/* Grid rather than flex so title/site-header__nav-area/toggle can be reassigned to two different area maps by the
  * media query below without reparenting */
 header nav {
 	display: grid;
@@ -90,7 +90,7 @@ header nav {
 	}
 	/* Nav links sit next to the search toggle (their natural reading order continues into it) rather than
 	 * hugging the title, leaving the middle of the row as breathing space instead of a second focal point */
-	header .nav-links {
+	header .site-header__nav-links {
 		justify-content: flex-end;
 		/* Offsets the flex-end alignment left by the search button's own inset (border + horizontal padding,
 		 * matching #header-search-form button below) so the last nav link's text ends on the same vertical
@@ -101,10 +101,10 @@ header nav {
 		);
 	}
 }
-/* Below the breakpoint, nav-area sits on its own row, independent from the title/toggle row above it (see
+/* Below the breakpoint, site-header__nav-area sits on its own row, independent from the title/toggle row above it (see
  * the grid comment above) */
 @media (max-width: 719.98px) {
-	header .nav-area {
+	header .site-header__nav-area {
 		display: grid;
 		align-items: center;
 	}
@@ -113,11 +113,11 @@ header nav {
 		grid-area: 1 / 1;
 		transform: none;
 	}
-	header .nav-links {
+	header .site-header__nav-links {
 		grid-area: 1 / 1;
 	}
 }
-header .site-title {
+header .site-header__title {
 	grid-area: title;
 	font-family: var(--dtk-type-body-family, inherit);
 	font-weight: 600;
@@ -138,41 +138,41 @@ header #search-toggle {
 }
 /* Both icons render (so no client-side icon swap is needed) and share the same grid cell, crossfading via
  * opacity/visibility on the same 0.15s timing as #header-search-form's own open/close transition */
-header #search-toggle .icon-search,
-header #search-toggle .icon-close {
+header #search-toggle .site-header__icon-search,
+header #search-toggle .site-header__icon-close {
 	grid-area: 1 / 1;
 	opacity: 1;
 	visibility: visible;
 	transition: opacity 0.15s ease, visibility 0s linear 0s;
 }
-header #search-toggle .icon-close {
+header #search-toggle .site-header__icon-close {
 	opacity: 0;
 	visibility: hidden;
 	transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
-header #search-toggle.is-open .icon-search {
+header #search-toggle.is-open .site-header__icon-search {
 	opacity: 0;
 	visibility: hidden;
 	transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
-header #search-toggle.is-open .icon-close {
+header #search-toggle.is-open .site-header__icon-close {
 	opacity: 1;
 	visibility: visible;
 	transition: opacity 0.15s ease, visibility 0s linear 0s;
 }
 @media (prefers-reduced-motion: reduce) {
-	header #search-toggle .icon-search,
-	header #search-toggle .icon-close {
+	header #search-toggle .site-header__icon-search,
+	header #search-toggle .site-header__icon-close {
 		transition: none;
 	}
 }
-/* nav-area doubles as the search overlay's anchor at/above 720px */
-header .nav-area {
+/* site-header__nav-area doubles as the search overlay's anchor at/above 720px */
+header .site-header__nav-area {
 	grid-area: nav;
 	position: relative;
 	min-width: 0;
 }
-/* `top: 50%` + `translateY(-50%)` (rather than `top: 0`) because the form is taller than `.nav-area`'s own
+/* `top: 50%` + `translateY(-50%)` (rather than `top: 0`) because the form is taller than `.site-header__nav-area`'s own
  * box */
 header #header-search-form {
 	display: flex;
@@ -202,7 +202,7 @@ header #header-search-form.is-open {
 }
 /* The input/button look (padding, border, colors, font-size, hover) comes from the `.search-form` class
  * on #header-search-form itself (styles/search-form.css) */
-header .nav-links {
+header .site-header__nav-links {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.25rem));
@@ -214,17 +214,17 @@ header .nav-links {
 }
 /* Hidden (not just visually covered) once the search overlay has fully faded in, so the wrapped-line tail
  * isn't left showing beneath the bar and its links aren't reachable by keyboard while covered */
-header.search-open .nav-links {
+header.is-search-open .site-header__nav-links {
 	visibility: hidden;
 	transition: visibility 0s linear 0.15s;
 }
 @media (prefers-reduced-motion: reduce) {
-	header .nav-links {
+	header .site-header__nav-links {
 		transition: none;
 	}
 }
 /* The mono, uppercase, tracked nav treatment - the theme's `label` typography (IBM Plex Mono). */
-header .nav-links a {
+header .site-header__nav-links a {
 	font-family: var(--dtk-type-label-family, ui-monospace, monospace);
 	font-size: var(--dtk-type-label-size, 0.72rem);
 	font-weight: var(--dtk-type-label-weight, 600);
@@ -233,11 +233,11 @@ header .nav-links a {
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 	text-decoration: none;
 }
-header .nav-links a:hover {
+header .site-header__nav-links a:hover {
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 
-ul.nav-links {
+ul.site-header__nav-links {
 	flex-wrap: nowrap;
 }
 
@@ -261,14 +261,14 @@ main > :not(.cmp-section, article):last-child {
 
 /* Vertical-only nudge, additive on top of the padding-top/-bottom above, scoped to the pre-generated
  * "static" pages */
-main > .entity-index-body:first-child,
+main > .entity-index:first-child,
 main > .search-page:first-child {
 	padding-top: calc(
 		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
 		var(--dtk-chrome-vertical-space-static, 0px)
 	);
 }
-main > .entity-index-body:last-child,
+main > .entity-index:last-child,
 main > .search-page:last-child {
 	padding-bottom: calc(
 		var(--dtk-chrome-vertical-space-section, var(--dtk-space-section, 2.5rem)) +
@@ -296,7 +296,7 @@ footer {
 		var(--dtk-chrome-hairline-color, var(--dtk-border-hairline-color, var(--shade-3)));
 }
 /* Font size lives on the list, not just the `a`s */
-footer .footer-links {
+footer .site-footer__links {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--dtk-chrome-horizontal-space-item-gap, var(--dtk-space-sm, 1.25rem));
@@ -308,15 +308,15 @@ footer .footer-links {
 	letter-spacing: var(--dtk-type-label-letter-spacing, 0.06em);
 }
 /* Footer links and copy share the mono `label` treatment, muted to `slate`. */
-footer .footer-links a,
+footer .site-footer__links a,
 footer p {
 	color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
 }
-footer .footer-links a {
+footer .site-footer__links a {
 	text-transform: uppercase;
 	text-decoration: none;
 }
-footer .footer-links a:hover {
+footer .site-footer__links a:hover {
 	color: var(--dtk-chrome-body-text, var(--dtk-color-ink, var(--color-text)));
 }
 footer p {

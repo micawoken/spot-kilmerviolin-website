@@ -51,12 +51,12 @@ header[role="banner"] h1 a:hover {
 	text-decoration: underline;
 }
 /* the signed-in name, sitting just left of the My Profile link inside the actions group */
-.admin-header-name {
+.admin-header__name {
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
 /* profile/logout actions, pushed to the banner's right edge */
-.admin-header-actions {
+.admin-header__actions {
 	margin: 0;
 	margin-left: auto;
 	display: flex;
@@ -65,7 +65,7 @@ header[role="banner"] h1 a:hover {
 	gap: 0.5rem;
 	color: var(--color-text-secondary);
 }
-.admin-header-sep {
+.admin-header__sep {
 	color: var(--shade-6);
 }
 
@@ -99,7 +99,7 @@ footer[role="contentinfo"] nav p {
  * ------------------------------------------------------------------------- */
 
 /* Shared card shell */
-.entity-result-container {
+.entity-result {
 	border: 1px solid var(--shade-4);
 	border-radius: 8px;
 	padding: 1.25rem 1.5rem;
@@ -111,19 +111,19 @@ footer[role="contentinfo"] nav p {
 	max-width: 64rem;
 }
 
-.entity-result-name {
+.entity-result__name {
 	margin-bottom: 0.1rem;
 }
 
 /* the "ID #<n>" line sits just under the name */
-.entity-result-container p[id$="-id"] {
+.entity-result p[id$="-id"] {
 	margin-top: 0;
 	color: var(--color-text-muted);
 	font-size: 0.9em;
 }
 
 /* ---- Standardized record-Info layout -------------------------------------- */
-.entity-result-head {
+.entity-result__head {
 	display: grid;
 	/* the image column is a definite 20rem (not auto): an auto track combined with the image
 	 * container's min-width:0 collapses to min-content, which shrank the image to almost nothing */
@@ -138,12 +138,12 @@ footer[role="contentinfo"] nav p {
 }
 /* the identifying header (name + ID + primary identifying line) sits top-left, above the columnar
  * detail groups, so a long name is never squeezed into a single narrow column */
-.entity-result-header {
+.entity-result__header {
 	grid-area: header;
 }
 /* the detail groups flow into set-width columns (wrapping to new rows) in the left column beneath the
  * header; min-width:0 lets a column shrink so its content wraps instead of forcing the card wider */
-.entity-result-groups {
+.entity-result__groups {
 	grid-area: groups;
 	min-width: 0;
 	display: grid;
@@ -152,12 +152,12 @@ footer[role="contentinfo"] nav p {
 	align-items: start;
 }
 /* one labelled block of fields; min-width:0 lets long values wrap rather than widen the column */
-.entity-result-group {
+.entity-result__group {
 	min-width: 0;
 }
 /* the image occupies the right column, spanning both grid rows so it pins to the top-right beside the
  * header and groups. The 40vh cap and the 4:5 placeholder footprint are defined just below */
-.entity-result-image-container {
+.entity-result__image-container {
 	grid-area: image;
 	align-self: start;
 	/* fill the definite 20rem image column; the <img> inside keeps width:auto so a smaller image is
@@ -165,12 +165,12 @@ footer[role="contentinfo"] nav p {
 	width: 100%;
 }
 
-.entity-result-image-container:has(> .entity-result-image-missing:not(.hidden)) {
+.entity-result__image-container:has(> .entity-result__image-missing:not(.hidden)) {
 	aspect-ratio: 4 / 5;
 	max-height: 40vh;
 }
 
-.entity-result-image {
+.entity-result__image {
 	/* cap the rendered image at 40% of the viewport height */
 	max-height: 40vh;
 	width: auto;
@@ -180,12 +180,12 @@ footer[role="contentinfo"] nav p {
 	display: block;
 }
 /* explicit compound rule so hiding wins regardless of stylesheet load order vs. global .hidden */
-.entity-result-image.hidden {
+.entity-result__image.hidden {
 	display: none;
 }
 
 /* When no image is set, a grayed-out rectangle stands in the image's place */
-.entity-result-image-missing {
+.entity-result__image-missing {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -205,27 +205,27 @@ footer[role="contentinfo"] nav p {
 	border-radius: 6px;
 	font-style: italic;
 }
-.entity-result-image-missing.hidden {
+.entity-result__image-missing.hidden {
 	display: none;
 }
 
 /* Detail groups: a vertical stack of label/value field pairs */
-.entity-result-details {
+.entity-result__details {
 	display: flex;
 	flex-direction: column;
 	gap: 0.35rem;
 }
-.entity-field {
+.entity-result__field {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
 	column-gap: 0.5rem;
 	row-gap: 0.1rem;
 }
-.entity-field > strong {
+.entity-result__field > strong {
 	flex: 0 0 auto;
 }
-.entity-field > span {
+.entity-result__field > span {
 	flex: 1 1 9rem;
 	min-width: 0;
 	overflow-wrap: anywhere;
@@ -233,16 +233,16 @@ footer[role="contentinfo"] nav p {
 
 /* biography wrapper - used both as a head group (contributor) and as a full-width region; purely
  * typographic so it reads the same in either position */
-.entity-result-bio {
+.entity-result__bio {
 	margin: 1.25rem 0 0;
 	line-height: 1.6;
 }
-.entity-result-bio > p {
+.entity-result__bio > p {
 	margin: 0;
 }
 
 /* a detail region pulled below the head to span the full card width (e.g. composer tags) */
-.entity-result-fullwidth {
+.entity-result__details--fullwidth {
 	margin-top: 1.25rem;
 }
 
@@ -307,7 +307,7 @@ footer[role="contentinfo"] nav p {
 }
 
 /* Composition notes: a full-width region below the head */
-.entity-result-notes-group {
+.entity-result__notes-group {
 	margin-top: 1.25rem;
 	/* a fixed three-column track (one per note) so the three notes fill the first row and the trailing
 	 * tags cell wraps to the second row's first column */
@@ -317,7 +317,7 @@ footer[role="contentinfo"] nav p {
 	row-gap: 1rem;
 	align-items: start;
 }
-.entity-result-notes-group > div {
+.entity-result__notes-group > div {
 	margin-bottom: 0;
 }
 #composition-details-notes-historical::before,
@@ -337,7 +337,7 @@ footer[role="contentinfo"] nav p {
 #composition-details-notes-other::before {
 	content: "Other Notes";
 }
-.entity-result-notes {
+.entity-result__notes {
 	margin: 0;
 	white-space: pre-wrap;
 }
@@ -395,15 +395,15 @@ footer[role="contentinfo"] nav p {
 
 /* --- Auth-info (whoami) card --------------------------------------------- */
 
-/* Reuses the entity card shell, plus: a corner "Contributor ID #" badge (the .list-result-id look) */
+/* Reuses the entity card shell, plus: a corner "Contributor ID #" badge (the .list-result__id look) */
 .auth-info-card {
 	position: relative;
 }
 /* leave room for the corner Contributor ID badge so the name does not run under it */
-.auth-info-card .entity-result-name {
+.auth-info-card .entity-result__name {
 	padding-right: 11rem;
 }
-.auth-info-infoline {
+.auth-info-card__infoline {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
@@ -411,15 +411,15 @@ footer[role="contentinfo"] nav p {
 	margin: 0.1rem 0 0.75rem;
 	color: var(--color-text-secondary);
 }
-.auth-info-infoline > *:not(:last-child)::after {
+.auth-info-card__infoline > *:not(:last-child)::after {
 	content: "·";
 	margin-left: 0.5rem;
 	color: var(--shade-6);
 }
-.auth-info-roles {
+.auth-info-card__roles {
 	margin: 0 0 1rem;
 }
-.auth-flag-row {
+.auth-info-card__flag-row {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 1.5rem;
@@ -429,17 +429,17 @@ footer[role="contentinfo"] nav p {
 	flex-direction: column;
 	cursor: help;
 }
-.auth-flag-label {
+.auth-flag__label {
 	font-weight: 700;
 	font-size: 0.85em;
 	color: var(--color-text-secondary);
 }
-.auth-flag-value {
+.auth-flag__value {
 	font-size: 1.1em;
 }
 @media (max-width: 720px) {
 	/* stack the status flags vertically when there is no room for a row */
-	.auth-flag-row {
+	.auth-info-card__flag-row {
 		flex-direction: column;
 		gap: 0.5rem;
 	}
@@ -455,7 +455,7 @@ footer[role="contentinfo"] nav p {
 	/* the card's horizontal padding must count inside the 100% width or it overflows its parent */
 	box-sizing: border-box;
 }
-.site-info-infoline {
+.site-info-card__infoline {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
@@ -463,31 +463,31 @@ footer[role="contentinfo"] nav p {
 	margin: 0.1rem 0 1rem;
 	color: var(--color-text-secondary);
 }
-.site-info-infoline > *:not(:last-child)::after {
+.site-info-card__infoline > *:not(:last-child)::after {
 	content: "·";
 	margin-left: 0.5rem;
 	color: var(--shade-6);
 }
 /* a flex item defaults to min-width:auto, so a long unbreakable token (the build-ID UUID) cannot
  * shrink and forces the whole card wider than a narrow viewport */
-.site-info-infoline > *,
-.auth-info-infoline > *,
+.site-info-card__infoline > *,
+.auth-info-card__infoline > *,
 #composer-details-infoline > * {
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
 /* groups flow into columns on wide screens, taking advantage of horizontal space */
-.site-info-details {
+.site-info-card__details {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
 	gap: 1rem 2rem;
 	align-items: start;
 }
 /* override the default grouped-section bottom margin; the grid gap handles spacing here */
-.site-info-details > div {
+.site-info-card__details > div {
 	margin-bottom: 0;
 }
-.site-info-group {
+.site-info-card__group {
 	display: grid;
 	grid-template-columns: max-content 1fr;
 	column-gap: 0.75rem;
@@ -496,10 +496,10 @@ footer[role="contentinfo"] nav p {
 }
 /* let long labels wrap (overriding the entity default nowrap) and long values break, so neither
  * pushes past the card edge */
-.site-info-group > strong {
+.site-info-card__group > strong {
 	white-space: normal;
 }
-.site-info-group > span {
+.site-info-card__group > span {
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
@@ -516,7 +516,7 @@ form.generic-form {
 .form-section {
 	margin-bottom: 1.75rem;
 }
-.form-section-title {
+.form-section__title {
 	font-size: 1.35rem;
 	margin-bottom: 0.6rem;
 	padding-bottom: 0.25rem;
@@ -566,28 +566,28 @@ form.generic-form button[type="submit"] {
 
 /* Aligned label/control grid for fieldsets that hold more than one label/control pair (e.g. the
  * composition Publication Information and Rating groups) */
-form.generic-form .field-grid {
+form.generic-form .field__grid {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 24rem);
 	column-gap: 0.85rem;
 	row-gap: 0.6rem;
 	align-items: baseline;
 }
-form.generic-form .field-grid > label {
+form.generic-form .field__grid > label {
 	margin: 0;
 	font-weight: 600;
 	justify-self: start;
 }
 /* controls fill the capped second column so their left and right edges line up */
-form.generic-form .field-grid > :is(input, select, textarea),
-form.generic-form .field-grid > .field-control {
+form.generic-form .field__grid > :is(input, select, textarea),
+form.generic-form .field__grid > .field__control {
 	margin: 0;
 	width: 100%;
 	box-sizing: border-box;
 }
 /* the URI control cell lays its input and format help on one row so the help rides to the right of the
  * input (matching the inline format hints elsewhere) rather than stacking beneath it */
-form.generic-form .field-grid > .field-control {
+form.generic-form .field__grid > .field__control {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
@@ -596,17 +596,17 @@ form.generic-form .field-grid > .field-control {
 	row-gap: 0.25rem;
 	min-width: 0;
 }
-form.generic-form .field-control > input {
+form.generic-form .field__control > input {
 	flex: 1 1 10rem;
 	min-width: 0;
 }
-form.generic-form .field-control > .general-infohelp {
+form.generic-form .field__control > .general-infohelp {
 	flex: 0 1 auto;
 	margin: 0;
 }
 
 /* A single field's primary row */
-form.generic-form .field-row {
+form.generic-form .field__row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
@@ -614,64 +614,64 @@ form.generic-form .field-row {
 }
 /* the inline format-hint token: neutralize general-infohelp's block margins so it rides the row baseline
  * directly beside its control instead of dropping below */
-form.generic-form .field-inline-help {
+form.generic-form .field__inline-help {
 	margin: 0;
 }
 /* the edit-target checkbox grouped with its label, pushed to the fieldset's right edge and kept together
  * on one line; its label drops the default trailing margin since nothing follows it */
-form.generic-form .field-edittarget {
+form.generic-form .field__edittarget {
 	margin-left: auto;
 	flex: 0 0 auto;
 	white-space: nowrap;
 }
-form.generic-form .field-edittarget label {
+form.generic-form .field__edittarget label {
 	margin-right: 0;
 }
 /* a row that carries only the right-aligned edit-target checkbox, placed under a full-width textarea so
  * the checkbox sits below the textarea on its right side */
-form.generic-form .field-row-textarea {
+form.generic-form .field__row--textarea {
 	margin-top: 0.4rem;
 }
 
 /* The required-field marker ("*" beside a required field's legend) and its footnote */
-form.generic-form .field-required {
+form.generic-form .field__required {
 	font-weight: 700;
 	color: var(--color-text);
 	margin-left: 0.15rem;
 }
-form.generic-form .field-required-note {
+form.generic-form .field__required-note {
 	font-size: 0.85em;
 	color: var(--color-text-muted);
 	margin: 0.75rem 0 0 0;
 }
 
 /* An inline validation hint shown beside the offending control (showFieldError in scripts/interface.ts) */
-form.generic-form .field-error {
+form.generic-form .field__error {
 	font-size: 0.85em;
 	font-weight: 700;
 	color: var(--color-text);
 	margin: 0;
 }
-form.generic-form .field-grid > .field-error {
+form.generic-form .field__grid > .field__error {
 	grid-column: 1 / -1;
 }
-form.generic-form .field-control > .field-error {
+form.generic-form .field__control > .field__error {
 	flex: 1 1 100%;
 }
 /* a control flagged invalid by validation */
-form.generic-form .field-invalid {
+form.generic-form .field__invalid {
 	outline: 2px solid var(--shade-7);
 	outline-offset: 1px;
 }
-/* A non-blocking caution shown in the same inline slot as .field-error (e.g. a too-small image that will
+/* A non-blocking caution shown in the same inline slot as .field__error (e.g. a too-small image that will
  * be upscaled) */
-form.generic-form .field-warning {
+form.generic-form .field__warning {
 	font-size: 0.85em;
 	font-weight: 700;
 	color: var(--color-warning);
 	margin: 0;
 }
-form.generic-form .field-grid > .field-warning {
+form.generic-form .field__grid > .field__warning {
 	grid-column: 1 / -1;
 }
 
@@ -692,23 +692,23 @@ form.generic-form .field-grid > .field-warning {
 }
 /* the stage and the too-small caution sit side by side, top-aligned, so the caution lines up with the
  * top of the image */
-.image-crop-body {
+.image-crop__body {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
 	gap: 1rem;
 }
 /* too-small caution: the colored warning text, in a right-hand column */
-.image-crop-warning {
+.image-crop__warning {
 	flex: 0 1 14rem;
 	margin: 0;
 }
-.image-crop-controls {
+.image-crop__controls {
 	display: flex;
 	gap: 0.5rem;
 	margin-bottom: 0.5rem;
 }
-.image-crop-controls button {
+.image-crop__controls button {
 	font: inherit;
 	padding: 0.3rem 0.7rem;
 	background: var(--shade-2);
@@ -718,13 +718,13 @@ form.generic-form .field-grid > .field-warning {
 	cursor: pointer;
 }
 /* the chosen orientation reads as a filled, emphasized control */
-.image-crop-controls button.is-active {
+.image-crop__controls button.is-active {
 	background: var(--color-text);
 	color: var(--color-bg);
 	border-color: var(--color-text);
 }
 /* the stage clips the crop box's dimming overlay (a large spread box-shadow) to the image bounds */
-.image-crop-stage {
+.image-crop__stage {
 	position: relative;
 	display: inline-block;
 	max-width: 100%;
@@ -733,13 +733,13 @@ form.generic-form .field-grid > .field-warning {
 	touch-action: none;
 	user-select: none;
 }
-.image-crop-img {
+.image-crop__img {
 	display: block;
 	max-width: 100%;
 	max-height: 50vh;
 	height: auto;
 }
-.image-crop-box {
+.image-crop__box {
 	position: absolute;
 	box-sizing: border-box;
 	border: 2px solid var(--color-link);
@@ -750,10 +750,10 @@ form.generic-form .field-grid > .field-warning {
 }
 /* when the framed region is below its canonical canvas (and will be upscaled), recolor the box to the
  * warning accent so the caution text and the box read as one signal */
-.image-crop-box.is-warning {
+.image-crop__box.is-warning {
 	border-color: var(--color-warning);
 }
-.image-crop-handle {
+.image-crop__handle {
 	position: absolute;
 	right: -8px;
 	bottom: -8px;
@@ -765,11 +765,11 @@ form.generic-form .field-grid > .field-warning {
 	cursor: nwse-resize;
 	touch-action: none;
 }
-.image-crop-box.is-warning .image-crop-handle {
+.image-crop__box.is-warning .image-crop__handle {
 	background: var(--color-warning);
 }
 /* a format-hint token temporarily hidden while a validation error occupies its place */
-form.generic-form .field-hidden {
+form.generic-form .field__hidden {
 	display: none;
 }
 
@@ -790,11 +790,11 @@ form.generic-form .field-hidden {
 
 	/* the aligned label/control grid collapses to a single column (label stacked above its control); a
 	 * top margin on every pair after the first separates the stacked pairs */
-	form.generic-form .field-grid {
+	form.generic-form .field__grid {
 		grid-template-columns: 1fr;
 		row-gap: 0.15rem;
 	}
-	form.generic-form .field-grid > label:not(:first-child) {
+	form.generic-form .field__grid > label:not(:first-child) {
 		margin-top: 0.5rem;
 	}
 }
@@ -928,7 +928,7 @@ header[role="banner"] + .callout-emphasis {
 	max-width: 100%;
 }
 .profile-content > .general-infohelp,
-.profile-content > .entity-result-details {
+.profile-content > .entity-result__details {
 	width: 0;
 	min-width: 100%;
 	box-sizing: border-box;
@@ -938,8 +938,8 @@ header[role="banner"] + .callout-emphasis {
  * Keyword / ID search boxes
  * ------------------------------------------------------------------------- */
 
-.keyword-search,
-.id-entry {
+.generic-form--keyword-search,
+.generic-form--id-entry {
 	margin-bottom: 1.5rem;
 }
 
@@ -972,14 +972,14 @@ header[role="banner"] + .callout-emphasis {
  * List results
  * ------------------------------------------------------------------------- */
 
-.list-results-container {
+.list-results {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
 	gap: 0.75rem;
 	margin: 1rem 0;
 }
 
-.list-result-container {
+.list-result {
 	position: relative;
 	border: 1px solid var(--shade-4);
 	border-radius: 6px;
@@ -989,31 +989,31 @@ header[role="banner"] + .callout-emphasis {
 }
 
 /* corner badge: shown only when a name is the primary label */
-.list-result-id {
+.list-result__id {
 	position: absolute;
 	top: 0.6rem;
 	right: 0.85rem;
 	font-size: 0.75em;
 	color: var(--color-text-muted);
 }
-.list-result-container:hover {
+.list-result:hover {
 	border-color: var(--shade-7);
 }
 
 /* the viewing user's own card: a slightly tinted background distinguishes it at a glance */
-.list-result-container.list-result-self {
+.list-result.list-result--self {
 	background: var(--shade-3);
 }
 /* --color-text-muted only reaches ~4.2:1 on --shade-3 (below the 4.5:1 AA minimum for this small
  * text), even though it passes comfortably on every other background it's used against */
-.list-result-container.list-result-self .list-result-id,
-.list-result-container.list-result-self .list-result-self-tag {
+.list-result.list-result--self .list-result__id,
+.list-result.list-result--self .list-result__self-tag {
 	color: var(--color-text-secondary);
 }
 
 /* de-emphasized "(you)" marker on the caller's own card, anchored bottom-right (mirroring the
  * bottom-left edit link) in the same small text style; bottom-right is otherwise unoccupied */
-.list-result-self-tag {
+.list-result__self-tag {
 	position: absolute;
 	bottom: 0.6rem;
 	right: 0.85rem;
@@ -1022,7 +1022,7 @@ header[role="banner"] + .callout-emphasis {
 }
 
 
-.list-result-link {
+.list-result__link {
 	font-weight: 700;
 	text-decoration: none;
 	display: inline-block;
@@ -1030,15 +1030,15 @@ header[role="banner"] + .callout-emphasis {
 	color: var(--color-text);
 }
 /* leave room for the corner ID badge when a name is present */
-.list-result-id + .list-result-link {
+.list-result__id + .list-result__link {
 	padding-right: 4rem;
 }
 
-.list-result-link:hover {
+.list-result__link:hover {
 	text-decoration: underline;
 }
 /* corner action: anchored to the bottom-left, mirroring the top-right ID badge */
-.list-result-edit-link {
+.list-result__edit-link {
 	position: absolute;
 	bottom: 0.6rem;
 	left: 0.85rem;
@@ -1048,7 +1048,7 @@ header[role="banner"] + .callout-emphasis {
 /* When a card has more than one action (the file list has Replace + Delete), they live in this row
  * instead of each being independently bottom-left-absolute (which would stack them on top of each
  * other) */
-.list-result-actions {
+.list-result__actions {
 	position: absolute;
 	bottom: 0.6rem;
 	left: 0.85rem;
@@ -1056,12 +1056,12 @@ header[role="banner"] + .callout-emphasis {
 	display: flex;
 	gap: 1rem;
 }
-.list-result-actions .list-result-edit-link {
+.list-result__actions .list-result__edit-link {
 	position: static;
 }
 
 /* file list: small square preview thumbnail above the key, and a muted meta line beneath it */
-.list-result-thumb {
+.list-result__thumb {
 	display: block;
 	width: 48px;
 	height: 48px;
@@ -1070,7 +1070,7 @@ header[role="banner"] + .callout-emphasis {
 	margin-bottom: 0.4rem;
 	background: var(--shade-2);
 }
-.list-result-meta {
+.list-result__meta {
 	display: block;
 	margin-top: 0.15rem;
 	font-size: 0.8em;
@@ -1078,7 +1078,7 @@ header[role="banner"] + .callout-emphasis {
 }
 
 /* an empty result set renders a single message paragraph, not a card grid */
-.list-results-container > p {
+.list-results > p {
 	grid-column: 1 / -1;
 	margin: 0;
 	color: var(--color-text-muted);
@@ -1088,21 +1088,21 @@ header[role="banner"] + .callout-emphasis {
 	/* On narrow viewports the head's two-column grid collapses: header, image, and groups stack in
 	 * source order, so the image renders directly beneath the title as a block (no text wrapping around
 	 * it) and the detail groups follow below it */
-	.entity-result-head {
+	.entity-result__head {
 		display: block;
 	}
-	.entity-result-groups {
+	.entity-result__groups {
 		display: block;
 	}
 	/* grid gap no longer applies once the groups stack as blocks, so restore vertical rhythm between the
 	 * stacked entity groups (composer, contributor, characteristics, ...) with a bottom margin */
-	.entity-result-groups > .entity-result-group {
+	.entity-result__groups > .entity-result__group {
 		margin-bottom: 1rem;
 	}
-	.entity-result-groups > .entity-result-group:last-child {
+	.entity-result__groups > .entity-result__group:last-child {
 		margin-bottom: 0;
 	}
-	.entity-result-image-container {
+	.entity-result__image-container {
 		width: auto;
 		max-width: min(20rem, 70%);
 		margin: 0.5rem 0 0.75rem;
@@ -1117,11 +1117,11 @@ header[role="banner"] + .callout-emphasis {
 @media (max-width: 720px) {
 	/* the site-info label/value grid stacks the label above its value (single column) on narrow
 	 * screens so the max-content label track can no longer squeeze the value into a sliver */
-	.site-info-group {
+	.site-info-card__group {
 		grid-template-columns: 1fr;
 	}
 	/* the side-by-side notes collapse to a single column on narrow screens */
-	.entity-result-notes-group {
+	.entity-result__notes-group {
 		grid-template-columns: 1fr;
 	}
 	/* the 2×2 authorization fields stack into a single column (four rows) when space is low */
@@ -1131,12 +1131,12 @@ header[role="banner"] + .callout-emphasis {
 
 	/* Corner ID badges reserve fixed horizontal space (padding-right) for the absolutely-positioned
 	 * badge; on narrow screens that crowds the heading/link */
-	.auth-info-card .entity-result-name,
-	.list-result-id + .list-result-link {
+	.auth-info-card .entity-result__name,
+	.list-result__id + .list-result__link {
 		padding-right: 0;
 	}
-	.auth-info-card .list-result-id,
-	.list-result-container .list-result-id {
+	.auth-info-card .list-result__id,
+	.list-result .list-result__id {
 		position: static;
 		display: block;
 		margin-bottom: 0.25rem;
@@ -1255,25 +1255,25 @@ main.admin-main {
 	min-width: 20ch;
 }
 
-.import-issue-ok {
+.import-issue--ok {
 	color: var(--color-success);
 }
 
-.import-issue-error {
+.import-issue--error {
 	color: var(--color-danger);
 }
 
-.import-issue-warning {
+.import-issue--warning {
 	color: var(--color-warning);
 }
 
 /* a row flagged by client resolution or the server dry-run */
-.import-grid-table tr.import-row-error td {
+.import-grid-table tr.import-grid-table__row--error td {
 	background: var(--color-danger-bg);
 }
 
 /* the specific input(s) a server/client issue named, so the exact box to fix is obvious */
-.import-grid-table input.import-input-error {
+.import-grid-table input.import-grid-table__input--error {
 	outline: 2px solid var(--color-danger);
 	background: var(--color-danger-bg);
 }

@@ -207,7 +207,7 @@
 		grid-column: 2;
 	}
 }
-.search-advanced-link {
+.search-advanced__link {
 	font-size: 0.875rem;
 	color: var(--dtk-chrome-link, var(--dtk-color-garnet, var(--color-link)));
 }

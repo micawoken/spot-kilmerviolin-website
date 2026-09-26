@@ -71,7 +71,7 @@ export const prerender = false
                     </fieldset>
                     <fieldset>
                         <legend>Batch Execution</legend>
-                        <label class="command-batch-option">
+                        <label class="command__batch-option">
                             <input type="checkbox" id="advanced-form-command-batch" name="batch" checked />
                             Run commands as a single atomic transaction (rollback upon failure)
                         </label>
@@ -80,11 +80,11 @@ export const prerender = false
                             without rollback.
                         </p>
                     </fieldset>
-                    <div id="advanced-command-danger" class="command-danger hidden">
+                    <div id="advanced-command-danger" class="command__danger hidden">
                         {/* shown only when the command looks destructive (see detectDangerousSql); the user must
                             acknowledge before the command can be sent */}
                         <p class="general-warning" id="advanced-command-danger-text"></p>
-                        <label class="command-danger-ack">
+                        <label class="command__danger-ack">
                             <input type="checkbox" id="advanced-command-danger-ack" name="danger_ack" />I understand
                             this command may irreversibly modify or destroy data, and I want to run it anyway.
                         </label>
@@ -93,18 +93,18 @@ export const prerender = false
                 </form>
             </div>
             <p id="transaction-status">Your request status will show here after you press "Execute".</p>
-            <div id="advanced-command-output" class="command-output hidden">
-                <div class="command-view-toggle" role="group" aria-label="Response view">
-                    <button type="button" id="command-view-formatted" class="command-view-button" aria-pressed="true">
+            <div id="advanced-command-output" class="command__output hidden">
+                <div class="command__view-toggle" role="group" aria-label="Response view">
+                    <button type="button" id="command-view-formatted" class="command__view-button" aria-pressed="true">
                         Formatted
                     </button>
-                    <button type="button" id="command-view-raw" class="command-view-button" aria-pressed="false">
+                    <button type="button" id="command-view-raw" class="command__view-button" aria-pressed="false">
                         Raw JSON
                     </button>
                 </div>
                 <p id="command-format-note" class="general-warning hidden"></p>
                 <div id="advanced-command-formatted" class="command-formatted"></div>
-                <pre id="advanced-command-raw" class="command-raw hidden"></pre>
+                <pre id="advanced-command-raw" class="command__raw hidden"></pre>
             </div>
             <script>
                 import { executeCommand } from "../../../scripts/connector"
@@ -222,7 +222,7 @@ export const prerender = false
                 function appendCellValue(parent: HTMLElement, value: unknown): void {
                     if (value === null) {
                         const null_marker = document.createElement("span")
-                        null_marker.className = "command-null"
+                        null_marker.className = "command__null"
                         null_marker.textContent = "null"
                         parent.appendChild(null_marker)
                         return
@@ -233,7 +233,7 @@ export const prerender = false
                 // Builds the multi-column request-info block from the response's success flag and meta fields.
                 function buildRequestInfo(result: any): HTMLElement {
                     const block = document.createElement("div")
-                    block.className = "command-info-block"
+                    block.className = "command__info-block"
                     const entries: [string, unknown][] = []
                     entries.push([
                         "success",
@@ -250,9 +250,9 @@ export const prerender = false
                         // nested (bolded) span and the ": value" is appended after it, so the separator is part
                         // of the content itself rather than a CSS pseudo-element.
                         const item = document.createElement("span")
-                        item.className = "command-info-item"
+                        item.className = "command__info-item"
                         const label = document.createElement("span")
-                        label.className = "command-info-key"
+                        label.className = "command__info-key"
                         label.textContent = key
                         item.appendChild(label)
                         item.appendChild(document.createTextNode(": "))
@@ -275,7 +275,7 @@ export const prerender = false
                         }
                     }
                     const table = document.createElement("table")
-                    table.className = "command-results-table"
+                    table.className = "command__results-table"
                     const thead = document.createElement("thead")
                     const header_row = document.createElement("tr")
                     for (const header of headers) {
@@ -299,7 +299,7 @@ export const prerender = false
                     // Wrap the table so a wide result set scrolls horizontally within this container instead of
                     // forcing the page layout wider than the viewport.
                     const scroll = document.createElement("div")
-                    scroll.className = "command-table-scroll"
+                    scroll.className = "command__table-scroll"
                     scroll.appendChild(table)
                     return scroll
                 }
@@ -311,7 +311,7 @@ export const prerender = false
                     const container = document.createElement("div")
                     container.appendChild(buildRequestInfo(result))
                     const section = document.createElement("div")
-                    section.className = "command-results-section"
+                    section.className = "command__results-section"
                     const results = result?.results
                     if (Array.isArray(results)) {
                         if (results.length === 0) {
@@ -358,9 +358,9 @@ export const prerender = false
                     const container = document.createElement("div")
                     result.forEach((item, index) => {
                         const block = document.createElement("section")
-                        block.className = "command-result-group"
+                        block.className = "command__result-group"
                         const heading = document.createElement("h3")
-                        heading.className = "command-result-heading"
+                        heading.className = "command__result-heading"
                         heading.textContent = `Command ${index + 1} of ${result.length}`
                         block.appendChild(heading)
                         block.appendChild(buildFormatted(item))
@@ -460,7 +460,7 @@ export const prerender = false
             <style>
                 /* destructive-operation acknowledgement: a bordered callout between the command box and the Execute
                 button, revealed only when a destructive keyword is detected */
-                .command-danger {
+                .command__danger {
                     border: 1px solid var(--shade-5);
                     border-left: 4px solid var(--shade-7);
                     border-radius: 6px;
@@ -468,48 +468,48 @@ export const prerender = false
                     padding: 0.75rem 1rem;
                     margin-block: 0.75rem;
                 }
-                .command-danger > .general-warning {
+                .command__danger > .general-warning {
                     margin-block-start: 0;
                 }
-                .command-danger-ack {
+                .command__danger-ack {
                     display: flex;
                     align-items: baseline;
                     gap: 0.5rem;
                     font-weight: 600;
                 }
                 /* batch-execution toggle: the checkbox sits inline with its descriptive label */
-                .command-batch-option {
+                .command__batch-option {
                     display: flex;
                     align-items: baseline;
                     gap: 0.5rem;
                 }
                 /* a multi-command response renders one labelled block per command, separated by a rule */
-                .command-result-group + .command-result-group {
+                .command__result-group + .command__result-group {
                     margin-block-start: 1.25rem;
                     padding-block-start: 1.25rem;
                     border-block-start: 1px solid var(--shade-5);
                 }
-                .command-result-heading {
+                .command__result-heading {
                     margin-block: 0 0.5rem;
                     font-size: 1rem;
                 }
-                .command-output {
+                .command__output {
                     margin-block: 1rem;
                 }
-                .command-view-toggle {
+                .command__view-toggle {
                     display: flex;
                     gap: 0.5rem;
                     margin-block-end: 0.75rem;
                 }
                 /* the inactive view button is de-emphasized; the active one (aria-pressed) is highlighted */
-                .command-view-button[aria-pressed="true"] {
+                .command__view-button[aria-pressed="true"] {
                     font-weight: 600;
                     text-decoration: underline;
                 }
-                .command-view-button[aria-pressed="false"] {
+                .command__view-button[aria-pressed="false"] {
                     opacity: 0.6;
                 }
-                .command-raw {
+                .command__raw {
                     overflow-x: auto;
                 }
                 /* The formatted view's subtree is styled in the global block below - it's built in client
@@ -521,34 +521,34 @@ export const prerender = false
                 dynamically generated formatted-response subtree, not the rest of the page. */
 
                 /* request-info block: success + meta fields as horizontal wrapping "key: value" spans */
-                #advanced-command-formatted .command-info-block {
+                #advanced-command-formatted .command__info-block {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 0.35rem 1.25rem;
                     margin-block-end: 1rem;
                 }
-                #advanced-command-formatted .command-info-item {
+                #advanced-command-formatted .command__info-item {
                     overflow-wrap: anywhere;
                 }
-                #advanced-command-formatted .command-info-key {
+                #advanced-command-formatted .command__info-key {
                     font-weight: 600;
                 }
                 /* SQL NULL marker: lowercase + italic so it reads as "absent value", not the string "null" */
-                #advanced-command-formatted .command-null {
+                #advanced-command-formatted .command__null {
                     font-style: italic;
                     opacity: 0.75;
                 }
                 /* wide result sets scroll horizontally within this container rather than widening the page */
-                #advanced-command-formatted .command-table-scroll {
+                #advanced-command-formatted .command__table-scroll {
                     overflow-x: auto;
                     max-width: 100%;
                 }
-                #advanced-command-formatted .command-results-table {
+                #advanced-command-formatted .command__results-table {
                     border-collapse: collapse;
                     width: max-content;
                 }
-                #advanced-command-formatted .command-results-table th,
-                #advanced-command-formatted .command-results-table td {
+                #advanced-command-formatted .command__results-table th,
+                #advanced-command-formatted .command__results-table td {
                     border: 1px solid currentColor;
                     text-align: left;
                     padding: 0.25rem 0.5rem;

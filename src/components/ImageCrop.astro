@@ -34,26 +34,26 @@ const { inputId, id = "image-crop" } = Astro.props
 ---
 
 <div class="image-crop" id={id} data-input-id={inputId} hidden>
-    <div class="image-crop-controls">
-        <button type="button" class="image-crop-aspect is-active" data-aspect="portrait">
+    <div class="image-crop__controls">
+        <button type="button" class="image-crop__aspect is-active" data-aspect="portrait">
             Portrait 4:5
         </button>
-        <button type="button" class="image-crop-aspect" data-aspect="landscape">
+        <button type="button" class="image-crop__aspect" data-aspect="landscape">
             Landscape 5:4
         </button>
     </div>
     {/* the stage and the too-small caution share a row so the caution aligns to the top of the image
         (not the controls above it); the caution reserves no space while hidden, so it shifts no layout. */}
-    <div class="image-crop-body">
-        <div class="image-crop-stage">
-            <img class="image-crop-img" alt="Crop preview" />
-            <div class="image-crop-box">
-                <div class="image-crop-handle"></div>
+    <div class="image-crop__body">
+        <div class="image-crop__stage">
+            <img class="image-crop__img" alt="Crop preview" />
+            <div class="image-crop__box">
+                <div class="image-crop__handle"></div>
             </div>
         </div>
         {/* shown only while the selected region would be upscaled */}
-        <div class="image-crop-warning field-warning" role="status" hidden>
-            <span class="image-crop-warning-text"></span>
+        <div class="image-crop__warning field__warning" role="status" hidden>
+            <span class="image-crop__warning-text"></span>
         </div>
     </div>
 </div>

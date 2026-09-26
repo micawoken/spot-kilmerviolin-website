@@ -68,8 +68,8 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         body's own font size, keeps this page's whole content column aligned with the header at every
         width - the same reasoning, and the same `main > :not(.cmp-section, article)` rule, that a
         Puck-rendered page's `.cmp-root` wrapper (catalog.tsx) relies on. */}
-    <div class="entity-index-body">
-        <div class="entity-index-listing">
+    <div class="entity-index">
+        <div class="entity-index__listing">
             {/* Hand-authored, not the Puck Breadcrumbs component (catalog.tsx): this page is pre-generated Astro,
                 not a Puck design, so the component can never be placed here. Follows the same
                 Home / [...ancestor pages] / [current page] convention as route-authority.ts's
@@ -90,7 +90,7 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
             <h1>{title}</h1>
             <ListResults noun={ENTITY_NOUN_SLUGS[noun]} enviro="public" results={results} />
         </div>
-        <p class="entity-index-generated-note">This page is system-generated. Last updated {generatedAt}.</p>
+        <p class="entity-index__generated-note">This page is system-generated. Last updated {generatedAt}.</p>
     </div>
 </PublicPage>
 
@@ -99,7 +99,7 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
        column }, main { flex: 1 0 auto }) one level down, so the generated-note behaves like the page
        footer itself: flush above it on a short list, directly beneath the list (still above the footer)
        once the list is tall enough to fill the viewport on its own.
-       A percentage height on .entity-index-body can't be used to reach that - main's flex-grown height is
+       A percentage height on .entity-index can't be used to reach that - main's flex-grown height is
        only a *used* size, not a specified one, so a block child's `height: 100%` does not resolve against
        it (verified: it collapses to content height instead). Making `main` itself a flex column instead
        gives its child a real flex-basis to grow from, the same mechanism public-chrome.css already uses
@@ -109,15 +109,15 @@ const generatedAt = GENERATED_AT_FORMAT.format(new Date())
         display: flex;
         flex-direction: column;
     }
-    .entity-index-body {
+    .entity-index {
         display: flex;
         flex-direction: column;
         flex: 1 0 auto;
     }
-    .entity-index-listing {
+    .entity-index__listing {
         flex: 1 0 auto;
     }
-    .entity-index-generated-note {
+    .entity-index__generated-note {
         color: var(--dtk-chrome-muted, var(--dtk-color-slate, var(--color-text-muted)));
         font-size: 0.875rem;
         margin-top: var(--dtk-space-section, 2.5rem);

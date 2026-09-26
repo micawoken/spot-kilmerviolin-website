@@ -56,7 +56,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
         <AdminHeader identity={identity} welcome={true} />
         <main id="admin-main-content" class="admin-main" role="main">
             <div class="admin-sections">
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/works" class="col-header-link">
                             Compositions
@@ -95,7 +95,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         </li>
                     </ul>
                 </section>
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/composers" class="col-header-link">
                             Composers
@@ -134,7 +134,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         </li>
                     </ul>
                 </section>
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/contributors" class="col-header-link">
                             Contributors
@@ -173,7 +173,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         </li>
                     </ul>
                 </section>
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/user" class="col-header-link">
                             User Management
@@ -214,7 +214,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                 </section>
             </div>
             <div class="admin-sections">
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/iam" class="col-header-link">
                             Identity & Access Management
@@ -253,7 +253,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         </li>
                     </ul>
                 </section>
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/site" class="col-header-link">
                             Site Management
@@ -299,7 +299,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         )}
                     </ul>
                 </section>
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/files" class="col-header-link">
                             File Management
@@ -333,7 +333,7 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
                         </li>
                     </ul>
                 </section>
-                <section class="admin-section">
+                <section class="admin-sections__section">
                     <h2>
                         <a href="/admin/advanced" class="col-header-link">
                             Advanced Options
@@ -389,10 +389,10 @@ const unreadCount = unreadResult instanceof Response ? null : unreadResult
     .admin-sections:first-of-type {
         margin-block-start: 0;
     }
-    .admin-section {
+    .admin-sections__section {
         min-width: 0;
     }
-    .admin-section ul {
+    .admin-sections__section ul {
         margin-block: 0;
     }
 </style>
