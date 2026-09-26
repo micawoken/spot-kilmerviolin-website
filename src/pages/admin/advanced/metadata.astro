@@ -153,7 +153,7 @@ if (type_param !== null || id_param !== null) {
                     </Fragment>
                 ) : null}
             </div>
-            <p id="transaction-status">
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
                 {metadata
                     ? "Metadata loaded from URL."
                     : load_error

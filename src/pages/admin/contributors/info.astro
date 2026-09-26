@@ -98,7 +98,7 @@ const imageAlt = await resolveEntityImageAlt(
                 hidden={!use_id}
                 imageAlt={use_id ? imageAlt : undefined}
             />
-            <p id="transaction-status">
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
                 {use_id
                     ? "Contributor data loaded from URL."
                     : 'Your request status will show here after you press "Submit".'}

@@ -60,9 +60,9 @@ if (denied) {
                 organized. To change appearance (color, typography, spacing, etc.), use the{" "}
                 <a href="/admin/advanced/designs/theme">Theme page</a>.
             </p>
-            <section class="design-create" aria-labelledby="template-create-heading">
+            <section class="admin-section" aria-labelledby="template-create-heading">
                 <h3 id="template-create-heading">Create a template</h3>
-                <form id="template-create-form">
+                <form id="template-create-form" class="generic-form admin-inline-form">
                     <label>
                         Name
                         <input type="text" id="template-name" name="name" required autocomplete="off" />
@@ -75,20 +75,33 @@ if (denied) {
                         Create and open editor
                     </button>
                 </form>
-                <p id="template-create-status" role="status" aria-live="polite"></p>
+                <p
+                    id="template-create-status"
+                    class="admin-status"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                ></p>
             </section>
 
-            <section aria-labelledby="template-list-heading">
+            <section class="admin-section" aria-labelledby="template-list-heading">
                 <h3 id="template-list-heading">Existing templates</h3>
-                <p id="template-list-status" role="status" aria-live="polite">
+                <p id="template-list-status" class="admin-status" role="status" aria-live="polite" aria-atomic="true">
                     Loading templates…
                 </p>
-                <div id="template-list"></div>
+                <div
+                    id="template-list"
+                    class="admin-table-scroll"
+                    role="region"
+                    aria-labelledby="template-list-heading"
+                    tabindex="0"
+                ></div>
             </section>
 
             <script>
                 // A real module import forces Astro to emit this as an external hashed module (never inlined),
                 // which the admin CSP (script-src 'self') permits
+                import { formatTimestamp } from "../../../../scripts/format"
                 import { emptyDesignDoc } from "../../../../lib/compositor/migrations"
                 import { cmsBoolean, TEMPLATE_COLLECTIONS } from "../../../../lib/compositor/types"
                 import { ENTITY_NOUNS } from "../../../../lib/compositor/entity-fields"
@@ -143,9 +156,9 @@ if (denied) {
                     templateListStatus.textContent = ""
 
                     const table = document.createElement("table")
-                    table.className = "design-table"
+                    table.className = "admin-table"
                     const head = table.createTHead().insertRow()
-                    for (const heading of ["Name", "Slug", "Collection", "Default", "Status", "Updated", ""]) {
+                    for (const heading of ["Name", "Slug", "Collection", "Default", "Status", "Updated", "Actions"]) {
                         const th = document.createElement("th")
                         th.scope = "col"
                         th.textContent = heading
@@ -162,7 +175,9 @@ if (denied) {
                         row.insertCell().textContent = cmsBoolean(item.data?.is_default) ? "Yes" : ""
                         row.insertCell().textContent = statusLabel(item)
                         const updated = row.insertCell()
-                        updated.textContent = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "—"
+                        updated.textContent = item.updatedAt
+                            ? formatTimestamp(new Date(item.updatedAt).getTime(), "UTC")
+                            : "—"
                         const actions = row.insertCell()
                         const link = document.createElement("a")
                         link.href = `${EDITOR_PATH}?id=${encodeURIComponent(item.id)}&type=template`
@@ -177,6 +192,7 @@ if (denied) {
                     try {
                         renderTemplates(await fetchItems(TEMPLATE_ENDPOINT))
                     } catch (error) {
+                        templateListStatus.dataset.state = "error"
                         templateListStatus.textContent = `Could not load templates: ${
                             error instanceof Error ? error.message : String(error)
                         }`
@@ -210,15 +226,18 @@ if (denied) {
                     event.preventDefault()
                     const name = templateNameInput.value.trim()
                     if (!name) {
+                        templateStatus.dataset.state = "error"
                         templateStatus.textContent = "Please enter a name."
                         return
                     }
                     templateButton.disabled = true
+                    templateStatus.dataset.state = "pending"
                     templateStatus.textContent = "Creating…"
                     try {
                         await createTemplate(name, templateCollectionSelect.value)
                         // navigation happens on success; leave the button disabled while it unloads
                     } catch (error) {
+                        templateStatus.dataset.state = "error"
                         templateStatus.textContent = `Could not create the template: ${
                             error instanceof Error ? error.message : String(error)
                         }`

@@ -67,7 +67,7 @@ const has_record = identity?.id !== undefined && identity?.id !== null
                         <button type="submit">Deactivate my account</button>
                     </form>
                 </div>
-                <p id="transaction-status">Your request status will show here after you press "Deactivate my account".</p>
+                <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">Your request status will show here after you press "Deactivate my account".</p>
                 <p><a href="/admin/profile" class="col-item-link">&lt; Back to my profile</a></p>
                 <script>
                     import { deactivateSelf } from "../../../scripts/connector"

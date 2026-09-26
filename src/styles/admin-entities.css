@@ -524,6 +524,7 @@ form.generic-form {
 }
 
 form.generic-form fieldset {
+	min-width: 0;
 	border: 1px solid var(--shade-4);
 	border-radius: 6px;
 	margin: 0 0 0.75rem 0;
@@ -540,6 +541,10 @@ form.generic-form label {
 	display: inline-block;
 	margin-right: 0.35rem;
 }
+form.generic-form label:not(.sr-only):has(+ :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea)) {
+	display: block;
+	margin: 0 0 0.25rem;
+}
 form.generic-form input[type="text"],
 form.generic-form input[type="url"],
 form.generic-form input[type="email"],
@@ -555,7 +560,76 @@ form.generic-form textarea {
 }
 form.generic-form button[type="submit"] {
 	margin-top: 0.5rem;
+}
+
+:where(main.admin-main button:not(#theme-editor button)) {
+	font: inherit;
 	padding: 0.4rem 1.25rem;
+	cursor: pointer;
+}
+:where(main.admin-main button:disabled) {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.admin-section {
+	margin-block: 1.5rem;
+}
+form.admin-inline-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 1rem;
+	margin-block: 1rem;
+}
+form.admin-inline-form label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin: 0;
+	min-width: 0;
+}
+form.admin-inline-form :is(input, select) {
+	box-sizing: border-box;
+	max-width: 100%;
+}
+form.admin-inline-form button[type="submit"] {
+	margin-top: 0;
+}
+@media (max-width: 40rem) {
+	form.admin-inline-form {
+		align-items: stretch;
+		flex-direction: column;
+	}
+	form.admin-inline-form button {
+		align-self: start;
+	}
+}
+.admin-status,
+#transaction-status {
+	margin-block: 0.75rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.admin-status:empty,
+#transaction-status:empty {
+	margin: 0;
+}
+.admin-status[data-state="error"] {
+	font-weight: 700;
+	border-left: 3px solid var(--shade-7);
+	padding-left: 0.6rem;
+}
+.token-issued-value {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+.token-issued-value input {
+	flex: 1 1 24rem;
+	min-width: 0;
+	font-family: monospace;
 }
 
 /* selects that should flow inline with their surroundings */
@@ -568,9 +642,9 @@ form.generic-form button[type="submit"] {
  * composition Publication Information and Rating groups) */
 form.generic-form .field__grid {
 	display: grid;
-	grid-template-columns: max-content minmax(0, 24rem);
+	grid-template-columns: minmax(0, 24rem);
 	column-gap: 0.85rem;
-	row-gap: 0.6rem;
+	row-gap: 0.25rem;
 	align-items: baseline;
 }
 form.generic-form .field__grid > label {
@@ -578,7 +652,10 @@ form.generic-form .field__grid > label {
 	font-weight: 600;
 	justify-self: start;
 }
-/* controls fill the capped second column so their left and right edges line up */
+form.generic-form .field__grid > label:not(:first-child) {
+	margin-top: 0.5rem;
+}
+/* Controls share a capped width beneath their labels */
 form.generic-form .field__grid > :is(input, select, textarea),
 form.generic-form .field__grid > .field__control {
 	margin: 0;
@@ -830,7 +907,6 @@ form.generic-form .field__hidden {
 }
 .searchhelper > button {
 	flex: 0 0 auto;
-	padding: 0.3rem 1rem;
 }
 
 /* shared form helper/warning copy (grayscale: warnings read as emphasis, not color) */
@@ -1143,38 +1219,23 @@ header[role="banner"] + .callout-emphasis {
 	}
 }
 
-/* ----------------------------------------------------------------------------
- * Design / template list pages (admin/designs/index.astro, admin/designs/templates.astro)
- * ------------------------------------------------------------------------- */
-
-/* Without an explicit gap here, this section sits only the description paragraph's own 0.35rem margin
- * below it (admin-entities.css:907) and reads as the description's caption rather than a new section */
-.design-create {
-	margin-top: 1.5rem;
+/* Shared administrative lists */
+.admin-table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
 }
-.design-create form {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: end;
-	gap: 1rem;
-	margin-block: 1rem;
-}
-.design-create label {
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-}
-.design-table {
+.admin-table {
 	border-collapse: collapse;
 	width: 100%;
 }
-.design-table th,
-.design-table td {
+.admin-table th,
+.admin-table td {
 	border: 1px solid var(--shade-4);
 	padding: 0.5rem 0.75rem;
-	text-align: left !important;
+	text-align: left;
+	vertical-align: top;
 }
-.design-table th {
+.admin-table th {
 	background: var(--shade-2);
 }
 
@@ -1288,10 +1349,6 @@ main.admin-main {
 .import-phasemap-row span {
 	min-width: 20ch;
 	font-weight: 600;
-}
-
-#transaction-status {
-	white-space: pre-wrap;
 }
 
 /* ----------------------------------------------------------------------------

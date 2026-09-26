@@ -92,7 +92,9 @@ export const prerender = false
                     <button type="submit">Execute</button>
                 </form>
             </div>
-            <p id="transaction-status">Your request status will show here after you press "Execute".</p>
+            <p id="transaction-status" role="status" aria-live="polite" aria-atomic="true">
+                Your request status will show here after you press "Execute".
+            </p>
             <div id="advanced-command-output" class="command__output hidden">
                 <div class="command__view-toggle" role="group" aria-label="Response view">
                     <button type="button" id="command-view-formatted" class="command__view-button" aria-pressed="true">
