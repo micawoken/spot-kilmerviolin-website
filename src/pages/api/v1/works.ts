@@ -48,12 +48,11 @@ import { authEnabled } from "../../../lib/api/environment"
 
 /**
  * GET /api/v1/works
- * Returns a list of work IDs, or a list of work records if the "full" meta param is set to true
+ * Returns a list of work IDs, or a list of work records if the "full" query parameter is set to true
  *
  * Permissions required: none
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - full: {boolean} if true, returns full work records; if false or not provided, returns only work IDs
  * - names: {boolean} if true (and full is true), each record is returned as a CompositionWithNames object
  *   ({ object, names }) with the referenced composer and contributor names resolved; off by default
@@ -66,12 +65,12 @@ import { authEnabled } from "../../../lib/api/environment"
 export const GET: APIRoute = async (context): Promise<Response> => {
     const { request, locals } = context
     if (locals.buildTokenAuth) {
-        const build_request = await parseAPIRequest(request, [])
+        const build_request = await parseAPIRequest(request, ["full"])
         if (build_request instanceof Error) {
             return constructResponse(request, null, 400, build_request.message)
         }
         if (build_request.meta?.full !== true) {
-            return constructResponse(request, null, 400, "Build token requests require meta 'full': true")
+            return constructResponse(request, null, 400, "Build token requests require query parameter full=true")
         }
         try {
             const data = await listCompositions(context.locals.cfContext)
@@ -92,14 +91,9 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, []) // meta is optional; parse it so the "full" field is honored
+    const api_request = await parseAPIRequest(request, ["full", "names"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
-    }
-    // the optional "names" flag enriches full records with resolved composer names; reject invalid values
-    const names_flag = api_request.meta?.names
-    if (names_flag !== undefined && typeof names_flag !== "boolean") {
-        return constructResponse(request, null, 400, "Invalid value for meta field 'names': must be a boolean")
     }
     try {
         const data = await listCompositions(context.locals.cfContext)
@@ -110,27 +104,21 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         // headers (Last-Modified, X-Created-At), sent on every shape (full records, names-enriched, or
         // the ID-only list)
         const timing_headers = { ...lastModifiedHeader(data), ...createdAtHeader(data) }
-        switch (api_request.meta?.full) {
-            case true:
-                // return full composition records, optionally paired with resolved names
-                if (names_flag === true) {
-                    return constructResponse(
-                        request,
-                        await attachCompositionNames(context.locals.cfContext, data),
-                        200,
-                        undefined,
-                        timing_headers
-                    )
-                }
-                return constructResponse(request, data, 200, undefined, timing_headers)
-            case false:
-            case undefined:
-                // return composition IDs only
-                const ids = data.map((record) => record.id)
-                return constructResponse(request, ids, 200, undefined, timing_headers)
-            default:
-                return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
+        if (api_request.meta?.full === true) {
+            // full composition records, optionally paired with resolved names
+            if (api_request.meta.names === true) {
+                return constructResponse(
+                    request,
+                    await attachCompositionNames(context.locals.cfContext, data),
+                    200,
+                    undefined,
+                    timing_headers
+                )
+            }
+            return constructResponse(request, data, 200, undefined, timing_headers)
         }
+        const ids = data.map((record) => record.id)
+        return constructResponse(request, ids, 200, undefined, timing_headers)
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
@@ -143,8 +131,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: none (but a non-admin may only create compositions on which they are a primary
  * contributor; the CSV import that drives multi-item requests is admin-gated at the page level)
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - bulk: {boolean} required to be true when the body carries more than one item
  * - dry_run: {boolean} if true, validate/authorize/conflict-check every item and return a per-row report
  *   without writing anything (backs the import preview)
@@ -162,8 +149,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request (meta parsed so the bulk/dry_run signals are honored)
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["bulk", "dry_run"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }

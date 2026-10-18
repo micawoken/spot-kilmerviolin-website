@@ -43,13 +43,13 @@ interface APIResponse {
  * The shape of an API request
  *
  * @namespace APIRequest
- * @property {Record<string, string>} meta - a record of string key-value pairs with additional request info; currently not implemented
+ * @property {Record<string, boolean>} meta - the boolean options sent as query parameters; present only when the route declares the options it accepts
  * @property {Array<any>} payload - the data to be used during the API call, as an array of any shape (endpoint-dependent)
  */
 type APIRequest = Readonly<APIRequestPrimitive>
 
 interface APIRequestPrimitive {
-    meta?: Record<string, string | boolean | number | null>
+    meta?: Record<string, boolean>
     payload: any[] | null
 }
 

@@ -37,12 +37,11 @@ import { MAX_MULTIPART_OVERHEAD_BYTES, readBoundedFormData, RequestBodyTooLargeE
 
 /**
  * GET /api/v1/files
- * Returns a list of file keys, or a list of full file metadata records if the "full" meta param is set to true
+ * Returns a list of file keys, or a list of full file metadata records if the "full" query parameter is set to true
  *
  * Permissions required: none (authenticated identity)
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - full: {boolean} if true, returns full FileMeta records; if false or not provided, returns only file keys
  *
  * Body: none
@@ -57,27 +56,20 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request; meta is optional, parsed so the "full" field is honored
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["full"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
     try {
         const data = await listFiles(context.locals.cfContext)
-        switch (api_request.meta?.full) {
-            case true:
-                return constructResponse(request, data, 200)
-            case false:
-            case undefined:
-                // return file keys only
-                return constructResponse(
-                    request,
-                    data.map((file) => file.key),
-                    200
-                )
-            default:
-                return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
+        if (api_request.meta?.full === true) {
+            return constructResponse(request, data, 200)
         }
+        return constructResponse(
+            request,
+            data.map((file) => file.key),
+            200
+        )
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Unknown error")
     }
