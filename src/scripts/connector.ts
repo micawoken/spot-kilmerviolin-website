@@ -49,36 +49,28 @@ function composeUrl(noun: string, subject: string | null = null): string {
 }
 
 /**
- * Internal function to generate the X-MWMSC-Request-Meta header
+ * Request options sent as boolean query parameters (ex. full, elevate, bulk)
  *
- * The X-MWMSC-Request-Meta header is used to pass optional request information to modify the server's output. Use cases include, but are not limited to, requesting full object records instead of just IDs and requesting elevation of the request operation. The header contents should be formatted as a simple JS object, serialized to a JSON string. The server-side API parser enforces a maximum length of 512 characters for the header.
- *
- * @param objects the object to be stringified and included in the header
- * @returns the stringified object, or undefined if the input is not an object
+ * Options left undefined are omitted, so the server applies its default.
  */
-function _constructMeta(objects: object | null | undefined): string | undefined {
-    if (objects === undefined || objects === null) {
-        return undefined
-    }
-    if (typeof objects !== "object") {
-        return undefined
-    }
-    return JSON.stringify(objects)
-}
+type RequestOptions = Record<string, boolean | undefined>
 
 /**
- * Wrapper around _constructMeta to enforce header length limit and handle undefined
+ * Appends request options to a URL as query parameters
  *
- * @param objects the object to be included in the header
- * @returns an object containing the X-MWMSC-Request-Meta header if the meta value is valid, or an empty object if the meta value is undefined or exceeds length limits
+ * @param url the request URL
+ * @param options the boolean options to send; undefined values are skipped
+ * @returns the URL with a query string, or the URL unchanged if there are no options to send
  */
-function constructMeta(objects: object | null | undefined): Record<string, string> {
-    const meta_value = _constructMeta(objects)
-    if (meta_value && meta_value.length > 512) {
-        console.warn("Meta header value exceeds maximum length of 512 characters and will be omitted: ", meta_value)
-        return {}
+function withOptions(url: string, options: RequestOptions | null | undefined): string {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(options ?? {})) {
+        if (value !== undefined) {
+            params.set(key, String(value))
+        }
     }
-    return meta_value ? { "X-MWMSC-Request-Meta": meta_value } : {}
+    const query = params.toString()
+    return query === "" ? url : `${url}?${query}`
 }
 
 // API RESPONSE PROCESSING
@@ -217,36 +209,38 @@ function interpretPayload(data_response: APIResponse | string | undefined) {
  *
  * @param method the HTTP method
  * @param item the single body item to send, or undefined for a body-less request
- * @param meta optional request-meta object for the X-MWMSC-Request-Meta header
  * @returns the assembled fetch init
  */
-function jsonInit(method: string, item?: unknown, meta?: object | null): RequestInit {
-    const headers: Record<string, string> = { ...constructMeta(meta) }
-    const init: RequestInit = { method, headers }
-    if (item !== undefined) {
-        headers["Content-Type"] = "application/json"
-        init.body = JSON.stringify([item])
+function jsonInit(method: string, item?: unknown): RequestInit {
+    if (item === undefined) {
+        return { method }
     }
-    return init
+    return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify([item]) }
 }
 
 /**
  * Builds a RequestInit for a bulk API call.
  *
- * Unlike {@link jsonInit}, the items array is sent as-is (not wrapped), and the `bulk` meta signal is set
- * automatically (the server requires it for multi-item bodies)
+ * Unlike {@link jsonInit}, the items array is sent as-is (not wrapped). Pair it with {@link bulkUrl}, since
+ * the server requires the `bulk` option for multi-item bodies.
  *
  * @param method the HTTP method
  * @param items the body items to send (sent as a JSON array)
- * @param meta optional extra request-meta merged with `{ bulk: true }`
  * @returns the assembled fetch init
  */
-function jsonInitBulk(method: string, items: unknown[], meta?: object | null): RequestInit {
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...constructMeta({ ...(meta ?? {}), bulk: true })
-    }
-    return { method, headers, body: JSON.stringify(items) }
+function jsonInitBulk(method: string, items: unknown[]): RequestInit {
+    return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(items) }
+}
+
+/**
+ * Builds the URL of a bulk collection call, with the `bulk` option set
+ *
+ * @param noun the API object representation to access
+ * @param options extra options merged with `{ bulk: true }`
+ * @returns the request URL
+ */
+function bulkUrl(noun: string, options?: RequestOptions): string {
+    return withOptions(composeUrl(noun), { ...options, bulk: true })
 }
 
 /**
@@ -291,7 +285,7 @@ async function requestVoid(
 export type BulkNoun = "composers" | "contributors" | "works"
 
 /**
- * The per-row report returned by a bulk dry-run (meta.dry_run = true): the server validated, authorized,
+ * The per-row report returned by a bulk dry-run (dry_run=true): the server validated, authorized,
  * and conflict-checked every row without writing anything
  */
 export interface BulkDryRunReport {
@@ -313,7 +307,7 @@ export interface BulkDryRunReport {
  * @returns the dry-run report
  */
 export async function bulkDryRun(noun: BulkNoun, items: unknown[]): Promise<BulkDryRunReport> {
-    const payload = await requestPayload(composeUrl(noun), jsonInitBulk("POST", items, { dry_run: true }))
+    const payload = await requestPayload(bulkUrl(noun, { dry_run: true }), jsonInitBulk("POST", items))
     return payload as BulkDryRunReport
 }
 
@@ -327,7 +321,7 @@ export async function bulkDryRun(noun: BulkNoun, items: unknown[]): Promise<Bulk
  * @returns the ids of the created records, in input order
  */
 export async function bulkCreate(noun: BulkNoun, items: unknown[]): Promise<number[]> {
-    const payload = await requestPayload(composeUrl(noun), jsonInitBulk("POST", items), "Location")
+    const payload = await requestPayload(bulkUrl(noun), jsonInitBulk("POST", items), "Location")
     if (Array.isArray(payload)) {
         return payload as number[]
     }
@@ -358,7 +352,7 @@ export enum APIOpCode {
  * @returns a list of composer IDs, a list of Composer objects, or undefined
  */
 export async function listComposer(full?: boolean): Promise<any | null> {
-    return requestPayload(composeUrl("composers"), jsonInit("GET", undefined, { full: full }))
+    return requestPayload(withOptions(composeUrl("composers"), { full }), jsonInit("GET"))
 }
 
 /**
@@ -440,7 +434,7 @@ export function isCompositionWithNames(
  *   Composition objects, a list of CompositionWithNames objects (when names is set), or undefined
  */
 export async function listWork(full?: boolean, names?: boolean): Promise<any | null> {
-    return requestPayload(composeUrl("works"), jsonInit("GET", undefined, { full: full, names: names }))
+    return requestPayload(withOptions(composeUrl("works"), { full, names }), jsonInit("GET"))
 }
 
 /**
@@ -452,7 +446,7 @@ export async function listWork(full?: boolean, names?: boolean): Promise<any | n
  *   name-enhanced depending on the names flag), or null if not found
  */
 export async function getWork(id: number, names?: boolean): Promise<Composition | CompositionWithNames | null> {
-    return requestPayload(composeUrl("works", id.toString()), jsonInit("GET", undefined, { names: names }))
+    return requestPayload(withOptions(composeUrl("works", id.toString()), { names }), jsonInit("GET"))
 }
 
 /**
@@ -486,8 +480,8 @@ export async function createWork(data: Composition): Promise<number> {
 export async function replaceWork(id: number, data: Composition, elevate?: boolean, direct?: boolean): Promise<void> {
     return requestVoid(
         "update",
-        composeUrl("works", id.toString()),
-        jsonInit("PUT", data, { elevate: elevate, direct_contrib: direct })
+        withOptions(composeUrl("works", id.toString()), { elevate, direct_contrib: direct }),
+        jsonInit("PUT", data)
     )
 }
 
@@ -508,8 +502,8 @@ export async function updateWork(
 ): Promise<void> {
     return requestVoid(
         "update",
-        composeUrl("works", id.toString()),
-        jsonInit("PATCH", data, { elevate: elevate, direct_contrib: direct })
+        withOptions(composeUrl("works", id.toString()), { elevate, direct_contrib: direct }),
+        jsonInit("PATCH", data)
     )
 }
 
@@ -521,11 +515,7 @@ export async function updateWork(
  * @return
  */
 export async function deleteWork(id: number, elevate?: boolean): Promise<void> {
-    return requestVoid(
-        "delete",
-        composeUrl("works", id.toString()),
-        jsonInit("DELETE", undefined, { elevate: elevate })
-    )
+    return requestVoid("delete", withOptions(composeUrl("works", id.toString()), { elevate }), jsonInit("DELETE"))
 }
 
 /**
@@ -535,7 +525,7 @@ export async function deleteWork(id: number, elevate?: boolean): Promise<void> {
  * @returns a list of contributor IDs, a list of Contributor objects, or undefined
  */
 export async function listContributor(full?: boolean): Promise<any | null> {
-    return requestPayload(composeUrl("contributors"), jsonInit("GET", undefined, { full: full }))
+    return requestPayload(withOptions(composeUrl("contributors"), { full }), jsonInit("GET"))
 }
 
 /**
@@ -546,7 +536,7 @@ export async function listContributor(full?: boolean): Promise<any | null> {
  * @return the Contributor object corresponding to the provided ID, or null if not found
  */
 export async function getContributor(id: number, elevate?: boolean): Promise<Contributor | null> {
-    return requestPayload(composeUrl("contributors", id.toString()), jsonInit("GET", undefined, { elevate: elevate }))
+    return requestPayload(withOptions(composeUrl("contributors", id.toString()), { elevate }), jsonInit("GET"))
 }
 
 /**
@@ -586,8 +576,8 @@ export async function replaceContributor(id: number, data: Contributor): Promise
 export async function updateContributor(id: number, data: Partial<Contributor>, elevate?: boolean): Promise<void> {
     return requestVoid(
         "update",
-        composeUrl("contributors", id.toString()),
-        jsonInit("PATCH", data, { elevate: elevate })
+        withOptions(composeUrl("contributors", id.toString()), { elevate }),
+        jsonInit("PATCH", data)
     )
 }
 
@@ -647,7 +637,7 @@ export function fileApiUrl(key: string): string {
  * @returns a list of file keys, a list of FileMeta objects, or null
  */
 export async function listFiles(full?: boolean): Promise<string[] | FileMeta[] | null> {
-    return requestPayload(composeUrl("files"), jsonInit("GET", undefined, { full: full }))
+    return requestPayload(withOptions(composeUrl("files"), { full }), jsonInit("GET"))
 }
 
 /**
@@ -767,17 +757,8 @@ export async function addIdentity(
     major?: string | null,
     class_year?: number | null
 ): Promise<void> {
-    return requestVoid(
-        "addIdentity",
-        composeUrl("identity"),
-        jsonInit("POST", email, {
-            autoenrollment: autoenrollment,
-            confer: confer,
-            name: name,
-            major: major,
-            class_year: class_year
-        })
-    )
+    const item = autoenrollment ? { email, enroll: { confer, name, major, class_year } } : { email }
+    return requestVoid("addIdentity", composeUrl("identity"), jsonInit("POST", item))
 }
 
 /**
@@ -872,8 +853,8 @@ export async function changeIdentityEmail(email_map: Record<string, string>): Pr
 export async function deleteIdentity(email: string, autodeactivation?: boolean): Promise<void> {
     return requestVoid(
         "deleteIdentity",
-        composeUrl("identity"),
-        jsonInit("DELETE", email, { autodeactivation: autodeactivation })
+        withOptions(composeUrl("identity"), { autodeactivation }),
+        jsonInit("DELETE", email)
     )
 }
 
@@ -902,7 +883,7 @@ export interface IssuedApiToken extends ApiTokenSummary {
  * @returns the matching token summaries
  */
 export async function listTokens(all?: boolean): Promise<ApiTokenSummary[] | null> {
-    return requestPayload(composeUrl("tokens"), jsonInit("GET", undefined, { all: all }))
+    return requestPayload(withOptions(composeUrl("tokens"), { all }), jsonInit("GET"))
 }
 
 /**
@@ -994,7 +975,7 @@ export async function getSite(): Promise<any | null> {
  *   instead of the standard one
  */
 export async function rebuildSite(elevate?: boolean): Promise<any | null> {
-    return requestPayload(composeUrl("site"), jsonInit("POST", undefined, { elevate: elevate }))
+    return requestPayload(withOptions(composeUrl("site"), { elevate }), jsonInit("POST"))
 }
 
 /**
@@ -1015,11 +996,7 @@ export async function purgeSite(): Promise<any | null> {
  * @returns execution result (a single D1Result, or an array of D1Results for multiple commands)
  */
 export async function executeCommand(commands: string[], batch: boolean = true): Promise<any> {
-    // the body is the command list itself (not the single-item array convention), so it is serialized
-    // directly rather than through jsonInit; the batch flag travels in the request-meta header
-    const headers: Record<string, string> = { "Content-Type": "application/json", ...constructMeta({ batch }) }
-    const init: RequestInit = { method: "POST", headers, body: JSON.stringify(commands) }
-    return requestPayload(composeUrl("command"), init)
+    return requestPayload(withOptions(composeUrl("command"), { batch }), jsonInitBulk("POST", commands))
 }
 
 /**

@@ -67,8 +67,7 @@ function getConfig(): BuildApiConfig | null {
             Accept: "application/json",
             "CF-Access-Client-Id": clientId,
             "CF-Access-Client-Secret": clientSecret,
-            "X-Build-Token": buildToken,
-            "X-MWMSC-Request-Meta": JSON.stringify({ full: true })
+            "X-Build-Token": buildToken
         }
     }
 }
@@ -118,7 +117,7 @@ interface ApiEnvelope<T> {
 }
 
 /**
- * GETs one of the three build-token-whitelisted collection routes with meta.full=true and returns its
+ * GETs one of the three build-token-whitelisted collection routes with `?full=true` and returns its
  * already-formatted records. Returns null when the build API is unconfigured; throws
  * {@link BuildTokenReadError} when configured but the read does not succeed.
  *
@@ -142,7 +141,7 @@ async function fetchFullCollection<T>(path: string): Promise<T[] | null> {
 
         let response: Response
         try {
-            response = await fetch(`${config.base}${path}`, {
+            response = await fetch(`${config.base}${path}?full=true`, {
                 headers: config.headers,
                 signal: AbortSignal.timeout(BUILD_API_READ_TIMEOUT_MS)
             })
@@ -166,7 +165,7 @@ async function fetchFullCollection<T>(path: string): Promise<T[] | null> {
         }
 
         if (!body.success) {
-            // An API-level failure (invalid meta, an unrecognized token) reads the same on every retry.
+            // An API-level failure (invalid options, an unrecognized token) reads the same on every retry.
             reason = body.comment || "the API reported failure with no error detail"
             break
         }
