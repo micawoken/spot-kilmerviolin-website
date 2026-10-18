@@ -67,6 +67,8 @@ export default defineConfig({
         // not manage any route we render
         emdash({
             maxUploadSize: 25 * 1024 * 1024,
+            // EmDash injects /_emdash/api/mcp unless this is false; its media tools skip the upload guards
+            mcp: false,
             database: d1({ binding: "EMDASH_DB" }),
             // publicUrl makes EmDash resolve media to a public URL instead of the Access-gated
             // /_emdash/api/media/file proxy

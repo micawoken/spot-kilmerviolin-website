@@ -28,6 +28,7 @@
  */
 
 import { sequence } from "astro/middleware"
+import { pathNormalization } from "./path_normalization"
 import { requestContext } from "./context"
 import { preflight } from "./preflight"
 import { identity } from "./identity"
@@ -38,6 +39,7 @@ import { securityHeaders } from "./headers"
 
 export const onRequest = sequence(
     securityHeaders,
+    pathNormalization,
     requestContext,
     preflight,
     rateLimitIp,
