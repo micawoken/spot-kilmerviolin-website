@@ -42,12 +42,11 @@ import {
 
 /**
  * GET /api/v1/tokens
- * Lists the caller's own API tokens, or every token issued to any contributor when meta.all is true
+ * Lists the caller's own API tokens, or every token issued to any contributor when the `all` query parameter is true
  *
- * Permissions required: none (self); *admin* for meta.all
+ * Permissions required: none (self); *admin* for `all`
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - all: {boolean} if true, list every issued token instead of only the caller's own; admin only
  *
  * Body: none
@@ -66,18 +65,14 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (locals.tokenAuth) {
         return constructResponse(request, null, 403, "Forbidden: token-authenticated requests cannot manage tokens")
     }
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["all"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
-    const all_flag = api_request.meta?.all
-    if (all_flag !== undefined && typeof all_flag !== "boolean") {
-        return constructResponse(request, null, 400, "Invalid value for meta field 'all': must be a boolean")
-    }
     try {
-        if (all_flag === true) {
+        if (api_request.meta?.all === true) {
             if (!locals.identity!.admin) {
-                return constructResponse(request, null, 403, "Forbidden: meta field 'all' requires admin")
+                return constructResponse(request, null, 403, "Forbidden: query parameter 'all' requires admin")
             }
             return constructResponse(request, await listAllApiTokens(), 200)
         }

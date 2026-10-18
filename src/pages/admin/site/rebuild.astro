@@ -96,7 +96,7 @@ const is_admin = Astro.locals.identity?.admin === true
                 const button = document.getElementById("site-rebuild-button") as HTMLButtonElement
                 const message = getTransactionElem()
                 // absent entirely for a non-admin (see is_admin in the frontmatter); the server independently
-                // re-checks admin status on the meta.elevate flag, so this checkbox is a UI convenience only
+                // re-checks admin status on the elevate query parameter, so this checkbox is a UI convenience only
                 const overrideCheckbox = document.getElementById(
                     "site-rebuild-admin-override"
                 ) as HTMLInputElement | null

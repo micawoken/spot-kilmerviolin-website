@@ -26,7 +26,7 @@
                 "summary": "Run SQL commands (admin)",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryBatch"
                     }
                 ],
                 "requestBody": {
@@ -83,7 +83,7 @@
                 "summary": "List composer ids or records",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryFull"
                     }
                 ],
                 "responses": {
@@ -124,7 +124,10 @@
                 "summary": "Create composer records",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryBulk"
+                    },
+                    {
+                        "$ref": "#/components/parameters/QueryDryRun"
                     }
                 ],
                 "requestBody": {
@@ -183,9 +186,6 @@
                 "parameters": [
                     {
                         "$ref": "#/components/parameters/Id"
-                    },
-                    {
-                        "$ref": "#/components/parameters/Meta"
                     }
                 ],
                 "responses": {
@@ -227,9 +227,6 @@
                 "parameters": [
                     {
                         "$ref": "#/components/parameters/Id"
-                    },
-                    {
-                        "$ref": "#/components/parameters/Meta"
                     }
                 ],
                 "requestBody": {
@@ -286,9 +283,6 @@
                 "parameters": [
                     {
                         "$ref": "#/components/parameters/Id"
-                    },
-                    {
-                        "$ref": "#/components/parameters/Meta"
                     }
                 ],
                 "requestBody": {
@@ -345,9 +339,6 @@
                 "parameters": [
                     {
                         "$ref": "#/components/parameters/Id"
-                    },
-                    {
-                        "$ref": "#/components/parameters/Meta"
                     }
                 ],
                 "responses": {
@@ -531,7 +522,7 @@
                 "summary": "List contributor ids or records",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryFull"
                     }
                 ],
                 "responses": {
@@ -572,7 +563,10 @@
                 "summary": "Create contributor records",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryBulk"
+                    },
+                    {
+                        "$ref": "#/components/parameters/QueryDryRun"
                     }
                 ],
                 "requestBody": {
@@ -633,7 +627,7 @@
                         "$ref": "#/components/parameters/Id"
                     },
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryElevate"
                     }
                 ],
                 "responses": {
@@ -675,9 +669,6 @@
                 "parameters": [
                     {
                         "$ref": "#/components/parameters/Id"
-                    },
-                    {
-                        "$ref": "#/components/parameters/Meta"
                     }
                 ],
                 "requestBody": {
@@ -736,7 +727,7 @@
                         "$ref": "#/components/parameters/Id"
                     },
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryElevate"
                     }
                 ],
                 "requestBody": {
@@ -793,9 +784,6 @@
                 "parameters": [
                     {
                         "$ref": "#/components/parameters/Id"
-                    },
-                    {
-                        "$ref": "#/components/parameters/Meta"
                     }
                 ],
                 "responses": {
@@ -838,7 +826,7 @@
                 "summary": "List file keys or metadata",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryFull"
                     }
                 ],
                 "responses": {
@@ -1122,11 +1110,6 @@
             "post": {
                 "tags": ["identity"],
                 "summary": "Add a user to Access",
-                "parameters": [
-                    {
-                        "$ref": "#/components/parameters/Meta"
-                    }
-                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -1136,8 +1119,36 @@
                                 "minItems": 1,
                                 "maxItems": 1,
                                 "items": {
-                                    "type": "string",
-                                    "maxLength": 320
+                                    "type": "object",
+                                    "required": ["email"],
+                                    "properties": {
+                                        "email": {
+                                            "type": "string",
+                                            "maxLength": 320
+                                        },
+                                        "enroll": {
+                                            "type": "object",
+                                            "description": "If present, create a contributor record to bypass the self-enrollment flow",
+                                            "required": ["confer", "name"],
+                                            "properties": {
+                                                "confer": {
+                                                    "type": "boolean",
+                                                    "description": "Confer the acting identity's conferrable permissions"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "major": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "class_year": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1232,7 +1243,7 @@
                 "summary": "Remove a user from Access",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryAutodeactivation"
                     }
                 ],
                 "requestBody": {
@@ -1922,7 +1933,7 @@
                 "summary": "Purge cache and trigger a rebuild",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryElevate"
                     }
                 ],
                 "responses": {
@@ -2001,7 +2012,7 @@
                 "summary": "List API tokens",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryAll"
                     }
                 ],
                 "responses": {
@@ -2270,7 +2281,10 @@
                 "summary": "List work ids or records",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryFull"
+                    },
+                    {
+                        "$ref": "#/components/parameters/QueryNames"
                     }
                 ],
                 "responses": {
@@ -2311,7 +2325,10 @@
                 "summary": "Create work records",
                 "parameters": [
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryBulk"
+                    },
+                    {
+                        "$ref": "#/components/parameters/QueryDryRun"
                     }
                 ],
                 "requestBody": {
@@ -2372,7 +2389,7 @@
                         "$ref": "#/components/parameters/Id"
                     },
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryNames"
                     }
                 ],
                 "responses": {
@@ -2416,7 +2433,10 @@
                         "$ref": "#/components/parameters/Id"
                     },
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryElevate"
+                    },
+                    {
+                        "$ref": "#/components/parameters/QueryDirectContrib"
                     }
                 ],
                 "requestBody": {
@@ -2475,7 +2495,10 @@
                         "$ref": "#/components/parameters/Id"
                     },
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryElevate"
+                    },
+                    {
+                        "$ref": "#/components/parameters/QueryDirectContrib"
                     }
                 ],
                 "requestBody": {
@@ -2534,7 +2557,7 @@
                         "$ref": "#/components/parameters/Id"
                     },
                     {
-                        "$ref": "#/components/parameters/Meta"
+                        "$ref": "#/components/parameters/QueryElevate"
                     }
                 ],
                 "responses": {
@@ -2662,14 +2685,85 @@
                     "minLength": 1
                 }
             },
-            "Meta": {
-                "name": "X-MWMSC-Request-Meta",
-                "in": "header",
+            "QueryFull": {
+                "name": "full",
+                "in": "query",
                 "required": false,
-                "description": "Optional JSON object of per-request options (e.g. full, bulk, dry_run); parsed server-side",
+                "description": "Return full records instead of IDs (files: FileMeta records instead of keys)",
                 "schema": {
-                    "type": "string",
-                    "maxLength": 512
+                    "type": "boolean"
+                }
+            },
+            "QueryNames": {
+                "name": "names",
+                "in": "query",
+                "required": false,
+                "description": "With full (works list) or on a single work, resolve composer and contributor names",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryBulk": {
+                "name": "bulk",
+                "in": "query",
+                "required": false,
+                "description": "Required when the body carries more than one item",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryDryRun": {
+                "name": "dry_run",
+                "in": "query",
+                "required": false,
+                "description": "Validate every item and return a per-row report without writing anything",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryElevate": {
+                "name": "elevate",
+                "in": "query",
+                "required": false,
+                "description": "Admin only: bypass the safe-property check or apply the admin override",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryDirectContrib": {
+                "name": "direct_contrib",
+                "in": "query",
+                "required": false,
+                "description": "The caller is managing contributors directly; the editor is not auto-added to contrib_addl",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryAll": {
+                "name": "all",
+                "in": "query",
+                "required": false,
+                "description": "Admin only: list every issued token instead of only the caller's own",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryAutodeactivation": {
+                "name": "autodeactivation",
+                "in": "query",
+                "required": false,
+                "description": "Deactivate the associated contributor record when removing the user (default true)",
+                "schema": {
+                    "type": "boolean"
+                }
+            },
+            "QueryBatch": {
+                "name": "batch",
+                "in": "query",
+                "required": false,
+                "description": "Run multiple commands as one atomic batch (default true)",
+                "schema": {
+                    "type": "boolean"
                 }
             }
         },
