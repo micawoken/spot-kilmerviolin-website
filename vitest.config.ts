@@ -23,7 +23,7 @@
  */
 
 import { createRequire } from "node:module"
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers"
+import { cloudflareTest } from "@cloudflare/vitest-plugin"
 import { configDefaults, defineConfig } from "vitest/config"
 
 // obscenity's "module"/"import" export condition (dist/index.mjs) re-exports its CJS build through a

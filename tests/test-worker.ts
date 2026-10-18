@@ -1,5 +1,5 @@
 /**
- * Stub Worker entrypoint for vitest-pool-workers
+ * Stub Worker entrypoint for vitest-plugin
  *
  * Copyright (C) 2026 Michael Wong.
  *
