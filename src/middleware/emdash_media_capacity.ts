@@ -1,7 +1,8 @@
 /**
  * middleware/emdash_media_capacity.ts
  *
- * Bounds EmDash media upload bodies and reserves shared R2 capacity before the request reaches EmDash
+ * Bounds EmDash media upload bodies and reserves shared R2 capacity before the request reaches EmDash,
+ * and disables its signed-upload flow, which would otherwise skip those guards
  *
  *
  * Copyright (C) 2026 Michael Wong.
@@ -31,6 +32,10 @@ import { maxUploadBytes, R2CapacityError } from "../lib/api/r2"
 import { adjustR2Usage, claimR2Capacity } from "../lib/api/r2-quota"
 
 const MEDIA_UPLOAD_PATH = "/_emdash/api/media"
+const SIGNED_UPLOAD_PATH = "/_emdash/api/media/upload-url"
+const PENDING_UPLOAD_PATH = /^\/_emdash\/api\/media\/[^/]+\/upload$/
+const PENDING_CONFIRM_PATH = /^\/_emdash\/api\/media\/[^/]+\/confirm$/
+const REPLACE_PATH = /^\/_emdash\/api\/media\/[^/]+\/replace$/
 const BLOCKED_EXTENSIONS = [".avif", ".heic", ".heif", ".icns", ".jxl"]
 const BLOCKED_MEDIA_TYPES = new Set([
     "image/avif",
@@ -74,12 +79,30 @@ export async function isBlockedImage(file: File): Promise<boolean> {
     return ["avif", "heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(ascii(bytes, 8, 12))
 }
 
-export const emdashMediaCapacity: MiddlewareHandler = async (context, next) => {
-    const url = new URL(context.request.url)
-    if (context.request.method !== "POST" || url.pathname !== MEDIA_UPLOAD_PATH) {
-        return next()
-    }
+/**
+ * Whether a request belongs to EmDash's signed-upload flow: upload-url, then a PUT of the bytes, then confirm
+ *
+ * With an R2 binding EmDash answers upload-url with a Worker-proxied PUT URL instead of 501, so the admin
+ * client never reaches the guarded multipart route.
+ */
+function isSignedUploadRoute(method: string, pathname: string): boolean {
+    if (method === "POST" && pathname === SIGNED_UPLOAD_PATH) return true
+    if (method === "PUT" && PENDING_UPLOAD_PATH.test(pathname)) return true
+    return method === "POST" && PENDING_CONFIRM_PATH.test(pathname)
+}
 
+/**
+ * Applies the size, format and capacity guards to a multipart upload before EmDash stores it
+ *
+ * @param {Parameters<MiddlewareHandler>[0]} context - the request context
+ * @param {() => Promise<Response>} next - EmDash's handler
+ * @param {number} storedStatus - the status EmDash answers when it wrote new bytes; any other outcome releases the claim
+ */
+async function guardUpload(
+    context: Parameters<MiddlewareHandler>[0],
+    next: () => Promise<Response>,
+    storedStatus: number
+): Promise<Response> {
     const uploadLimit = maxUploadBytes()
     let file: File
     try {
@@ -114,7 +137,7 @@ export const emdashMediaCapacity: MiddlewareHandler = async (context, next) => {
         const response = await next()
         // EmDash answers a stored upload with 201; every other outcome - including the 200 it returns when
         // a content hash already exists - writes no new bytes, so the reservation is given back
-        if (response.status !== 201) {
+        if (response.status !== storedStatus) {
             await adjustR2Usage(-file.size)
         }
         return response
@@ -122,4 +145,22 @@ export const emdashMediaCapacity: MiddlewareHandler = async (context, next) => {
         await adjustR2Usage(-file.size)
         throw error
     }
+}
+
+export const emdashMediaCapacity: MiddlewareHandler = async (context, next) => {
+    const { method } = context.request
+    const { pathname } = new URL(context.request.url)
+
+    if (method === "POST" && pathname === MEDIA_UPLOAD_PATH) {
+        return guardUpload(context, next, 201)
+    }
+    // a replacement overwrites the stored object, so the claim also counts the replaced bytes until the
+    // quota object's hourly reconcile corrects the total
+    if (method === "PUT" && REPLACE_PATH.test(pathname)) {
+        return guardUpload(context, next, 200)
+    }
+    if (isSignedUploadRoute(method, pathname)) {
+        return errorResponse("NOT_SUPPORTED", "Signed uploads are disabled; upload through the media library", 501)
+    }
+    return next()
 }
