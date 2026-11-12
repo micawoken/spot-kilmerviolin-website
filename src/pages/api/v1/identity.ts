@@ -583,7 +583,7 @@ async function _parseIdEmail(
  * Permissions required: one of (*admin*, user_addition)
  *
  * Query parameters: optional
- *  - autodeactivation: {boolean} Specifies whether to automatically deactivate the contributor record; defaults to true
+ *  - autodeactivation: {boolean} Whether to also deactivate the contributor record and revoke its API tokens; defaults to true
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
     // accepts an API request payload as a list containing the one email to remove
