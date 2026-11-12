@@ -70,6 +70,9 @@ export type DocumentKind = "page" | "template"
 /** Debounced-save state, surfaced as a small status line in the toolbar. */
 type SaveState = "idle" | "saving" | "saved" | "error"
 
+/** One save's result; a failure carries the message already shown in the toolbar. */
+type SaveOutcome = { ok: true } | { ok: false; error: string }
+
 /** The design item's fields and revision token loaded for editing (both kinds; unused fields empty). */
 interface LoadedDesign {
     doc: DesignDoc
@@ -233,6 +236,8 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     const metaRef = useRef<PageMeta>({ title: "", description: "", slug: "", isDefault: false })
     const collectionRef = useRef("")
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    // Tail of the save queue; each save starts after the previous one so it carries the new `_rev`
+    const saveChainRef = useRef<Promise<SaveOutcome>>(Promise.resolve({ ok: true }))
     const skipFirstChangeRef = useRef(true)
 
     // --- Load ------------------------------------------------------------------------------------
@@ -306,13 +311,6 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
         }
     }, [endpoint, id, kind])
 
-    // Clear a pending autosave timer on unmount.
-    useEffect(() => {
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current)
-        }
-    }, [])
-
     // --- Config (with in-iframe token + component CSS) -------------------------------------------
     const config = useMemo<Config>(() => {
         if (!theme) return { components: {} } as unknown as Config
@@ -333,15 +331,16 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
     }, [theme, kind, previewEntry, schemaFields])
 
     // --- Save ------------------------------------------------------------------------------------
-    const save = useCallback(async (): Promise<void> => {
-        const working = workingRef.current
-        if (!working) return
-        const current = metaRef.current
-        if (current.title.trim() === "") {
+    const writeSave = useCallback(async (keepalive = false): Promise<SaveOutcome> => {
+        const fail = (error: string): SaveOutcome => {
             setSaveState("error")
-            setSaveError("A title is required - set one in Page settings.")
-            return
+            setSaveError(error)
+            return { ok: false, error }
         }
+        const working = workingRef.current
+        if (!working) return { ok: true }
+        const current = metaRef.current
+        if (current.title.trim() === "") return fail("A title is required - set one in Page settings.")
         setSaveState("saving")
         setSaveError("")
         try {
@@ -362,30 +361,59 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
             const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Accept: "application/json", "X-EmDash-Request": "1" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                keepalive
             })
             if (response.status === 409) {
                 setConflict(true)
-                setSaveState("error")
-                setSaveError("This design changed elsewhere.")
-                return
+                return fail("This design changed elsewhere.")
             }
             if (!response.ok) throw new Error(await errorMessage(response))
             const body = (await response.json()) as { data?: { _rev?: string } }
             revRef.current = body.data?._rev
             setSaveState("saved")
+            return { ok: true }
         } catch (error) {
-            setSaveState("error")
-            setSaveError(error instanceof Error ? error.message : String(error))
+            return fail(error instanceof Error ? error.message : String(error))
         }
     }, [endpoint, id, kind])
+
+    /** Queues a save behind any in-flight one; never rejects. */
+    const save = useCallback((): Promise<SaveOutcome> => {
+        const next = saveChainRef.current.then(() => writeSave())
+        saveChainRef.current = next
+        return next
+    }, [writeSave])
+
+    /** Cancels the pending autosave and saves now, so nothing written later can trail a publish. */
+    const flushSave = useCallback((): Promise<SaveOutcome> => {
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = null
+        return save()
+    }, [save])
 
     const scheduleSave = useCallback(() => {
         if (timerRef.current) clearTimeout(timerRef.current)
         timerRef.current = setTimeout(() => {
+            timerRef.current = null
             void save()
         }, AUTOSAVE_DELAY_MS)
     }, [save])
+
+    // Best effort: a keepalive PUT survives page unload only up to the browser's 64 KiB body limit
+    useEffect(() => {
+        const flushOnLeave = () => {
+            if (!timerRef.current) return
+            clearTimeout(timerRef.current)
+            timerRef.current = null
+            void writeSave(true)
+        }
+        window.addEventListener("pagehide", flushOnLeave)
+        return () => {
+            window.removeEventListener("pagehide", flushOnLeave)
+            flushOnLeave()
+        }
+    }, [writeSave])
 
     const handleChange = useCallback(
         (data: Data) => {
@@ -464,8 +492,8 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
         // Blind write: dropping `_rev` bypasses the concurrency check (EmDash permits it).
         revRef.current = undefined
         setConflict(false)
-        await save()
-    }, [save])
+        await flushSave()
+    }, [flushSave])
 
     // --- Publish ---------------------------------------------------------------------------------
     // Template mode blocks on the STRUCTURAL pass only (entry: null); the pass against the preview
@@ -582,7 +610,7 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                     findings={lint.findings}
                     blocked={lint.blocked}
                     pairingAdvisory={kind === "template"}
-                    flushSave={save}
+                    flushSave={flushSave}
                     publish={() => publishDesign(endpoint, id)}
                     onClose={() => setPublishOpen(false)}
                     onPublished={() => setStatus("published")}
@@ -715,7 +743,7 @@ function PublishDialog({
     findings: LintFinding[]
     blocked: boolean
     pairingAdvisory: boolean
-    flushSave: () => Promise<void>
+    flushSave: () => Promise<SaveOutcome>
     publish: () => Promise<void>
     onClose: () => void
     onPublished: () => void
@@ -728,7 +756,8 @@ function PublishDialog({
     const doPublish = async () => {
         setStep("publishing")
         try {
-            await flushSave()
+            const saved = await flushSave()
+            if (!saved.ok) throw new Error(`Not published - the last save failed: ${saved.error}`)
             await publish()
             onPublished()
             setStep("published")
