@@ -142,7 +142,7 @@ describe("build API configured but failing", () => {
 })
 
 describe("outbound request shape", () => {
-    it("carries the Access service-token headers, X-Build-Token, and X-MWMSC-Request-Meta full:true", async () => {
+    it("carries the Access service-token headers and X-Build-Token, and requests ?full=true", async () => {
         const { fetchComposers } = await freshD1Api()
         withConfig()
         const fetchSpy = vi.fn().mockResolvedValue(success([]))
@@ -151,12 +151,12 @@ describe("outbound request shape", () => {
         await fetchComposers()
 
         const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
-        expect(url).toBe("https://kilmer.example.test/api/v1/composers")
+        expect(url).toBe("https://kilmer.example.test/api/v1/composers?full=true")
         const headers = init.headers as Record<string, string>
         expect(headers["CF-Access-Client-Id"]).toBe("client-1")
         expect(headers["CF-Access-Client-Secret"]).toBe("secret-1")
         expect(headers["X-Build-Token"]).toBe("skv_build_tok-1")
-        expect(JSON.parse(headers["X-MWMSC-Request-Meta"])).toEqual({ full: true })
+        expect(headers["X-MWMSC-Request-Meta"]).toBeUndefined()
     })
 })
 
@@ -365,7 +365,7 @@ describe("fetchCompositions - flat CompositionRecord shape (unified field-outlet
         }
 
         const fetchSpy = vi.fn().mockImplementation(async (url: string) => {
-            if (url.endsWith("/api/v1/works")) return success([compositionRecord])
+            if (url.endsWith("/api/v1/works?full=true")) return success([compositionRecord])
             throw new Error(`unexpected request: ${url}`)
         })
         vi.stubGlobal("fetch", fetchSpy)

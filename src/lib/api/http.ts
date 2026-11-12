@@ -101,7 +101,7 @@ export const preflight_headers = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-MWMSC-Request-Meta",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     Vary: "Origin"
 }
 
@@ -544,13 +544,13 @@ export interface BulkCreateHandlers<T> {
  * Shared implementation of the bulk-capable create endpoints (POST composers/contributors/works).
  *
  * @param request the inbound request (for response construction)
- * @param api_request the parsed request (payload array + optional meta); parse with `parseAPIRequest(request, [])`
+ * @param api_request the parsed request (payload array + optional meta); parse with `parseAPIRequest(request, ["bulk", "dry_run"])`
  * @param handlers the per-entity behavior (see {@link BulkCreateHandlers})
  * @returns the Response to return from the endpoint
  */
 export async function handleBulkCreate<T>(
     request: Request,
-    api_request: { payload: unknown; meta?: Record<string, string | boolean | number | null> },
+    api_request: { payload: unknown; meta?: Record<string, boolean> },
     handlers: BulkCreateHandlers<T>
 ): Promise<Response> {
     const payload = api_request.payload
@@ -572,7 +572,7 @@ export async function handleBulkCreate<T>(
             request,
             null,
             400,
-            "Invalid request body: multiple items require the 'bulk' meta signal (set meta.bulk = true)"
+            "Invalid request body: multiple items require the 'bulk' query parameter (bulk=true)"
         )
     }
     const dry_run = api_request.meta?.dry_run === true
