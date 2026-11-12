@@ -39,7 +39,8 @@ import {
     deleteContributor,
     getContributor,
     updateContributor,
-    updateContributorPartial
+    updateContributorPartial,
+    LastAdminError
 } from "../../../../lib/api/db_contributor"
 import { CONTRIBUTOR, redactProtected } from "../../../../lib/api/d1"
 import {
@@ -162,6 +163,9 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         await updateContributor(context.locals.cfContext, state_id, record)
         return constructResponse(request, null, 204)
     } catch (error) {
+        if (error instanceof LastAdminError) {
+            return constructResponse(request, null, 409, error.message)
+        }
         return constructResponseErrorHook(request, error, 500, "Failed to update contributor")
     }
 }
@@ -266,6 +270,9 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         await updateContributorPartial(context.locals.cfContext, state_id, record, true)
         return constructResponse(request, null, 204)
     } catch (error) {
+        if (error instanceof LastAdminError) {
+            return constructResponse(request, null, 409, error.message)
+        }
         return constructResponseErrorHook(request, error, 500, "Failed to update contributor")
     }
 }
@@ -303,6 +310,9 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         await deleteContributor(context.locals.cfContext, state_id)
         return constructResponse(request, null, 204)
     } catch (error) {
+        if (error instanceof LastAdminError) {
+            return constructResponse(request, null, 409, error.message)
+        }
         return constructResponseErrorHook(request, error, 500, "Failed to delete contributor")
     }
 }
