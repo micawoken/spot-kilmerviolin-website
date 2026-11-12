@@ -97,7 +97,7 @@ interface PageMeta {
  * `migrateDesign` - writing the bare Puck tree here is what made a saved design unreadable on load. */
 interface SavePayload {
     data: Record<string, unknown> & { title: string; design: DesignDoc }
-    status: "draft"
+    // no `status`: EmDash treats PUT status "draft" as an unpublish, not a draft save
     _rev: string | undefined
     slug?: string
 }
@@ -356,7 +356,6 @@ export default function DesignEditor({ id, kind = "page" }: { id: string; kind?:
                               design: stored
                           }
                         : { title: current.title, description: current.description, design: stored },
-                status: "draft",
                 _rev: revRef.current
             }
             if (current.slug) payload.slug = current.slug
