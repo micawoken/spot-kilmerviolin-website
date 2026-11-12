@@ -38,7 +38,7 @@ import { exec_string, exec_string_batch, exec_string_sequential } from "../../..
  *
  * Permissions required: *admin*
  *
- * Meta: optional; `batch` (boolean, default true). When more than one command is supplied they are run
+ * Query parameters: optional; `batch` (boolean, default true). When more than one command is supplied they are run
  *   as a single atomic transaction so a failure rolls back the whole set. Setting `batch` to false runs
  *   the commands sequentially as independent statements (no rollback). The flag is irrelevant for a
  *   single command.
@@ -55,8 +55,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse request; an empty meta_expect_keys list parses the meta header when present without requiring it
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["batch"])
     if (api_request instanceof Error) {
         return constructResponse(request, { error: api_request.message }, 400)
     }

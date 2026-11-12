@@ -10,7 +10,7 @@
  * These two endpoints in this file provide full management of the contributor table by administrators.
  *
  * Since the contributors table is used for security-relevant operations,
- * most API endpoints default to least-privileged access and include a meta field
+ * most API endpoints default to least-privileged access and accept an `elevate` query parameter
  * to request elevated access if authorized.
  *
  * Copyright (C) 2026 Michael Wong.
@@ -82,8 +82,7 @@ const BUILD_TOKEN_SCHEMA = {
  *
  * Permissions required: none
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - full: {boolean} if true, returns the full contributor records (subject to redaction) instead of just IDs
  *
  * Body: none
@@ -95,12 +94,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     // returns JSON as an API response
     const { request, locals } = context
     if (locals.buildTokenAuth) {
-        const build_request = await parseAPIRequest(request, [])
+        const build_request = await parseAPIRequest(request, ["full"])
         if (build_request instanceof Error) {
             return constructResponse(request, null, 400, build_request.message)
         }
         if (build_request.meta?.full !== true) {
-            return constructResponse(request, null, 400, "Build token requests require meta 'full': true")
+            return constructResponse(request, null, 400, "Build token requests require query parameter full=true")
         }
         try {
             const data = await listContributors(context.locals.cfContext)
@@ -117,12 +116,10 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     }
     // validate identity
     const auth_response = auth_check(request, locals.identity, [], false)
-    // admin status will be re-checked once meta is processed
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["full"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -135,30 +132,24 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         // the latest change_date/entry_date across the listed records set the collection's freshness
         // headers; redaction only strips protected properties (neither is one), so the values are unaffected
         const timing_headers = { ...lastModifiedHeader(data), ...createdAtHeader(data) }
-        switch (api_request.meta?.full) {
-            case true:
-                if (!auth_enabled) {
-                    return constructResponse(request, data, 200, undefined, timing_headers)
-                }
-                // any viewer may request full records; admins see every record unredacted, while other
-                // users see their own record in full and every other record with its protected
-                // properties stripped
-                if (locals.identity!.admin) {
-                    return constructResponse(request, data, 200, undefined, timing_headers)
-                }
-                const self_id = locals.identity?.id
-                const redacted = data.map((record) =>
-                    record.id === self_id ? record : redactProtected(CONTRIBUTOR, record)
-                )
-                return constructResponse(request, redacted, 200, undefined, timing_headers)
-            case false:
-            case undefined:
-                // return contributor IDs only
-                const ids = data.map((record) => record.id)
-                return constructResponse(request, ids, 200, undefined, timing_headers)
-            default:
-                return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be boolean")
+        if (api_request.meta?.full === true) {
+            if (!auth_enabled) {
+                return constructResponse(request, data, 200, undefined, timing_headers)
+            }
+            // any viewer may request full records; admins see every record unredacted, while other
+            // users see their own record in full and every other record with its protected
+            // properties stripped
+            if (locals.identity!.admin) {
+                return constructResponse(request, data, 200, undefined, timing_headers)
+            }
+            const self_id = locals.identity?.id
+            const redacted = data.map((record) =>
+                record.id === self_id ? record : redactProtected(CONTRIBUTOR, record)
+            )
+            return constructResponse(request, redacted, 200, undefined, timing_headers)
         }
+        const ids = data.map((record) => record.id)
+        return constructResponse(request, ids, 200, undefined, timing_headers)
     } catch (error) {
         console.error(error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
@@ -171,8 +162,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: *admin*
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - bulk: {boolean} required to be true when the body carries more than one item
  * - dry_run: {boolean} if true, validate every item and return a per-row report without writing anything
  *
@@ -190,8 +180,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // pull the payload (meta parsed so the bulk/dry_run signals are honored)
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["bulk", "dry_run"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }

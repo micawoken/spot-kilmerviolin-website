@@ -855,21 +855,108 @@ export function sanitizeInputStrings<T>(value: T): T {
     return value
 }
 
+/** The contributor fields supplied to create a record while adding an identity */
+export interface IdentityEnrollment {
+    confer: boolean
+    name: string
+    major: string | null
+    class_year: number | null
+}
+
+/**
+ * Validates one POST /api/v1/identity body item: `{ email, enroll? }`
+ *
+ * `major` and `class_year` map to nullable columns, so null or an omitted key is accepted and normalized to null.
+ *
+ * @param {unknown} item - the body item
+ * @return {{ email: string; enroll?: IdentityEnrollment } | string} the validated item, or an error message
+ */
+export function parseIdentityAddition(item: unknown): { email: string; enroll?: IdentityEnrollment } | string {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+        return "item must be an object with an 'email' string and an optional 'enroll' object"
+    }
+    const { email, enroll } = item as { email?: unknown; enroll?: unknown }
+    if (typeof email !== "string") {
+        return "item must include an 'email' string"
+    }
+    if (enroll === undefined) {
+        return { email }
+    }
+    if (enroll === null || typeof enroll !== "object" || Array.isArray(enroll)) {
+        return "'enroll' must be an object"
+    }
+    const { confer, name, major = null, class_year = null } = enroll as Record<string, unknown>
+    if (
+        typeof confer !== "boolean" ||
+        typeof name !== "string" ||
+        (major !== null && typeof major !== "string") ||
+        (class_year !== null && typeof class_year !== "number")
+    ) {
+        return "'enroll' requires boolean 'confer' and string 'name'; 'major' must be a string or null and 'class_year' a number or null"
+    }
+    return { email, enroll: { confer, name, major, class_year } }
+}
+
+/** Header that carried request options before they moved to query parameters */
+const LEGACY_META_HEADER = "X-MWMSC-Request-Meta"
+
+/**
+ * Reads boolean request options from the query string
+ *
+ * Each flag is optional; a value must be exactly "true" or "false". An unlisted parameter, a repeated
+ * parameter, or a non-boolean value is an error rather than being ignored, so a typo or a removed option
+ * fails loudly. The retired X-MWMSC-Request-Meta header is rejected the same way, since silently ignoring
+ * it would drop options such as `autodeactivation=false` or `elevate`.
+ *
+ * @param {Request} request - the API request
+ * @param {readonly string[]} [flags] - the boolean options the route accepts; if omitted, the query string is not read
+ * @return {Record<string, boolean> | undefined | Error} the flags present (empty if none), undefined if `flags` is omitted, or an Error
+ */
+export function parseRequestFlags(
+    request: Request,
+    flags?: readonly string[]
+): Record<string, boolean> | undefined | Error {
+    if (request.headers.has(LEGACY_META_HEADER)) {
+        return new Error(
+            `The ${LEGACY_META_HEADER} header is no longer supported; send request options as query parameters`
+        )
+    }
+    if (flags === undefined) {
+        return undefined
+    }
+    const params = new URL(request.url).searchParams
+    const meta: Record<string, boolean> = {}
+    for (const key of new Set(params.keys())) {
+        if (!flags.includes(key)) {
+            return new Error(`Unknown query parameter '${key}'`)
+        }
+        const values = params.getAll(key)
+        if (values.length > 1) {
+            return new Error(`Query parameter '${key}' must not be repeated`)
+        }
+        if (values[0] !== "true" && values[0] !== "false") {
+            return new Error(`Invalid value for query parameter '${key}': must be true or false`)
+        }
+        meta[key] = values[0] === "true"
+    }
+    return meta
+}
+
 /**
  * Parses the body of an API request into an APIRequest object and performs validation
  *
  * @param {Request} request - the API request to parse
- * @param {string[]} [meta_expect_keys] - an optional list of expected keys in the meta field; if provided, the function will validate that the meta field contains these keys
- * @return {Promise<APIRequest | Error>} a promise that resolves to the parsed APIRequest object, or an Error if the request body is not valid JSON, does not have the required shape, or if the meta field does not contain the expected keys (if meta_expect_keys is provided)
+ * @param {readonly string[]} [flags] - the boolean query-string options the route accepts (see {@link parseRequestFlags}); if omitted, query options are not read
+ * @return {Promise<APIRequest | Error>} a promise that resolves to the parsed APIRequest object, or an Error if the request body is not valid JSON, does not have the required shape, or carries invalid options
  */
-export async function parseAPIRequest(request: Request, meta_expect_keys?: string[]): Promise<APIRequest | Error> {
+export async function parseAPIRequest(request: Request, flags?: readonly string[]): Promise<APIRequest | Error> {
     // parses the body of an API request into an APIRequest object
     const content_type = request.headers.get("Content-Type")
     const is_json_content_type = content_type !== null && content_type.toLowerCase().includes("application/json")
     if (content_type !== null && !is_json_content_type) {
         return new Error("Invalid content type: expected application/json")
     }
-    let data: { payload: unknown; meta?: Record<string, string | boolean | number | null> }
+    let data: { payload: unknown }
     try {
         const body_text = await readBoundedText(request, MAX_API_REQUEST_BODY_BYTES)
         if (body_text.trim() === "") {
@@ -901,52 +988,9 @@ export async function parseAPIRequest(request: Request, meta_expect_keys?: strin
     if (!(data.payload instanceof Array) && data.payload !== null) {
         return new Error("Invalid request body: must be an array or null")
     }
-    // if meta_expect_keys is provided, validate the shape of the meta field
-    let meta: Record<string, string | boolean | number | null> | undefined = undefined
-    const meta_data = request.headers.get("X-MWMSC-Request-Meta")
-    const meta_header = meta_data ? (meta_data.length <= 512 ? meta_data : null) : null // arbitrary limit to prevent abuse; if the header is present but exceeds the limit, it is treated as missing
-    /** by default, if meta_expect_keys is not supplied, meta is not checked (which is useful for requests that don't require it)
-     *  however, some requests make meta optional, which requires the header to be checked and parsed but allows for keys to be missing
-     *  if an empty array is supplied, header parsing executes, but if there is no data to parse, an empty meta is returned silently
-     */
-    const enforce_meta_presence = meta_expect_keys ? meta_expect_keys.length > 0 : false
-
-    if (meta_expect_keys && !meta_header && !enforce_meta_presence) {
-        // meta is optional and missing
-        meta = {}
-    } else if (meta_expect_keys && !meta_header && enforce_meta_presence) {
-        // meta is required but missing
-        return new Error("Missing required meta header: X-MWMSC-Request-Meta")
-    } else if (meta_expect_keys && !meta_header) {
-        // should be impossible
-        return new Error(
-            "Invalid state: meta_expect_keys is supplied but meta header is missing, and meta header is not optional"
-        )
-    } else if (meta_expect_keys && meta_header) {
-        // attempt to parse JSON string
-        try {
-            data.meta = JSON.parse(meta_header)
-        } catch (e) {
-            return new Error(`Failed to parse meta header as JSON: ${e}`)
-        }
-        if (
-            typeof data.meta !== "object" ||
-            data.meta === null ||
-            Array.isArray(data.meta) ||
-            Object.values(data.meta).some(
-                (key) => typeof key !== "string" && typeof key !== "boolean" && typeof key !== "number" && key !== null
-            )
-        ) {
-            return new Error(
-                "Invalid request body: 'meta' field must be an object of type Record<string, string | boolean | number | null>"
-            )
-        }
-        const missing_keys = meta_expect_keys.filter((key) => !(key in (data.meta as object)))
-        // not checking for extra keys since they won't be checked
-        if (missing_keys.length > 0) {
-            return new Error(`Invalid request body: 'meta' field is missing required keys: ${missing_keys.join(", ")}`)
-        }
-        meta = data.meta as Record<string, string | boolean | number | null>
+    const meta = parseRequestFlags(request, flags)
+    if (meta instanceof Error) {
+        return meta
     }
     // shape validated
     if (data.payload instanceof Array && data.payload.length === 0) {

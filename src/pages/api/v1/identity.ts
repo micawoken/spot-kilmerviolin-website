@@ -26,7 +26,7 @@
  */
 
 import type { APIContext, APIRoute } from "astro"
-import { parseAPIRequest } from "../../../lib/api/common"
+import { parseAPIRequest, parseIdentityAddition } from "../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import { list_users, add_user, remove_user } from "../../../lib/api/access_iam_mgmt"
 import { isFallbackEmail } from "../../../lib/api/fallback"
@@ -80,47 +80,36 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: one of (*admin*, user_addition)
  *
- * Meta: optional
- * Meta fields:
- *  - autoenrollment: {boolean} Specifies whether to automatically create a contributor record to bypass self-enrollment flow; defaults to false
- *  - confer: {boolean or null} If autoenrollment is true, specifies whether to confer acting identity's conferrable permissions
- *  - name: {string or null} If autoenrollment is true, specifies the name to use for the created contributor record; if not provided when required, call fails
- *  - major: {string or null} If autoenrollment is true, specifies the major to use for the created contributor record; if not provided when required, call fails
- *  - class_year: {number or null} If autoenrollment is true, specifies the class year to use for the created contributor record; if not provided when required, call fails
+ * Query parameters: none
  *
- * Body: required, JSON array of [email_to_add: string]
+ * Body: required, JSON array of [{ email: string, enroll?: { confer: boolean, name: string, major?: string | null, class_year?: number | null } }]
+ *  - enroll: if present, a contributor record is created to bypass the self-enrollment flow; confer sets whether
+ *    the acting identity's conferrable permissions are conferred
  *
  * @param context - the Astro API context
  * @returns a Response object
  */
 export const POST: APIRoute = async (context): Promise<Response> => {
-    // accepts an API request payload as a list containing the one email to add
     const { request, locals } = context
     const auth_response = auth_check(request, locals.identity, ["user_addition"])
     if (auth_response !== null) {
         return auth_response
     }
     const api_request = await parseAPIRequest(request, [])
-    // the autoenrollment flag sets whether to automatically create a contributor record
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, `Bad request: ${api_request.message}`)
     }
-    if (
-        api_request.payload === null ||
-        api_request.payload.length !== 1 ||
-        typeof api_request.payload[0] !== "string"
-    ) {
-        return constructResponse(
-            request,
-            null,
-            400,
-            "Bad request: payload must be a list containing exactly one email string"
-        )
+    if (api_request.payload === null || api_request.payload.length !== 1) {
+        return constructResponse(request, null, 400, "Bad request: payload must be a list containing exactly one item")
+    }
+    const addition = parseIdentityAddition(api_request.payload[0])
+    if (typeof addition === "string") {
+        return constructResponse(request, null, 400, `Bad request: ${addition}`)
     }
     // fallback identity emails are reserved placeholders that can never authenticate (see lib/api/fallback.ts);
     // reject an attempt to enroll one up front with a clear 400, rather than letting add_user throw deep in
     // the enrollment flow
-    if (isFallbackEmail(api_request.payload[0])) {
+    if (isFallbackEmail(addition.email)) {
         return constructResponse(
             request,
             null,
@@ -131,38 +120,21 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     // any enrollment failure (the add_user fallback guard as a backstop, or a Cloudflare Access API error)
     // is reported as a clean error response so the request never crashes with an unhandled exception
     try {
-        if (api_request.meta?.autoenrollment === true) {
-            // major and class_year map to nullable columns: null (or an omitted key) is accepted and stored as null
-            const meta_major = api_request.meta?.major ?? null
-            const meta_class_year = api_request.meta?.class_year ?? null
-            if (
-                typeof api_request.meta?.confer !== "boolean" ||
-                typeof api_request.meta?.name !== "string" ||
-                (meta_major !== null && typeof meta_major !== "string") ||
-                (meta_class_year !== null && typeof meta_class_year !== "number")
-            ) {
-                return constructResponse(
-                    request,
-                    null,
-                    400,
-                    "Bad request: missing or invalid meta fields for autoenrollment"
-                )
-            }
+        if (addition.enroll !== undefined) {
+            const { confer, name, major, class_year } = addition.enroll
             await createUser(
                 context.locals.cfContext,
                 locals.identity!,
-                api_request.meta?.confer,
-                api_request.payload[0],
-                api_request.meta?.name,
-                meta_major,
-                meta_class_year
+                confer,
+                addition.email,
+                name,
+                major,
+                class_year
             )
-            return constructResponse(request, null, 201)
         } else {
-            const email = api_request.payload[0]
-            await add_user(email)
-            return constructResponse(request, null, 201)
+            await add_user(addition.email)
         }
+        return constructResponse(request, null, 201)
     } catch (error) {
         return constructResponseErrorHook(request, error, 500, "Failed to add user")
     }
@@ -610,8 +582,7 @@ async function _parseIdEmail(
  *
  * Permissions required: one of (*admin*, user_addition)
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - autodeactivation: {boolean} Specifies whether to automatically deactivate the contributor record; defaults to true
  */
 export const DELETE: APIRoute = async (context): Promise<Response> => {
@@ -621,7 +592,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    const api_request = await parseAPIRequest(request, []) // autodeactivation is optional, defaults to true
+    const api_request = await parseAPIRequest(request, ["autodeactivation"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, `Bad request: ${api_request.message}`)
     }
@@ -656,7 +627,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
         if (target !== null && locals.identity?.id === target.id) {
             return constructResponse(request, null, 403, "Self-removal is not permitted")
         }
-        if (api_request.meta?.autodeactivation === true || api_request.meta?.autodeactivation === undefined) {
+        if (api_request.meta?.autodeactivation !== false) {
             // from lib/public/usermgmt.ts, deactivates contributor record
             await removeUser(context.locals.cfContext, target_email)
         } else {
