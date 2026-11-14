@@ -98,14 +98,12 @@ async function isActive(id: number): Promise<boolean> {
 }
 
 function removalRequest(email: string, autodeactivation?: boolean) {
-    const headers: Record<string, string> = { "Content-Type": "application/json" }
-    if (autodeactivation !== undefined) {
-        headers["X-MWMSC-Request-Meta"] = JSON.stringify({ autodeactivation })
-    }
+    const url = new URL("https://localhost/api/v1/identity")
+    if (autodeactivation !== undefined) url.searchParams.set("autodeactivation", String(autodeactivation))
     return {
-        request: new Request("https://localhost/api/v1/identity", {
+        request: new Request(url, {
             method: "DELETE",
-            headers,
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify([email])
         }),
         locals: {
