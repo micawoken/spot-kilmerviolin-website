@@ -113,7 +113,8 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
 
 /**
  * DELETE /api/v1/identity/activation
- * Deactivates the contributor records mapped to the provided identity emails (sets active = false)
+ * Deactivates the contributor records mapped to the provided identity emails (sets active = false) and
+ * revokes their API tokens
  *
  * Permissions required: *admin* (deactivation revokes an active user's access; not delegated)
  *

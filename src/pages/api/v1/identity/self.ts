@@ -201,7 +201,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
 
 /**
  * DELETE /api/v1/identity/self
- * Deactivate the authenticated user's own contributor record (self-service)
+ * Deactivate the authenticated user's own contributor record and revoke its API tokens (self-service)
  *
  *
  * Permissions required: none (must be self; an enrollable login without a record is rejected by selfmgmt)
