@@ -9,8 +9,6 @@ allowBuilds:
 minimumReleaseAge: 10080
 
 overrides:
-  undici: ^7.29.0
-  # vite 8.3.4's rolldown breaks the prerender worker on @astrojs/cloudflare 14.3.x's older workerd
-  vite: 8.3.0
-  # emdash pins pm 3.31.3; two copies split tiptap's types
-  "@tiptap/pm": 3.31.4
+  undici: ^7.30.1
+  # emdash 1.4.0 pins zod 4.5.4 (GHSA memory-exhaustion advisory, fixed in 4.6.6)
+  zod: ^4.6.6
