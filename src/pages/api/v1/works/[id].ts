@@ -140,7 +140,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
-            return constructResponse(request, null, 500, "Unknown state: get composition operation returned null")
+            return constructResponse(request, null, 404)
         }
         // verify acting identity is authorized to modify
         if (auth_enabled) {
@@ -219,7 +219,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
-            return constructResponse(request, null, 500, "Unknown state: get composition operation returned null")
+            return constructResponse(request, null, 404)
         }
         if (auth_enabled) {
             if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
@@ -285,7 +285,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     try {
         const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
         if (current_record === null) {
-            return constructResponse(request, null, 500, "Unknown state: get composition operation returned null")
+            return constructResponse(request, null, 404)
         }
         if (auth_enabled) {
             if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
