@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import { createExecutionContext } from "cloudflare:test"
 import { exec_string } from "../src/lib/api/d1.ts"
+import { getComposition, getCompositionCacheless } from "../src/lib/api/db_composition.ts"
 import { DELETE as worksDELETE, PATCH as worksPATCH } from "../src/pages/api/v1/works/[id].ts"
 
 // mirrors the compositions table in d1.ts
@@ -70,5 +71,20 @@ describe("works/[id] on a missing composition", () => {
 
     it("PATCH returns 404", async () => {
         expect((await worksPATCH(workRequest("PATCH", [{ name: "renamed" }]))).status).toBe(404)
+    })
+})
+
+describe("getCompositionCacheless", () => {
+    it("sees a primary-contributor change that the cached read has not", async () => {
+        await exec_string(
+            `INSERT INTO compositions (composition_id, name, composer_id, contrib_primary_1, type, publish_location, publish_name, publish_year, uri_type, phases, entry_date, change_date) VALUES (4242, 'Cached work', 1, 11, 'piece', 'x', 'x', 2000, 'none', '[]', 0, 0)`
+        )
+        const ctx = createExecutionContext()
+        expect((await getComposition(ctx, "composition_id", "4242"))?.contrib_primary_1).toBe(11)
+
+        await exec_string(`UPDATE compositions SET contrib_primary_1 = 12 WHERE composition_id = 4242`)
+
+        expect((await getComposition(ctx, "composition_id", "4242"))?.contrib_primary_1).toBe(11)
+        expect((await getCompositionCacheless("composition_id", "4242"))?.contrib_primary_1).toBe(12)
     })
 })

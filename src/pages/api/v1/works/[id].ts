@@ -39,6 +39,7 @@ import {
     attachCompositionNames,
     deleteComposition,
     getComposition,
+    getCompositionCacheless,
     updateComposition,
     updateCompositionPartial
 } from "../../../../lib/api/db_composition"
@@ -138,7 +139,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
     // validate authorization
     const auth_enabled = authEnabled(request)
     try {
-        const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
+        const current_record = await getCompositionCacheless("composition_id", params.id!)
         if (current_record === null) {
             return constructResponse(request, null, 404)
         }
@@ -217,7 +218,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     // validate authorization
     const auth_enabled = authEnabled(request)
     try {
-        const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
+        const current_record = await getCompositionCacheless("composition_id", params.id!)
         if (current_record === null) {
             return constructResponse(request, null, 404)
         }
@@ -283,7 +284,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     // validate authorization
     const auth_enabled = authEnabled(request)
     try {
-        const current_record = await getComposition(context.locals.cfContext, "composition_id", params.id!)
+        const current_record = await getCompositionCacheless("composition_id", params.id!)
         if (current_record === null) {
             return constructResponse(request, null, 404)
         }

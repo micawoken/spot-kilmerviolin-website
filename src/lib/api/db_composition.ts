@@ -26,6 +26,7 @@ import {
     _addPrimitive,
     _addPrimitiveBatch,
     _getPrimitive,
+    _getPrimitiveCacheless,
     _updatePrimitive,
     _updatePrimitivePartial,
     _deletePrimitive,
@@ -150,6 +151,22 @@ export async function getComposition(
     return _getWrapper(
         COMPOSITION,
         await _getPrimitive(ctx, COMPOSITION, param, value)
+    ) as Promise<CompositionRecord | null>
+}
+
+/**
+ * Get a composition record based on a unique param, read directly from D1
+ * Use for authorization, where a stale cached primary list could admit an edit
+ *
+ * @param param the unique column being queried on
+ * @param value the value of the unique column being queried
+ * @returns the composition record matching the query, or null if not found
+ * @throws an error if the param is not a unique column
+ */
+export async function getCompositionCacheless(param: string, value: string): Promise<CompositionRecord | null> {
+    return _getWrapper(
+        COMPOSITION,
+        await _getPrimitiveCacheless(COMPOSITION, param, value)
     ) as Promise<CompositionRecord | null>
 }
 
