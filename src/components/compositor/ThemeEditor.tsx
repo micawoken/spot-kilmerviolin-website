@@ -883,7 +883,8 @@ export default function ThemeEditor() {
             const put = await fetch(`${DESIGN_THEME}/${encodeURIComponent(id)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Accept: "application/json", "X-EmDash-Request": "1" },
-                body: JSON.stringify({ data: { tokens }, status: "draft", _rev: rev })
+                // no `status`: EmDash treats PUT status "draft" as an unpublish
+                body: JSON.stringify({ data: { tokens }, _rev: rev })
             })
             if (put.status === 409) {
                 setSaveState("error")
