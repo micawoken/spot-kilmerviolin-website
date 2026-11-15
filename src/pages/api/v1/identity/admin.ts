@@ -30,6 +30,7 @@ import { parseAPIRequest } from "../../../../lib/api/common"
 import { constructResponse, constructResponseErrorHook } from "../../../../lib/api/http"
 import { auth_check } from "../../../../lib/public/authservice"
 import { emailToId, elevateUser, demoteUser } from "../../../../lib/public/usermgmt"
+import { LastAdminError } from "../../../../lib/api/db_contributor"
 
 /**
  * Shared validation and execution for both verbs
@@ -76,12 +77,15 @@ async function _processAdmin(context: APIContext, request: Request, elevate: boo
             }
         }
     } catch (error) {
-        const response = constructResponseErrorHook(
-            request,
-            error,
-            500,
-            "Failed to update administrator status; previous transactions may have succeeded"
-        )
+        const response =
+            error instanceof LastAdminError
+                ? constructResponse(request, null, 409, error.message)
+                : constructResponseErrorHook(
+                      request,
+                      error,
+                      500,
+                      "Failed to update administrator status; previous transactions may have succeeded"
+                  )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }

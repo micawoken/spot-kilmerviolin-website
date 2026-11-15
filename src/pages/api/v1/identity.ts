@@ -32,6 +32,7 @@ import { list_users, add_user, remove_user } from "../../../lib/api/access_iam_m
 import { isFallbackEmail } from "../../../lib/api/fallback"
 import { auth_check } from "../../../lib/public/authservice"
 import { roles } from "../../../lib/api/authorize"
+import { LastAdminError } from "../../../lib/api/db_contributor"
 import {
     createUser,
     removeUser,
@@ -258,12 +259,15 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     } catch (error) {
-        const response = constructResponseErrorHook(
-            request,
-            error,
-            500,
-            "Failed to apply identity update; previous transactions may have succeeded"
-        )
+        const response =
+            error instanceof LastAdminError
+                ? constructResponse(request, null, 409, error.message)
+                : constructResponseErrorHook(
+                      request,
+                      error,
+                      500,
+                      "Failed to apply identity update; previous transactions may have succeeded"
+                  )
         response.headers.append("X-MWMSC-Response-Errors", JSON.stringify(errors))
         return response
     }
