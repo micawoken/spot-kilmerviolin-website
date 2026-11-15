@@ -31,6 +31,7 @@ import { constructResponse, constructResponseErrorHook } from "../../../../lib/a
 import { auth_check } from "../../../../lib/public/authservice"
 import { emailToId, _changeLoginEmail } from "../../../../lib/public/usermgmt"
 import { isFallbackEmail } from "../../../../lib/api/fallback"
+import { isValidEmail } from "../../../../lib/api/validation"
 
 /**
  * PATCH /api/v1/identity/email
@@ -72,7 +73,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
     }
     // validate every new email up front so the whole request is rejected before any change is applied
     for (const [old_email, new_email] of Object.entries(email_map)) {
-        if (typeof new_email !== "string" || new_email.trim() === "" || !new_email.includes("@")) {
+        if (typeof new_email !== "string" || !isValidEmail(new_email)) {
             return constructResponse(
                 request,
                 null,

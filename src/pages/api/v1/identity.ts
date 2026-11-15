@@ -30,6 +30,7 @@ import { parseAPIRequest, parseIdentityAddition } from "../../../lib/api/common"
 import { _constructHeaders, constructResponse, constructResponseErrorHook } from "../../../lib/api/http"
 import { list_users, add_user, remove_user } from "../../../lib/api/access_iam_mgmt"
 import { isFallbackEmail } from "../../../lib/api/fallback"
+import { isValidEmail } from "../../../lib/api/validation"
 import { auth_check } from "../../../lib/public/authservice"
 import { roles } from "../../../lib/api/authorize"
 import {
@@ -548,12 +549,12 @@ async function _parseIdEmail(
         )
     }
     for (const [old_email, new_email] of Object.entries(payload.identity_email)) {
-        if (typeof new_email !== "string") {
+        if (typeof new_email !== "string" || !isValidEmail(new_email)) {
             return constructResponse(
                 request,
                 null,
                 400,
-                `Bad request: new email for ${old_email} must be a string; previous transactions may have succeeded`
+                `Bad request: new email for ${old_email} must be a valid email string; previous transactions may have succeeded`
             )
         }
         // a reserved fallback address can never be enrolled in Access (see lib/api/fallback.ts); reject it
