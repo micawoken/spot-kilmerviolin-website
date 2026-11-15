@@ -31,10 +31,33 @@ import { formatContribFromD1 } from "../api/common"
 import { CONTRIBUTOR, recordTypeAssertComplete, getRecord } from "../api/d1"
 import { _getPrimitiveCacheless } from "../api/database"
 import { addContributor, updateContributorPartial } from "../api/db_contributor"
+import { isFallbackEmail } from "../api/fallback"
 
 /** Whether an identity email is present in the (lowercase) Cloudflare Access user list. */
 function isEmailInAccess(email: string, accessList: string[]): boolean {
     return accessList.includes(email.toLowerCase())
+}
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Removes an Access entry added by a failed operation, then rethrows the operation's error
+ *
+ * @param {string} email the email that was added to Access
+ * @param {unknown} cause the error that failed the operation
+ * @throws the original error, or a combined error if the Access removal also fails
+ */
+async function undoAccessAdd(email: string, cause: unknown): Promise<never> {
+    try {
+        await remove_user(email)
+    } catch (undo_error) {
+        throw new Error(
+            `${errorMessage(cause)}; removing ${email} from Access to undo the change also failed: ${errorMessage(undo_error)}`
+        )
+    }
+    throw cause
 }
 
 /**
@@ -143,7 +166,11 @@ export async function createUser(
         new_roles = []
     }
     const new_contributor = buildContributor(identity_email, name, major, class_year, new_roles, true)
-    await addContributor(ctx, new_contributor)
+    try {
+        await addContributor(ctx, new_contributor)
+    } catch (error) {
+        await undoAccessAdd(identity_email, error)
+    }
 }
 
 /**
@@ -304,6 +331,58 @@ export async function removeRole(ctx: ExecutionContext, id: number, role: string
     await updateContributorPartial(ctx, id, { roles: new_roles }, true)
 }
 
+/**
+ * Runs a record write that changes an identity email, keeping Access in step: adds the new email (if
+ * enroll), runs the write, then removes the old email. A failed write undoes the Access addition
+ *
+ * @param {string} old_email The contributor's current identity email
+ * @param {string} new_email The identity email the write stores
+ * @param {boolean} enroll Whether to add the new email to Access
+ * @param {() => Promise<unknown>} write The record write
+ * @throws if any step fails; a failure after the write leaves the old email in Access
+ */
+async function moveLoginEmail(
+    old_email: string,
+    new_email: string,
+    enroll: boolean,
+    write: () => Promise<unknown>
+): Promise<void> {
+    const normalized_new = new_email.trim().toLowerCase()
+    // an entry that predates this change may belong to someone else; never undo it
+    const added = enroll && !isEmailInAccess(normalized_new, await list_users())
+    if (added) {
+        await add_user(normalized_new)
+    }
+    try {
+        await write()
+    } catch (error) {
+        if (added) {
+            await undoAccessAdd(normalized_new, error)
+        }
+        throw error
+    }
+    // a case-only change is the same Access entry
+    if (old_email.trim().toLowerCase() === normalized_new) {
+        return
+    }
+    try {
+        await remove_user(old_email)
+    } catch (error) {
+        throw new Error(
+            `Changed the identity email to ${normalized_new}, but removing ${old_email} from Access failed: ${errorMessage(error)}`
+        )
+    }
+}
+
+/**
+ * Changes a contributor's identity email in Access and D1, enrolling the new email in Access
+ *
+ * @param {ExecutionContext} ctx The Cloudflare Workers execution context
+ * @param {number} id The id of the contributor whose email is to be changed
+ * @param {string} old_email The contributor's current identity email
+ * @param {string} new_email The new identity email
+ * @throws if any step fails; a failure after the record update leaves the old email in Access
+ */
 export async function _changeLoginEmail(
     ctx: ExecutionContext,
     id: number,
@@ -313,11 +392,32 @@ export async function _changeLoginEmail(
     // normalize to lowercase so the stored identity_email matches the lowercased JWT email used for
     // identity lookups (Cloudflare Access is case-insensitive)
     const normalized_new = new_email.trim().toLowerCase()
-    // update contributor data
-    await updateContributorPartial(ctx, id, { identity_email: normalized_new }, true)
-    // update access
-    await add_user(normalized_new)
-    await remove_user(old_email)
+    await moveLoginEmail(old_email, normalized_new, true, () =>
+        updateContributorPartial(ctx, id, { identity_email: normalized_new }, true)
+    )
+}
+
+/**
+ * Runs a contributor record write that may change its identity email, moving the Access entry with it.
+ * A contributor not in Access stays out, and a fallback email is never enrolled
+ *
+ * @param {number} id The id of the contributor being written
+ * @param {string | undefined} new_email The identity email the write stores, or undefined if unchanged
+ * @param {() => Promise<unknown>} write The record write
+ * @throws if any step fails; a failure after the write leaves the old email in Access
+ */
+export async function writeWithLoginEmail(
+    id: number,
+    new_email: string | undefined,
+    write: () => Promise<unknown>
+): Promise<void> {
+    const old_email = new_email === undefined ? null : await idToEmail(id)
+    if (new_email === undefined || old_email === null || old_email.toLowerCase() === new_email.trim().toLowerCase()) {
+        await write()
+        return
+    }
+    const enroll = !isFallbackEmail(new_email) && isEmailInAccess(old_email, await list_users())
+    await moveLoginEmail(old_email, new_email, enroll, write)
 }
 
 /**
