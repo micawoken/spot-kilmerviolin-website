@@ -37,7 +37,6 @@ import { getRecord, getRecordSpecificProp, CONTRIBUTOR, recordTypeAssertComplete
 export const roles: Record<string, RoleProfile> = {
     reviewer: {
         overrides_lockout: true,
-        lockout_ignore_admin: true,
         user_activation: false,
         user_addition: false,
         conferrable: true,
@@ -48,7 +47,6 @@ export const roles: Record<string, RoleProfile> = {
     },
     userenroll: {
         overrides_lockout: false,
-        lockout_ignore_admin: false,
         user_activation: true,
         user_addition: true,
         conferrable: false,
@@ -59,7 +57,6 @@ export const roles: Record<string, RoleProfile> = {
     },
     siteeditor: {
         overrides_lockout: false,
-        lockout_ignore_admin: false,
         user_activation: false,
         user_addition: false,
         conferrable: false,
@@ -70,7 +67,6 @@ export const roles: Record<string, RoleProfile> = {
     },
     designer: {
         overrides_lockout: false,
-        lockout_ignore_admin: false,
         user_activation: false,
         user_addition: false,
         conferrable: false,
@@ -81,7 +77,6 @@ export const roles: Record<string, RoleProfile> = {
     },
     pagewriter: {
         overrides_lockout: false,
-        lockout_ignore_admin: false,
         user_activation: false,
         user_addition: false,
         // per doc: only the content-only role is inheritable (conferrable) between the two
@@ -93,7 +88,6 @@ export const roles: Record<string, RoleProfile> = {
     },
     submissions: {
         overrides_lockout: false,
-        lockout_ignore_admin: false,
         user_activation: false,
         user_addition: false,
         conferrable: false,
@@ -109,7 +103,6 @@ export const roles: Record<string, RoleProfile> = {
  */
 const PERMISSION_KEYS = [
     "overrides_lockout",
-    "lockout_ignore_admin",
     "user_activation",
     "user_addition",
     "conferrable",

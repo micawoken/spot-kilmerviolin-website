@@ -316,7 +316,6 @@ interface Identity extends BaseIdentity {
  *
  * @namespace RoleProfile
  * @property {boolean} overrides_lockout - Whether the role allows a user to bypass the contribution edit lockout (see later)
- * @property {boolean} lockout_ignore_admin - If overrides_lockout is true, whether the lockout override also applies to entries by administrators
  * @property {boolean} user_activation - Whether the role allows a user to activate user accounts (their own, and others)
  * @property {boolean} user_addition - Whether the role allows a user to add new users
  * @property {boolean} conferrable - Whether the role can be conferred by a non-administrator possessing the role to another user
@@ -332,8 +331,6 @@ interface Identity extends BaseIdentity {
 interface RoleProfile {
     // if set, contributor lockout is disabled
     overrides_lockout: boolean
-    // if set, lockout enforcement will ignore if the subject identity is an admin
-    lockout_ignore_admin: boolean
     user_activation: boolean
     user_addition: boolean
     conferrable: boolean
