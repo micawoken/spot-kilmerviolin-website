@@ -44,8 +44,7 @@ import {
  *
  * Permissions required: none
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - full: {boolean} if true, returns full composer records; if false or not provided, returns only composer IDs
  *
  * Body: none
@@ -60,12 +59,12 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     // them; middleware/identity.ts has already confined a build-token request to exactly this route with
     // GET, so here it only needs the "full" signal enforced before returning the complete, unredacted set
     if (locals.buildTokenAuth) {
-        const build_request = await parseAPIRequest(request, [])
+        const build_request = await parseAPIRequest(request, ["full"])
         if (build_request instanceof Error) {
             return constructResponse(request, null, 400, build_request.message)
         }
         if (build_request.meta?.full !== true) {
-            return constructResponse(request, null, 400, "Build token requests require meta 'full': true")
+            return constructResponse(request, null, 400, "Build token requests require query parameter full=true")
         }
         try {
             const data = await listComposers(context.locals.cfContext)
@@ -86,7 +85,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["full"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -97,18 +96,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         }
         // the latest change_date/entry_date across the listed records set the collection's freshness headers
         const timing_headers = { ...lastModifiedHeader(data), ...createdAtHeader(data) }
-        switch (api_request.meta?.full) {
-            case true:
-                // return full composer records
-                return constructResponse(request, data, 200, undefined, timing_headers)
-            case false:
-            case undefined:
-                // return composer IDs only
-                const ids = data.map((record) => record.id)
-                return constructResponse(request, ids, 200, undefined, timing_headers)
-            default:
-                return constructResponse(request, null, 400, "Invalid value for meta field 'full': must be a boolean")
+        if (api_request.meta?.full === true) {
+            return constructResponse(request, data, 200, undefined, timing_headers)
         }
+        const ids = data.map((record) => record.id)
+        return constructResponse(request, ids, 200, undefined, timing_headers)
     } catch (error) {
         console.error("Error in GET /api/v1/composers:", error)
         return constructResponseErrorHook(request, error, 500, "Unknown error")
@@ -121,8 +113,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: none
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - bulk: {boolean} required to be true when the body carries more than one item (a single item needs no signal)
  * - dry_run: {boolean} if true, validate every item and return a per-row report without writing anything
  *
@@ -140,8 +131,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request (meta parsed so the bulk/dry_run signals are honored)
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["bulk", "dry_run"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }

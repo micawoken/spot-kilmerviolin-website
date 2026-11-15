@@ -57,8 +57,7 @@ import { extractUploadedFileKey, getFileMeta } from "../../../../lib/api/files"
  *
  * Permissions required: none; *admin* to access protected properties
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - elevate: {boolean} if true, and the user is an admin, disable the safe property check for non-self contributors; defaults to false
  *
  * Body: none
@@ -73,7 +72,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, []) // elevate is optional, defaults to false
+    const api_request = await parseAPIRequest(request, ["elevate"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -121,7 +120,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  * Permissions required: *admin*
  * (User modifications should use PATCH, as PUT modifies all fields, including security-relevant ones)
  *
- * Meta: none
+ * Query parameters: none
  * Body: required, JSON object of complete contributor record with updated fields
  *
  * @param context - the Astro API context
@@ -173,8 +172,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: *admin*, or none if self
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - elevate: {boolean} if true, and the user is an admin, disable the safe property check and disable row-level security for this request
  *
  * Body: required, JSON object of partial contributor record with fields to update; must include the id field and value must match the ID in the URL
@@ -190,7 +188,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, []) // elevate is optional, defaults to false
+    const api_request = await parseAPIRequest(request, ["elevate"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }

@@ -41,7 +41,7 @@ export default function verinfo(request: Request) {
             // minimum wait (seconds) after this build before another rebuild may be triggered; the client
             // uses it together with the build timestamp above to block early rebuild requests
             rebuild_cooldown_sec: Number(env.REBUILD_COOLDOWN_SEC),
-            // shorter cooldown available to admins via the rebuild page's override checkbox (meta.elevate);
+            // shorter cooldown available to admins via the rebuild page's override checkbox (elevate query parameter);
             // hard-coded rather than env-sourced (see rebuild.ts)
             admin_rebuild_cooldown_sec: ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC
         },

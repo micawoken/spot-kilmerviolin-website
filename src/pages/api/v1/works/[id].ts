@@ -55,8 +55,7 @@ import { authEnabled } from "../../../../lib/api/environment"
  *
  * Permissions required: none
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - names: {boolean} if true, the record is returned as a CompositionWithNames object ({ object, names })
  *    with the referenced composer and contributor names resolved; off by default
  *
@@ -72,15 +71,11 @@ export const GET: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request; meta is optional and only the "names" field is honored
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["names"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
     const names_flag = api_request.meta?.names
-    if (names_flag !== undefined && typeof names_flag !== "boolean") {
-        return constructResponse(request, null, 400, "Invalid value for meta field 'names': must be a boolean")
-    }
     const state_id = Number(params.id)
     if (isNaN(state_id)) {
         return constructResponse(request, null, 400, "Invalid composition ID: must be a number")
@@ -109,8 +104,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: none, or *admin* if not noted as contributor
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
  *  - direct_contrib: {boolean} if true, the caller is managing contributors directly; the editor is not auto-added to contrib_addl
  *
@@ -128,7 +122,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, []) // meta is optional; parse it so the "elevate" field is honored
+    const api_request = await parseAPIRequest(request, ["elevate", "direct_contrib"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -190,8 +184,7 @@ export const PUT: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: none, or *admin* if not noted as contributor
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  * - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
  * - direct_contrib: {boolean} if true, the caller is managing contributors directly; the editor is not auto-added to contrib_addl
  *
@@ -208,7 +201,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
         return auth_response
     }
     // parse api request
-    const api_request = await parseAPIRequest(request, []) // meta is optional; parse it so the "elevate" field is honored
+    const api_request = await parseAPIRequest(request, ["elevate", "direct_contrib"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
@@ -268,8 +261,7 @@ export const PATCH: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: none, or *admin* if not noted as contributor
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - elevate: {boolean} if true, allows consideration of admin status when reviewing contributor lockout
  *
  * Body: none
@@ -284,8 +276,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
     if (auth_response !== null) {
         return auth_response
     }
-    // parse api request
-    const api_request = await parseAPIRequest(request, []) // meta is optional; parse it so the "elevate" field is honored
+    const api_request = await parseAPIRequest(request, ["elevate"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }

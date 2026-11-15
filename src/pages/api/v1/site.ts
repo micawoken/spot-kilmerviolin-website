@@ -67,8 +67,7 @@ export const GET: APIRoute = async (context): Promise<Response> => {
  *
  * Permissions required: rebuild
  *
- * Meta: optional
- * Meta fields:
+ * Query parameters: optional
  *  - elevate: {boolean} if true, and the user is an admin, enforce the shorter admin-override cooldown
  *    (see ADMIN_REBUILD_OVERRIDE_COOLDOWN_SEC in rebuild.ts) instead of the standard REBUILD_COOLDOWN_SEC
  *    window; defaults to false
@@ -89,8 +88,7 @@ export const POST: APIRoute = async (context): Promise<Response> => {
     if (detectEnvironment(request) === "development") {
         return constructResponse(request, null, 403, "Site rebuild is disabled in the development environment")
     }
-    // parse api request (elevate is optional, defaults to false; mirrors the contributors/works convention)
-    const api_request = await parseAPIRequest(request, [])
+    const api_request = await parseAPIRequest(request, ["elevate"])
     if (api_request instanceof Error) {
         return constructResponse(request, null, 400, api_request.message)
     }
