@@ -139,7 +139,8 @@
                                 "minItems": 1,
                                 "maxItems": 999,
                                 "items": {
-                                    "$ref": "#/components/schemas/Composer"
+                                    "type": "object",
+                                    "description": "Composer; row shape is left to the server so dry_run can report per-row issues"
                                 }
                             }
                         }
@@ -578,7 +579,8 @@
                                 "minItems": 1,
                                 "maxItems": 999,
                                 "items": {
-                                    "$ref": "#/components/schemas/Contributor"
+                                    "type": "object",
+                                    "description": "Contributor; row shape is left to the server so dry_run can report per-row issues"
                                 }
                             }
                         }
@@ -2340,7 +2342,8 @@
                                 "minItems": 1,
                                 "maxItems": 999,
                                 "items": {
-                                    "$ref": "#/components/schemas/Composition"
+                                    "type": "object",
+                                    "description": "Composition; row shape is left to the server so dry_run can report per-row issues"
                                 }
                             }
                         }
