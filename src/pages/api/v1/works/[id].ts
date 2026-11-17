@@ -47,7 +47,7 @@ import {
     _stateTypeAssertCompleteComposition,
     _stateTypeAssertPartialComposition
 } from "../../../../lib/api/composition"
-import { canAct, canModify, withActingContributor } from "../../../../lib/api/authorize"
+import { canAct, canDelete, canModify, withActingContributor } from "../../../../lib/api/authorize"
 import { authEnabled } from "../../../../lib/api/environment"
 
 /**
@@ -289,7 +289,7 @@ export const DELETE: APIRoute = async (context): Promise<Response> => {
             return constructResponse(request, null, 404)
         }
         if (auth_enabled) {
-            if (!canModify(current_record, locals.identity!, api_request.meta?.elevate === true)) {
+            if (!canDelete(current_record, locals.identity!, api_request.meta?.elevate === true)) {
                 return constructResponse(
                     request,
                     null,

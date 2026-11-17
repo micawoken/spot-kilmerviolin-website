@@ -411,6 +411,23 @@ export function canModify(record: CompositionRecord, acting_identity: Identity, 
 }
 
 /**
+ * Whether the acting identity may delete a composition: a primary contributor or an admin. A lockout
+ * override role allows editing others' entries, not deleting them
+ *
+ * @param record - the composition record to delete
+ * @param acting_identity - the Identity object to review, assumed to be valid
+ * @param use_admin - whether to allow review of admin status
+ * @returns - whether the user is allowed to delete the record
+ */
+export function canDelete(record: CompositionRecord, acting_identity: Identity, use_admin: boolean = true): boolean {
+    if (use_admin && acting_identity?.admin) {
+        return true
+    }
+    const id = acting_identity?.id
+    return hasContributorId(id) && (record.contrib_primary_1 === id || record.contrib_primary_2 === id)
+}
+
+/**
  * Protects the contribution edit lockout mechanism by enforcing readonly on its implementing columns
  *
  * @param record - the current database record to compare against

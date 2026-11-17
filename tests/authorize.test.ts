@@ -34,6 +34,7 @@ import authorize, {
     requiresAllOf,
     conferFrom,
     canModify,
+    canDelete,
     canAct,
     canCreate,
     withActingContributor,
@@ -225,6 +226,29 @@ describe("canModify", () => {
 
     it("denies an unrelated, unprivileged identity", () => {
         expect(canModify(record, makeIdentity({ id: 99, admin: false, roles: [] }))).toBe(false)
+    })
+})
+
+describe("canDelete", () => {
+    const record = { contrib_primary_1: 10, contrib_primary_2: 20 } as unknown as CompositionRecord
+
+    it("allows either primary contributor", () => {
+        expect(canDelete(record, makeIdentity({ id: 10, admin: false }))).toBe(true)
+        expect(canDelete(record, makeIdentity({ id: 20, admin: false }))).toBe(true)
+    })
+
+    it("denies a lockout-override role holder who is not a primary contributor", () => {
+        expect(canDelete(record, makeIdentity({ id: 99, admin: false, roles: ["reviewer"] }))).toBe(false)
+    })
+
+    it("allows an admin when use_admin is set, and denies one when it is not", () => {
+        expect(canDelete(record, makeIdentity({ id: 99, admin: true }))).toBe(true)
+        expect(canDelete(record, makeIdentity({ id: 99, admin: true }), false)).toBe(false)
+    })
+
+    it("denies an unenrolled identity", () => {
+        const unfilled = { contrib_primary_1: 10, contrib_primary_2: -1 } as unknown as CompositionRecord
+        expect(canDelete(unfilled, makeIdentity({ id: -1, admin: false }))).toBe(false)
     })
 })
 
