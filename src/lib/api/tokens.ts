@@ -189,6 +189,17 @@ export async function revokeApiToken(id: number, revoked_date: number): Promise<
     return result.success
 }
 
+/** Revokes every live API token a contributor owns; already-revoked rows keep their original date */
+export async function revokeApiTokensForContributor(contributor_id: number, revoked_date: number): Promise<void> {
+    const result = await exec_string(
+        "UPDATE api_tokens SET revoked_date = ? WHERE contributor_id = ? AND revoked_date IS NULL;",
+        [revoked_date, contributor_id]
+    )
+    if (!result.success) {
+        throw new Error("Failed to revoke the contributor's API tokens")
+    }
+}
+
 /**
  * Resolves a presented API-token secret to the Identity of the contributor who issued it, or null when the
  * token is unknown, revoked, expired, or its owning contributor no longer resolves

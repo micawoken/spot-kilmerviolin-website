@@ -31,6 +31,7 @@ import { formatContribFromD1 } from "../api/common"
 import { CONTRIBUTOR, recordTypeAssertComplete, getRecord } from "../api/d1"
 import { _getPrimitiveCacheless } from "../api/database"
 import { addContributor, updateContributorPartial } from "../api/db_contributor"
+import { revokeApiTokensForContributor } from "../api/tokens"
 
 /** Whether an identity email is present in the (lowercase) Cloudflare Access user list. */
 function isEmailInAccess(email: string, accessList: string[]): boolean {
@@ -208,8 +209,10 @@ export async function activateUser(ctx: ExecutionContext, id: number): Promise<v
 }
 
 /**
- * Deactivates a contributor record, removing add permissions and edit permissions
- * This does not affect Access authentication, but deactivated users will only have read permissions
+ * Deactivates a contributor record and revokes its API tokens, removing add and edit permissions except
+ * edits to the user's own public profile
+ * This does not affect Access authentication. Administrators keep admin authority while they remain in
+ * Access, but lose their API tokens
  *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution context
  * @param {number} id The id of the user to be deactivated
@@ -218,6 +221,7 @@ export async function deactivateUser(ctx: ExecutionContext, id: number): Promise
     // allowProtected: see activateUser. Callers are the admin-only DELETE /api/v1/identity/activation, the
     // self-service DELETE /api/v1/identity/self, and removeUser's autodeactivation - each authorized upstream.
     await updateContributorPartial(ctx, id, { active: false }, true)
+    await revokeApiTokensForContributor(id, Date.now())
 }
 
 /**
@@ -424,26 +428,17 @@ export async function idToEmail(id: number): Promise<string | null> {
 }
 
 /**
- * Removes a user from Access and deactivates their contributor record
+ * Removes a user from Access, deactivates their contributor record and revokes its API tokens
  *
  * @param {ExecutionContext} ctx The Cloudflare Workers execution environment
  * @param {string} identity_email The email of the user to be removed (which is used to authenticate with Access)
  */
 export async function removeUser(ctx: ExecutionContext, identity_email: string): Promise<void> {
-    // removes a user from Access, and deactivates their contributor record
     await remove_user(identity_email)
-    try {
-        const contrib_data = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)
-        if (contrib_data === null) {
-            return
-        }
-        // no need to type convert it, since contributor_id exists. allowProtected: "active" is a protected
-        // column and this is the authorized deactivation path (DELETE /api/v1/identity, gated on
-        // user_addition with an admin-target guard). Without it the write would throw into the catch below
-        // and be swallowed as "user not in D1", silently leaving the record active after Access removal.
-        await updateContributorPartial(ctx, contrib_data.contributor_id as number, { active: false }, true)
-    } catch (error) {
-        // User not in D1, that's okay - just remove from Access
+    // uncached and unguarded: a failed lookup must not skip deactivation and token revocation
+    const record = await _getPrimitiveCacheless(CONTRIBUTOR, "identity_email", identity_email)
+    if (record === null) {
         return
     }
+    await deactivateUser(ctx, record.contributor_id as number)
 }
