@@ -20,7 +20,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { CONTRIBUTOR } from "./d1.ts"
+import { CONTRIBUTOR, exec_string } from "./d1.ts"
 import {
     _addPrimitive,
     _addPrimitiveBatch,
@@ -33,6 +33,29 @@ import {
     _listWrapper,
     findNameConflicts
 } from "./database.ts"
+
+/** Thrown when a write would leave the site with no administrator */
+export class LastAdminError extends Error {}
+
+/**
+ * Refuses a write that would remove the last administrator, by demotion or deletion
+ *
+ * Reads D1 directly (no cache). Check-then-write, so two concurrent demotions of the last two admins can
+ * still both pass.
+ *
+ * @param id the contributor being demoted or deleted
+ * @throws LastAdminError if id is an administrator and no other administrator exists
+ */
+async function assertOtherAdminExists(id: number): Promise<void> {
+    const result = await exec_string(
+        `SELECT COUNT(*) AS admins, MAX(contributor_id = ?) AS target_is_admin FROM ${CONTRIBUTOR.name} WHERE admin = 1`,
+        [id]
+    )
+    const row = result.results[0] as { admins: number; target_is_admin: number | null }
+    if (row.target_is_admin === 1 && row.admins <= 1) {
+        throw new LastAdminError("Refused: this would leave no administrator")
+    }
+}
 
 /**
  * Get a contributor record based on a unique param
@@ -88,9 +111,12 @@ export async function addContributorsBatch(ctx: ExecutionContext, records: Contr
  * @param record the updated contributor record; all fields must be provided
  * @returns null if successful
  * @throws an error if the record is invalid or if the id does not exist
+ * @throws LastAdminError if the update would demote the last administrator
  */
 export async function updateContributor(ctx: ExecutionContext, id: number, record: Contributor): Promise<null> {
-    // updates a contributor record in the database, returning null if successful
+    if (!record.admin) {
+        await assertOtherAdminExists(id)
+    }
     return await _updatePrimitive(ctx, CONTRIBUTOR, id, record)
 }
 
@@ -104,6 +130,7 @@ export async function updateContributor(ctx: ExecutionContext, id: number, recor
  *   identity_email); the caller must perform its own elevation/permission check before passing true
  * @returns null if successful
  * @throws an error if the record is invalid, if the id does not exist, or if it writes a protected column without authorization
+ * @throws LastAdminError if the update would demote the last administrator
  */
 export async function updateContributorPartial(
     ctx: ExecutionContext,
@@ -111,6 +138,9 @@ export async function updateContributorPartial(
     record: Partial<Contributor>,
     allowProtected: boolean = false
 ): Promise<null> {
+    if ("admin" in record && !record.admin) {
+        await assertOtherAdminExists(id)
+    }
     return await _updatePrimitivePartial(ctx, CONTRIBUTOR, id, record, allowProtected)
 }
 
@@ -121,8 +151,10 @@ export async function updateContributorPartial(
  * @param id the id of the record to delete
  * @returns null if successful
  * @throws an error if the id does not exist
+ * @throws LastAdminError if the record is the last administrator
  */
 export async function deleteContributor(ctx: ExecutionContext, id: number): Promise<null> {
+    await assertOtherAdminExists(id)
     return await _deletePrimitive(ctx, CONTRIBUTOR, id)
 }
 
