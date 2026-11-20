@@ -39,6 +39,7 @@ import {
     type TokenKind
 } from "../../lib/compositor/tokens"
 import { formatLightDark, parseLightDark } from "../../lib/compositor/theme-controls"
+import { applyThemePreset, THEME_PRESETS, type TokenRef } from "../../lib/compositor/theme-presets"
 import type { DesignDoc } from "../../lib/compositor/types"
 import { CellControl, RefSelect, type FieldSpec } from "./ThemeEditorControls"
 import {
@@ -506,6 +507,7 @@ export default function ThemeEditor() {
     // Which sections are collapsed, keyed by SECTION_IDS; persisted like rawMode above. Absent (not in
     // the set) means expanded - the default for a first-time visitor.
     const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsedSections)
+    const [presetId, setPresetId] = useState(THEME_PRESETS[0].id)
 
     // Live preview CSS: the in-progress edit converted to a catalog, emitted as `--dtk-*` properties plus
     // the same stylesheet real design pages use - recomputed on every edit so a specimen always reflects
@@ -856,6 +858,26 @@ export default function ThemeEditor() {
         setIoStatus({ text: "Exported the current editor state to a JSON file.", error: false })
     }
 
+    // Loads a preset INTO the editor (doesn't save), like importJson. Tokens a design references that the
+    // preset lacks are carried over from the current editor state, so no page loses a style on publish.
+    const loadPreset = () => {
+        const preset = THEME_PRESETS.find((candidate) => candidate.id === presetId)
+        if (!preset) return
+        if (!window.confirm(`Replace the editor's tokens with the "${preset.label}" preset? Nothing is saved until you Save draft or Publish.`)) {
+            return
+        }
+        const result = applyThemePreset(preset.catalog, toCatalog(editable), usage)
+        setEditable(toEditable(result.catalog))
+        const list = (refs: TokenRef[]) => refs.map((ref) => `${ref.kind} "${ref.name}"`).join(", ")
+        const notes = [`Loaded "${preset.label}". Review it, then Save draft or Publish.`]
+        if (usage === null) {
+            notes.push("Design usage couldn't be scanned, so tokens your designs use but this preset lacks were not kept.")
+        }
+        if (result.carried.length > 0) notes.push(`Kept from the current theme because designs use them: ${list(result.carried)}.`)
+        if (result.missing.length > 0) notes.push(`Designs reference tokens nothing defines: ${list(result.missing)}.`)
+        setIoStatus({ text: notes.join(" "), error: usage === null || result.missing.length > 0 })
+    }
+
     // Loads an exported file INTO the editor (doesn't save) - user reviews then Saves/Publishes.
     // Validated with the same isTokenCatalog guard the build uses, so a malformed file is rejected
     // before replacing good rows. Parse/validation failures are reported, editor left untouched.
@@ -969,8 +991,24 @@ export default function ThemeEditor() {
             )}
 
             <section className="theme-editor__section">
-                <SectionHeader id="backup" title="Backup & restore" open={!collapsed.has("backup")} onToggle={toggleSection} />
+                <SectionHeader id="backup" title="Presets, backup & restore" open={!collapsed.has("backup")} onToggle={toggleSection} />
                 {!collapsed.has("backup") && <>
+                <p className="theme-editor__hint">
+                    Start from an alternative design system. Export a JSON backup first if you might want the current theme back.
+                </p>
+                <div className="theme-editor__actions">
+                    <select aria-label="Design system preset" value={presetId} onChange={(event) => setPresetId(event.target.value)}>
+                        {THEME_PRESETS.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                                {preset.label}
+                            </option>
+                        ))}
+                    </select>
+                    <button type="button" onClick={loadPreset}>
+                        Load preset
+                    </button>
+                </div>
+                <p className="theme-editor__hint">{THEME_PRESETS.find((preset) => preset.id === presetId)?.summary}</p>
                 <p className="theme-editor__hint">
                     Export the current theme to a JSON file. When importing, remember to Save draft and Publish.
                 </p>
