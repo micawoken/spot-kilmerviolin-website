@@ -316,70 +316,6 @@ const REFERENCE_CATALOG = catalog({
     chrome: { verticalSpaceHeader: "sm", verticalSpaceFooter: "md", horizontalSpaceContentInset: "sm" }
 })
 
-const BODONI = '"Bodoni Moda", "Didot", "Bodoni 72", serif'
-const SPECTRAL = 'Spectral, "Iowan Old Style", Georgia, serif'
-
-/** Printed recital program: high-contrast Didone titles over a calm text face, wide margins */
-const CONCERT_PROGRAM = catalog({
-    palette: {
-        paper: ["#faf8f2", "#111613"],
-        ink: ["#1d2621", "#e6e3d8"],
-        muted: ["#58635c", "#9ea89f"],
-        accent: ["#1f5c40", "#8fd0ab"],
-        accentStrong: ["#123b29", "#bce6cc"],
-        surface: ["#f0ede3", "#18201b"],
-        rule: ["#d3cdbd", "#33403a"],
-        onAccent: ["#faf8f2", "#0f1712"]
-    },
-    typography: [
-        {
-            name: "body",
-            family: SPECTRAL,
-            size: "1.0625rem",
-            weight: "400",
-            lineHeight: "1.65",
-            paragraphSpacing: "1em"
-        },
-        // Didones fall apart small; Bodoni Moda is only ever set at display/heading sizes here.
-        {
-            name: "display",
-            family: BODONI,
-            size: "clamp(2.25rem, 1.5rem + 3vw, 3.5rem)",
-            weight: "500",
-            lineHeight: "1.08",
-            letterSpacing: "0"
-        },
-        {
-            name: "heading",
-            family: BODONI,
-            size: "1.5rem",
-            weight: "500",
-            lineHeight: "1.2",
-            paragraphSpacing: "0.5em"
-        },
-        {
-            name: "label",
-            family: SPECTRAL,
-            size: "0.75rem",
-            weight: "500",
-            lineHeight: "1.3",
-            letterSpacing: "0.18em",
-            textTransform: "uppercase"
-        },
-        { name: "small", family: SPECTRAL, size: "0.875rem", weight: "400", lineHeight: "1.5" }
-    ],
-    space: space("0.5rem", "1rem", "2rem", "4rem", "5rem"),
-    radius: ["0", "0"],
-    shadow: "none",
-    borders: { hairline: "1px", default: "1px", accent: "1px" },
-    buttons: { radius: "sm", paddingX: "md", paddingY: "xs", secondaryBorder: "accent" },
-    fonts: [
-        { family: "Bodoni Moda", weights: [500] },
-        { family: "Spectral", weights: [400, 500] }
-    ],
-    chrome: { horizontalSpaceContentInset: "lg", verticalSpaceStatic: "lg" }
-})
-
 const ATKINSON = '"Atkinson Hyperlegible", Verdana, "Segoe UI", sans-serif'
 
 /** Teaching studio: legibility first, for teachers and students reading on any device */
@@ -450,13 +386,6 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
         summary:
             "Modeled on library and RISM-style databases. Dense IBM Plex Sans with Plex Mono for data, grayscale plus a petrol-blue signal.",
         catalog: REFERENCE_CATALOG
-    },
-    {
-        id: "concert-program",
-        label: "Concert program",
-        summary:
-            "Modeled on a printed recital program. Bodoni Moda titles over Spectral text, deep green on ivory, generous margins.",
-        catalog: CONCERT_PROGRAM
     },
     {
         id: "teaching-studio",
